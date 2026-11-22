@@ -14,8 +14,19 @@ import { rooms, signTexture, D } from "./rooms.js";
 import { TOWNS, MAYOR, TICKET, WINDOWS, CLOSED, CLERKS, COMPLAINTS, BOARD, WAITING, SECRETARY, OUT_CUTTING } from "./data.js";
 import { S, saveSoon, force, townId, mayorIn, closedWindow, stat } from "./state.js";
 
-/** Other modules (stages 2–3) add what a window can DO: WIN_HOOKS[id] = async (rt, who, clerkName) → true when handled. */
+/** Other modules (stages 2–3) add what a window can DO: addWindowHook(id, async (rt, who, clerkName) → true when handled,
+ *  prio) — higher prio is asked first; the first that handles it wins, else the clerk's small talk. */
 export const WIN_HOOKS = {};
+export function addWindowHook(id, fn, prio = 0) {
+    const l = WIN_HOOKS[id] || (WIN_HOOKS[id] = []);
+    l.push({ fn, prio }); l.sort((a, b) => b.prio - a.prio);
+}
+/** A window's label override (e.g. "🖃 Get your form stamped"): WIN_LABELS[id] = () → string | null */
+export const WIN_LABELS = {};
+/** More of the room from later stages: LOBBY_BUILDERS.push((rt, B, info) => …) — called at the end of build, before the
+ *  boxes are baked (info: { town, LB, MO, WN, bz }). MAYOR_LINES.push(town → a line | null): what he says first. */
+export const LOBBY_BUILDERS = [];
+export const MAYOR_LINES = [];
 
 const secLine = pool(SECRETARY), closedLine = pool(CLOSED);
 const clerkPools = {}; for (const w of WINDOWS) clerkPools[w.id] = pool(CLERKS[w.id]);
@@ -60,7 +71,7 @@ function build(rt) {
         B.box(0.02, 0.55, 0.8, fc, MO + fx, 1.9, bz + 0.78);
     }
     B.col("flags", MO - 1.4, MO + 1.4, bz, bz + 0.5);
-    B.sign([MY.poster[1] || T.mayor.short, "painted by himself"], MO, 1.85, bz + 0.02, 1.3, 0.9, { bg: "#5D4037", fg: ["#FFE082", "#FFFFFF"], font: 54, border: "#C9A646" });
+    B.sign([T.mayor.short.toUpperCase(), "painted by himself"], MO, 1.85, bz + 0.02, 1.3, 0.9, { bg: "#5D4037", fg: ["#FFE082", "#FFFFFF"], font: 54, border: "#C9A646" });
     // the giant ceremonial scissors (on the wall, right of the desk)
     const gold = "#D4AF37";
     { const a = B.box(0.12, 1.3, 0.04, gold, MO + 2.15, 1.7, bz + 0.03); a.rotation.z = 0.35; const b = B.box(0.12, 1.3, 0.04, gold, MO + 2.15, 1.7, bz + 0.04); b.rotation.z = -0.35;
@@ -116,7 +127,7 @@ function build(rt) {
             try { rt.person("clerk_" + w.id, L.key, { x, z: bz + 0.55, ry: 0 }, { name: L.name, colors: L.colors, pose: {}, faceLulu: false, collide: false }); } catch (e) { /* model */ }
         }
         rt.hot({ id: "win_" + w.id, x, z: cz + 0.95, r: 0.95, who: shut ? null : "clerk_" + w.id,
-            label: () => shut ? `🚪 ${w.label} — back in 5 minutes` : `${w.emoji} ${w.label} window`,
+            label: () => shut ? `🚪 ${w.label} — back in 5 minutes` : (WIN_LABELS[w.id] && WIN_LABELS[w.id]()) || `${w.emoji} ${w.label} window`,
             action: r => windowTalk(r, w, shut) });
     });
 
@@ -136,6 +147,7 @@ function build(rt) {
     }
     rt.hot({ id: "scissors", x: MO + 2.15, z: bz + 0.95, r: 0.8, label: "✂️ The giant scissors", action: r => r.say("Lulu", pick(["Giant golden scissors. For ribbons. He's cut forty-one this year.", "A label: 'THE SCISSORS OF THE PEOPLE. DO NOT TOUCH. — the people'."]), { emoji: "✂️" }) });
 
+    for (const f of LOBBY_BUILDERS) { try { f(rt, B, { town, LB, MO, WN, bz }); } catch (e) { console.error("[cityhall] builder", e); } }
     B.bake();       // (every plain box above → one mesh)
     // Lulu: in through the front door
     rt.lulu.obj.position.set(B.doorX, 0, D / 2 - 0.9);
@@ -158,8 +170,8 @@ async function takeNumber(rt) {
 async function windowTalk(rt, w, shut) {
     if (shut) return rt.say(`${w.label}`, closedLine(), { emoji: "🚪", color: "#795548" });
     const L = CLERK_LOOKS[w.id], who = rt.byId["clerk_" + w.id];
-    if (WIN_HOOKS[w.id]) {
-        try { if (await WIN_HOOKS[w.id](rt, who, L.name)) return; } catch (e) { console.error("[cityhall] window", e); }
+    for (const h of WIN_HOOKS[w.id] || []) {
+        try { if (await h.fn(rt, who, L.name)) return; } catch (e) { console.error("[cityhall] window", e); }
         if (rt.disposed) return;
     }
     if (w.id === "complaints") {
@@ -178,7 +190,13 @@ async function windowTalk(rt, w, shut) {
 async function talkMayor(rt) {
     const town = rt.data.V.town, T = TOWNS[town] || TOWNS.lakewood, MY = MAYOR[town] || MAYOR.lakewood, who = rt.byId.mayor;
     const o = { emoji: T.mayor.emoji, person: who, color: "#283593" };
-    if (!rt.data.V.met) { rt.data.V.met = true; await rt.say(T.mayor.name, pick(MY.hello), o); if (rt.disposed) return; }
+    if (!rt.data.V.met) {
+        rt.data.V.met = true;
+        let first = null;
+        for (const f of MAYOR_LINES) { try { first = first || f(town); } catch (e) { /* none */ } }
+        await rt.say(T.mayor.name, first || pick(MY.hello), o);
+        if (rt.disposed) return;
+    }
     const i = await rt.choose(T.mayor.name, "What can I do for you? Within reason. Mostly ribbons.", ["🏙️ What have you done for the town?", "🤳 A selfie with the mayor", "👋 Just saying hi"], o);
     if (rt.disposed) return;
     if (i === 0) await rt.say(T.mayor.name, pick(MY.done), o);

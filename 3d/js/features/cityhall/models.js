@@ -80,7 +80,8 @@ function buildHall() {
     box(g, trim, PW + 0.6, 1.2, 3.4, 0, 7.0, (pz0 + pz1) / 2 + 0.1);          // the entablature — the town's sign goes on it
     box(g, accent, PW + 0.62, 0.14, 3.42, 0, 6.45, (pz0 + pz1) / 2 + 0.1);
     prism(g, trim, PW + 0.8, 2.0, 3.5, 0, 7.6, (pz0 + pz1) / 2 + 0.1);
-    prism(g, accent, PW - 1.4, 1.35, 0.1, 0, 7.85, pz1 + 1.86);               // the pediment's tympanum, in the accent colour
+    const fz = (pz0 + pz1) / 2 + 0.1 + 1.7;                                    // the portico's front face (the frieze, the pediment)
+    prism(g, accent, PW - 1.4, 1.35, 0.1, 0, 7.85, fz + 0.06);                // the pediment's tympanum, in the accent colour
     // the big front door (double) under the portico, a fanlight over it
     box(g, door, 2.6, 3.4, 0.12, 0, 1.7 + 0.6, zf + 0.07);
     box(g, mat("Brass", "#C9A646", { metalness: 0.5 }), 0.08, 0.5, 0.06, 0, 2.3, zf + 0.15);
@@ -123,7 +124,7 @@ function buildHall() {
     cyl(g, bronze, 0.3, 0.3, 0.05, sx0, 3.25, sz0, 8); cyl(g, bronze, 0.17, 0.19, 0.28, sx0, 3.4, sz0, 8);   // the hat
     box(g, bronze, 0.1, 0.1, 0.8, sx0 - 0.2, 2.55, sz0 + 0.4, -0.5);           // the pointing arm
     box(g, mat("Plaque", "#C9A646", { metalness: 0.5 }), 0.7, 0.35, 0.04, sx0, 0.95, sz0 + 0.72);
-    anchor(g, "Anchor_sign", 0, 7.0, pz1 + 0.13);
+    anchor(g, "Anchor_sign", 0, 7.0, fz + 0.03);                               // (on the frieze's face: the town's atlas sign)
     anchor(g, "Anchor_door", 0, 0, zf);
     return g;
 }

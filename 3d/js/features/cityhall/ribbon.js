@@ -94,7 +94,7 @@ export function startRibbon() {
         pivot.add(half); g.add(pivot); R.halves.push(pivot);
     }
     const bow = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.24, 0.05), rMat); bow.position.set(0, 0.92, 0.01); bow.rotation.z = Math.PI / 4;
-    R.halves[0].add(bow); bow.position.set(-1.5, 0, 0.01);
+    R.halves[0].add(bow); bow.position.set(1.5, 0, 0.02);      // (the middle of the ribbon: it falls with the left half)
     ctx.scene.add(g);
     // people: the mayor (behind the ribbon, scissors ready) + three onlookers
     ensureModels(["npcMan", "npcWoman"]).then(() => {

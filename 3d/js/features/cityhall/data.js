@@ -196,6 +196,7 @@ export const FEES = {
     hydrant: { what: "🚒 Parking near a hydrant (in spirit)", amount: 3, why: "There was no hydrant. But there COULD have been." },
     porch: { what: "🪑 Porch-sitting licence", amount: 3, why: "You own a porch. Sitting on it requires a licence. You're welcome." },
     complaint: { what: "📣 Complaint filing fee", amount: 1, why: "Your complaint has been received. So has this fee." },
+    inspection: { what: "📋 Inspection finding", amount: 3, why: "Inspector's note: see attached. (Nothing is attached.)" },
 };
 export const FEE_TUNE = { expire: 7, honkN: 6, honkWindow: 30, hydrantChance: 0.3, porchChance: 0.4 };
 export const TAX_LINES = {
@@ -240,3 +241,136 @@ export const LIEN_COURT = {
     win: 0.5,
 };
 export const CONTACT = { name: "City Hall", tag: "property tax · fees · pay here" };
+
+// ── stage 3: permits + inspectors (permits.js, inspect.js) ───────────────────────────────────────────────────────
+// A permit is never needed BEFORE she does something (nothing is ever blocked): when she does a thing the town has a form
+// for, a quiet note asks her to come in. The errand is three short steps: fill in the form (two silly questions) at
+// PERMITS → a stamp at TAXES (or COMPLAINTS, when Taxes is "back in 5 minutes") → back to PERMITS: granted. Free.
+// An unpermitted thing just makes the inspector's visit a bit more likely (a tiny finding fee, within the fee cap).
+export const PERMITS = {
+    tenant: { form: "Form 12-T", what: "renting out your home", why: "You got a tenant! Lovely. The town has a form for that." },
+    porch: { form: "Form 14-C", what: "changing your porch", why: "Your porch looks different. The town noticed. The town always notices." },
+    door: { form: "Form 9-D", what: "a new front door", why: "A new front door! Doors need permits. Ask anyone. Ask the door." },
+    mailbox: { form: "Form 2-M", what: "a new mailbox", why: "A new mailbox. The post office is fine with it. The town is not. Yet." },
+    yard: { form: "Form 31-Y", what: "changing your front yard", why: "Something's new in your yard. The town would like to know what." },
+};
+/** decor's outside slots that need a permit (decor:place {slot}). */
+export const PERMIT_SLOTS = { porch: "porch", door: "door", mailbox: "mailbox", lawn: "yard" };
+export const PERMIT_LINES = {
+    note: p => `📝 You need a permit for ${p.what} (${p.form}). No rush. Come to City Hall's Permits window when you can.`,
+    start: p => `${p.form}! In triplicate. Two questions. Pens are on a string. The string is short.`,
+    questions: [
+        { q: "Question 1: Is the thing taller than a goose?", a: ["🪿 Taller", "🪿 Shorter", "🪿 It IS a goose"] },
+        { q: "Question 2: Did your neighbour complain?", a: ["😇 Not yet", "😬 Loudly", "🤷 Which neighbour?"] },
+        { q: "Question 3: Will it be finished before Pesach?", a: ["✅ Yes", "🙏 Please", "😂 Which Pesach?"] },
+    ],
+    toStamp: windowName => `Lovely. Now take it to the ${windowName} window for a stamp. Then come back to me.`,
+    stampLabel: "🖃 Get your form stamped",
+    stamp: ["*STAMP* There. That's a good stamp. One of my best.", "*stamp… stamp… STAMP* Sorry, the first two were practice."],
+    borrowed: "Taxes is out, so the stamp's here today. Don't tell Taxes.",
+    backLabel: "📝 Hand in your stamped form",
+    granted: p => `PERMIT GRANTED! ${p.form}, for ${p.what}. Frame it. Laminate it. Love it.`,
+    none: "No forms for you today! Unless you'd like one. We have so many.",
+};
+export const INSPECTOR = {
+    pinchas: { name: "Inspector Pinchas", key: "hustle_detective", fallback: "npcMan", colors: { Coat: "#455A64" }, emoji: "📋" },
+    pnina: { name: "Inspector Pnina", key: "npcWoman", fallback: "npcWoman", colors: { Top: "#1565C0", Bottom: "#0D47A1" }, emoji: "📋" },
+};
+export const FINDINGS = [
+    "Your doorbell rings in the wrong key. Violation 7-B.",
+    "This step is a quarter-inch taller than the other steps. I measured. Twice.",
+    "Your welcome mat says WELCOME. Did you get a permit to be welcoming?",
+    "The grass is TOO green. Suspiciously green.",
+    "Your house number is in a font the town doesn't recognise.",
+    "There's a squirrel living in your gutter. Does it pay rent? It should pay rent.",
+];
+export const INSPECT_LINES = {
+    hello: "Inspection! Don't mind me. Just inspecting. Inspect-inspect.",
+    opts: ["📄 Show my permit", "🙄 Fine, write it up", "🍩 A small \"donation\"?", "👋 Walk away"],
+    permit: ["A permit. In order. Hmph. Fine. Everything's fine. *leaves, disappointed*", "Stamped AND signed? …Have a lovely day, I suppose."],
+    noPermit: "Show me what? There's no permit on file. Tsk.",
+    writeUp: "Written up! A small finding fee. It'll be in your phone. Have a nice day!",
+    donation: ["What donation? I didn't see a donation. I didn't see anything. *pockets it* Everything's PERFECT.", "For the Inspectors' Benevolent Kugel Fund? How generous. No violations here!"],
+    pnina: "Bribes? I'm Pnina. I'm by the book. The book says: finding fee.",
+    walk: "Walking away won't fix the doorbell, young lady!",
+    nervous: "Oh — it's YOU. Everything's fine! Perfect house! Bye!",
+    broke: "No coins? Then no donation. Then — a finding.",
+};
+/** Shops the inspector inspects as she walks by (bubbles only): spot key → lines. */
+export const SHOP_INSPECT = {
+    pizza: ["This pizza is TOO round. Who approved this roundness?", "Cheese level: excessive. I'll allow it. *takes a slice*"],
+    makolet: ["These pickles are too pickled. Write it up!", "Expiry date: tomorrow. Suspicious. Very suspicious."],
+    bakery: ["The challah has six strands. The code says six. …Fine. *takes one anyway*", "This babka is too chocolatey. I'll confiscate a sample."],
+};
+export const INSPECT_TUNE = { near: 30, chance: 0.6, findingFee: 3, donation: 3, shopGap: [120, 240], shopPerRun: 1 };
+
+// ── stage 4: protests about absurd LOCAL issues (protest.js) ─────────────────────────────────────────────────────
+// Never real-world politics, never a real group, nothing mean — neighbours with hand-written signs. One a town at a time,
+// on the sidewalk in front of its spot, during the town's protest hours; the topic follows the real day.
+export const PROTESTS = [
+    { id: "eruv", at: "cityhall", signs: ["THE ERUV WIRE IS CROOKED", "STRAIGHTEN IT!", "WE CAN SEE THE SAG"], chant: ["WHAT DO WE WANT?", "A STRAIGHT WIRE!", "WHEN DO WE WANT IT?", "BEFORE SHABBOS!"],
+        about: "The eruv wire on the corner sags. Only a little. They've been here since Tuesday." },
+    { id: "sauce", at: "pizza", signs: ["BRING BACK THE OLD SAUCE", "TOO SWEET!", "WE WANT TANGY"], chant: ["WHAT DO WE WANT?", "THE OLD SAUCE!", "WHEN DO WE WANT IT?", "BY DINNER!"],
+        about: "The pizza shop changed its sauce. It's sweeter now. The neighbourhood has FEELINGS about it." },
+    { id: "parking", at: "cityhall", signs: ["ALTERNATE-SIDE = ALTERNATE SANITY", "PICK A SIDE!", "TUESDAYS ARE CHAOS"], chant: ["WHICH SIDE?", "THIS SIDE!", "WHICH DAY?", "NOBODY KNOWS!"],
+        about: "Alternate-side parking. Nobody knows which side. Nobody knows which day. Everyone's angry at the sign." },
+    { id: "kugel", at: "cityhall", signs: ["REPEAL THE KUGEL ORDINANCE", "HANDS OFF OUR HOMES", "KUGEL IS NOT A CRIME"], chant: ["WHAT DO WE WANT?", "OUR HOUSES!", "WHAT DO WE BRING?", "KUGEL!"],
+        about: "The Abandoned Kugel Ordinance! Two weeks away and the town takes your house. They brought a kugel to make a point." },
+    { id: "strollers", at: "cityhall", signs: ["SHARE THE SIDEWALK", "DOUBLE STROLLERS = DOUBLE TROUBLE", "SINGLE FILE PLEASE"], chant: ["WHOSE SIDEWALK?", "OUR SIDEWALK!", "HOW MANY WIDE?", "ONE STROLLER!"],
+        about: "Double strollers on the sidewalk. Half of them are pushing double strollers right now. It's complicated." },
+];
+/** When Lulu caused it: she got the loud-honk surcharge today → the town protests HER honking (a marcher points). */
+export const PROTEST_HONK = { id: "honk", at: "cityhall", signs: ["STOP THE HONKING", "HONKING IS NOT A LANGUAGE", "WE KNOW IT'S YOU"], chant: ["WHAT DO WE WANT?", "QUIET!", "WHO'S HONKING?", "SHE IS!"],
+    about: "They're protesting all the honking. They keep looking at you." };
+export const PROTEST_HOURS = { lakewood: [[10, 13], [15, 19]], midwood: [[11, 14], [16, 20]] };
+export const PROTEST_LINES = {
+    spot: "🪧 THE PROTEST",
+    opts: ["🪧 Join in", "📢 What's it about?", "🚶‍♀️ Walk on"],
+    join: "Grab a sign! Chant with us! When the word lights up, press ✕!",
+    great: ["Now THAT's a chant! Somebody get her a megaphone!", "She's a natural! Next week, the geese!"],
+    ok: ["Not bad! A little off the beat. Like the eruv wire.", "Good enough! Passion counts!"],
+    bad: ["…we'll work on it. Passion counts. Mostly.", "Was that a chant or a sneeze? Either way, welcome."],
+    honk: ["HONK IF YOU AGREE!", "SHE HONKED! SHE AGREES!", "*cheering*"],
+    pointHonk: "IT'S HER! THE HONKER!",
+    lulu: ["A protest about the eruv wire. This town, I swear.", "Hand-written signs. Somebody's bubbe made those.", "They brought folding chairs to a protest. Of course they did."],
+};
+export const PROTEST_TUNE = { marchers: 9, beat: 0.95, window: 0.32 };
+
+// ── stage 5: the corruption thread (story.js) ────────────────────────────────────────────────────────────────────
+// Per town, a small story: the PERMIT EXPEDITER on the lobby bench ("skip the line"), the PAVING CONTRACT on the notice
+// board (one bid: the mayor's brother-in-law), his crew repaving the perfectly smooth street in front of city hall — and
+// Lulu can EXPOSE it (📸 a photo → 📰 the local paper or 🕵️ Internal Affairs) or PROFIT a little (a cut, hush money),
+// with a risk (now and then it's a sting). Every payout is once per town and capped per real day (STORY_PAY.dayCap).
+export const STORY = {
+    lakewood: { firm: "Feivish Asphalt", boss: "Feivish", rel: "the mayor's brother-in-law", paper: "The Lakewood Kvetch", street: "Minivan Way" },
+    midwood: { firm: "Pickleman & Nephews Paving", boss: "Yudel Pickleman", rel: "the mayor's nephew", paper: "The Midwood Kvetch", street: "Avenue K" },
+};
+export const STORY_PAY = { expedite: 5, cut: 6, hush: 6, paper: 10, ia: 10, dayCap: 15, sting: 0.15 };
+export const STORY_LINES = {
+    expediter: { name: "Shmuly the Expediter", emoji: "🕴️" },
+    expHello: "Psst. Permits? Lines? Forms? I make them go away. For a small fee. Very small. Tiny.",
+    expOffer: n => `Your permit, granted today, no stamps, no questions. ${n} coins. Cash. Well — coins.`,
+    expOpts: n => [`💸 Expedite it — ${n} 💰`, "📝 I'll do it the normal way", "🤨 Who ARE you?"],
+    expWho: s => `Me? I'm a friend of ${s.boss}. ${s.boss} is ${s.rel}. Everybody's somebody's somebody.`,
+    expDone: "Done! Your permit is in the system. Which system? THE system. Don't worry about it.",
+    expNone: "No forms waiting? Then I'm just a man on a bench. Nice day, isn't it?",
+    board: s => `📌 PAVING CONTRACT AWARDED: ${s.firm}. Number of bids: 1. (${s.boss} is ${s.rel}. Pure coincidence.)`,
+    boardLulu: "One bid? ONE? I've seen more bids at a kiddush auction.",
+    crewSpot: s => `🚧 ${s.firm.toUpperCase()}`,
+    crewLines: s => [`Repaving ${s.street}! Again! Fourth time this year!`, "It was smooth. Now it'll be SMOOTHER.", "Smile! You're standing on a government contract!"],
+    crewOpts: ["📸 Snap a photo", "🤝 \"Need a hand? For a cut.\"", "🚶‍♀️ Walk on"],
+    snapped: "Got it. A perfectly smooth road, being repaved. With the mayor's brother-in-law's name on the truck.",
+    cut: s => `${s.boss} hands her a few coins to "hold a cone". Nobody asks why a cone needs holding.`,
+    sting: "Internal Affairs! That was a sting, miss. The cone was a camera.",
+    capped: "That's enough cones for one day.",
+    // the City Hall phone contact, with the photo
+    phoneHave: s => `📸 You have a photo of ${s.firm} repaving a smooth street.`,
+    phoneOpts: s => [`📰 Send it to ${s.paper} (+${STORY_PAY.paper} 💰)`, `🕵️ Send it to Internal Affairs (+${STORY_PAY.ia} 💰)`, `💰 Sell it back to ${s.boss} (+${STORY_PAY.hush} 💰)`],
+    paper: s => `${s.paper.toUpperCase()}: "ROAD REPAVED FOR FOURTH TIME; ROAD 'FINE BEFORE', SAY NEIGHBOURS." ${s.firm}'s contract is cancelled.`,
+    ia: s => `Internal Affairs: thank you. ${s.boss} has been reassigned to pothole duty. Real potholes. Many of them.`,
+    hush: s => `${s.boss}: "What photo? There's no photo. Here's some coins. There's no coins either."`,
+    after: {
+        exposed: { lakewood: "The paper? THE PAPER? …I've decided to cut fewer ribbons for a while. Maybe one a week.", midwood: "So my nephew is in the paper. Fine. Midwood has a free press. I'm very proud. I'm very upset." },
+        partner: { lakewood: "Ah, my brother-in-law's friend! Wonderful person. Very discreet. Like a speed bump.", midwood: "You and my nephew get along? Lovely. Keep it that way. Quietly." },
+    },
+};

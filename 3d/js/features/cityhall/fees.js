@@ -28,7 +28,7 @@ export function charge(kind) {
     if (amount <= 0) return null;
     F.kinds[kind] = true; F.n += amount;
     const b = addLine("fee", f.what, amount, { fee: kind });
-    try { if (ctx.phone && ctx.phone.inbox && ctx.phone.inbox.post) ctx.phone.inbox.post({ from: TL.from, emoji: TL.emoji, color: TL.color, msg: TL.fee(Object.assign({}, f, { amount })), thread: "cityhall" }); } catch (e) { /* no phone */ }
+    try { if (ctx.phone && ctx.phone.inbox && ctx.phone.inbox.post) ctx.phone.inbox.post({ from: TL.from, emoji: TL.emoji, color: TL.color, msg: TL.fee(Object.assign({}, f, { amount })), thread: "City Hall" }); } catch (e) { /* no phone */ }
     stat("cityhallFees");
     saveSoon();
     return b;

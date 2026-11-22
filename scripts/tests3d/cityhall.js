@@ -41,14 +41,14 @@ module.exports = {
     };
     const onFootAtDoor = async (out = 1.2) => {
       await onFoot();
-      await g(`(() => { const sp = ctx.cityhall.spot(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${out}, 0.05, sp.z + sp.nz * ${out}); F.phase = "walk"; return true; })()`);
+      await g(`(() => { const sp = ctx.cityhall.spot(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${out}, 0.05, sp.z + sp.nz * ${out}); F.phase = "walk"; if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       await t.frames(6);
     };
     const curtain = () => t.L(`(() => { const o = []; for (const id of ["townFade", "intFade", "lawFade", "cameosFade"]) { const e = document.getElementById(id); if (e && +getComputedStyle(e).opacity > 0.4) o.push(id); } return o; })()`);
     const inside = () => t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready && __interiors.room.def.id === "cityhall"`, "inside city hall", 60000);
     const walkIn = async () => { await onFootAtDoor(); await W.reset(t); await g(`ctx.cityhall.enter()`); return inside(); };
     const walkOut = async () => {
-      await g(`(window.__interiors.room.leave(), true)`);
+      await g(`(window.__interiors.room && window.__interiors.room.leave(), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "back out of city hall (footRun)", 30000);
       await t.frames(20);
     };
@@ -62,6 +62,26 @@ module.exports = {
     const onScreen = sel => t.L(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.offsetParent === null) return "absent"; const r = e.getBoundingClientRect(); return r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1; })()`);
     const seg = async (label, kinds) => { const r = await W.report(t); W.log(r); W.check(t, label, r, kinds); await W.reset(t); return r; };
     const tapThrough = async n => { for (let i = 0; i < n; i++) await t.tap(0); };
+    const opts = () => t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden").map(b => b.textContent)`);
+    /** Answer the open dialogue: the option matching re (else tap through lines) until \`done\` (page code) is true. */
+    async function answer(re, done = null, max = 200) {
+      for (let i = 0; i < max; i++) {
+        if (done && await g(done)) return true;
+        const o = await opts();
+        if (o.length) {
+          const idx = o.findIndex(x => re.test(x));
+          await t.L(`(b => b && b.click())([...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}])`);
+          await t.frames(3);
+          if (!done) return true;
+          continue;
+        }
+        if (!await g(`ctx.dialogOpen`) && !done) return false;
+        await t.tap(0);
+      }
+      return false;
+    }
+    /** Tap through spoken lines until no dialogue is open (≤ n taps). */
+    const drain = async (n = 12) => { for (let i = 0; i < n && await g(`ctx.dialogOpen`); i++) { if ((await opts()).length) return; await t.tap(0); await t.frames(2); } };
 
     t.check("ctx.cityhall service + the interior exist", await g(`!!(ctx.cityhall && ctx.cityhall.enter && ctx.interiors.cityhall)`));
     t.check("the town keeps the room (bank.js TOWN_INTERIORS)", await t.L(`fetch("js/features/heist/bank.js").then(r => r.text()).then(s => /TOWN_INTERIORS = new Set\\(\\[[^\\]]*"cityhall"/.test(s))`));
@@ -134,7 +154,7 @@ module.exports = {
           for (const [nm, x] of [["lobby", 0], ["office", -6.0], ["windows", 6.0]]) { await room(`(r.lulu.obj.position.set(${x}, 0, 1.2), r.updateCamera(0, true), true)`); await t.frames(18); if (id === "midwood" || !f.mayorOut) await t.shot(`cityhall-${id}-${nm}${f.mayorOut ? "-out" : ""}`); }
           // using every hot-spot pays / costs nothing
           const c0 = await coins(), h0 = await g(`ctx.G.hearts`);
-          for (const hid of info.hots) {
+          for (const hid of info.hots.filter(h => h !== "door")) {
             await room(`(() => { const h = r.hots.find(h => h.id === ${JSON.stringify(hid)}); r.lulu.obj.position.set(h.x, 0, h.z); if (!h.enabled || h.enabled(r)) r.use(h); return true; })()`);
             await tapThrough(8); await t.frames(8);
           }
@@ -162,6 +182,7 @@ module.exports = {
       await onFootAtDoor(40);
       await g(`(ctx.cityhall.debug.endRibbon("test"), ctx.cityhall.debug.RB.n = 0, ctx.cityhall.debug.force.ribbonNow = true, true)`);
       await t.until(`!!__lulu3d.ctx.cityhall.ribbon`, "a ribbon cutting starts", 5000);
+      await t.frames(20); await W.reset(t);          // (the town switch + the teleport above are the test's, not the game's)
       const r0 = await g(`ctx.cityhall.ribbon`);
       const d = await g(`(() => { const R = ctx.cityhall.ribbon, p = ctx.foot.pos; return R ? Math.hypot(R.x - p.x, R.z - p.z) : -1; })()`);
       t.check(`a ribbon cutting starts up her sidewalk (${r0 && r0.what}, ${d.toFixed ? d.toFixed(1) : d} m away)`, !!r0 && d > 15 && d < 45);
@@ -170,7 +191,7 @@ module.exports = {
       await t.frames(60);
       await t.until(`__lulu3d.ctx.cityhall.debug.RUN.ribbon && __lulu3d.ctx.cityhall.debug.RUN.ribbon.people.length >= 4`, "the mayor + the crowd", 15000);
       // walk to it: ✋ offers the ribbon; hold the ribbon → the snip
-      await g(`(() => { const R = ctx.cityhall.debug.RUN.ribbon; const F = ctx.foot.debug.F; F.pos.set(R.x + R.nx * 1.4, 0.05, R.z + R.nz * 1.4); return true; })()`);
+      await g(`(() => { const R = ctx.cityhall.debug.RUN.ribbon; const F = ctx.foot.debug.F; F.pos.set(R.x + R.nx * 1.4, 0.05, R.z + R.nz * 1.4); if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       await t.frames(10);
       await t.shot("cityhall-ribbon");
       const p = await promptText();
@@ -180,12 +201,12 @@ module.exports = {
       if (ok) {
         for (let i = 0; i < 6 && !await g(`ctx.dialogOpen`); i++) { await t.tap(0); await t.frames(3); }
         t.check("…✋ opens the mayor's card", await g(`ctx.dialogOpen`));
-        await t.frames(6); await t.tap(0); await t.frames(10);
+        await answer(/Hold the ribbon/); await drain();
       }
       t.check("holding the ribbon → the snip", await t.until(`__lulu3d.ctx.cityhall.ribbon && __lulu3d.ctx.cityhall.ribbon.snipped`, "snipped", 8000));
       t.check(`…it pays nothing (coins ${c0} → ${await coins()})`, await coins() === c0);
       // walk away: it clears; the mayor is back in
-      await g(`(() => { const R = ctx.cityhall.debug.RUN.ribbon; const F = ctx.foot.debug.F; F.pos.set(R.x + R.ux * 95, 0.05, R.z + R.uz * 95); return true; })()`);
+      await g(`(() => { const R = ctx.cityhall.debug.RUN.ribbon; const F = ctx.foot.debug.F; F.pos.set(R.x + R.ux * 95, 0.05, R.z + R.uz * 95); if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       await t.frames(20);
       t.check("walking far away clears it", await t.until(`!__lulu3d.ctx.cityhall.ribbon`, "cleared", 5000));
       t.check("…and the mayor is back", await g(`ctx.cityhall.mayorIn() || new Date().getHours() === 12`));

@@ -18,7 +18,12 @@ export const inTown = () => !!(ctx.town && ctx.town.active);
 export const townId = () => (inTown() && ctx.town.id) || "lakewood";
 export const hour = () => (force.hour != null ? force.hour : new Date().getHours());
 /** Which window says BACK IN 5 MINUTES right now (changes with the hour). */
-export const closedWindow = () => (force.closed != null ? force.closed : hour() % 3);
+export const closedWindow = () => {
+    if (force.closed != null) return force.closed;
+    const i = hour() % 3;
+    // (an errand under way: Permits is never the closed one — Complaints takes its turn — so a form never waits an hour)
+    return i === 0 && S.permits && S.permits.open && S.permits.open.length ? 2 : i;
+};
 /** Is the mayor in his office? Not while he's out cutting a ribbon, and not at lunch (12–13). */
 export const mayorIn = () => !(force.mayorOut || RUN.ribbon || hour() === 12);
 export function stat(id, n = 1) { S.stats[id] = (S.stats[id] || 0) + n; saveSoon(); emit("stat", { id, n }); }

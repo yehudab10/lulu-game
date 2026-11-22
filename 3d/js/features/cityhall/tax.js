@@ -71,7 +71,7 @@ export function addLine(kind, what, amount, extra = {}) {
 }
 
 function text(msg, quiet = false) {
-    const o = { from: TL.from, emoji: TL.emoji, color: TL.color, msg, thread: "cityhall", dur: 5 };
+    const o = { from: TL.from, emoji: TL.emoji, color: TL.color, msg, thread: "City Hall", dur: 5 };
     try {
         if (quiet && ctx.phone && ctx.phone.inbox && ctx.phone.inbox.post) ctx.phone.inbox.post(o);
         else if (ctx.phone && ctx.phone.text) ctx.phone.text(o);

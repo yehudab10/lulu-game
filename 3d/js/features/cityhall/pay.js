@@ -1,10 +1,10 @@
-// features/cityhall/pay.js — paying the town (stage 2): the TAXES window in city hall (lobby.js `WIN_HOOKS.taxes`) and
+// features/cityhall/pay.js — paying the town (stage 2): the TAXES window in city hall (lobby.js `addWindowHook("taxes", …)`) and
 // 📞 Phone › 🏛️ City Hall (a community contact — the phone stays 9 apps). Both: what she owes, then TWO presses to pay
 // (whole bills oldest first, only what the wallet has — never below 0). Nothing is ever taken without her pressing.
 import { ctx, on } from "../../core/ctx.js";
 import { wallet } from "../../core/save.js";
 import { TAX_WINDOW as TW, CONTACT, TAX_LINES as TL } from "./data.js";
-import { WIN_HOOKS } from "./lobby.js";
+import { addWindowHook } from "./lobby.js";
 import { owed, quote, payNow, ledger, lienOn } from "./tax.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -12,7 +12,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const unpaid = () => ledger.bills.filter(b => !b.paid);
 
 /** The Taxes window: true = handled (the clerk's own small talk is skipped). */
-WIN_HOOKS.taxes = async (rt, who, name) => {
+addWindowHook("taxes", async (rt, who, name) => {
     const o = { emoji: "💰", person: who, color: "#2E7D32" };
     const total = owed();
     if (!total) return false;                                   // (nothing owed: the clerk's usual line)
@@ -30,7 +30,7 @@ WIN_HOOKS.taxes = async (rt, who, name) => {
             if (rt.disposed) return true;
             if (c === 0) {
                 const n = payNow("window");
-                if (n) { await rt.say(name, pick(TW.done), o); try { ctx.phone.inbox.post({ from: TL.from, emoji: TL.emoji, color: TL.color, msg: TL.paid(n), thread: "cityhall" }); } catch (e) { /* no phone */ } }
+                if (n) { await rt.say(name, pick(TW.done), o); try { ctx.phone.inbox.post({ from: TL.from, emoji: TL.emoji, color: TL.color, msg: TL.paid(n), thread: "City Hall" }); } catch (e) { /* no phone */ } }
             }
             return true;
         }
@@ -42,10 +42,12 @@ WIN_HOOKS.taxes = async (rt, who, name) => {
         }
         return true;
     }
-};
+}, 0);
 
 // ── 📞 Phone › 🏛️ City Hall ──
 const PH = { armed: 0 };
+/** More rows for the contact from later stages: CONTACT_EXTRAS.push({ html() → string, bind(el, rerender) }). */
+export const CONTACT_EXTRAS = [];
 function contactRender(el) {
     const list = unpaid(), total = owed(), q = quote(wallet.coins);
     let h = `<div class="lp-note">🏛️ <b>${esc(CONTACT.name)}</b> · ${total ? `you owe <b>${total} 💰</b>` : "you owe nothing. Nice!"}${lienOn() ? " · 📬 a lien on your mailbox flag" : ""}</div>`;
@@ -53,15 +55,17 @@ function contactRender(el) {
         : `<p class="lp-empty">No bills. The town has nothing on you.</p>`;
     if (q.n) h += `<button class="btn lp-row" id="chPay"><span class="lp-av">✍️</span><span class="lp-tx"><b>${PH.armed === q.n ? `Tap again to pay ${q.n} 💰` : (q.all ? `Pay it all — ${q.n} 💰` : `Pay what I can — ${q.n} 💰`)}</b><small>${PH.armed === q.n ? "this pays the town" : "two taps to pay"}</small></span></button>`;
     else if (total) h += `<p class="lp-fine">${esc(TW.broke)}</p>`;
+    for (const x of CONTACT_EXTRAS) { try { h += x.html() || ""; } catch (e) { /* none */ } }
     h += `<p class="lp-fine">Tax is only billed on days you play. It never takes your home.</p>`;
     el.innerHTML = h;
+    for (const x of CONTACT_EXTRAS) { try { x.bind(el, () => contactRender(el)); } catch (e) { /* none */ } }
     const b = el.querySelector("#chPay");
     if (b) b.addEventListener("click", () => {
         const q2 = quote(wallet.coins);
         if (PH.armed !== q2.n) { PH.armed = q2.n; contactRender(el); const nb = el.querySelector("#chPay"); if (nb) nb.focus(); return; }
         PH.armed = 0;
         const n = payNow("phone");
-        if (n) try { ctx.phone.inbox.post({ from: TL.from, emoji: TL.emoji, color: TL.color, msg: TL.paid(n), thread: "cityhall" }); } catch (e) { /* no phone */ }
+        if (n) try { ctx.phone.inbox.post({ from: TL.from, emoji: TL.emoji, color: TL.color, msg: TL.paid(n), thread: "City Hall" }); } catch (e) { /* no phone */ }
         contactRender(el);
     });
 }
