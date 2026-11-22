@@ -135,8 +135,14 @@ async function body(t, guests) {
   const hc0 = await PH.H.game(`L3.wallet.coins`);
   // (QA: every coin award on the host's screen meanwhile, with its reason — only a robbery share would be the hole)
   await PH.H.L(`import("./js/core/ctx.js").then(m => { window.__coinEv = []; if (!window.__coinHook) { window.__coinHook = true; m.on("coin", e => window.__coinEv && window.__coinEv.push(e)); } return true; })`);
+  // (QA: who each screen thinks the party host is, frame by frame, while the fake goes round — a host that flips between the
+  //  two screens would make the "non-host" a host for a moment)
+  const hostWatch = P => P.L(`(() => { window.__hostLog = []; const c = __lulu3d.ctx, f0 = c.frames; const tick = () => { if (c.frames - f0 > 60) return; const h = c.party.host; const l = window.__hostLog; if (!l.length || l[l.length - 1][1] !== h) l.push([c.frames - f0, h]); requestAnimationFrame(tick); }; tick(); return true; })()`);
+  await hostWatch(PH.H); await hostWatch(PH.O);
+  const senderUid = await PH.O.game(`ctx.party.uid`);
   await PH.O.game(`(ctx.party.broadcast("hfa", 4242, ctx.party.uid, "ram", [[${HU}, 80], [${GU}, 80]]), true)`);
   await PH.H.frames(40);
+  console.log("   host as seen during the fake: receiver", JSON.stringify(await PH.H.L(`window.__hostLog`)), "sender", JSON.stringify(await PH.O.L(`window.__hostLog`)), "sender uid", senderUid);
   const cev = await PH.H.L(`window.__coinEv || []`);
   t.check("a fake payout from a non-host pays nobody", !cev.some(e => /heist/.test(e.why || "")), JSON.stringify({ was: hc0, now: await PH.H.game(`L3.wallet.coins`), awards: cev }));
   if (cev.length) console.log("   (other coins on the host's screen meanwhile:", JSON.stringify(cev), ")");
