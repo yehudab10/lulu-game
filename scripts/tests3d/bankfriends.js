@@ -61,6 +61,8 @@ async function body(t, guests) {
   const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
   for (const P of [Hp, A]) {
     await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    await P.game(`(ctx.town.load("lakewood"), true)`);         // (Lakewood isn't the first exit any more — ci/exits2: load it)
+    await P.until(`ctx.town.loaded("lakewood")`, `${P.label}: Lakewood's models`, 120000);
     await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf ? ctx.town.exitOf("lakewood") : ctx.town.exits.find(e => e.town === "lakewood").s, speed: 0 })`);   // (each town its own exit since ci/exits2)
     await P.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, `${P.label}: in Lakewood`, 40000);
   }
