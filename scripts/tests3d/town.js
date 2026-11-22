@@ -77,7 +77,7 @@ module.exports = {
       // the towns stand right there (built in slices as she came up the highway), so there's no fade at all
       await t.until(`__lulu3d.ctx.town.debug.S.commit || __lulu3d.ctx.town.transitioning || __lulu3d.ctx.town.active`, "past COMMIT on the branch", 40000);
       t.check("committing to the branch fires town:exit (she drives on to the T-junction)", (await evs()).some(e => e.startsWith("town:exit")) && await g(`!!ctx.town.debug.S.commit || ctx.town.transitioning`));
-      t.check("Lakewood + Midwood are built and standing at the interchange by then", await g(`ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1 && b.ready).length === 2`), JSON.stringify(await g(`ctx.town.standing`)));
+      t.check("Lakewood (alone — its own exit) is built and standing at the interchange by then", await g(`ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1 && b.ready).map(b => b.town).join() === "lakewood"`), JSON.stringify(await g(`ctx.town.standing`)));
       await g(`(() => { const hw = ctx.world.highway, pts = window.__route.pts; for (const d of [44, 70, 110, 160, 210]) { const p = hw.point(${E} + 172.2, d, {}); pts.push({ x: p.x, z: p.z }); } window.__route.v = 11; return true; })()`);
       await t.until(`__lulu3d.ctx.car.s > ${E} + 150`, "at the T", 40000);
       await t.shot("exit-tee");
