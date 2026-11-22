@@ -18,13 +18,16 @@ import { ctx, addMenuItem, setState, css } from "../../core/ctx.js";
 import { wallet } from "../../core/save.js";
 import { SKINS } from "../../car.js";
 import { glyph } from "../../input.js";
+import { showTitle } from "../../core/screens.js";
 import { inv, syncInv, writeShared, SKIN_SHOP, SKIN_KEYS } from "./data.js";
 import * as S from "./sound.js";
 import { fireMissile, usePepper, useShieldNow, setDistracted, distracted, garageDebug } from "./items.js";
 import { shopDebug } from "./shop.js";
 
 // ── title menu ───────────────────────────────────────────────────────────
-addMenuItem("title", { id: "shop", order: 30, group: "garage", cls: "gx-gold", label: "🛒 Shop", sub: nextRideHtml, action: () => setState("shop", { tab: "cars" }) });
+// (features/shops: the shop moved into the world — this is now 🛍️ Where to shop: directions to the places, not a store)
+addMenuItem("title", { id: "shop", order: 30, group: "garage", cls: "gx-gold", short: "Where to shop", label: "🛍️ Where to shop", sub: nextRideHtml,
+    action: () => (ctx.shops ? ctx.shops.guide(() => showTitle(true)) : setState("shop", { tab: "items" })) });
 addMenuItem("title", {
     id: "distracted", order: 72, group: "garage", cls: "purple", sub: "phone in hand: 2× score, reversed steering",
     visible: () => inv.distractedUnlocked,
@@ -35,10 +38,10 @@ addMenuItem("title", {
 function nextRideHtml() {
     syncInv();
     const next = SKIN_KEYS.filter(k => !inv.ownedSkins.includes(k)).sort((a, b) => SKIN_SHOP[a].price - SKIN_SHOP[b].price)[0];
-    if (!next) return "cars · items · bling";
+    if (!next) return "cars · items · bling — out in the world";
     const sk = SKINS[next], price = SKIN_SHOP[next].price, have = wallet.coins;
     const f = Math.max(0, Math.min(1, have / price));
-    return `<span class="gx-next"><span>next ride: <b>${sk.name}</b> · ${f >= 1 ? `💰 ${price.toLocaleString()} — it's waiting!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
+    return `<span class="gx-next"><span>next ride: <b>${sk.name}</b> · ${f >= 1 ? `💰 ${price.toLocaleString()} — it's waiting at Uncle Moishe's!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
         <span class="gx-nbar"><i style="width:${(f * 100).toFixed(0)}%;background:linear-gradient(90deg, ${sk.dark}, ${sk.body})"></i></span></span>`;
 }
 

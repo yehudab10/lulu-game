@@ -11,7 +11,8 @@ import { ctx, on, setState } from "../../core/ctx.js";
 import { defineInterior, pool, pick } from "../interiors/engine.js";
 import { BANK, PLANS, JOB, TELLER, TELLER_BK, GUARD, LINE, FOUNDER, LOLLY, VAULT_OK } from "./data.js";
 import { setPlan, blocked, J } from "./job.js";
-import { prop, inTown, stat, inParty } from "./common.js";
+import { prop, inTown, stat, inParty, partyFree } from "./common.js";
+import { vaultLabel, vaultAct, roleLabel, roleAct } from "./crew.js";
 
 const PARTY_VAULT = ["With the whole gang watching? Too many witnesses. 👀", "Not today. Bubbe would hear about it by lunch.", "Nice vault. Very… vaulty. Moving on. 😇"];
 
@@ -68,7 +69,10 @@ const def = defineInterior({
         } });
         const ff = rt.fx("founder");
         if (ff) rt.hot({ id: "founder", x: ff.x + 1.1, z: ff.z, r: 1.4, label: "🖼️ The founder's portrait", action: rt => rt.say("Lulu", founderLine(), { emoji: "🖼️" }) });
-        rt.hot({ id: "vault", spot: "vault", r: 1.6, label: () => J.plan || J.job ? "🔒 The vault" : "🔍 Case the vault", action: caseVault });
+        rt.hot({ id: "vault", spot: "vault", r: 1.6, label: () => inParty() ? vaultLabel() : J.plan || J.job ? "🔒 The vault" : "🔍 Case the vault", action: caseVault });
+        // the crew job's roles (with friends — crew.js): the talker at the window, the lookout by the guard
+        rt.hot({ id: "crewTalk", spot: "window", r: 1.7, label: () => roleLabel("talker"), enabled: () => !!roleLabel("talker"), action: rt => roleAct(rt, "talker") });
+        rt.hot({ id: "crewLook", spot: "guardTalk", r: 1.7, label: () => roleLabel("lookout"), enabled: () => !!roleLabel("lookout"), action: rt => roleAct(rt, "lookout") });
     },
 
     tick(rt, dt) {
@@ -86,8 +90,8 @@ const def = defineInterior({
 
 /** 🔍 Case the vault: two readable notes, then the (optional) plan. */
 async function caseVault(rt) {
-    // (with friends the vault is just a vault — for now: Lulu's own job is a solo thing)
-    if (inParty()) { await rt.say("Lulu", pick(PARTY_VAULT), { emoji: "👀" }); return; }
+    // (with friends: the CREW job — crew.js; a party game on: just a vault)
+    if (inParty()) { if (partyFree()) return vaultAct(rt); await rt.say("Lulu", pick(PARTY_VAULT), { emoji: "👀" }); return; }
     if (J.plan || J.job) { await rt.say("Lulu", J.plan ? "Already cased. Now: the car, out front. Act natural." : VAULT_OK, { emoji: "🔒" }); return; }
     const notes = JOB.caseLines.slice().sort(() => Math.random() - 0.5).slice(0, 2);
     rt.data.open = true;
@@ -138,7 +142,7 @@ on("boot", () => {
 });
 // only the town's own buildings play inside a town — the bank and a house (features/homes' "home": its families
 // live on these streets) — any other interior there still sends her back to the highway (the old way)
-const TOWN_INTERIORS = new Set(["bank", "home", "police", "hospital", "courthouse"]);   // (+ features/places' precinct, hospital, courthouse lobby)
+const TOWN_INTERIORS = new Set(["bank", "home", "police", "hospital", "courthouse", "shopsPizza", "shopsBakery"]);   // (+ features/places' precinct, hospital, courthouse lobby; features/shops' walk-in shops)
 on("state", ({ to, data }) => {
     if (to === "interior" && inTown() && !(data && TOWN_INTERIORS.has(data.id)) && ctx.town.leave) ctx.town.leave("quiet");
 });
