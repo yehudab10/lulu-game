@@ -119,15 +119,15 @@ function render(focusId) {
     if (!UI.open) return;
     const focus = focusId || (H.screenOpen() && document.activeElement && document.querySelector("#screenCard .focus") ? document.querySelector("#screenCard .focus").id : "mp_go");
     UI.lastRender = MP.clock;
-    let html = `<h2>🌐 Shared Road</h2>`;
+    let html = `<h2>🕹️ Classic 2D friends</h2>`;
     const buttons = [];
     if (!allowed()) {
         html += `<p>Shared Road isn't available here.</p>`;
         buttons.push({ id: "mp_close", label: `Back ${glyph("back")}`, cls: "alt", action: UI.back });
     } else if (!MP.want) {
         const cur = shared.get().mpName;
-        html += `<p class="fine">Ride alongside 2D and 3D players as see-through ghosts. Honks and emotes only — no chat, no crashes.</p>
-            <p><b>Pick your rider name</b></p>
+        html += `<p class="fine">Drive with players from the 2D and 3D games. You can honk and wave, but you can't crash into each other.</p>
+            <p><b>Pick your name</b></p>
             <div class="mp-names">${CURATED_NAMES.map((n, i) => btn("mp_n" + i, esc(n), n === cur ? "sel" : "")).join("")}</div>
             ${modeRow()}${MP.roomKind === "friend" ? codeSlots() : ""}${boardHtml()}`;
         buttons.push({ id: "mp_go", label: `🌐 Connect ${glyph("confirm")}`, action: () => {
@@ -141,11 +141,11 @@ function render(focusId) {
         const connecting = !MP.connected, switching = connecting && !!MP.switchTo;
         html += `<div class="mp-status ${connecting ? "wait" : "ok"}">${switching ? "🔀 Switching…" : connecting ? "… Connecting" : "✅ Connected"}</div>`;
         if (switching) html += `<p><b>→ ${MP.switchTo}</b></p>`;
-        else if (connecting && MP.clock - MP.wantSince > 5) html += `<p class="fine">Can't reach the road — still retrying.</p>`;
-        html += `<p>Room: <b>${roomLabel(MP.room)}</b> · Riding as <b>${esc(myName())}</b></p>`;
+        else if (connecting && MP.clock - MP.wantSince > 5) html += `<p class="fine">Can't connect yet. Still trying…</p>`;
+        html += `<p>Room: <b>${roomLabel(MP.room)}</b> · Playing as <b>${esc(myName())}</b></p>`;
         if (MP.connected) {
             const names = Object.values(MP.peers).map(p => esc(p.name));
-            html += `<p><b>🌐 ${riderCount()} rider${riderCount() === 1 ? "" : "s"} on the road</b></p>${names.length ? `<div class="mp-peers">${names.slice(0, 6).map(n => "• " + n).join("  ")}</div>` : ""}`;
+            html += `<p><b>🌐 ${riderCount()} player${riderCount() === 1 ? "" : "s"} on the road</b></p>${names.length ? `<div class="mp-peers">${names.slice(0, 6).map(n => "• " + n).join("  ")}</div>` : ""}`;
         }
         html += `<p class="fine" style="margin-top:10px">— Switch room —</p>${modeRow()}${MP.roomKind === "friend" ? codeSlots() : ""}`;
         const target = targetRoom();
@@ -154,7 +154,7 @@ function render(focusId) {
         if (friendRoom() && target === MP.room) {
             if (MP.tag) html += `<p><b>🏷 TAG in progress…</b></p>`;
             else if (peerCount() >= 1) buttons.push({ id: "mp_tag", label: "🏷 Tag — 90s, don't be IT!", cls: "pink", action: () => { tagStart(); UI.back(); } });
-            else html += `<p class="fine">🏷 TAG needs another rider in the room</p>`;
+            else html += `<p class="fine">🏷 Tag needs one more player in the room</p>`;
         }
         html += boardHtml();
         buttons.push({ id: "mp_off", label: "Disconnect", cls: "purple", action: () => { disconnect(true); render("mp_go"); } });

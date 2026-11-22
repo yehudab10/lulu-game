@@ -908,6 +908,15 @@ function* placeFace(B, kind, fr, counters) {
             const tag = u.tag ? {} : null;
             if (tag) { place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false, tag, skip: /^Fixed_/ }); place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false, skip: /^(?!Fixed_)/ }); }
             else place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false });
+            // (`walls: [w, d]` — the model's footprint, front + sides, as solid circles: an OPEN lot inside the block (features/shops'
+            //  car lot) is walkable, so the block's own rect doesn't stop her or the camera there — the building itself must)
+            if (u.walls) {
+                const [ww, dd] = u.walls, c = Math.cos(fr.rot), s = Math.sin(fr.rot), at = (mx, mz) => [cx + mx * c + mz * s, cz - mx * s + mz * c];
+                const run = (a, b) => { const n = Math.max(1, Math.ceil((b - a) / 1.4)); return Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n); };     // (evenly, both ends)
+                for (const x of run(-ww / 2 + 0.9, ww / 2 - 0.9)) { const [px, pz] = at(x, dd / 2 - 0.9); col(px, pz, 1.0, "shop"); }
+                for (const z of run(-dd / 2 + 0.9, dd / 2 - 0.9)) for (const sx of [-1, 1]) { const [px, pz] = at(sx * (ww / 2 - 0.9), z); col(px, pz, 1.0, "shop"); }
+                for (const sx of [-1, 1]) { const [px, pz] = at(sx * (ww / 2 - 0.55), dd / 2 - 0.55); col(px, pz, 0.75, "shop"); }      // (the front corners)
+            }
             const a = u.sign && anchorAt(it.key, cx, cz, fr.rot);
             if (a) { const g = u.signSize || [11.4, 1.15, 104]; sign({ lines: u.sign, bg: u.signBg || "#FBF8F0", fg: u.signFg || ["#1F2D63", "#6D4C41"], w: u.signW || 1024, h: g[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, g[0], g[1]); }
             // (the spot stands on the sidewalk in front of the model's Anchor_door when it has one — features/places' hospital

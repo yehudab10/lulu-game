@@ -24,7 +24,7 @@ import { models, cloneWithColors, need, hold, setChip, setBeacon, fmtM, sfx, con
 
 const MAX_PAY = PAY.foil[1] + PAY.foilClean + PAY.tackle;     // the most one solo foil can pay
 export const PAY_CAP = 3;                                         // party foils that pay, per player, per party session (host-counted)
-const S = { sendT: 0, sent: "", pup: new Map(), paid: new Set(), host: { seen: new Set(), n: new Map() }, hitT: 0, last: null, claims: [], hkSeq: 0, hkT: 0, hkSeen: new Set() };
+const S = { sendT: 0, sent: "", pup: new Map(), paid: new Set(), mine: new Set(), host: { seen: new Set(), n: new Map() }, hitT: 0, last: null, claims: [], hkSeq: 0, hkT: 0, hkSeen: new Set() };
 
 const me = () => (ctx.party ? ctx.party.uid : "");
 const zone = () => (ctx.town && ctx.town.active ? ctx.town.id || "" : "");
@@ -96,6 +96,7 @@ function publish(dt) {
             c ? Math.round(c.h * 1000) : 0, Math.max(0, PROPS.indexOf(ev.prop))];
     }
     const k = a ? a.join(",") : "";
+    if (a) S.mine.add(me() + ":" + ev.id);           // (a robbery on MY screen: a share of it may come to me)
     if (k !== S.sent) { S.sent = k; ctx.party.setX("rb", a); }
 }
 const _v = new THREE.Vector3();
@@ -104,6 +105,7 @@ const _v = new THREE.Vector3();
 /** My ram / tackle on a friend's robber: a quick broadcast AND ~5 s in my own snapshot (d.x.hk) — a broadcast is a
  *  one-off a slow screen can miss; the snapshot is the latest state, read by the owner whenever it next looks. */
 function claimHit(owner, id, how) {
+    S.mine.add(owner + ":" + id);                     // (a friend's robbery I had a go at: a share of it may come to me)
     const seq = (S.hkSeq = (S.hkSeq + 1) % 1000);
     ctx.party.broadcast("hk", owner, id, how);
     ctx.party.setX("hk", [owner, id, how, seq]);
@@ -261,6 +263,9 @@ function payShare(a) {
     const [id, owner, how, shares] = a;
     const key = owner + ":" + id;
     if (S.paid.has(key) || !Array.isArray(shares)) return;
+    // (only a robbery I was part of — mine, or a friend's I rammed / tackled: the party's host can flip between screens on a
+    //  slow link for a moment, and a payout from a "host" for a robbery I never saw paid me in the QA test)
+    if (!S.mine.has(key)) return;
     const mine = shares.find(s => Array.isArray(s) && s[0] === me());
     S.paid.add(key);
     if (!mine) return;
@@ -290,7 +295,7 @@ if (ctx.party && ctx.party.onHostEvent) ctx.party.onHostEvent((uid, kind, a) => 
     ctx.party.broadcast("hfa", ...msg);
     payShare(msg);                                     // (a broadcast doesn't come back to me)
 });
-on("party:status", e => { if (e && e.want === false) { for (const pu of S.pup.values()) pu.dispose(); S.pup.clear(); S.host.seen.clear(); S.host.n.clear(); } });
+on("party:status", e => { if (e && e.want === false) { for (const pu of S.pup.values()) pu.dispose(); S.pup.clear(); S.host.seen.clear(); S.host.n.clear(); S.mine.clear(); } });
 
 // per frame (with the HUD: driving and walking)
 export function partyTick(dt) {

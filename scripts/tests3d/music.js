@@ -3,7 +3,7 @@
 //   • on an iPhone a page can't set a song's volume (a set reads back for a moment, then it's 1 again): there the
 //     switch is instant, and the old track STOPS. (The bug this guards: the fade waited for a volume that never came
 //     down, so every "faded out" track kept playing under the next — parking, then driving, then walking… a pile-up.)
-//   • the real game flow (drive → parking lot → back on the road → on foot → back in the car) never has two songs
+//   • the real game flow (drive → the Parking Challenge on a rest area's lot → driving → on foot → back in the car) never has two songs
 //     sounding once a switch has settled
 const AUDIO = `import("./js/audio.js")`;
 module.exports = {
@@ -75,13 +75,19 @@ module.exports = {
 
     // ── the real flow on that iPhone: the parking lot and back, out of the car and back in ──
     await set("../luludriving.mp3");
-    await g(`(ctx.parking.start({}), true)`);
-    await t.until(`__lulu3d.state === "parking"`, "the parking lot opens", 8000);
+    // (the Parking Challenge is played on a rest area's lot: plan one, unlock it, pull into its START box)
+    await t.L(`import("./js/core/save.js").then(m => (m.shared.update(s => { s.parkingUnlocked = true; }), true))`);
+    await g(`ctx.exits.debug.restAhead(320)`);
+    await t.until(`__lulu3d.ctx.parking.debug.courses().length > 0`, "a rest area's 🅿️ course", 20000);
+    await g(`ctx.parking.debug.toBox()`);
+    await t.until(`__lulu3d.state === "parking"`, "the parking challenge starts", 8000);
     await t.frames(10);
     st = await now();
-    t.check("iPhone: pulling into the parking lot → only the parking song", only(st, "../parking.mp3"), JSON.stringify(st));
-    await set("../luludriving.mp3");
+    t.check("iPhone: the Parking Challenge → only the parking song", only(st, "../parking.mp3"), JSON.stringify(st));
+    await g(`ctx.parking.debug.endRun("quit")`);
+    await t.until(`__lulu3d.state === "playing"`, "back to driving", 4000);
+    await t.frames(4);
     st = await now();
-    t.check("iPhone: …and back to the driving song → only that", only(st, "../luludriving.mp3"), JSON.stringify(st));
+    t.check("iPhone: …and back to driving → only the driving song", only(st, "../luludriving.mp3"), JSON.stringify(st));
   },
 };

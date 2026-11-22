@@ -1,73 +1,73 @@
 // features/shops/data.js — the places, who runs them, and the words. Wholesome + silly; nothing here pays coins.
 
-/** Uncle Moishe (both lots — "I have a cousin in Brooklyn. The cousin is also me."). */
-export const MOISHE = {
-    name: "Uncle Moishe",
-    colors: { Top: "#8D6E63", Bottom: "#3E2723", Hair: "#9E9E9E" },   // a brown plaid-ish sport coat
+/** Uncle Refael (both lots) — gruff, short, a hard bargainer who doesn't do small talk; warm underneath, still funny. */
+export const REFAEL = {
+    name: "Uncle Refael",
+    colors: { Top: "#455A64", Bottom: "#263238", Hair: "#424242" },   // a dark work jacket
     hello: [
-        "Lulu! My favourite niece! Don't tell your cousins. Look around, look around!",
-        "Every car here was LOVED. Some of them by a rabbi. One by a goat. Don't ask.",
-        "Kick the tires! Gently. They're pre-loved, not pre-kicked.",
-        "For you? Family price. Which is the price. But with a SMILE.",
+        "Lulu. Look, don't touch. …Fine, touch.",
+        "You're buying or you're browsing? Browsing is free. Today.",
+        "Every car's checked. By me. Twice. Don't ask the mechanic, he talks.",
+        "Family price is the price. I don't do discounts. I do quality.",
     ],
     look: [
-        "Low miles! Well — low-ISH. Medium-low. Okay, it's been places.",
-        "This one? A dentist drove it. Only to shul. And Costco. And Florida, twice.",
-        "Feel that steering wheel. Feel it! That's QUALITY. That's also a little sticky.",
-        "I'd buy it myself, but I'm loyal to my minivan. We've been through a lot.",
+        "Good engine. Good brakes. The radio picks what it wants. Not my problem.",
+        "One owner. A dentist. Drove like a dentist. Slow. Careful. Perfect.",
+        "Don't kick the tires. The tires did nothing to you.",
+        "It's a good car. I don't say that. So.",
     ],
     bought: [
-        "SOLD! Mazel tov! Drive it like your Bubbe's watching. Because she is. She called.",
-        "It's yours! No refunds, no returns, no 'my father said'. Enjoy!",
-        "Sold to the lovely young lady! Yossi — the BALLOONS! …We don't have balloons. Imagine balloons.",
+        "Sold. Keys. Go. …Mazel tov. Drive careful.",
+        "Done. No returns. No 'my father said'. Enjoy it, kid.",
+        "Yours. Wash it once a week. I'll know.",
     ],
     poor: [
-        "Short a few coins? Do a little job, come back. The car will wait. Probably.",
-        "I can't do layaway. Your father asked in 2009. The answer is still no.",
+        "Not enough. Go earn it. The car's not going anywhere. Neither am I.",
+        "Layaway? No. Your father asked in 2009. Still no.",
     ],
     owned: [
-        "That one's already yours! It's in your garage at home, sweetheart.",
-        "You bought this one already! I remember. I cried a little.",
+        "You own that one. It's in your garage. Go home, look at it.",
+        "Already yours. I remember every sale. Every one.",
     ],
     testStart: [
-        "Test drive! One lap, bring it back in one piece. Yossi — her keys go in the jar!",
-        "Go, go! Sixty seconds. If you're not back I'm calling your mother.",
+        "Sixty seconds. Bring it back how you found it. I'm counting.",
+        "One lap. No highway. No friends in the back. Go.",
     ],
     testBack: [
-        "So? You LOVE it. I can see it in your face. Your face says 'buy'.",
-        "Back already? And not a scratch! …Is that a scratch? It's dirt. It's dirt.",
-        "Yossi parked YOUR car out front. He says it smells like kugel. Nice.",
+        "Back. No scratches. …Good. So? Buy it or don't.",
+        "You liked it. I saw. Don't haggle, I don't haggle.",
+        "Yossi parked YOUR car out front. Yossi says it smells like kugel. I said nothing.",
     ],
     noCar: [
-        "A test drive with no car of your own here to leave? Insurance, sweetheart. You understand.",
+        "Your car stays here while you test mine. No car to leave? No test. Rules.",
     ],
-    bye: ["Come back soon! Bring friends! Bring money!", "Zei gezunt! Drive safe!"],
+    bye: ["Go. Drive careful.", "Come back with money. Or don't. I'll be here."],
 };
 
 /** Lulu walking past the lot (once a visit). */
 export const PASS_DEALER = [
-    "Uncle Moishe's! Every car here has a STORY. Mostly about kugel spills.",
+    "Uncle Refael's. He's going to say 'look, don't touch'. He always says that.",
     "Ooh, a ninja-black one. Ima would faint. I want it.",
     "Is that tube guy waving at me? …He's not. He's resting. Same.",
 ];
 
 /** Her own garage at home (the driveway picker). */
 export const GARAGE_LINES = {
-    one: "Just my pink baby for now. Uncle Moishe's lot is in Lakewood — the first thing on Route 9!",
+    one: "Just my pink baby for now. Uncle Refael's lot is in Lakewood — the first thing on Route 9!",
     swap: ["New day, new ride. 💅", "Ooh, this one today.", "Driveway fashion show!", "Pink's jealous. Pink'll get over it."],
 };
 
 /** Which shop sells what (the 🛍️ Where to shop list: ctx.shops.places()). `town` = where it stands; `where` = the
  *  directions line; `sells` = what you can buy there. Places that aren't built yet still come through the old Shop. */
 export const PLACES = [
-    { id: "dealer", icon: "🚗", name: "Uncle Moishe's Pre-Loved Cars", sells: "Cars (all 7 for sale) · test drives",
+    { id: "dealer", icon: "🚗", name: "Uncle Refael's Pre-Loved Cars", sells: "Cars (all 7 for sale) · test drives",
       towns: { lakewood: "Route 9, the first thing in town", midwood: "Coney Island Ave, Brooklyn" }, spot: "dealer" },
     { id: "makolet", icon: "🛒", name: "The makolet (grocery + pharmacy)", sells: "🌶️ Pepper spray · 🛡️ bubble wrap for cars (the shield) · 📱 the Distracted phone plan",
       towns: { lakewood: "Zissy's, on Main St", midwood: "Yanky's 24-Hour, on Avenue J" }, spot: "makolet" },
     { id: "black", icon: "😈", name: "Shmerel's van (the black market)", sells: "🚀 Missiles · 🎆 the Mega 5-Pack · 🌶️ pepper spray",
       towns: { lakewood: "by the construction site on 14th St", midwood: "outside the car service on Coney Island Ave" }, spot: "shopsBlack" },
-    { id: "bling", icon: "✨", name: "Moishe's Bling Bay", sells: "📯 6 horns (hear them first) · 🎀 7 car decorations (fitted on your car)",
-      towns: { lakewood: "at Uncle Moishe's on Route 9 — the pink neon door", midwood: "at Uncle Moishe's on Coney Island Ave" }, spot: "bling" },
+    { id: "bling", icon: "✨", name: "Refael's Bling Bay", sells: "📯 6 horns (hear them first) · 🎀 7 car decorations (fitted on your car)",
+      towns: { lakewood: "at Uncle Refael's on Route 9 — the pink neon door", midwood: "at Uncle Refael's on Coney Island Ave" }, spot: "bling" },
     { id: "garage", icon: "🏠", name: "Your garage at home", sells: "Pick which of your cars to drive",
       home: true },
 ];
@@ -109,7 +109,7 @@ export const BLACK = {
     poor: ["That's not enough. I'm shady, not a charity."],
 };
 
-// ── stage 3: ✨ Moishe's Bling Bay (horns + car decorations, at the dealership) ──
+// ── stage 3: ✨ Refael's Bling Bay (horns + car decorations, at the dealership) ──
 export const BLING = {
     lulu: ["Oh she's FANCY now. 💅", "Ima's going to say 'what is THAT'. Perfect.", "Honk honk, world. HONK HONK.", "Worth every coin. Probably."],
 };

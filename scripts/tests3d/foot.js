@@ -3,8 +3,9 @@
 // (a stand-in interior), hotwire a parked car and drive it, then the wedding start to
 // finish (petals, 7 circles, the glass, the hora, catching the bouquet), and finally a
 // knockout with no hearts left → game over. Checks rewards land in the shared wallet,
-// footRunsPlayed / footRunHigh persist, and the states hand over cleanly. A spun wreck and the parking
-// pull-over each play exactly ONE get-out animation (no second climb-out, no camera swoop).
+// footRunsPlayed / footRunHigh persist, and the states hand over cleanly. A spun wreck plays exactly ONE
+// get-out animation (no second climb-out, no camera swoop). (The parking pull-over and its walk-out are retired: the
+// Parking Challenge is played on a real lot — scripts/tests3d/parking.js.)
 // What plays when Lulu gets out of the car (the owner saw a "double animation"): `exits` counts get-out
 // animations (the parking lot's walk-out + every foot session that hops out of the seat), `footStarts` the
 // foot:start events; once she's in the foot world, `maxJump` is the biggest one-frame camera move (a swoop)
@@ -254,25 +255,5 @@ module.exports = {
       await t.shot("knockout");
     }
     await t.game(`(ctx.foot.end("test"), true)`);
-
-    // ── pulled over into the roadside lot: she walks out of the parked car THERE, and the foot world picks
-    //    up with her already on her feet — no second climb-out from the driver's seat ──
-    await t.game(`L3.startRun({ mode: "cruise" })`);
-    if (!await t.until(`__lulu3d.state === "playing"`, "a fresh drive")) return;
-    await t.game(`(ctx.foot.force.er = null, ctx.traffic.config.enabled = false, ctx.traffic.clear())`);
-    await t.L(EXIT_PROBE);
-    await t.game(`ctx.parking.start({ from: "pullover" })`);
-    const PK = `__lulu3d.ctx.parking._debug`;
-    if (!await t.until(`${PK}.phase === "drive"`, "the roadside lot is ready", 90000)) return;
-    await t.game(`(() => { const s = ctx.parking._debug, L = s.L; s.lot.car.place((L.zx0 + L.zx1) / 2, (Math.max(L.curbZ, L.zz0) + L.zz1) / 2, -Math.PI / 2); })()`);
-    if (!await t.until(`${PK}.phase === "result"`, "parked in the bay")) return;
-    await t.tap(0);
-    if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.t > 3.6`, "walk-out → Lulu on foot", 90000)) return;
-    const W = await t.L(`({ ...window.__exit })`);
-    t.check("pull-over: ONE get-out (the lot's walk-out), one foot:start — no second climb-out", W.exits === 1 && W.footStarts === 1, JSON.stringify(W));
-    t.check("…she starts on her feet next to her parked car", await t.game(`ctx.foot.debug.F.reason === "droveOff" && ctx.foot.debug.F.car.drivable && ctx.foot.phase === "walk"`));
-    t.check("pull-over: no camera swoop into the foot world", W.maxJump < 1.5, JSON.stringify(W));
-    await t.L(`window.__exit.on = false`);
-    await t.shot("pullover-on-foot");
   },
 };

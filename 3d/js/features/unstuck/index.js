@@ -53,11 +53,12 @@ const footF = () => (ctx.foot && ctx.foot.debug ? ctx.foot.debug.F : null);
 const _l = {}, _n = {}, _p = {};
 
 // ── open lots inside a block (Lulu's own lot on Midwood's E 34th St: no house from the town — she walks it, her porch is
-//    on it): never "inside a block" there ──
+//    on it; and features/shops' car lot — ctx.shops.onLot): never "inside a block" there ──
 const LOT = { town: null, r: null };
 function onLot(x, z) {
     const T = ctx.town;
     if (!T || !T.active) return false;
+    if (ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z)) return true;      // (Uncle Refael's car lot: open ground too)
     if (LOT.town !== T.def) {
         LOT.town = T.def; LOT.r = null;
         const sp = T.spot && T.spot("luluHome");
