@@ -267,7 +267,7 @@ function playSub() {
 }
 addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶ PLAY ${glyph("confirm")}`, sub: playSub, action: () => startRun({ mode: "cruise" }) });
 addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
-    sub: () => { const n = ownedSkins().length; return n > 1 ? `You have ${n} cars. ${glyph("confirm")} to switch.` : "Buy more at Uncle Moishe's in town"; }, action: cycleSkin });
+    sub: () => { const n = ownedSkins().length; return n > 1 ? `You have ${n} cars. ${glyph("confirm")} to switch.` : "Buy more at Uncle Refael's in town"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
 addMenuItem("title", { id: "settings", order: 80, group: "more", label: "⚙️ Settings", sub: "Sound, graphics and the screen", action: () => showSettings(() => showTitle(true)) });
 addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "Classic 2D", label: "🕹️ Classic 2D", sub: "The original game, with the same coins and cars", action: () => { location.href = "../classic.html"; } });

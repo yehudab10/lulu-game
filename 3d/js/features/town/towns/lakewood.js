@@ -39,7 +39,7 @@ export default {
         "3,0": { faces: { n: "baisyaakov" } },
         "2,2": { faces: { s: "hall", n: "civic" } },          // (features/places: the precinct, the court + the impound lot on Minivan Way)
         "0,1": { faces: { n: "shops", w: "hospital" } },      // (features/places: St. Shloimy's on Route 9, the first big thing in town)
-        "0,0": { faces: { w: "dealer" } },                     // (features/shops: Uncle Moishe's Pre-Loved Cars, the first thing on Route 9)
+        "0,0": { faces: { w: "dealer" } },                     // (features/shops: Uncle Refael's Pre-Loved Cars, the first thing on Route 9)
     },
     // landmark uses modelled by other features (build.js › layoutFace): the Bais Yaakov on Carpool Ln (features/community),
     // the bank on Main St beside the Simcha Palace (features/heist: a bank you can walk into, case, rob — or save)
@@ -60,7 +60,7 @@ export default {
             ] },
         hospital: { key: "places_hospital", fallback: "town_shop", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
             tints: { Walls: "#EEF2F1", Trim: "#00897B", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#FFFFFF", signFg: ["#00695C", "#C62828"] },
-        // features/shops: Uncle Moishe's Pre-Loved Cars — a showroom + the cars on the lot with their price boards (shops/lot.js)
+        // features/shops: Uncle Refael's Pre-Loved Cars — a showroom + the cars on the lot with their price boards (shops/lot.js)
         // features/shops: Zissy's Makolet & Pharmacy — a Main St shopfront between two others (pepper spray, the bubble wrap, the phone plan)
         makolet: { key: "town_shop", fallback: "town_shop", dims: { w: 12, d: 13, prot: 1.5 }, sign: L.SIGNS.makolet, spot: "makolet",
             tints: { Walls: "#F3E6C4", Awning: "#2E7D32" }, signSize: [10.0, 0.98, 64], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
@@ -89,7 +89,7 @@ export default {
         // (features/places: POLICE ONLY in front of the precinct + court, AMBULANCE ONLY at St. Shloimy's — her car is
         //  parked there when she walks out, the cruiser pulls up there)
         { street: "Minivan Way", from: 2 * P + 8, to: 3 * P - 8 }, { street: "Route 9", from: P + 14, to: 2 * P - 14 },
-        // (features/shops: the kerb in front of Uncle Moishe's lot — a test drive starts and ends there)
+        // (features/shops: the kerb in front of Uncle Refael's lot — a test drive starts and ends there)
         { street: "Route 9", from: 10, to: P - 10 },
         // (features/shops: Shmerel's van stands at the kerb by the construction site on 14th St)
         { street: "14th St", from: 2 * P + 6, to: 3 * P - 6 }],
