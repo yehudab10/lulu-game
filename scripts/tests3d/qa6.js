@@ -36,7 +36,7 @@ module.exports = {
       await W.moved(t);
       const s0 = await g(`ctx.car.s`);
       await place(s0 + 1200, 5.25, 15);
-      const E = await g(`ctx.town.debug.exitAhead(600)`);
+      const E = await g(`ctx.town.debug.exitAhead(600, "${id}")`);   // (each town its own exit: one ramp, the inner branch)
       await g(`ctx.town.load("${id}")`);
       if (!await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models load`, 90000)) continue;
       await W.moved(t);
@@ -44,7 +44,7 @@ module.exports = {
       await t.frames(4);
       await W.reset(t);
       // down the decel lane onto the ramp; stop part-way down it
-      const full = await g(`ctx.town.debug.rampRoute(${E}, ${outer ? 1 : 0}, -240)`);
+      const full = await g(`ctx.town.debug.rampRoute(${E}, 0, -240)`);
       if (!full || !full.length) { t.check(`${id}: a ramp route`, false); continue; }
       const mid = full.filter(([u]) => u <= 20);
       await route(E, mid, 13, true);

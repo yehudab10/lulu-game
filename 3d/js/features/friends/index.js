@@ -22,6 +22,8 @@ import * as ST from "./store.js";
 import * as HS from "./handshake.js";
 import * as BL from "./bell.js";
 import * as UI from "./ui.js";
+import "./group.js";
+import * as VOTE from "./vote.js";     // stage 2 step 4: the lobby games as invitations from 🌍 Free Roam (everyone says yes)              // ctx.group — "with friends" as a group you're in (stage 2, step 1: today = the party)
 
 const QS = new URLSearchParams(location.search);
 export const CODE_RE = /^[A-HJ-NP-Z2-9]{6}$/;
@@ -153,6 +155,6 @@ ctx.friends = {
     showCode, closeCode, useCode, codeLink,
     get code() { return C.mine ? C.code : ""; },
     /** the views openworld's 👯 / 📍 Nearby borrow */
-    ui: { render: UI.render, partyRow: UI.partyRow, wirePartyRow: UI.wirePartyRow, driverNote: UI.driverNote, driverView: UI.driverView, open: UI.openApp },
+    ui: { missionRows: UI.missionRows, wireMissions: UI.wireMissions, voteRows: UI.voteRows, wireVote: UI.wireVote, render: UI.render, partyRow: UI.partyRow, wirePartyRow: UI.wirePartyRow, driverNote: UI.driverNote, driverView: UI.driverView, open: UI.openApp },
     debug: () => ({ hs: HS.debug(), bell: BL.debug(), store: { me: ST.S.me, n: ST.S.list.length, blocked: ST.S.blocked.length, join: ST.S.join, hidden: ST.S.hidden } }),
 };

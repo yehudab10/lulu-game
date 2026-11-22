@@ -98,7 +98,7 @@ async function roadTrip(t, guests) {
   t.check("party plan service (rng / seeded / road)", await g(`!!(ctx.party.rng && ctx.party.seeded && ctx.party.road && ctx.party.road.slot)`));
   t.check("the party OFF set no longer holds the shared-world features", await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true; try { return ["roadevents", "cameos", "world", "hustle", "community", "memory", "banter", "meta"].every(id => ctx.enabled(id)) && !ctx.enabled("journey") && !ctx.enabled("dina"); } finally { N.want = was; } })()`));
   await t.click(/Friends/);
-  await t.click(/Party games/);
+  await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return false;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
@@ -270,9 +270,14 @@ async function freeRoam(t, guests) {
   const hv = big.find(v => v.id === "hustle");
   const built = hv ? await g(`ctx.hustle._dbg.party.log.some(x => x.key === ${JSON.stringify(hv ? hv.key : "")} && x.built)`) : true;
   t.check("a seeded payphone / job board is up for the host", !hv || !!mk || built, JSON.stringify(mk));
+  // each town its own exit, in the route's fixed order: the same metres on both screens (planned from fixed data only)
+  const ex = [];
+  for (const p of pages) ex.push(await p.game(`(["midwood", "lakewood", "midwood"].reduce((a, id) => { const s = ctx.town.exitOf(id, a.s); return { s: s + 1, out: a.out.concat(id + "@" + Math.round(s)) }; }, { s: 20000, out: [] }).out.join(","))`));
+  t.check("the same exits, same towns, same order and metres on both screens", !!ex[0] && ex[0] === ex[1] && /midwood@/.test(ex[0]) && /lakewood@/.test(ex[0]), ex.join(" | "));
   for (const p of pages) {
-    await p.until(`ctx.town.debug.S.loaded && ctx.community.debug.CM.loaded`, "town + community models", 120000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.until(`(ctx.town.load("lakewood"), ctx.town.debug.S.loaded) && ctx.community.debug.CM.loaded`, "town + community models", 120000);
+    await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 15000);
   }
   await sleep(3000);

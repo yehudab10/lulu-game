@@ -26,7 +26,7 @@ export const SIGNS = {
     ],
     hall: ["SIMCHA PALACE", "Weddings · Bar Mitzvahs · Gridlock"],
     pizza: ["PIZZA SHMIZZA", "40-MIN WAIT · $6 A SLICE"],
-    yeshiva: ["YESHIVA OF CARPOOL LANE"],
+    yeshiva: ["YESHIVA OF CARPOOL LANE", "Shul · Beis Medrash · Minyanim"],
     baisYaakov: ["BAIS YAAKOV OF CARPOOL LANE", "dismissal 3:40 · straight lines · no giggling"],
     buses: ["SCHOOL BUS DEPOT", "a bus leaves every 4 minutes. forever."],
     shops: [
@@ -46,6 +46,8 @@ export const SIGNS = {
     plaque: ["IN HONOR OF", "THE MINIVAN"],
     bandBus: ["THE MAZEL TONES", "simcha band · 11 players · 1 bus · 0 parking"],
     bank: ["FIRST MINIVAN BANK OF LAKEWOOD", "drive-thru · 9 lanes · still a line"],   // features/heist's bank (uses.bank)
+    makolet: ["ZISSY'S MAKOLET & PHARMACY", "milk · kugel pans · pepper spray · bubble wrap"],   // features/shops (uses.makolet)
+    dealer: ["UNCLE MOISHE'S PRE-LOVED CARS", "every car was loved · some of them TOO much"],   // features/shops' dealership (uses.dealer)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · PRECINCT 18½", "we bend the rules so you don't have to"],
     court: ["LAKEWOOD MUNICIPAL COURT", "justice · traffic tickets · Tuesdays only"],

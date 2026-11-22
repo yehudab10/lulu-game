@@ -1,7 +1,8 @@
 // 🎉🏦 heist in a party — two real pages against the LOCAL relay (server/local-relay.js on a private port; never
 // production). Only heist's PERSONAL bits run with friends; nothing of it touches the shared traffic:
-//   GATE      heist is ON in a party (not in the OFF set); robberies + Lulu's own heist stay solo (live("robbery"),
-//             live("job") false, the robbery scheduler stages nothing), the personal bits are live
+//   GATE      heist is ON in a party (not in the OFF set); Lulu's own heist stays solo (live("job") false), the
+//             robbery is party-OK but only in a Free Roam TOWN (foiled together — tests3d/bankfriends.js), so out on
+//             the highway the robbery scheduler stages nothing; the personal bits are live
 //   🛵 SNATCH the host stops on the shoulder → the scheduler sends a moped (a scene prop, never in the traffic): a
 //             HONK dodges it; too slow → he grabs a CAPPED share; clip him → it all comes back (+ the bonus)
 //   🚗 THEFT  she parks + walks off → a thief drives off in HER parked car (foot's local stub) → ✋ YANK HIM OUT
@@ -90,7 +91,7 @@ module.exports = {
 async function partyRun(t, guests) {
   const g = t.game;
   await t.click(/Friends/);
-  await t.click(/Party games/);
+  await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 400, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
@@ -122,9 +123,9 @@ async function partyRun(t, guests) {
 
   // ── the gate ──
   t.check("party: heist is ON with friends (not in the OFF set)", await g(`ctx.enabled("heist")`) && await A.game(`ctx.enabled("heist")`));
-  t.check("party: robberies + Lulu's own heist stay solo; the snatcher / thief / the cops' gear are live",
-    await g(`!${HD}.live("robbery") && !${HD}.live("job") && ${HD}.live("snatch") && ${HD}.live("gear")`));
-  t.check("party: the robbery scheduler stages nothing", (await g(`${HD}.schedRobbery()`)) === false && await g(`!ctx.heist.robbery`));
+  t.check("party: Lulu's own heist stays solo; the snatcher / thief / the cops' gear are live (robberies: towns only, foiled together)",
+    await g(`!${HD}.live("job") && ${HD}.live("snatch") && ${HD}.live("gear")`));
+  t.check("party: on the highway the robbery scheduler stages nothing", (await g(`${HD}.schedRobbery()`)) === false && await g(`!ctx.heist.robbery`));
   await t.L(`import("./js/models.js").then(m => m.ensureModels(["heistMoped", "heistRobber", "heistProps", "heistNet", "heistSpikes"]))`);
 
   // ── 🛵 the moped snatcher: she stops on the shoulder, the scheduler sends one ──

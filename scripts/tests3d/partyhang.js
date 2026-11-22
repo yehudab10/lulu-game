@@ -154,8 +154,9 @@ async function partyRun(t, guests) {
 
   // ── 🕹️ a game spot in town: the arcade outside the pizza shop ──
   for (const p of [Hp, A]) {
-    await p.until(`ctx.town.debug.S.loaded && ctx.town.exits.length > 0`, "town models + exits", 120000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.until(`(ctx.town.load("lakewood"), ctx.town.debug.S.loaded) && ctx.town.exits.length > 0`, "town models + exits", 120000);
+    await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 30000);
   }
   await Hp.until(`ctx.openworld.debug.spots.SP.list.length >= 1`, "the town has its game spots", 30000);
@@ -216,12 +217,12 @@ async function partyRun(t, guests) {
   for (const p of [Hp, A]) await p.until(`ctx.openworld.game && ctx.openworld.game.ph === "done"`, "the game ends", 30000);
   for (const p of [Hp, A]) { await p.frames(10); if (await p.game(`ctx.phone.isOpen`)) await p.game(`ctx.phone.closePhone()`); }
 
-  // ── leave in one tap: 📱 👯 → 🚪 Leave the party; the host plays on ──
+  // ── leave in one tap: 📱 👯 → 🚪 Leave the group; she carries on alone from home, the host plays on ──
   await A.game(`ctx.phone.openPhone("owparty")`);
   await A.frames(4);
   t.check("👯 app: Invite + Leave rows", await A.L(`!!document.getElementById("owInvite") && !!document.getElementById("owLeave")`));
   await A.L(`document.getElementById("owLeave").click()`);
-  await A.until(`!ctx.party.active && ctx.state === "title"`, "one tap: the friend has left", 30000);
+  await A.until(`!ctx.party.active && ctx.state !== "title" && ctx.G.mode === "cruise"`, "one tap: the friend has left (and plays on from home)", 60000);
   await Hp.until(`ctx.party.members().length === 1`, "the host sees the friend go", 120000);
   t.check("the host keeps playing", await g(`ctx.party.active && (ctx.state === "playing" || ctx.state === "footRun")`));
 }

@@ -64,16 +64,16 @@ async function body(t, guests) {
 
   // ════ 1. the driver crosses an ATTACHED town's line with the passenger in ════
   await moved(Hp); await moved(A);
-  const E = await g(`ctx.town.exits.length ? ctx.town.exits[0].s : 0`);
+  const E = await g(`ctx.town.exitOf("lakewood") || 0`);   // (Lakewood's own exit — each town has its own)
   for (const P of [Hp, A]) await P.game(`(ctx.town.load("lakewood"), ctx.town.load("midwood"), true)`);
   for (const P of [Hp, A]) await P.until(`ctx.town.loaded("lakewood") && ctx.town.loaded("midwood")`, `${P.label}: both towns' models`, 120000);
   // both up the lane toward the interchange (the towns build in slices from 900 m out, on each screen)
   await g(`ctx.party._debug.place(${E} - 650, 5.25, 12)`);
   await A.game(`ctx.party._debug.place(${E} - 670, 1.75, 0)`);
   await t.hold(7, 0.45);
-  await Hp.until(`ctx.town.standing.length >= 2 && ctx.town.standing.every(b => b.ready)`, "host: the towns stand at the interchange", 90000);
+  await Hp.until(`ctx.town.standing.some(b => b.town === "lakewood" && b.ready)`, "host: Lakewood stands at its interchange", 90000);
   await t.hold(7, 0);
-  await A.until(`ctx.town.standing.length >= 2 && ctx.town.standing.every(b => b.ready)`, "guest: the towns stand there too", 90000);
+  await A.until(`ctx.town.standing.some(b => b.town === "lakewood" && b.ready)`, "guest: Lakewood stands there too", 90000);
   // the host stops on Lakewood's approach just short of the line; the guest hops in
   const ap = await g(`(() => { const en = ctx.town.debug.S.built.find(e => e.def.id === "lakewood" && e.ready); if (!en) return null;
     const [fx, fz] = en.def.approach.from, [tx, tz] = en.def.approach.to, L = Math.hypot(tx - fx, tz - fz), ux = (tx - fx) / L, uz = (tz - fz) / L, co = Math.cos(en.at.rot), si = Math.sin(en.at.rot);
@@ -156,7 +156,7 @@ async function body(t, guests) {
   await hostDrive();
   await A.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
   await A.until(`ctx.state === "playing" && ctx.openworld.riding == null`, "guest driving on her own", 30000);
-  if (!await g(`ctx.town.active`)) await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+  if (!await g(`ctx.town.active`)) await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
   await Hp.until(`ctx.town.active`, "host in Lakewood", 30000);
   if (await A.game(`ctx.town.active`)) { await moved(A); await A.game(`ctx.town.leave("reset")`); await A.game(`ctx.party._debug.place(${E} - 2000, 1.75, 0)`); await A.frames(20); }
   await W.reset(AW);
