@@ -554,8 +554,8 @@ function updateDrive(dt, P) {
 const introText = () => innerWidth < 560 ? `🅿️ <b>${S.introTitle}</b>` : `🅿️ <b>${S.introTitle}</b> · ${S.introDetails}`;
 function hintText() {
     if (innerWidth < 560) return "🅿️ Park between the two cars";          // (a phone held upright: the pedals say GAS / REVERSE)
-    if (input.device === "touch") return "Park between the cars · GAS forward · REVERSE back";
-    return `Park between the cars · ${glyph("gas")} forward · ${glyph("reverse")} reverse`;
+    if (input.device === "touch") return "Park between the cars. GAS goes forward, REVERSE goes back.";
+    return `Park between the cars. ${glyph("gas")} goes forward, ${glyph("reverse")} goes back.`;
 }
 
 function corners(lc, out) {

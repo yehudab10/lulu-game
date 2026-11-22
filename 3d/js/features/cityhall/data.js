@@ -201,7 +201,7 @@ export const FEES = {
 export const FEE_TUNE = { expire: 7, honkN: 6, honkWindow: 30, hydrantChance: 0.3, porchChance: 0.4 };
 export const TAX_LINES = {
     from: "City Hall", emoji: "🏛️", color: "#455A64",
-    bill: (n, homes) => `Your property tax for today: ${n} coins for ${homes === 1 ? "your home" : homes + " homes"}. Pay at the Taxes window, or in 📞 Phone › City Hall.`,
+    bill: (n, homes) => `Your property tax for today: ${n} coins for ${homes === 1 ? "your home" : homes + " homes"}. Pay at the Taxes window, or call City Hall on your phone.`,
     fee: f => `${f.what}: ${f.amount} coins. ${f.why}`,
     letter: n => `A STERN LETTER. You owe ${n} coins in property tax. Please pay soon. We're not angry. We're disappointed.`,
     lien: (n, fee) => `LIEN NOTICE. You owe ${n} coins, so the town has put a lien on your mailbox flag. Lien processing: ${fee} coins. You can pay, or fight it in Courtroom 2B.`,
@@ -240,7 +240,7 @@ export const LIEN_COURT = {
     label: "⚖️ Fight the lien on your mailbox flag",
     win: 0.5,
 };
-export const CONTACT = { name: "City Hall", tag: "property tax · fees · pay here" };
+export const CONTACT = { name: "City Hall", tag: "Pay property tax and fees" };
 
 // ── stage 3: permits + inspectors (permits.js, inspect.js) ───────────────────────────────────────────────────────
 // A permit is never needed BEFORE she does something (nothing is ever blocked): when she does a thing the town has a form

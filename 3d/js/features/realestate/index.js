@@ -75,9 +75,11 @@ function migrate(h) {
     const near = catalogue().filter(r => r.model === h.model && Math.hypot(r.lx - h.lx, r.lz - h.lz) < 3 && !registry.ownerOf(r.id))
         .sort((a, b) => Math.hypot(a.lx - h.lx, a.lz - h.lz) - Math.hypot(b.lx - h.lx, b.lz - h.lz))[0];
     if (!near) return null;
+    const st = ctx.home && ctx.home.startAt, based = !!(st && st.key === h.id);
     const old = registry.release(h.id, "moved");
     if (old) registry.claim(near.id, Object.assign({}, old, { lx: near.lx, lz: near.lz, address: near.address, street: near.street, number: near.number, via: "moved", reg: false }));
     for (const k of ["mortgage", "bills", "rent"]) if (S[k][h.id]) { S[k][near.id] = S[k][h.id]; delete S[k][h.id]; }
+    if (based) { try { ctx.home.setStartAt(Object.assign({}, st, { key: near.id, door: { x: near.ap.x, z: near.ap.z }, face: Math.atan2(near.nx, near.nz), label: near.address })); } catch (e) { /* */ } }
     saveSoon();
     return near;
 }
@@ -116,6 +118,12 @@ function refresh(force = false) {
     try { if (ctx.homes && ctx.homes.refresh) ctx.homes.refresh(); } catch (e) { /* homes without the hook */ }
 }
 registry.onChange(() => { if (inTown()) refresh(true); });
+// ci/hometown's "🏠 Start my days here" (ctx.home.startAt): a house that's no longer hers to wake up in — sold, foreclosed,
+// double-booked, seized, a tenant in it — sends her mornings back to Ima's; a house that MOVED (migrate) keeps them
+function unbase(id) { try { const st = ctx.home && ctx.home.startAt; if (st && st.key === id) ctx.home.setStartAt(null); } catch (e) { /* no ctx.home */ } }
+registry.onChange(ev => { if (ev && !ev.remote && ev.from === "me" && ev.id && !/moved/.test(ev.why || "")) unbase(ev.id); });
+on("realestate:seized", e => unbase(e.id));
+on("realestate:tenant", e => { if (e.phase === "in") unbase(e.id); });
 
 /** The government holds it (seized, or seized + gone back to the market while she was away). */
 const held = id => { const h = S.owned[id]; return !!(h && (h.seized || h.lost)); };
@@ -398,13 +406,13 @@ function contactHtml() {
     const mine = registry.listFor(null), here = inTown() ? townId() : null;
     const R = realtorOf(here || "lakewood");
     let h = `<div class="lp-note">🏘️ <b>${R.name}</b> · ${R.firm}${here ? "" : " (Lakewood) · Brick by Brick (Midwood)"}</div>`;
-    h += `<div class="lp-note"><b>🔑 Your places</b> · ${mine.length} / ${CAP}</div>`;
+    h += `<div class="lp-note"><b>🔑 Your places</b> (${mine.length} of ${CAP})</div>`;
     if (!mine.length) h += `<p class="lp-empty">No houses yet. ${here ? "Look for the FOR SALE signs on the lawns!" : "Drive into Lakewood or Midwood and look for the FOR SALE signs!"}</p>`;
-    h += mine.map(m => `<button class="btn lp-row re-mine" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.town === "midwood" ? "Midwood" : "Lakewood"} · ${m.label}${m.town === here ? " · tap = 📍 show me" : ""}</small></span></button>`).join("");
+    h += mine.map(m => `<button class="btn lp-row re-mine" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.label} in ${m.town === "midwood" ? "Midwood" : "Lakewood"}${m.town === here ? ". Tap to show the way." : ""}</small></span></button>`).join("");
     if (here) {
         const list = locked() ? [] : listings();
-        h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b> · new listings every day</div>`;
-        h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label} · tap = 📍 show me</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
+        h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b>. New listings every day.</div>`;
+        h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label}. Tap to show the way.</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
             : `<p class="lp-empty">${locked() ? OFFICE.party : "All sold today! Check back tomorrow."}</p>`;
     } else h += `<p class="lp-fine">Listings show up when you're in a town.</p>`;
     return h;

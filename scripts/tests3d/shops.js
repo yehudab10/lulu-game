@@ -114,7 +114,8 @@ module.exports = {
       // Where to shop's mark: at home it points at the next exit into a town (the guide part marks it; run alone, mark it here)
       await g(`(ctx.shops.dest() || ctx.shops.setDest("dealer"), true)`);
       const tg = await g(`ctx.shops.debug.guide.target()`);
-      t.check("the mark points at an exit into town from home", !!tg && /exit|town/i.test(tg.label || ""), JSON.stringify(tg));
+      // (home is in Midwood now — roadmap 14: from home the mark is the lot in her own town; from the highway, an exit into town)
+      t.check("the mark points the way to a car lot from home (her own town's lot, or an exit into town)", !!tg && (/exit|town/i.test(tg.label || "") || await g(`!!(ctx.town && ctx.town.active)`)), JSON.stringify(tg));
       t.check("…as one small line on the HUD", await t.until(`!!document.querySelector(".shops-dest")`, "dest chip", 3000));
     });
 
@@ -149,6 +150,32 @@ module.exports = {
       const byMan = man ? await labelAt("dealer", man[0], man[1] + 1.1) : "";
       t.check("✋ standing in front of the dealer himself (not only at his door)", /BROWSE/.test(byMan), JSON.stringify({ man, byMan }));
       await labelAt("lot_purple", 0.4, -4); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`); await t.frames(20); await t.shot("lot-standing-on-it");
+      // ON the lot (open ground inside the block): the camera never goes into the showroom — whichever way she faces —
+      // and the watchdog looks on (the lot isn't "inside a block")
+      t.check("the lot is open ground (ctx.shops.onLot)", await g(`ctx.shops.onLot(ctx.foot.pos.x, ctx.foot.pos.z)`));
+      const camIn = [];
+      for (const [du, dn] of [[0.4, -4], [1.6, -5.5], [0.4, -1.4]]) for (const turn of [0, 1, 2, 3]) {
+        // (the test turns her + the camera: the watchdog looks away for the turn, then watches it settle there)
+        await W.pause(t, false);
+        await g(`(() => { const sp = ctx.town.spot("lot_purple"), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${dn} + sp.ux * ${du}, 0.05, sp.z + sp.nz * ${dn} + sp.uz * ${du}); F.phase = "walk";
+          if (ctx.cam && ctx.cam.free) ctx.cam.free.yaw = Math.atan2(sp.ux, sp.uz) + ${turn} * Math.PI / 2; return true; })()`);
+        await t.frames(12); await W.pause(t, true); await W.moved(t);
+        await t.frames(20);
+        const inside = await g(`(() => { const sp = ctx.town.spot("dealer"), c = ctx.camera.position, cs = Math.cos(sp.rot), sn = Math.sin(sp.rot), dx = c.x - sp.cx, dz = c.z - sp.cz;
+          const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs; return Math.abs(lx) < 7.4 && Math.abs(lz) < 4.9 && c.y < 5.2; })()`);
+        if (inside) camIn.push(`${du},${dn},turn${turn}`);
+      }
+      t.check("standing on the lot by the showroom: the camera never goes inside it", camIn.length === 0, camIn.join(" | "));
+      await t.shot("lot-on-it-camera");
+      // driving up to the lot: one quiet line says what to do (the ✋ needs her on her feet)
+      await W.pause(t, false);
+      await g(`(ctx.foot.debug.getIn ? ctx.foot.debug.getIn() : ctx.foot.end("test"), true)`);
+      await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
+      await g(`(() => { const sp = ctx.town.spot("lot_orange"); ctx.car.place(sp.x + sp.nx * 4.2, sp.z + sp.nz * 4.2, Math.atan2(sp.ux, sp.uz)); ctx.car.vx = ctx.car.vz = 0; return true; })()`);
+      await t.frames(10);
+      const driveLine = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
+      t.check("in the car, stopped at the lot: one line says to get out and walk up to a car", /get out and walk up/.test(driveLine), driveLine);
+      t.check("…a prompt line, not a toast", !await t.L(`[...document.querySelectorAll(".toast")].some(e => /walk up to a car/.test(e.textContent))`));
       await onFootAt("lot_purple");      // (back on the sidewalk; the watchdog looks again from here)
       // the card
       t.check("✋ opens the car card", await look("purple"));

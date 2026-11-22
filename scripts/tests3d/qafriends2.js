@@ -141,7 +141,11 @@ async function body(t, guests) {
     await moved(P);
     await P.game(`(ctx.town.active && ctx.town.leave("reset"), true)`);
     await P.until(`!ctx.town.active`, `${P.label}: out of town`, 30000);
-    await P.game(`ctx.party._debug.place(36, 5.25, 0)`);
+    if (await P.game(`!!(ctx.home && ctx.home.site === "town")`)) {
+      // (Lulu's house is on its Midwood street — roadmap 14: into the home town, at the family driveway)
+      await P.game(`(() => { const T = ctx.town.home, K = ctx.home.park; ctx.town.enter({ town: T.town, exitS: T.exitS, at: { x: K.x, z: K.z, h: K.h }, speed: 0, quiet: true }); return true; })()`);
+      await P.until(`ctx.town.active && ctx.town.id === ctx.town.home.town`, `${P.label}: in Lulu's town`, 60000);
+    } else await P.game(`ctx.party._debug.place(36, 5.25, 0)`);
     await P.frames(10);
     await P.game(`ctx.foot.start("parked")`);
     await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: on foot by Lulu's house`, 60000);

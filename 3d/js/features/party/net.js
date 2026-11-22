@@ -26,8 +26,9 @@
 //                handlers are idempotent so a new host may safely re-run them.
 //                Ephemeral broadcasts (emotes, chat, waves) ride in `bc` for
 //                ~1.5 s and are de-duplicated per sender.
-//  • election  — host silent > 4 s (or gone) → the first FRESH uid in the
-//                roster order claims epoch + 1; higher epoch wins, ties go to
+//  • election  — host silent > 4 s AND for 20 of my own frames (one long stall
+//                of a crawling page isn't a dead host) → the first FRESH uid in
+//                the roster order claims epoch + 1; higher epoch wins, ties go to
 //                roster order. The old host steps down if it comes back.
 import { ctx, emit } from "../../core/ctx.js";
 import { shared } from "../../core/save.js";
@@ -75,6 +76,7 @@ export const N = {
     host: null, epoch: 0, roster: [], A: { v: 0, k: "lobby", id: 0 }, isHost: false,
     seq: 0, sendT: 0, sends: [], urgent: false, lastSendAt: 0,
     evNonce: 0, pending: [],     // my reliable events → host
+    silentTicks: 0,              // frames the host's been silent (takeover hysteresis)
     bcNonce: rint(1, 1e6), bcast: [],
     seen: {}, acks: {},          // host: processed nonces per uid
     replies: [],                 // host: clock replies to send
@@ -121,7 +123,7 @@ export function stop(forget = true) {
     const was = N.want;
     N.want = false; N.connected = false;
     if (N.sock) { const s = N.sock; N.sock = null; try { s.onclose = null; s.onmessage = null; s.close(); } catch (e) { /* gone */ } }
-    N.players.clear(); N.byRid.clear(); N.isHost = false; N.host = null; N.roster = []; N.pending = []; N.bcast = [];
+    N.players.clear(); N.byRid.clear(); N.isHost = false; N.host = null; N.roster = []; N.pending = []; N.silentTicks = 0; N.bcast = [];
     if (forget) { try { sessionStorage.removeItem("luluParty"); } catch (e) { /* fine */ } }
     if (was) emit("party:status", { want: false });
 }
@@ -344,7 +346,10 @@ function hostEvent(uid, e) {
 }
 
 /** Send a reliable event to the host (re-sent in every snapshot until acked). */
-export function sendEvent(kind, ...args) {
+export function sendEvent(kind, ...args) { queueEvent(kind, args); }
+// (NOT re-sent on a host change: a reliable event is only de-duplicated by its nonce — re-running one later under a new
+//  nonce (a chase started, a race finished, a claim) replays the game, e.g. a crew that shook the cops chased again.)
+function queueEvent(kind, args) {
     const ev = { n: ++N.evNonce, k: kind, a: args };
     if (N.isHost) { hostEvent(N.uid, [ev.n, kind, ...args]); return; }
     N.pending.push(ev);
@@ -416,10 +421,14 @@ function windowOk(t) {
     return N.sends.length < 7;     // the relay allows 8/s; 1 spare for jitter
 }
 
+const TAKEOVER_TICKS = 20;
 function electHost(t) {
     if (N.isHost) return;
     if (t - N.connectedAt < 1500) return;                       // let the hello + first host snapshot land
-    if (hostAlive()) return;
+    if (hostAlive()) { N.silentTicks = 0; return; }
+    // hysteresis: silent for 4 s of wall time AND for TAKEOVER_TICKS of my own frames — one long stall of MY page (a crawling
+    // tab, a model load) isn't the host being gone (a takeover flip-flopped the host for ~10 frames on a slow CI page)
+    if (++N.silentTicks < TAKEOVER_TICKS) return;
     const cands = N.roster.filter(u => u !== N.host && (u === N.uid || fresh(N.players.get(u), 2500)));
     if (!N.roster.length || !N.host) {
         // nobody has ever hosted this room (an empty or brand-new code)

@@ -1978,6 +1978,9 @@ function chatter(dt) {
 function arrivedOnFoot() {
     const G = ctx.G;
     if (G.mode !== "story" || G.arrived || !ctx.trip || F.phase !== "walk") return;
+    // (in a town the trip bar is the town's street chip — its progress is always 1: she's NOT at Bubbe's. Home is a
+    //  Midwood street now, so a road trip's first leg starts on foot in town: features/world, roadmap 14)
+    if (ctx.town && ctx.town.active) return;
     if (ctx.trip.progress() < 0.999) return;
     H.banner(`🏡 <b>You WALKED to Bubbe's?!</b><small>Zeidy towed the car over. Hop in!</small>`, 2600);
     const rd = road();

@@ -32,6 +32,8 @@ body.tv .wmap .wp b { font-size: 22px; } body.tv .wmap .wp .l { font-size: 18px;
 
 function html(phone = false) {
     const rows = Object.entries(LORE).map(([id, [icon, name, where, lore]]) => {
+        // (home is a house on a Midwood street now — roadmap 14 — unless towns are off)
+        if (id === "home" && ctx.home && ctx.home.site === "town") { where = `Midwood · ${ctx.home.street || "her street"}`; lore = "The pink door was Dina's idea. So was moving to Brooklyn. (Nobody can PARK here.)"; }
         const n = id === "home" ? 0 : saved.visits[id] || 0;
         const badge = id === "home" ? "" : n ? `✓ ×${n}` : "not yet";
         return `<div class="wp"><span class="i">${icon}</span><span><b>${name}</b> <small>· ${where}</small></span><span class="n">${badge}</span><span class="l">${lore}</span></div>`;

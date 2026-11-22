@@ -70,7 +70,7 @@ export function current() {
 export function propose(k) {
     const p = P();
     if (!LOBBY[k]) return "No such game";
-    if (!roaming()) return "Games start from 🌍 Free Roam";
+    if (!roaming()) return "Games start when you're playing with friends";
     if (p.members().length < 2) return "Wait for a friend first 👯";
     if (current()) return "A vote is already open";
     p.sendEvent("gvp", k);

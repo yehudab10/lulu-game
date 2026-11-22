@@ -110,7 +110,7 @@ async function body(t, guests) {
     await A.game(`ctx.openworld.join()`);
     if (await A.until(`ctx.openworld.game && ctx.openworld.game.ph === "go" && ctx.openworld.game.ps.includes(${GU})`, "the guest is in the game", 30000)) {
       const card = await press("in a party game", null);
-      t.check("in a party game: 🆘 refused, says why", card && !card.go && /party game/.test(card.text), JSON.stringify(card));
+      t.check("in a party game: 🆘 refused, says why", card && !card.go && /game with friends/.test(card.text), JSON.stringify(card));
     }
     await g(`ctx.openworld.end()`);
     await t.frames(20);

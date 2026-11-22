@@ -245,6 +245,9 @@ hook("update", (dt, P, controlsOn) => {
     if (G.jSugarT > 0) { G.jSugarT -= dt; G.boost = 1; }
     if (G.jFloatT > 0) { G.jFloatT -= dt; if (G.jFloatT <= 0) floatieOff(); }
     if (!isStory() || G.jDone || ctx.state !== "playing") return;
+    // (in a town she's on its streets — their s isn't the highway's: the trip waits till she's back on the road.
+    //  Home is a Midwood street now, so leg 1 starts in town: features/world, roadmap 14)
+    if (ctx.town && ctx.town.active) return;
     G.jLegT = (G.jLegT || 0) + dt;
     if (G.jBannerT > 0) {
         G.jBannerT -= dt;
@@ -278,6 +281,12 @@ hook("update", (dt, P, controlsOn) => {
     }
 }, 0);
 on("cop:chase", e => { heat.chase = !!(e && e.active); });
+// out of a town onto the highway: a leg that started in town (leg 1 from home in Midwood) counts from where she joins the road
+on("town:leave", () => {
+    const G = ctx.G;
+    if (!isStory() || G.jDone) return;
+    if (!((G.jLegStart || 0) <= ctx.car.s) || (G.jLegStart || 0) >= legEnd()) G.jLegStart = ctx.car.s;
+});
 on("run:start", () => { heat.chase = false; });
 
 // ── boons ─────────────────────────────────────────────────────────────────

@@ -19,10 +19,9 @@ import { save3d, store, saveSoon } from "../../core/save.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { home, luluSpots, placeParked, peopleTick, titleShot, S_HOME } from "./home.js";
-import { SHOULDER } from "../../world.js";
+import { home, luluSpots, placeParked, peopleTick, titleShot, nearHome, homeEdge, enterHomeTown } from "./home.js";
 
-const HS = store("worldHome", { starts: 0, drives: 0 });
+const HS = store("worldHome", { starts: 0, drives: 0, wayHint: 0 });
 const D = { live: false, t: 0, idleT: 0, said: 0, moved: false, first: false, marker: null, imaLine: "", left: false };
 const spots = {};
 
@@ -58,9 +57,42 @@ export function wantsDeparture(G, opts) {
 
 hook("runStart", (G, opts) => {
     if (!wantsDeparture(G, opts)) return;
+    // a house she owns, picked as where her day starts (ctx.home.startAt — features/realestate): there, on foot by its door
+    // (dinner / anything asking for the FAMILY house still means Ima's)
+    const alt = altStart(opts);
+    if (alt && enterAlt(alt)) { G.introStart = () => startAtHome(opts, alt); return; }
+    // home is a house on a Midwood street (roadmap 14): the day starts IN that town — no town, no home start (the plain countdown)
+    if (!enterHomeTown()) return;
     placeParked();                       // the car in the driveway, Lulu by the porch, whatever the title was doing
     G.introStart = () => startAtHome(opts);
 }, -100);
+
+/** ctx.home.startAt, when a day may start there: { town, door: {x, z}, face, label, car?: {x, z, h}, exitS } | null. */
+function altStart(opts = {}) {
+    const H = ctx.home, a = H && H.startAt;
+    if (!a || opts.family || opts.homeVia === "dinner" || !ctx.town || typeof ctx.town.warp !== "function") return null;
+    const T = ctx.town, town = a.town || (H.town || "midwood");
+    const exitS = town === home.town ? home.exitS : ((T.exits || []).find(e => e.id === town) || {}).s;
+    if (exitS == null || !a.door) return null;
+    return Object.assign({}, a, { town, exitS });
+}
+/** Warp to that house's town with her car at its kerb (its own `car`, else the nearest free kerb to the door). */
+function enterAlt(a) {
+    const T = ctx.town;
+    const car0 = a.car && Number.isFinite(a.car.x) ? a.car : { x: a.door.x, z: a.door.z, h: a.face || 0 };
+    try { T.warp({ town: a.town, exitS: a.exitS, at: { x: car0.x, z: car0.z, h: car0.h || 0 }, speed: 0, quiet: true }); } catch (e) { console.error("[world] start at", e); return false; }
+    if (!(T.active && T.id === a.town)) return false;
+    if (!a.car && T.curbSpot) {
+        const k = T.curbSpot({ near: { x: a.door.x, z: a.door.z }, minD: 0, maxD: 40, len: 6 });
+        if (k) { ctx.car.place(k.x, k.z, k.h); ctx.car.s = k.s; ctx.car.d = k.d; }
+    }
+    ctx.car.vx = ctx.car.vz = ctx.car.vF = 0;
+    ctx.car.showDriver(false);
+    return true;
+}
+
+// (the pull-out + the dinner beat play IN a town too — any other state sends her back to the highway first)
+on("boot", () => { if (ctx.town && ctx.town.allowState) { ctx.town.allowState("worldPullOut"); ctx.town.allowState("worldHomeBeat"); } });
 
 // ── the marker over the car: a small pink arrow, bobbing (a nudge, not a tutorial) ──
 function marker() {
@@ -99,13 +131,18 @@ function hint() {
     return touch ? "" : `${glyph("interact")} at the car to hop in 🚗`;
 }
 
-function startAtHome(opts = {}) {
+function startAtHome(opts = {}, alt = null) {
     const G = ctx.G;
+    if (alt) return startAtAlt(opts, alt);
     luluSpots(spots);
     const L = home.people.lulu;
     // (opts.homeAt {x, z, face}: she's already somewhere on her street — the road trip from the suitcase starts right there)
     const at = opts.homeAt && Number.isFinite(opts.homeAt.x) ? opts.homeAt : null;
-    const face = at && at.face != null ? at.face : L ? L.obj.rotation.y : 0;
+    // (in town: she faces into her own lot — the house, the car on her right — so the camera behind her stays over her
+    //  lot + the sidewalk, never over the neighbour's yard past the hedge)
+    const lot = home.site === "town" && home.lotSpot;
+    const lotFace = lot ? Math.atan2(lot.ux * 0.38 - lot.nx * 0.92, lot.uz * 0.38 - lot.nz * 0.92) : null;
+    const face = at && at.face != null ? at.face : lotFace != null ? lotFace : L ? L.obj.rotation.y : 0;
     if (L) L.obj.visible = false;
     D.first = !HS.starts;
     HS.starts++; saveSoon();
@@ -118,11 +155,16 @@ function startAtHome(opts = {}) {
         home: {
             hazards: false,
             hint, hintT: D.first ? 14 : 6,
-            quiet: F => F.s < S_HOME + 90 && F.s > -20,          // no random townsfolk / busking / "get in a car" nudges on her own street
+            quiet: () => !!ctx.foot.pos && nearHome(ctx.foot.pos.x, ctx.foot.pos.z, 90),     // no random townsfolk / busking / "get in a car" nudges on her own street
             onOwnCar: drove, driveState: "worldPullOut",
+            // (in town, on her own lot: the walking frame + camera face into the lot, so the camera stays over her yard + the
+            //  sidewalk — not the neighbour's yard past the hedge; off the lot, the town's own street frame)
+            frame: lotFace != null ? (F, h, dt) => (nearHome(F.pos.x, F.pos.z, 13) ? lotFace : ctx.town && ctx.town.active && ctx.town.footYaw ? ctx.town.footYaw(F, h, dt) : h) : undefined,
         },
     });
     if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
+    // (the free camera on foot keeps the direction it starts from: point it into her lot, behind her)
+    if (lotFace != null && ctx.cam && ctx.cam.free && ctx.cam.free.recentre) ctx.cam.free.recentre(lotFace);
     H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
     G.lastS = G.startS = ctx.car.s;
     // (a Cruise with features/day: Ima reads out today's list instead — after the first-ever "the car's right there")
@@ -134,6 +176,26 @@ function startAtHome(opts = {}) {
     D.fri = friday;
     D.pendingLine2 = D.first && dayLine ? dayLine : opts.homeLine && dayLine && line !== dayLine ? dayLine : null;
     emit("world:homeStart", { mode: G.mode, first: D.first, friday, via: opts.home ? "world" : opts.restart ? "restart" : "title" });
+    return true;
+}
+
+/** A day that starts at a house she owns (ctx.home.startAt): on foot by its door, her car at the kerb — no Ima (she's at the
+ *  family house: dinner's still there). */
+function startAtAlt(opts, a) {
+    const G = ctx.G;
+    D.first = false;
+    HS.starts++; saveSoon();
+    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = true; D.pendingLine = D.pendingLine2 = null;
+    if (home.people.ima) home.people.ima.obj.visible = false;
+    const ok = ctx.foot.start("home", {
+        at: { x: a.door.x, z: a.door.z }, face: a.face != null ? a.face : 0, noIntro: true, drivable: true,
+        camBlend: opts.camBlend != null ? opts.camBlend : ctx.state === "title" ? 1.1 : 0, line: "",
+        home: { hazards: false, hint, hintT: 6, quiet: () => !!ctx.foot.pos && Math.hypot(ctx.foot.pos.x - a.door.x, ctx.foot.pos.z - a.door.z) < 40, onOwnCar: drove, driveState: "playing" },
+    });
+    if (!ok) { D.live = false; return false; }
+    H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
+    G.lastS = G.startS = ctx.car.s;
+    emit("world:homeStart", { mode: G.mode, first: false, friday: false, via: "startAt", at: a.label || a.key || "" });
     return true;
 }
 
@@ -150,6 +212,12 @@ function drove() {
     if (!ctx.skipping) A.sfxCloseCall(6);
     rumble(0.3, 0.6, 200, true);
     if (!D.left) imaSay(pick(["Bye, mamele! Drive SAFE! 💕", "Text me when you get there!", "Love you! SLOW DOWN!"]), 2.4);
+    // home is on a town street now: the first time she drives off, one line on how to get out to the highway
+    if (home.site === "town" && !HS.wayHint && ctx.town && typeof ctx.town.wayOut === "function") {
+        let w = null;
+        try { w = ctx.town.wayOut(); } catch (e) { w = null; }
+        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To the highway: ${w.street ? `take ${w.street}` : "follow the signs"} — the on-ramp's at the end`, "", { prio: 2 }); }
+    }
     emit("world:depart", { mode: G.mode, left: D.left });
 }
 
@@ -169,7 +237,7 @@ hook("hud", dt => {
         if (ctx.state === "playing") ima.face(ctx.car.pos.x, ctx.car.pos.z, dt, 3);
     }
     if (!D.live || ctx.state !== "footRun") {
-        if (ctx.state === "playing" && home.group.visible && Math.abs(ctx.car.s - S_HOME) < 140) peopleTick(dt, "go");
+        if (ctx.state === "playing" && home.group && home.group.visible && nearHome(ctx.car.pos.x, ctx.car.pos.z, 140)) peopleTick(dt, "go");
         return;
     }
     D.t += dt;
@@ -180,8 +248,7 @@ hook("hud", dt => {
     const P = home.park, m = marker();
     const lulu = ctx.car.pos;          // (on foot, core's car anchor follows her)
     const dist = Math.hypot((car ? car.x : P.x) - lulu.x, (car ? car.z : P.z) - lulu.z);
-    if (dist > 60 || Math.abs(ctx.car.s - S_HOME) > 120) D.left = true;      // she wandered off: no more nudging
-    // Friday: she turned the ask down and walks off (not into the car): "not this week, Ima" — one little exchange, once a day
+    if (dist > 60 || !nearHome(lulu.x, lulu.z, 120)) D.left = true;      // she wandered off: no more nudging    // Friday: she turned the ask down and walks off (not into the car): "not this week, Ima" — one little exchange, once a day
     if (D.fri && !D.declined && !D.left && dist > 14 && !D.pendingLine) {
         D.declined = true;
         const day = new Date().toDateString();
@@ -212,12 +279,13 @@ registerState("worldPullOut", {
         updateDriving(dt, P, true);
         const car = ctx.car, rh = ctx.world.road.at(car.s).h;
         const lined = Math.abs(wrapAngle(car.h - rh)) < 0.7;
-        const onRoad = Math.abs(car.d) < SHOULDER + 0.6;
-        if ((onRoad && lined) || Math.abs(car.d) < SHOULDER - 1.5 || Math.abs(car.s - home.park.s) > 30 || ctx.stateT > 15) {
+        const edge = homeEdge(), P0 = home.park, gone = Math.hypot(car.pos.x - P0.x, car.pos.z - P0.z);
+        const onRoad = Math.abs(car.d) < edge + 0.6;
+        if ((onRoad && lined) || Math.abs(car.d) < edge - 1.5 || gone > 30 || ctx.stateT > 15) {
             const st = ctx.cam && ctx.cam.state;
             if (st) { st.yaw = PO.yaw; st.pos.copy(ctx.camera.position); st.snap = false; }
             // (lined up along the road, the chase cam is where this one already is; at an angle, glide over)
-            if (!lined && ctx.cam && ctx.cam.blend) ctx.cam.blend(0.8);
+            if ((!lined || home.site === "town") && ctx.cam && ctx.cam.blend) ctx.cam.blend(home.site === "town" ? 1.0 : 0.8);
             setState("playing");
         }
     },
@@ -226,9 +294,27 @@ registerState("worldPullOut", {
         // along the road's heading, eased toward the car's once she's turning onto it
         const al = Math.abs(wrapAngle(car.h - rh));
         PO.yaw += wrapAngle((al < 1.2 ? car.h : rh) - PO.yaw) * Math.min(1, dt * (al < 1.2 ? 3 : 6));
-        const portrait = cam.aspect < 1, dist = 7.2 * (portrait ? 1.25 : 1), up = 3.4 * (portrait ? 1.2 : 1);
+        const portrait = cam.aspect < 1;
+        if (home.site === "town") {
+            // a town lot (neighbours' houses either side, the porch roof behind): from out by the kerb, looking back at her
+            // car, the house and Ima in the doorway as she pulls out — then the chase cam glides in once she's on the street
+            const P = home.park, fx = Math.sin(P.h), fz = Math.cos(P.h), xx = Math.cos(P.h), xz = -Math.sin(P.h);
+            const out = portrait ? 11 : 9.5, side = portrait ? 1.5 : 3, hi = portrait ? 4.2 : 3.2;
+            PO.v.set(P.x + fx * out + xx * side, hi, P.z + fz * out + xz * side);
+            PO.w.set(car.pos.x - fx * 1.5, 1.1, car.pos.z - fz * 1.5);
+            if (PO.snap) { PO.pos.copy(PO.v); PO.look.copy(PO.w); PO.snap = false; }
+            PO.pos.lerp(PO.v, Math.min(1, dt * 4));
+            PO.look.lerp(PO.w, Math.min(1, dt * 6));
+            cam.position.copy(PO.pos);
+            cam.lookAt(PO.look);
+            cam.fov += (55 + (portrait ? 16 : 0) - cam.fov) * Math.min(1, dt * 3);
+            cam.updateProjectionMatrix();
+            if (ctx.cam) ctx.cam.state.pos.copy(cam.position);
+            return true;
+        }
+        const dist = 7.2 * (portrait ? 1.25 : 1), up = 3.4 * (portrait ? 1.2 : 1);
         const rx = -Math.cos(rh), rz = Math.sin(rh);            // (toward the road from her lawn: −d)
-        const side = Math.max(0, Math.min(3, Math.abs(car.d) - SHOULDER)) * 0.9;
+        const side = Math.max(0, Math.min(3, Math.abs(car.d) - homeEdge())) * 0.9;
         PO.v.set(car.pos.x - Math.sin(PO.yaw) * dist - rx * side * Math.sign(car.d || 1), up, car.pos.z - Math.cos(PO.yaw) * dist - rz * side * Math.sign(car.d || 1));
         PO.w.set(car.pos.x + Math.sin(PO.yaw) * 4, 1.2, car.pos.z + Math.cos(PO.yaw) * 4);
         if (PO.snap) { PO.pos.copy(PO.v); PO.look.copy(PO.w); PO.snap = false; }

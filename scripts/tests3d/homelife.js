@@ -305,5 +305,17 @@ module.exports = {
       t.check("…sixty seconds later, a calm house: +15", j.done && j.paid === 15, JSON.stringify(j));
       await leave();
     });
+
+    // ── Lulu's next-door neighbours (ci/hometown: her family's house is Midwood's luluHome lot) ──
+    await step("neighbours", async () => {
+      if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); }
+      if (!await inTown("midwood")) return;
+      const sp = await g(`ctx.town.spot("luluHome")`);
+      if (!sp) { t.check("Midwood has Lulu's lot (luluHome)", false); return; }
+      const nb = await g(`${D}.HS.homes.filter(h => h.neighbour).map(h => ({ key: h.key, d: Math.round(Math.hypot(h.ap.x - ${sp.x}, h.ap.z - ${sp.z})), op: ctx.homes.opinion(h.key), lived: ctx.homes.livedIn(h.key) }))`);
+      t.check("Lulu's next-door neighbours: 2–4 doors around her house, all families, warm from day one", nb.length >= 2 && nb.length <= 4 && nb.every(n => n.lived && n.d < 45 && n.op === "likes"), JSON.stringify(nb));
+      t.check("…and no stranger family lives at her own house", await g(`!${D}.HS.homes.some(h => ctx.home && ctx.home.isFamily && ctx.home.isFamily(h.door.x, h.door.z) && ctx.homes.livedIn(h.key))`));
+      if (nb[0]) t.check("…they greet her by name from the porch", /lulu/i.test(await g(`(${D}.VISITS.porchSaid.clear(), ${D}.porch(${JSON.stringify(nb[0].key)}))`) || ""));
+    });
   },
 };

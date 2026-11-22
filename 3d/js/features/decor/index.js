@@ -79,7 +79,10 @@ function friendInside() {
     for (const u of P.members()) {
         if (u === P.uid) continue;
         const p = P.peer(u), x = p && p.x;
-        if (!x || p.m !== 7 || !P.fresh(p, 6000) || !Array.isArray(x.in) || x.in[0] !== HOUSE_ID || (typeof x.z === "string" && x.z)) continue;
+        // (x.z: the town the friend's in — the house stands in its home town (ctx.home.town — Midwood), or on the highway ("")
+        //  when the town engine has no lot)
+        const homeZone = (ctx.home && ctx.home.town) || "";
+        if (!x || p.m !== 7 || !P.fresh(p, 6000) || !Array.isArray(x.in) || x.in[0] !== HOUSE_ID || (typeof x.z === "string" && x.z && x.z !== homeZone)) continue;
         const pl = decodeDc(x.dc);
         if (pl) return { owner: String(x.in[1] || u).slice(0, 12), placed: pl };
     }
@@ -273,6 +276,8 @@ function slotSpot(id) {
     };
 }
 on("boot", () => {
+    // (her house is on a Midwood street — roadmap 14: its inside plays IN the town, the town standing outside)
+    if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     try { outsideInit(); } catch (e) { console.error("[decor] outside", e); }
     if (ctx.foot && ctx.foot.addSpot) {
         ctx.foot.addSpot(doorSpot);
@@ -307,7 +312,10 @@ export function enter() {
     VIS.owner = fr ? fr.owner : P && P.active ? P.uid : "";
     VIS.placed = fr ? fr.placed : null;
     const st = at(0.6, 7.1);
-    const n = ctx.world.road.nearest(st.x, st.z, S_HOME, {});
+    // (in town — the house is on its Midwood lot: the town's own streets, near where she stands — like a town house's
+    //  door, features/homes; the highway's home s would take her out of the town on the way in)
+    const F = ctx.foot.debug && ctx.foot.debug.F;
+    const n = ctx.world.road.nearest(st.x, st.z, home.site === "town" ? (F ? F.s : null) : S_HOME, {});
     const side = Math.sign(n.d) || 1;
     const door = { s: n.s, d: n.d + side * 1.4, side, id: HOUSE_ID };
     if (!ctx.foot.handoff(HOUSE_ID, door)) return false;
@@ -365,7 +373,7 @@ on("world:homeStart", () => {
     const tick = () => {
         if (ctx.state !== "footRun" || S.visits > 0) return;
         if (ctx.time - t0 < 7) { setTimeout(tick, 500); return; }
-        H.toast("🛋️ Your house is open! ✋ at the front door — spend coins decorating", "pink", { key: "decorNudge" });
+        H.toast("🛋️ Your house is open! Go in the front door to decorate it.", "pink", { key: "decorNudge" });
     };
     setTimeout(tick, 500);
 });
