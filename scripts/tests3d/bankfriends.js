@@ -73,6 +73,8 @@ async function body(t, guests) {
   }
   await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && rc.foot; })()`, "guest sees the host on foot", 60000);
   await W.install(t);
+  const AW = { L: A.L };            // (QA: the watchdog on the friend's screen too)
+  await W.install(AW);
   const coins0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
 
   // ── a robbery on the host's screen (she's on foot: the robber fumbles in the doorway) ──
@@ -139,7 +141,10 @@ async function body(t, guests) {
   await Hp.until(`(ctx.heist.robbery && ctx.heist.robbery.phase === "foiled" && (ctx.heist.robbery.t = 20), true) && !ctx.heist.robbery`, "the robbery tidies away", 60000);
   await A.until(`ctx.heist.debug.party().puppets.length === 0`, "guest: the friend's robbery is gone too", 40000);
   W.check(t, "watchdog (host)", await W.report(t));
+  { const r = await W.report(AW); W.log(r); W.check(t, "watchdog (guest) — foiling the robbery", r); await W.reset(AW); await W.reset(t); }
   await crewJob(t, g, Hp, A, hostUid, guestUid);
+  { const r = await W.report(t); W.log(r); W.check(t, "watchdog (host) — the crew job", r); }
+  { const r = await W.report(AW); W.log(r); W.check(t, "watchdog (guest) — the crew job", r); }
 }
 
 // ════ STAGE 3: THE BANK JOB WITH FRIENDS (heist/crew.js) ════

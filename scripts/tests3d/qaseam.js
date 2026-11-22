@@ -79,6 +79,11 @@ module.exports = {
       await placeCar(id, -8, 3.5, 0);
       await t.frames(4);
       if (await onFoot()) {
+        // (she climbs out on the car's far side now — over its own side, ci/qaweekend: put her on the approach's edge so the
+        //  walk is along the road, as a player would walk it)
+        await W.moved(t);
+        await g(`(() => { const p = (${AP(id)}).A(-6, 2); const F = ctx.foot.debug.F; F.pos.set(p.x, 0, p.z); F.vel.set(0, 0, 0); F.lulu.obj.position.copy(F.pos); return true; })()`);
+        await t.frames(3);
         await W.reset(t);
         await walkAlong(id, 1, 120);
         t.check(`${id}: walking in across the line → in town`, await inTown(), JSON.stringify(await g(`({ s: ctx.foot.debug.F.s, d: ctx.foot.debug.F.d })`)));

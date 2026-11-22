@@ -137,7 +137,7 @@ on("stat", e => { if (!e) return; for (const id of DAY.list) { const it = byId(i
 css("day", `
 .day-chip { background: rgba(255,253,245,.94); color: #3b2140; border-radius: 16px; padding: 6px 12px; margin-top: 6px; font-weight: 700; font-size: 14px;
   box-shadow: 0 2px 0 rgba(0,0,0,.12); max-width: 300px; line-height: 1.25; }
-.day-chip small { display: block; font-weight: 600; opacity: .72; font-size: 12px; }
+.day-chip small { display: block; font-weight: 600; opacity: .72; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }      /* (one line, always: a long errand used to wrap and push the WELCOME banner into the ✋ button on a small phone) */
 .day-chip .ok { color: #2E7D32; }
 body.tv .day-chip { font-size: 20px; max-width: 440px; } body.tv .day-chip small { font-size: 16px; }
 `);

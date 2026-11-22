@@ -142,7 +142,7 @@ on("boot", () => {
 });
 // only the town's own buildings play inside a town — the bank and a house (features/homes' "home": its families
 // live on these streets) — any other interior there still sends her back to the highway (the old way)
-const TOWN_INTERIORS = new Set(["bank", "home", "police", "hospital", "courthouse", "shopsPizza", "shopsBakery", "shul"]);   // (+ features/places' precinct, hospital, courthouse lobby; features/shops' walk-in shops)
+const TOWN_INTERIORS = new Set(["bank", "home", "police", "hospital", "courthouse", "shopsPizza", "shopsBakery", "shul", "realty", "realestateHouse"]);   // (+ features/places' precinct, hospital, courthouse lobby; features/shops' walk-in shops; features/shul; features/realestate's office + houses)
 on("state", ({ to, data }) => {
     if (to === "interior" && inTown() && !(data && TOWN_INTERIORS.has(data.id)) && ctx.town.leave) ctx.town.leave("quiet");
 });

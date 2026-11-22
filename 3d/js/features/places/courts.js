@@ -310,7 +310,7 @@ async function spawnShloime() {
 }
 const BABY_Y = 0.52;   // (the stroller's seat)
 function tickShloime(dt) {
-    if (!N.p || !N.sp) return;
+    if (!N.p || !N.sp || ctx.paused) return;      // (the HUD ticks under the pause menu: he waits too)
     N.t += dt;
     const sp = N.sp, k = 6 + Math.sin(N.t * 0.18) * 3.5;        // up and down the sidewalk beside the courthouse door (never across it: ✋ there is the door)
     const x = sp.x + sp.ux * k + sp.nx * 0.8, z = sp.z + sp.uz * k + sp.nz * 0.8;

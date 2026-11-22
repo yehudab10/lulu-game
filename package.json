@@ -1,8 +1,12 @@
 {
   "name": "lulu-road-trip",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Lulu's Road Trip — native iOS wrapper (Capacitor) for the web game at lulu.boats.",
+  "ota": {
+    "//": "The iPhone app's over-the-air updates (IOS_BUILD.md › Updates from the server). minNative = the lowest APP version (the version above, which Codemagic stamps into the app) that can run the web game from this commit. Raise BOTH together whenever native code changes: a plugin added/updated, capacitor.config.json, Info.plist keys, the ad SDK, the icon.",
+    "minNative": "2.0.0"
+  },
   "scripts": {
     "build": "node build.js",
     "check": "node build.js --check",
@@ -19,7 +23,9 @@
     "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.3.4",
     "@capacitor/haptics": "^8.0.2",
-    "@capacitor/ios": "^8.3.4"
+    "@capacitor/ios": "^8.3.4",
+    "@capacitor/network": "^8.0.1",
+    "@capgo/capacitor-updater": "8.54.2"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
