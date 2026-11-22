@@ -265,6 +265,7 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 | Lakewood | Main St, north side between Forest Ave and Lake Dr (block "3,1" n — across from the bank) | Gold Standard Realty (a `town_shop` + two plain shops: the shop row stays a shop row) | `ci/realestate` |
 | Midwood | Avenue M, south side between Coney Island Ave and E 15th (block "2,0" s) | Brick by Brick Realty (a `town_mw_store` in the store row) | `ci/realestate` |
 | Midwood | E 34th St (was E 16th St; the owner's address), Avenue K → J (block 4,2 face w) | Lulu's house (empty lot `luluHome`, 14 × 24 m) | `ci/hometown` (lot: `ci/exits2`) |
+| Midwood | E 8th St, block 0,1 east face (Avenue L → K) | 🅿️ the municipal lot (empty lot `parkLot`, 26 × 20 m) | `ci/parkinglot` (lot: `ci/onemap`) |
 | Lakewood | Minivan Way, block 3,2 north face (next door east of the precinct + court) | City Hall (a `cityhall_hall` + a duplex either side; replaces the homes on that face) | `ci/cityhall` |
 | Midwood | Avenue K, block 2,2 south face (across Avenue K from the precinct + courthouse) | Borough Hall (a `cityhall_hall` + a house either side; replaces the houses on that face) | `ci/cityhall` |
 
