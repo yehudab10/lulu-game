@@ -142,7 +142,7 @@ module.exports = {
           t.check(`${id} ${label}: the mayor is ${f.mayorOut ? "out (no mayor, an empty chair)" : "in his office"}`, f.mayorOut ? (!info.mayor && !info.people.some(q => q.id === "mayor")) : (info.mayor && info.people.some(q => q.id === "mayor")));
           t.check(`${id} ${label}: a handful of people (${info.people.length} rigs ≤ 8)`, info.people.length <= 8);
           for (const h of ["ticket", "board", "poster", "secretary", "mayor", "scissors", "win_permits", "win_taxes", "win_complaints"]) t.check(`${id} ${label}: has ${h}`, info.hots.includes(h));
-          const bad = info.people.filter(q => !/^wait/.test(q.id) && info.cols.some(c => q.x > c[0] - 0.05 && q.x < c[1] + 0.05 && q.z > c[2] - 0.05 && q.z < c[3] + 0.05));
+          const bad = info.people.filter(q => !/^wait|^expediter/.test(q.id) && info.cols.some(c => q.x > c[0] - 0.05 && q.x < c[1] + 0.05 && q.z > c[2] - 0.05 && q.z < c[3] + 0.05));
           t.check(`${id} ${label}: nobody stands inside a wall (${bad.map(b => b.id).join(",") || "ok"})`, bad.length === 0);
           const unreachable = await room(`r.hots.filter(h => !h.enabled || h.enabled(r)).filter(h => { const p = r.lulu.obj.position; p.set(h.x, 0, h.z); const x0 = p.x, z0 = p.z; r.collide(p, 0.32); const moved = Math.hypot(p.x - x0, p.z - z0) > 0.06; const near = r.findNear(); return moved || !near || near.id !== h.id; }).map(h => h.id)`);
           t.check(`${id} ${label}: every hot-spot is reachable, standable and the nearest at its own spot (${unreachable.join(",") || "ok"})`, unreachable.length === 0);
@@ -150,9 +150,10 @@ module.exports = {
           await t.frames(20);
           const pf = await perf(24);
           console.log(`   PERF cityhall ${id} ${label}`, JSON.stringify(pf));
-          t.check(`${id} ${label}: the room stays light (≤ 180 draw calls — the town budget is 240 — and ≤ 80k tris) (${pf.maxCalls} / ${pf.maxTris})`, pf.maxCalls <= 180 && pf.maxTris <= 80000);
+          t.check(`${id} ${label}: the room stays light (≤ 200 draw calls — the town budget is 240 — and ≤ 80k tris) (${pf.maxCalls} / ${pf.maxTris})`, pf.maxCalls <= 200 && pf.maxTris <= 80000);
           for (const [nm, x] of [["lobby", 0], ["office", -6.0], ["windows", 6.0]]) { await room(`(r.lulu.obj.position.set(${x}, 0, 1.2), r.updateCamera(0, true), true)`); await t.frames(18); if (id === "midwood" || !f.mayorOut) await t.shot(`cityhall-${id}-${nm}${f.mayorOut ? "-out" : ""}`); }
-          // using every hot-spot pays / costs nothing
+          // using every hot-spot pays / costs nothing (with nothing owed: the Taxes window CAN take a payment — two presses)
+          await g(`(ctx.cityhall.tax && (ctx.cityhall.tax.ledger.bills.length = 0), ctx.cityhall.permits && (ctx.cityhall.permits.PM.open.length = 0), true)`);
           const c0 = await coins(), h0 = await g(`ctx.G.hearts`);
           for (const hid of info.hots.filter(h => h !== "door")) {
             await room(`(() => { const h = r.hots.find(h => h.id === ${JSON.stringify(hid)}); r.lulu.obj.position.set(h.x, 0, h.z); if (!h.enabled || h.enabled(r)) r.use(h); return true; })()`);

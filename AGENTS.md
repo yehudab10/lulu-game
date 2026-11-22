@@ -311,6 +311,14 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
   meets 3D riders in the first shard; more would need the owner's OK for a relay change. Relay traffic grows with online
   players (each rider ~5 states/s to everyone in its shard): the owner should keep an eye on the Cloudflare free-tier usage.
 
+- **City hall (`ci/cityhall`, roadmap 17, landed 2026-11-22):** every number is in `features/cityhall/data.js` (TAX, FEES, FEE_CAP,
+  STORY_PAY, PROTEST_HOURS, INSPECT_TUNE). Known / left: the inspector, the paving crew and the expediter's crew are SOLO (in a party
+  only the room is shared; tax / fees / permits are each player's own save); protests + ribbon cuttings are local + cosmetic (not
+  synced between friends); the lien case goes on the docket of the town of the home with the oldest unpaid tax bill; the protesters
+  have no colliders (she walks through the picket line); the hall's sign cell is small on purpose — Midwood's ONE sign atlas sits at
+  scale 0.53 (the `midwood` test needs ≥ 0.5), so the next sign added to Midwood may tip it (shrink cells or raise the atlas size).
+  `ctx.cityhall.windows` / `addWindowHook` / `LOBBY_BUILDERS` / `MAYOR_LINES` / `CONTACT_EXTRAS` let another feature add to the
+  room, the windows and the 📞 City Hall contact without touching the files.
 - **Crime (`ci/crime`, landed 2026-11-22):** solo only (a party version of the street pieces would need a remote Lulu in a cart /
   at a stand via `d.x`, and each player's own pay — the props are already at fixed town spots); the cart's scatter counts the
   town's talkable people (`ctx.town.people()`), not homes' instanced crowd; the beat cop who answers a report WALKS in (no
