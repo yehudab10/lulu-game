@@ -295,7 +295,7 @@ addMenuItem("title", {
 // …and its Classic 2D cross-play room sits in ⚙️ More, beside "Classic 2D" (the 👯 Friends screen stays one button).
 addMenuItem("title", { id: "mp2d", order: 98, group: "more", short: "2D friends", label: "🕹️ Classic 2D friends",
     sub: "Play with friends on the old 2D game", visible: () => N.allowed() && !!ctx.party, action: () => U.openSharedRoad("title") });
-addMenuItem("pause", { id: "sharedroad", order: 40, label: () => MP.connected ? `🌐 Shared Road · ${N.riderCount()}` : "🌐 Shared Road",
+addMenuItem("pause", { id: "sharedroad", order: 40, label: "🕹️ Classic 2D friends",
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });

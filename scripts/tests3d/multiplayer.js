@@ -139,7 +139,7 @@ async function body(t) {
 
   // ── friend room: switch rooms from the pause menu ──
   await t.tap(9);
-  await t.click(/Shared Road/);
+  await t.click(/Classic 2D friends/);
   await t.game(`(${S}.codeSlots = [0, 1, 2, 3], ${S}.roomKind = "friend")`);
   await t.click(/FRIEND CODE/);
   await t.click(/Switch to ABCD/);
