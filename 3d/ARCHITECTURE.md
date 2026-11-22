@@ -1302,6 +1302,48 @@ rest are speech bubbles. **Cost:** the cart is built on `town:enter` and dispose
 (`TownRoad.nearest`, sticky) while she walks / stands still in the car. Tune `PAY` / `TUNE` / `LINES` in `data.js`. Test
 `scripts/tests3d/crime.js`.
 
+**Crime that isn't hers (crime stage 2 — `others.js` wires `monte.js`, `watches.js`, `porch.js`; `street.js`):** street
+characters exist only while she's near (`Character`: spawned within 90 m, dropped past 120 m), each one something she can
+REPORT (✋ in person → `community.callOut("police" | "shomrim")`, or from the 📞 Phone — `community.addReason`), foil, ignore
+or join. A report sends a BEAT COP (`sendCop`: walks in from ~28 m up the street, nabs the perp — a hand on the shoulder,
+cartoon). 🥄 **Find the kugel** (Yanky Three-Cups' folding table by the bank / hall / bakery, u −10): play = rigged, −3 💰
+(≤ 3 plays a real day: a sink) · report → +8 once a real day, he remembers ("Not YOU again." — the table folds when she walks
+up) · be his shill → a mark every 5 s, 2 💰 each, ≤ 8 a real day, +heat; a cop who SEES her shilling: the ⚠️ look. The table
+FOLDS whenever a cop is in sight of it (`copWatching`, 40 m) and is back 45 s after they've gone. ⌚ **The coat of watches**
+(Shmuly "Rolecks", pacing 9 m of sidewalk up from the bakery / pizza shop, u +20): buy one (−6, once a real day) · report →
++6 once a real day · a cop in sight / the snitch walking up → he's gone for a minute. 📦 **The porch pirate** (an event while
+she walks in town: the first after 45 s, then every 80–150 s, ≤ 2 a run): he takes the parcel off a lived-in front door
+12–45 m from her (`ctx.homes.homes()` + homelife's `householdAt` / `livedIn` when present) and runs along the sidewalk
+(road coords); ✋ TACKLE → ✋ pick it up → ✋ RETURN at that door (`first: true` only while she's carrying it — it never
+fights the door's KNOCK) → +6 (≤ 12 a real day) · 📞 Shomrim → a Shomer runs him down and brings it back: +3 · let him go →
+the town's group chat · walk off with it (> 70 m, or into a car) = KEPT: +4 (≤ 4 a real day), heat, and the family's
+doorbell camera → `law.callIn("PORCH PACKAGE THEFT")`. Every outcome is `emit("crime:porch", { id, fam, phase: back | kept |
+gone })` for features/homes (the household remembers) + `features/memory`'s log.
+
+**Her other crimes + street corruption (crime stage 3 — `tags.js`, `herring.js`, `air.js`, `corrupt.js`):** 🏷️ **The
+mattress-tag ring** — once a REAL day coming into a town (60 %, not when underworld's heat > 70) the Fixer texts in his own 💬
+thread: 4 mattresses lean on a kerb 30–110 m away; ✋ RIP each (*RRRIP*, passers-by gasp) → all four within 120 s = +12
+(once a real day) + 3 heat; a cop who SEES a rip: the look, then the chase (MATTRESS TAG REMOVAL). 🐟 **The kiddush heist** —
+ON THE SIDEWALK ONLY (a folding table outside the hall / the bakery; nothing inside a shul is ever a crime scene): Reb Getzel
+guards the good herring with a view cone (70°, 9 m) and turns every 3.5–6 s to argue with his friend about the kichel; ✋
+SWIPE while he's looking away → 22 m away unseen = +8 (once a real day); seen = "GANEF!", he snatches it back (and a cop
+who SEES it: the look). 🌬️ **Authentic air** — a stand by the welcome sign / bakery: ✋ SELL → a 30 s shift, a customer
+every 6 s, pick a pitch, 2 💰 a jar, ≤ 10 a real day; INSPECTOR PINCHAS (60 %) asks for a permit: 💸 a "donation" (4) → he
+didn't see any jars (remembered: next time he just winks) · 📄 "of course I have a permit" (half the time) · 🏃‍♀️ run — not
+believed / ran = the shift's over unpaid + his `law.callIn`. 🧾 **Corruption** (`corrupt.js`; city hall proper is
+`ci/cityhall`'s — it gets `crime:corrupt` {who, act} and `ctx.crime.corruption.{who(id), list(), evidence}`): MALKA THE METER
+MAID walks up to her window after 12 s double-parked → 🧾 the ticket (10, a sink) · 🍬 sweet-talk (35 %, 70 % once she likes
+her; fail = 12) · 🍩 a "donation" (5: torn up; 15 % an I.A. STING → `law.arrest(["BRIBING A PUBLIC SERVANT (MINOR)", …])`)
+· 📸 "about this photo of you…" (with evidence: hush money). CROOKED MOMENTS (one every 90–160 s while she walks in town,
+≤ 3 a run, 18–45 m up her sidewalk, ~18 s): Malka taking an envelope, TUVIA'S TOWING hooking up a legally parked minivan
+(the plain traffic truck at the kerb), INSPECTOR PINCHAS pocketing a challah. **Evidence**: a 📸 Camera (photo mode) snap with
+it in frame (`photo:snap` + a frustum test, ≤ 34 m) or ✋ → "📸 Snap it" → `SAVE.evidence` (one per character). ✋ → "🤝 for a
+cut" = +4 (≤ 8 a real day), heat, 12 % a sting. **🕵️ Internal Affairs** is a 📞 Phone contact (`community.addContact`): hand
+it in → +10 (≤ 20 a real day) and that character is REASSIGNED for good (Malka → Officer Pnina: tickets only; no more tows /
+inspections) — or sell it back to them (+8, ≤ 8 a real day, +5 heat) and they're NERVOUS for good (Malka never tickets her
+again). Every choice: `SAVE.mem[who]` (mood: friendly · bribed · partner · nervous · gone · snitch) + `ctx.memory.remember
+("crime", …)`. Tests `crime2.js`, `crime3.js` (+ the chase-frequency measure).
+
 **Everyone in one world (ci/everyone, roadmap 11 — `features/multiplayer`):** out in the open world (driving, or on foot
 outside: `def.driving` or `footRun`) the game is **online by default**: `index.js` `ambientTick` joins the relay's EVERYONE
 room (`lobby`, the one the Classic 2D game uses; the relay caps a room at 24 → close 4001 → straight on to `lobby2` …

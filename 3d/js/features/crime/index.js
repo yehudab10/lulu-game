@@ -28,6 +28,11 @@ import { CR, SAVE, live, inTown, onFoot, log, today, paidToday } from "./common.
 import { CART, buildCart, clearCart, cartTick, startRide } from "./cart.js";
 import { JAY, jayTick, resetJay, settleJay } from "./jaywalk.js";
 import { PARK, parkTick, parkReset, parkStart, parkEnd } from "./doublepark.js";
+import { othersEnter, othersLeave, othersRun, othersTick, othersDebug } from "./others.js";
+import { TAGS, maybeTip, rip, tagsTick, clearTags } from "./tags.js";
+import { HER, buildHerring, clearHerring, herringTick, swipe, getzelSees } from "./herring.js";
+import { AIR, buildAir, clearAir, airTick, start as airStart, airEnd } from "./air.js";
+import { CO, corruptTick, corruptReset, spawnScene, snap, handIn, ticket, corruption } from "./corrupt.js";
 
 // ── the charges (once the law is there) ──────────────────────────────────
 function registerCharges() {
@@ -42,17 +47,26 @@ function enterTown() {
     if (!ctx.enabled(ID)) return;
     CR.town = ctx.town && ctx.town.id || "";
     buildCart();
+    othersEnter();
+    buildHerring();
+    buildAir();
+    if (live()) maybeTip();
     ensureActor();
 }
 function leaveTown() {
     clearCart();
     parkReset();
     resetJay();
+    othersLeave();
+    clearTags();
+    clearHerring();
+    clearAir();
+    corruptReset();
     CR.town = "";
 }
 on("town:enter", enterTown);
 on("town:leave", leaveTown);
-on("run:start", () => { CR.sus = {}; parkReset(); resetJay(); ensureActor(); if (inTown() && !CART.obj) enterTown(); });
+on("run:start", () => { CR.sus = {}; parkReset(); resetJay(); othersRun(); corruptReset(); ensureActor(); if (inTown() && !CART.obj) enterTown(); });
 on("state", ({ to }) => { if (to === "title") leaveTown(); });
 
 // ── per frame ─────────────────────────────────────────────────────────────
@@ -67,6 +81,11 @@ function tick(dt) {
     const on = live();
     cartTick(dt);
     jayTick(dt, on && onFoot());
+    othersTick(dt);
+    tagsTick(dt);
+    herringTick(dt);
+    airTick(dt);
+    corruptTick(dt);
 }
 hook("update", (dt, P) => {
     if (!actor || !ctx.actors.includes(actor)) ensureActor();
@@ -81,6 +100,10 @@ ctx.crime = {
     /** Coins paid today for a crime (its per-real-day cap is in PAY). */
     paidToday,
     /** Start one now (tests / a phone tip): "cart" (she must be walking by it) · "park" (stopped double-parked). → bool */
-    start(kind) { return kind === "cart" ? startRide() : kind === "park" ? parkStart() : false; },
-    debug: { CR, SAVE, CART, JAY, PARK, settleJay, parkEnd, today, day: null, get log() { return CR.log; }, get force() { return CR.force; } },
+    start(kind) { return kind === "cart" ? startRide() : kind === "park" ? parkStart() : kind === "air" ? airStart() : kind === "herring" ? swipe() : false; },
+    /** Street-level corruption for city hall (ci/cityhall): who(id) · list() · evidence. Event crime:corrupt {who, act}. */
+    corruption,
+    debug: { CR, SAVE, CART, JAY, PARK, settleJay, parkEnd, today, day: null, others: othersDebug,
+        s3: { TAGS, maybeTip, rip, clearTags, HER, swipe, getzelSees, AIR, airEnd, CO, spawnScene, snap, handIn, ticket },
+        rebuild() { if (CR.town) { leaveTown(); enterTown(); } return !!CR.town; }, get log() { return CR.log; }, get force() { return CR.force; } },
 };

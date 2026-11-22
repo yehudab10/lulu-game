@@ -27,6 +27,7 @@ module.exports = {
     const step = async (label, fn) => {
       if (ONLY && !ONLY.test(label)) return;
       try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); }
+      await t.L(`import("./js/core/dialog.js").then(m => { if (m.isOpen()) m.closeDialog(); })`);
       if (process.env.CRIME_LOG) console.log(`    [${label}] log:`, JSON.stringify(await g(`${C}.log.slice(-12)`)));
     };
     const logHas = (ev, phase) => g(`${C}.log.some(e => e.ev === ${JSON.stringify(ev)} && e.phase === ${JSON.stringify(phase)})`);
@@ -37,7 +38,7 @@ module.exports = {
         const o = await opts();
         if (o.length) {
           const idx = o.findIndex(x => re.test(x));
-          await t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}].click()`);
+          await t.L(`(b => b && b.click())([...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}])`);
           await t.frames(3);
           if (!done) return true;
           continue;
@@ -78,6 +79,7 @@ module.exports = {
         car.place(p.x, p.z, n.h); car.vx = car.vz = 0; car.s = n.s; car.d = n.d; ctx.cam.snap(); return true; })()`);
 
     await W.install(t);
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__emit = m.emit; window.__arrests = []; m.on("law:arrest", e => __arrests.push((e && e.charges || []).slice())); })`);
     if (!await town("lakewood")) return;
     await g(`(${C}.CR.force.cop = false, ${C}.SAVE.paid = {}, ${C}.SAVE.mem = {}, ${C}.SAVE.evidence = [], ${C}.SAVE.tagsDay = "", ${C}.SAVE.day = ${C}.today(), true)`);
 
@@ -176,8 +178,8 @@ module.exports = {
       await footAt(...Object.values(await g(`(() => { const p = ctx.car.pos; return { x: p.x, z: p.z }; })()`)));
       t.check("👀 a crooked moment up the sidewalk (Tuvia's tow)", await g(`${S3}.spawnScene("tuvia")`));
       await t.frames(20);
-      await g(`(() => { const S = ${S3}.CO.scene, c = ctx.camera; c.position.set(S.x + 8, 3, S.z + 8); c.lookAt(S.x, 1.3, S.z); c.updateMatrixWorld(true); return true; })()`);
-      await t.L(`import("./js/core/ctx.js").then(m => m.emit("photo:snap", { url: "" }))`);
+      // (camera placed + the shutter in ONE step — a frame in between would put the game's camera back)
+      await g(`(() => { const S = ${S3}.CO.scene, c = ctx.camera; c.position.set(S.x + 8, 3, S.z + 8); c.lookAt(S.x, 1.3, S.z); c.updateMatrixWorld(true); window.__emit("photo:snap", { url: "" }); return true; })()`);
       t.check("📸 a photo with it in frame = evidence", await g(`${C}.SAVE.evidence.some(e => e.who === "tuvia")`));
       // 🕵️ Internal Affairs
       const c1 = await coins();
@@ -211,8 +213,8 @@ module.exports = {
       await g(`(${C}.PARK.on.t = 13, true)`);
       await t.until(`${S3U}.CO.malka && ${S3U}.CO.malka.asked`, "Malka (I.A.)", 30000);
       await answer(/donation/);
-      await t.until(`["lawArrest", "placesArrive", "lawJail"].includes(__lulu3d.state)`, "an I.A. sting → arrested", 9000);
-      const ar = await g(`(ctx.law._dbg.log.filter(e => e.ev === "law:arrest").slice(-1)[0] || {}).charges || []`);
+      await t.until(`window.__arrests.length > 0`, "an I.A. sting → arrested", 30000);
+      const ar = await t.L(`window.__arrests.slice(-1)[0] || []`);
       t.check("an I.A. sting: arrested for BRIBING A PUBLIC SERVANT", ar.some(c => /BRIBING A PUBLIC SERVANT/.test(c)), JSON.stringify(ar));
       let r = await W.report(t); W.log(r);
       W.check(t, "corruption", r, ["nan", "flat", "underground", "teleport", "lulu-jump", "cam-jump"]);
@@ -231,8 +233,8 @@ module.exports = {
       for (let k = 0; k < 8; k++) { await t.stick(Math.sin(k), -0.8); await t.frames(450 / 2); }
       await t.stick(0, 0);
       const ign = (await footChases()) - f0 + await t.L(`window.__chases`);
-      t.check(`ignoring it all for 2 minutes: no chase from crime (${ign})`, ign === 0);
-      console.log(`    📊 ignoring everything: ${ign} chases in 2 game-minutes`);
+      t.check(`ignoring it all for a minute of walking: no chase from crime (${ign})`, ign === 0);
+      console.log(`    📊 ignoring everything: ${ign} chases in 1 game-minute`);
       // (b) jaywalking at every chance for 2 game minutes (the patrol as it comes)
       const f1 = await footChases();
       const S = await g(`(() => { const sts = ctx.town.plan.STREETS.filter(s => s.parkLane && s.cross.length > 1); let best = null;

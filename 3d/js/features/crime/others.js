@@ -34,4 +34,4 @@ export function wirePhone() {
 }
 on("boot", wirePhone);
 
-export const othersDebug = { MONTE, WATCH, PORCH, COPS, reportMonte, reportWatch, spawnPorch, tacklePorch, porchShomrim, famMem };
+export const othersDebug = { MONTE, WATCH, PORCH, COPS, reportMonte, reportWatch, spawnPorch, tacklePorch, porchShomrim, famMem, dropPorch };

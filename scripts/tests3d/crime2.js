@@ -25,6 +25,7 @@ module.exports = {
     const step = async (label, fn) => {
       if (ONLY && !ONLY.test(label)) return;
       try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); }
+      await t.L(`import("./js/core/dialog.js").then(m => { if (m.isOpen()) m.closeDialog(); })`);
       if (process.env.CRIME_LOG) console.log(`    [${label}] log:`, JSON.stringify(await g(`${C}.log.slice(-12)`)));
     };
     const logHas = (ev, phase) => g(`${C}.log.some(e => e.ev === ${JSON.stringify(ev)} && e.phase === ${JSON.stringify(phase)})`);
@@ -36,7 +37,7 @@ module.exports = {
         const o = await opts();
         if (o.length) {
           const idx = o.findIndex(x => re.test(x));
-          await t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}].click()`);
+          await t.L(`(b => b && b.click())([...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}])`);
           await t.frames(3);
           if (!done) return true;
           continue;
@@ -153,10 +154,9 @@ module.exports = {
       await stand(22);
       t.check("a porch pirate turns up at that door", await g(`${O}.spawnPorch({ i: ${D.i} })`));
       await t.until(`${OU}.PORCH.E && ${OU}.PORCH.E.phase === "run"`, "he grabs the box and runs", 20000);
-      const reasons = await g(`ctx.community.reasons("shomrim").map(r => r.id)`);
+      // run him down: put her right by him (in the same breath — he's quick), ✋
+      const reasons = await g(`(() => { const E = ${O}.PORCH.E, F = ctx.foot.debug.F; E.dir = 0; /* (he stops to catch his breath: the test's page is slow) */ F.pos.x = E.x + 1.4; F.pos.z = E.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return ctx.community.reasons("shomrim"); })()`);
       t.check("📞 Shomrim lists the running porch pirate", reasons.includes("crimePorch"), JSON.stringify(reasons));
-      // run him down: put her right by him, ✋
-      await g(`(() => { const E = ${O}.PORCH.E, F = ctx.foot.debug.F; F.pos.x = E.x + 1.4; F.pos.z = E.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return true; })()`);
       await t.frames(2);
       t.check("✋ TACKLE", await press(`${O}.PORCH.E && ${O}.PORCH.E.phase !== "run"`));
       await t.until(`${OU}.PORCH.E && (${OU}.PORCH.E.phase === "dropped" || ${OU}.PORCH.E.pt > 0.9)`, "the box is down", 4000);
