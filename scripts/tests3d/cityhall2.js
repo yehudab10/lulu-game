@@ -77,13 +77,13 @@ module.exports = {
       // buy a listed home for cash (real estate's own test hook)
       home = await g(`(() => { const R = ctx.realestate; for (const r of R.listings()) if (R.debug.buyNow(r.id)) return r.id; return null; })()`);
       if (!t.check(`she owns a home (${home})`, !!home)) return;
-      const value = await g(`ctx.realestate.valueOf(${JSON.stringify(home)})`);
+      const value = await g(`(h => h.price || h.paid)(ctx.realestate.owned().find(h => h.id === ${JSON.stringify(home)}))`);
       const c0 = await coins();
       await day(3);
       const l = await L();
       const tax = l.bills.filter(b => b.kind === "tax" && !b.paid);
       const want = Math.max(1, Math.round(value * 0.002));
-      t.check(`a played day bills ~0.2 % of the value (${tax.map(b => b.amount)} for ${value}; want ${want})`, tax.length === 1 && Math.abs(tax[0].amount - want) <= 1);
+      t.check(`a played day bills ~0.2 % of the home's price (${tax.map(b => b.amount)} for ${value}; want ${want})`, tax.length === 1 && Math.abs(tax[0].amount - want) <= 1);
       t.check(`…it's NOT taken by itself (coins ${c0} → ${await coins()})`, await coins() === c0);
       t.check("…real estate's bill list for that home has the line", await g(`ctx.realestate.bills(${JSON.stringify(home)}).some(b => b.from === "cityhall" && !b.paid)`));
       t.check("…and a quiet line in 📱 Messages › City Hall", (await texts()).some(m => /property tax/i.test(m)));
@@ -97,6 +97,7 @@ module.exports = {
       await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "back driving", 20000);
       await playing();
       if (!await town("lakewood")) return;
+      await t.frames(20); await W.reset(t);          // (the test's own run restart + town switch)
     });
 
     await step("cap", async () => {

@@ -114,8 +114,11 @@ module.exports = {
     });
 
     // ════ the inspector ════
+    const ensureHome = async () => { if (!home) home = await g(`(() => { const R = ctx.realestate; const mine = R.owned().find(h => h.town === ctx.town.id); if (mine) return mine.id; for (const r of R.listings()) if (R.debug.buyNow(r.id)) return r.id; return null; })()`); return home; };
     await step("inspector", async () => {
-      if (!home) return;
+      if (!await ensureHome()) return;
+      // (a permit granted for it: the errand's own test is the "permits" part)
+      await g(`(${CH}.permits.PM.granted.some(x => x.home === ${JSON.stringify(home)}) || ${CH}.permits.PM.granted.push({ kind: "tenant", home: ${JSON.stringify(home)}, at: Date.now() }), true)`);
       const h = await g(`${CH}.inspect.homesHere().find(h => h.id === ${JSON.stringify(home)})`);
       if (!t.check("her home's door is found in the town", !!h)) return;
       await g(`(${CH}.inspect.IN.force.day = "insp-1", ${CH}.inspect.IN.force.always = true, ${CH}.inspect.IN.force.mood = "", ${CH}.fees.FE.force.day = "insp-1", true)`);

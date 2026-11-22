@@ -1,7 +1,7 @@
 // features/cityhall — 🏛️ A TOWN THAT GOVERNS (BADLY) (roadmap 17; the owner: "Taxes. Banks. Annoying government
 // regulation. Mayor. Protests… more corruption. More immersion.").
 //
-// Stage 1 (this): CITY HALL as a real place in each town + a MAYOR in each town.
+// Stage 1: CITY HALL as a real place in each town + a MAYOR in each town.
 //   • the building is town DATA (`uses.cityhall` — place.js): Lakewood City Hall on Minivan Way next to the precinct +
 //     court, Midwood Borough Hall on Avenue K across from them. A code-built model (models.js, merged by the town engine:
 //     ~0 draw calls): a columned portico, a clock tower stuck at ten to five, flags, the mayor's statue of himself.
@@ -14,6 +14,17 @@
 //   Friends: the room is SHARED (together/rooms.js SHARED.cityhall — friends inside see each other); the ribbon cuttings
 //   are local + cosmetic (each screen its own). Nothing in stage 1 pays or costs a coin.
 //
+// Stage 2: PROPERTY TAX + SILLY FEES + THE LIEN — tax.js (the ledger: tax on her homes per PLAYED day, a stern letter, a
+//   lien), fees.js (tiny joke fees, ≤ 10 a real day), pay.js (the Taxes window + 📞 Phone › City Hall: two presses, never
+//   below 0, never taken by itself), court.js (fight the lien in Courtroom 2B). Never touches who owns a home.
+//
+// Stage 3: PERMITS + INSPECTORS — permits.js (a tenant / a change outside → a quiet note; the errand: a form at PERMITS,
+//   a stamp at TAXES, back to PERMITS — granted; nothing ever waits for one), inspect.js (crime's Inspector Pinchas — or
+//   Inspector Pnina — at her homes once a real day now and then, and at the shops).
+// Stage 4: PROTESTS — protest.js (a picket line about an absurd LOCAL issue in protest hours: join in with a rhythm chant).
+// Stage 5: THE CORRUPTION THREAD — story.js (the expediter, the paving contract with one bid, the brother-in-law's crew;
+//   expose it or take a cut; payouts once per town, capped per real day).
+//
 //   data.js    every word + number      models.js  the building (code-built)     place.js  the town's `uses` entry
 //   state.js   the save + shared bits    lobby.js   inside (interiors engine)      ribbon.js the mayor's ribbon cuttings
 import { ctx, on, emit, hook, setState } from "../../core/ctx.js";
@@ -23,6 +34,14 @@ import { ribbonTick, ribbonReset, startRibbon, endRibbon, RB } from "./ribbon.js
 import { S, RUN, force, inTown, townId, mayorIn, closedWindow, stat } from "./state.js";
 import { TOWNS, PASS } from "./data.js";
 import { SHARED } from "../together/rooms.js";
+import * as TAXES from "./tax.js";
+import * as FEESM from "./fees.js";
+import { CT } from "./court.js";
+import { contactRender } from "./pay.js";
+import * as PERMITS from "./permits.js";
+import * as INSPECT from "./inspect.js";
+import * as PROTEST from "./protest.js";
+import * as STORYM from "./story.js";
 
 const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
 const C = { said: false, t: 0, doorsAt: 0, outAt: null };
@@ -73,11 +92,16 @@ on("boot", () => {
 on("interior:exit", e => { if (e && e.id === "cityhall") { const p = herPos(); C.doorsAt = ctx.time + 8; C.outAt = p ? { x: p.x, z: p.z } : null; C.said = true; } });
 on("town:enter", () => { C.said = false; nameLobby(townId()); });
 on("town:leave", () => { C.said = false; endRibbon("town"); });
-on("run:start", () => ribbonReset());
+on("run:start", () => { ribbonReset(); INSPECT.inspectReset(); });
 on("title", () => endRibbon("title"));
 // walking past: one light line per visit; the ribbon cuttings tick here too
+const TT = { t: 0 };
 hook("hud", dt => {
     try { ribbonTick(dt); } catch (e) { console.error("[cityhall] ribbon", e); }
+    try { if ((TT.t += dt) >= 0.5) { TT.t = 0; TAXES.taxTick(); } } catch (e) { console.error("[cityhall] tax", e); }
+    try { INSPECT.inspectTick(dt); } catch (e) { console.error("[cityhall] inspect", e); }
+    try { PROTEST.protestTick(dt); } catch (e) { console.error("[cityhall] protest", e); }
+    try { STORYM.storyTick(dt); } catch (e) { console.error("[cityhall] story", e); }
     try {
         if ((C.t += dt) < 0.6) return;
         C.t = 0;
@@ -100,5 +124,17 @@ ctx.cityhall = {
     /** A ribbon cutting is on right now: { what, town, phase, x, z } | null */
     get ribbon() { const R = RUN.ribbon; return R ? { what: R.what, town: R.town, phase: R.phase, x: R.x, z: R.z, snipped: R.snipped } : null; },
     windows: WIN_HOOKS,
+    /** Stage 2 — the town's ledger: property tax, fees, the lien (tax.js / fees.js / court.js / pay.js). */
+    tax: { tick: TAXES.taxTick, owed: TAXES.owed, quote: TAXES.quote, payNow: TAXES.payNow, taxToday: TAXES.taxToday, lienOn: TAXES.lienOn,
+        ruleLien: TAXES.ruleLien, newDay: TAXES.newDay, addLine: TAXES.addLine, get ledger() { return TAXES.ledger; }, TX: TAXES.TX, CT },
+    fees: { charge: FEESM.charge, feesToday: FEESM.feesToday, FE: FEESM.FE },
+    contactRender,
+    /** Stage 3 — permits (permits.js) + the inspector (inspect.js). */
+    permits: { need: PERMITS.needPermit, has: PERMITS.hasPermit, open: PERMITS.openPermits, stampWindow: PERMITS.stampWindow, PM: PERMITS.PM },
+    inspect: { start: INSPECT.startInspection, end: INSPECT.endInspection, inspector: INSPECT.inspector, homesHere: INSPECT.homesHere, IN: INSPECT.IN, reset: INSPECT.inspectReset },
+    /** Stage 4 — protests (protest.js). */
+    protest: { start: PROTEST.protestStart, stop: PROTEST.protestStop, hours: PROTEST.protestHours, topic: PROTEST.topicToday, chant: PROTEST.startChant, PR: PROTEST.PR },
+    /** Stage 5 — the corruption thread (story.js). */
+    story: { state: STORYM.story, crewStart: STORYM.crewStart, crewStop: STORYM.crewStop, usePhoto: STORYM.usePhoto, pay: STORYM.payStory, ST: STORYM.ST },
     debug: { S, RUN, force, C, RB, def: LOBBY_DEF, startRibbon, endRibbon },
 };

@@ -171,7 +171,7 @@ module.exports = {
       if (!await town("lakewood")) return;
       if (!await walkIn()) return;
       const n0 = await g(`ctx.cityhall.debug.S.ticket`);
-      for (let i = 0; i < 3; i++) { await room(`(() => { const h = r.hots.find(h => h.id === "ticket"); r.lulu.obj.position.set(h.x, 0, h.z); r.use(h); return true; })()`); await tapThrough(4); await t.frames(8); }
+      for (let i = 0; i < 3; i++) { await room(`(() => { const h = r.hots.find(h => h.id === "ticket"); r.lulu.obj.position.set(h.x, 0, h.z); r.use(h); return true; })()`); await drain(); await t.frames(8); }
       t.check(`three pulls: her number went up by 3 (${n0} → ${await g(`ctx.cityhall.debug.S.ticket`)})`, await g(`ctx.cityhall.debug.S.ticket`) === n0 + 3);
       await walkOut();
     });

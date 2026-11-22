@@ -4,7 +4,7 @@
 // counts only once she's out in the world: `tick()` runs in playing / footRun), silly fees (fees.js) and the lien fee.
 // Every tax bill is mirrored on real estate's per-home bill list (`ctx.realestate.addBill` / `payBill`, ref-matched).
 // The rules (all numbers in data.js › TAX):
-//   • tax = rate × the home's value, summed over her homes (not seized / lost), at most dayCap a played day (scaled down);
+//   • tax = rate × the home's listed price (stable), summed over her homes (not seized / lost), at most dayCap a played day (scaled down);
 //     the unpaid tax stops growing at owedCapDays days' worth
 //   • NOTHING is ever taken by itself: she pays at the Taxes window (lobby.js hook) or from 📞 Phone › 🏛️ City Hall —
 //     always two presses, whole bills oldest first, only what the wallet has (never below 0)
@@ -39,11 +39,15 @@ function taxedHomes() {
     if (!R || !R.owned) return [];
     return R.owned().filter(h => h && !h.seized && !h.lost);
 }
+/** What the tax is on: the home's listed price (stable — the market's daily wiggle doesn't move her bill; the same with a
+ *  mortgage), else what she paid, else today's value. */
 function valueOf(h) {
+    if (h.price > 0) return Math.round(h.price);
+    if (h.paid > 0) return Math.round(h.paid);
     const R = RE();
     let v = 0;
     try { v = R && R.valueOf ? R.valueOf(h.id) || 0 : 0; } catch (e) { v = 0; }
-    return Math.max(0, Math.round(v || h.paid || h.price || 0));
+    return Math.max(0, Math.round(v || h.price || 0));
 }
 /** Today's tax per home: [{ id, address, amount }] (already scaled to the day cap). */
 export function taxToday() {
