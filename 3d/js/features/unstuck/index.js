@@ -53,11 +53,12 @@ const footF = () => (ctx.foot && ctx.foot.debug ? ctx.foot.debug.F : null);
 const _l = {}, _n = {}, _p = {};
 
 // ── open lots inside a block (Lulu's own lot on Midwood's E 34th St: no house from the town — she walks it, her porch is
-//    on it): never "inside a block" there ──
+//    on it; and features/shops' car lot — ctx.shops.onLot): never "inside a block" there ──
 const LOT = { town: null, r: null };
 function onLot(x, z) {
     const T = ctx.town;
     if (!T || !T.active) return false;
+    if (ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z)) return true;      // (Uncle Refael's car lot: open ground too)
     if (LOT.town !== T.def) {
         LOT.town = T.def; LOT.r = null;
         const sp = T.spot && T.spot("luluHome");
@@ -425,7 +426,8 @@ function footRescue(opts) {
     // (an arrest / a knock-out / the climb-out intro play out — never cut short — unless they've hung for HUNG s)
     const soft = ["script", "approach", "hail"];
     if (F.phase !== "walk" && F.phase !== "hotwire" && F.phase !== "arrest" && (soft.includes(F.phase) || (F.phaseT || 0) > U.HUNG)) {
-        if (F.script && F.script.abort) { try { F.script.abort("unstuck"); } catch (e) { console.error("[unstuck] script", e); } }
+        // ("abort": the reason every feature already treats as cut short — no reward; the cart's joyride paid for "unstuck")
+        if (F.script && F.script.abort) { try { F.script.abort("abort"); } catch (e) { console.error("[unstuck] script", e); } }
         F.script = null; F.approach = null; F.hail = null;
         F.phase = "walk"; F.phaseT = 0;
         H.prompt("");
@@ -486,9 +488,9 @@ on("skip:end", () => {
 function refusal() {
     const g = ctx.openworld && ctx.openworld.game;
     const me = ctx.party && ctx.party.active ? ctx.party.uid : "me";
-    if (g && g.ph === "go" && (!Array.isArray(g.ps) || g.ps.includes(me))) return "🎮 Not in the middle of a party game — the game's rules decide. (❚❚ › leave it if you're really stuck.)";
+    if (g && g.ph === "go" && (!Array.isArray(g.ps) || g.ps.includes(me))) return "🎮 Not in the middle of a game with friends. If you're really stuck, leave the game from the pause menu.";
     const a = ctx.party && ctx.party.active && ctx.party.activity;
-    if (a && a.k === "race") return "🏁 Not mid-race — a reset would be a free shortcut. (If she's truly broken, it fixes itself.)";
+    if (a && a.k === "race") return "🏁 Not in the middle of a race. That would be a free shortcut! If she's really stuck, it fixes itself.";
     if (ctx.state === "parking" || ctx.state === "parkingEnd") return "🅿️ The parking challenge has its own ↺ Retry.";
     return null;
 }

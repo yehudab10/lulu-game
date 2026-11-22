@@ -1,151 +1,165 @@
-// Parking minigame: unlock the 🅿️ Parking Challenge with shared coins (from its card in the 📱 💼 Jobs app — it isn't a title
-// mode any more, roadmap 10; the rest-area booth is in the onegame test), drive
-// the lot car with the fake controller (speed governor, cameras tracking),
-// park a level for ⭐⭐⭐ (coins + shared save fields), fail one by ramming a
-// parked car (lives, the angry grandpa), finish the challenge end screen — then
-// the in-drive pull-over: crawl in the outer lane, ✕ to pull over, park, and
-// get back on the road (no foot feature in this test → returns to driving).
+// 🅿️ THE PARKING CHALLENGE ON A REAL LOT (ci/parkinglot): the course stands in a rest area's truck lot; the 📱 💼 Jobs
+// card unlocks it (1,000 shared coins) and MARKS the course (no teleport); pulling into the START box starts level 1 —
+// the "parking" state is a DRIVING state in the world (no separate scene: the highway traffic keeps going, the lot is
+// closed to other cars); the controller drives her real car under the lot governor; the autopilot (the tests' route
+// helper, the real physics) parallel-parks a level and pulls out into the lane for the next; scoring + the shared save fields as 2D;
+// a fail (ram a parked car: −1 life, the grandpa); running out of lives ends the run with the attendant's board and no
+// card; driving out of the course / ❚❚ › Leave ends it; the QA watchdog sees no cut in or out; the HUD chip fits a
+// phone both ways + TV. (Every one of the ten levels, driven by the autopilot: parking-levels.js — its own CI machine.)
+// Parts: PARKING_PART=basic,layouts (default: both).
+const W = require("../lib/qawatch.js");
 const S = `__lulu3d.ctx.parking._debug`;
+const PARTS = (process.env.PARKING_PART || "basic,layouts").split(",");
 module.exports = {
   name: "parking",
   save2d: { totalCoins: 1500, ownedSkins: ["pink", "purple"], selectedSkin: "purple" },
   async run(t) {
+    const g = c => t.game(c);
+    const st = () => g(`ctx.state`);
+    const coins = () => t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
     await t.frames(10);
-    t.check("no Parking Challenge on the title any more", !(await t.titleItems()).some(l => /Parking Challenge/.test(l)));
-    await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
+    t.check("no Parking Challenge on the title", !(await t.titleItems()).some(l => /Parking Challenge/.test(l)));
+    t.check("no separate parking scene: the 'parking' state is a driving state in the world (and parkingEnd is gone)",
+      await g(`(() => { const d = ctx.states.parking; return !!d && d.driving === true && d.world !== false && !ctx.states.parkingEnd; })()`));
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "driving")) return;
+    const RS = await g(`ctx.exits.debug.restAhead(320)`);
+    t.check("a rest area can be planned ahead", typeof RS === "number", String(RS));
+    t.check("the rest area has a 🅿️ course (with the attendant's START box)", await t.until(`__lulu3d.ctx.parking.debug.courses().length > 0`, "course", 20000));
+    await W.install(t);
 
-    // ── the 📱 💼 Jobs app's 🅿️ card: unlock with the shared wallet ──
-    await t.game(`ctx.phone.openPhone("jobs")`);
-    await t.frames(3);
-    t.check("the 📱 💼 Jobs app's 🅿️ card offers the 1,000-coin unlock", await t.L(`/Unlock — 1,000/.test(document.querySelector("#screenCard").textContent)`));
-    await t.shot("unlock");
-    await t.L(`document.getElementById("lpParkUnlock").click()`);
-    await t.frames(4);
-    const s2 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2"))`);
-    t.check("unlock spends 1,000 shared coins + sets parkingUnlocked", s2.parkingUnlocked === true && s2.totalCoins === 500, `coins ${s2.totalCoins}`);
-    await t.L(`document.getElementById("lpPark").click()`);
-    if (!await t.until(`__lulu3d.state === "parking" && ${S}.phase === "drive"`, "challenge level 1 starts")) return;
-    t.check("challenge level 1 starts", true);
-    t.check("lot car wears the shared skin", await t.game(`${S}.lot.car.skinKey`) === "purple");
-    await t.shot("level1");
+    // warp into the course's START box (a test shortcut: the watchdog is told), stopped
+    const toBox = async () => { await W.pause(t, false); await g(`ctx.parking.debug.toBox()`); await t.frames(4); await W.pause(t, true); await W.moved(t); };
+    const place = async (x, z, h, v = 0) => { await W.pause(t, false); await g(`ctx.parking.debug.place(${x}, ${z}, ${h}, ${v})`); await t.frames(2); await W.pause(t, true); await W.moved(t); };
+    const startHere = async label => {
+      await toBox();
+      return t.until(`__lulu3d.state === "parking" && ${S}.phase === "drive"`, label, 20000);
+    };
 
-    // ── drive with the controller: RT forward, stick steers, the lot governor caps speed ──
-    const x0 = await t.game(`${S}.lot.car.pos.x`);
-    await t.hold(7, 1); await t.stick(-0.4);
-    await t.frames(25);
-    const sp = await t.game(`${S}.lot.car.speed`);
-    await t.hold(7, 0); await t.stick(0);
-    const x1 = await t.game(`${S}.lot.car.pos.x`);
-    t.check("RT drives the lot car (left, toward the bay)", x0 - x1 > 1.5, `${(x0 - x1).toFixed(2)} m`);
-    t.check("lot speed governor (≤ 4.5 m/s)", sp <= 4.5 && sp > 1, `${sp.toFixed(2)} m/s`);
-    const camYaw = await t.game(`${S}.L.cams.map(c => c.yaw.toFixed(2)).join(",")`);
-    t.check("security cameras track the car", camYaw.length > 0, camYaw);
-    await t.shot("driving");
-    // triangle cycles the lot camera
-    await t.tap(3); await t.frames(10);
-    await t.shot("chasecam");
-    await t.tap(3); await t.tap(3);
+    if (PARTS.includes("basic")) {
+      // ── the 📱 💼 Jobs card: unlock with the shared wallet, then it MARKS the course ──
+      await g(`ctx.phone.openPhone("jobs")`);
+      await t.frames(3);
+      t.check("the 📱 💼 Jobs app's 🅿️ card offers the 1,000-coin unlock", await t.L(`/Unlock — 1,000/.test(document.querySelector("#screenCard").textContent)`));
+      await t.L(`document.getElementById("lpParkUnlock").click()`);
+      await t.frames(4);
+      const s2 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2"))`);
+      t.check("unlock spends 1,000 shared coins + sets parkingUnlocked", s2.parkingUnlocked === true && s2.totalCoins === 500, `coins ${s2.totalCoins}`);
+      await t.L(`document.getElementById("lpPark").click()`);
+      await t.frames(6);
+      t.check("…'Show me the course' marks it (a light over the START box) — she isn't moved anywhere", await g(`!!ctx.parking._debug.mark && ctx.state === "playing" && !ctx.parking.active`));
+      await t.shot("marked");
 
-    // ── a perfect park: slot her into the bay, lined up, stopped ──
-    const w0 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
-    await t.game(`(() => { const s = ${S}, L = s.L, c = s.lot.car; c.place((L.zx0 + L.zx1) / 2, (Math.max(L.curbZ, L.zz0) + L.zz1) / 2, Math.PI / 2); })()`);
-    if (!await t.until(`${S}.phase === "result"`, "holding still in the bay parks")) return;
-    t.check("holding still in the bay parks", await t.game(`${S}.result`) === "success");
-    t.check("untouched park = ⭐⭐⭐", await t.game(`${S}.stars`) === 3);
-    await t.frames(30);
-    await t.shot("parked");
-    const w1 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
-    t.check("level 1 pays 1×25 + 3×15 = 70 coins to the shared wallet", w1 - w0 === 70, `${w0} → ${w1}`);
-    const s3 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2"))`);
-    t.check("shared save: best level 1, +3 total stars, a perfect park",
-      s3.parkingBestLevel === 1 && s3.parkingTotalStars === 3 && s3.parkingPerfectRuns === 1, JSON.stringify([s3.parkingBestLevel, s3.parkingTotalStars, s3.parkingPerfectRuns]));
-    await t.tap(0);   // ✕ skips the result
-    if (!await t.until(`${S}.level === 2 && ${S}.phase === "drive"`, "on to level 2")) return;
-    t.check("✕ skips to level 2 (kids ride along with ice cream)", await t.game(`${S}.kidsInCar === true`));
+      // ── pulling into the START box IS the start (no button, no cut) ──
+      if (!await startHere("pull into the START box → level 1")) return;
+      t.check("stopping in the START box starts level 1 (her real car, the world around her)", await g(`ctx.parking._debug.level === 1 && !ctx.view && ctx.car.obj.visible`));
+      t.check("she parks HER car (the shared skin)", await g(`ctx.car.skinKey`) === "purple");
+      t.check("the attendant is there (with his clipboard)", await g(`ctx.parking.debug.courses().some(c => c.attendant)`));
+      t.check("level 1 is set out on the lot: two parked cars round the bay, one camera", await g(`(() => { const L = ctx.parking._debug.L; return L.parked.length >= 2 && L.cams.length === 1; })()`));
+      t.check("the HUD chip shows the level, lives and the clock", await t.L(`/LVL 1/.test((document.querySelector(".park-chip") || {}).textContent || "") && /♥ ?3/.test(document.querySelector(".park-chip").textContent)`));
+      await t.shot("level1");
 
-    // ── a fail: ram a parked car ──
-    await t.game(`(() => { const s = ${S}, p = s.L.parked[0], c = s.lot.car; c.place(p.obj.position.x + 5.2, p.obj.position.z, -Math.PI / 2); c.vx = -4.2; })()`);
-    if (!await t.until(`${S}.phase === "result"`, "ramming a parked car fails")) return;
-    t.check("ramming a parked car = CRASH!", await t.game(`${S}.result === "fail" && ${S}.failHit.who === "parked"`));
-    t.check("a challenge fail costs a life", await t.game(`${S}.lives`) === 2);
-    await t.frames(45);
-    await t.shot("crash");
-    t.check("the angry grandpa storms over", await t.game(`!!${S}.angry`));
-    await t.tap(0);
-    if (!await t.until(`${S}.level === 2 && ${S}.phase === "drive"`, "retry the same level")) return;
-    t.check("retry the same level", true);
+      // ── drive with the controller: RT forward, the lot governor caps speed ──
+      const x0 = await g(`ctx.parking.debug.local().x`);
+      await t.hold(7, 1); await t.stick(0.15);
+      await t.frames(30);
+      const sp = await g(`ctx.car.speed`);
+      await t.hold(7, 0); await t.stick(0);
+      const x1 = await g(`ctx.parking.debug.local().x`);
+      t.check("RT drives her car along the row (toward the bay)", x0 - x1 > 1.2, `${(x0 - x1).toFixed(2)} m`);
+      t.check("the lot speed governor (≤ 4.5 m/s)", sp <= 4.5 && sp > 0.8, `${sp.toFixed(2)} m/s`);
+      await t.frames(30);
+      // reverse from a stop: LT backs her up
+      const x2 = await g(`ctx.parking.debug.local().x`);
+      await t.hold(6, 1); await t.frames(30); await t.hold(6, 0);
+      t.check("LT from a stop reverses", await g(`ctx.parking.debug.local().x`) - x2 > 0.6);
+      await t.frames(30);
+      t.check("the security camera tracks her", await g(`ctx.parking._debug.L.cams.every(c => Math.abs(c.yaw) > 0.01)`));
+      // △ cycles the lot camera: Lot cam → Overhead → Chase → Lot cam
+      await t.tap(3); await t.frames(20); await t.shot("overhead");
+      t.check("△ cycles the lot camera (Overhead)", await g(`ctx.parking._debug.camToast > 0`));
+      await t.tap(3); await t.frames(10); await t.tap(3); await t.frames(10);
 
-    // ── run out of lives → the end screen ──
-    await t.game(`${S}.lives = 1`);
-    await t.game(`${S}.timeLeft = 0.2`);
-    if (!await t.until(`${S}.phase === "result"`, "the clock runs out")) return;
-    t.check("out of time = fail", await t.game(`${S}.failHit.who`) === "timeout");
-    await t.tap(0);
-    if (!await t.until(`__lulu3d.state === "parkingEnd"`, "challenge end screen")) return;
-    t.check("PARKING OVER screen", await t.L(`/PARKING OVER/.test(document.querySelector("#screenCard").textContent) && /Level 2/.test(document.querySelector("#screenCard").textContent)`));
-    await t.shot("end");
-    t.check("the end card goes back where it started (the road), not the title", await t.L(`/Back on the road/.test(document.querySelector("#screenCard").textContent) && !/Title screen/.test(document.querySelector("#screenCard").textContent)`));
-    await t.click(/Back on the road/);
-    await t.until(`__lulu3d.state === "playing"`, "back on the road");
-    t.check("lot set released back on the road", await t.game(`ctx.view === null && !${S}.active`));
+      // ── the lot is closed to other cars; the world keeps going ──
+      const tr = await g(`(() => { const CO = ctx.parking.debug.CO, c = ctx.parking._debug.c; let inside = 0; for (const k of ctx.traffic.cars) { const l = CO.toLocal(c, k.x, k.z, {}); if (CO.insideLocal(l.x, l.z, 2)) inside++; } return { n: ctx.traffic.cars.length, inside }; })()`);
+      t.check("the highway traffic keeps going during a level, and no car comes onto the course", tr.n > 0 && tr.inside === 0, JSON.stringify(tr));
 
-    // ── the pull-over from a real drive ──
-    await t.game(`L3.startRun({ mode: "cruise" })`);
-    if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
-    await t.game(`(() => { ctx.traffic.clear(); ctx.traffic.config.enabled = false; const r = ctx.world.road, p = r.point(300, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 300; ctx.car.vx = Math.sin(p.h) * 7; ctx.car.vz = Math.cos(p.h) * 7; })()`);
-    await t.hold(6, 0.35);
-    await t.frames(60);
-    t.check("crawling in the outer lane offers 🅿️ Pull over", await t.L(`/pull over/i.test((document.getElementById("slot-bottom") || {}).textContent || "")`));
-    await t.shot("pullover-prompt");
-    await t.hold(6, 0);
-    const c0 = await t.game(`ctx.G.coins`), sc0 = await t.game(`ctx.G.score`);
-    await t.tap(0);
-    await t.frames(6);
-    t.check("a quick ✕ tap doesn't hijack (pull-over is a hold)", await t.game(`ctx.state === "playing" && !ctx.parking._debug.active`));
-    await t.hold(0, 1);
-    await t.frames(24);
-    await t.hold(0, 0);
-    if (!await t.until(`__lulu3d.state === "parking"`, "holding ✕ pulls over into the lot")) return;
-    t.check("holding ✕ pulls over into the lot", await t.game(`${S}.from === "pullover" && !${S}.challenge`));
-    if (!await t.until(`${S}.phase === "drive"`, "the roadside lot is ready")) return;
-    await t.shot("roadside-lot");
-    const nParked = await t.game(`${S}.L.parked.length`);
-    t.check("roadside lot: 2–4 parked cars", nParked >= 2 && nParked <= 4, `${nParked}`);
-    // a 1-star park (dinged gently first)
-    await t.game(`(${S}.touched = true, ${S}.perfect = false)`);
-    await t.game(`(() => { const s = ${S}, L = s.L, c = s.lot.car; c.place((L.zx0 + L.zx1) / 2, (Math.max(L.curbZ, L.zz0) + L.zz1) / 2, -Math.PI / 2); })()`);
-    if (!await t.until(`${S}.phase === "result"`, "pull-over park")) return;
-    t.check("pull-over park: ⭐ (touched a car)", await t.game(`${S}.stars`) === 1);
-    const hasFoot = await t.game(`!!(ctx.foot && ctx.foot.start)`);
-    await t.tap(0);
-    if (hasFoot) {
-      // with the foot feature: Lulu climbs out, walks a few steps, then ctx.foot takes over
-      if (!await t.until(`${S}.phase === "walkout"`, "Lulu climbs out of the parked car")) return;
-      await t.frames(16);
-      await t.shot("walkout");
-      if (!await t.until(`__lulu3d.ctx.foot.active || __lulu3d.state !== "parking"`, "hands off to Lulu on foot (droveOff)")) return;
-      t.check("hands off to Lulu on foot (droveOff)", true);
-    } else if (!await t.until(`__lulu3d.state === "playing"`, "back on the road (no foot feature here)")) return;
-    const c1 = await t.game(`ctx.G.coins`), sc1 = await t.game(`ctx.G.score`);
-    // ≥: the window also covers driving / walking, where road coins and other features can add a few
-    t.check("pull-over pays 50 + 15 = 65 coins and +500 score", c1 - c0 >= 65 && c1 - c0 <= 75 && sc1 - sc0 >= 500, `+${c1 - c0} coins, +${Math.round(sc1 - sc0)} score`);
-    await t.frames(10);
-    await t.shot("after-pullover");
+      // ── a park, by the autopilot (her real car, the real physics): stars + coins + the shared save ──
+      const w0 = await coins();
+      await g(`ctx.parking.debug.autopark(true)`);
+      if (!await t.until(`${S}.phase === "result"`, "the autopilot parks level 1", 90000)) return;
+      const stars = await g(`ctx.parking._debug.stars`);
+      t.check("level 1 parked (in the bay, still, lined up)", await g(`ctx.parking._debug.result === "success"`));
+      t.check("…a clean park scores ⭐⭐ or more (★★★ = no contact at all)", stars >= 2, `${stars} ★`);
+      await t.frames(20);
+      await t.shot("parked");
+      const w1 = await coins();
+      t.check("level 1 pays 1×25 + 15 per ★ to the shared wallet", w1 - w0 === 25 + 15 * stars, `${w0} → ${w1} (${stars} ★)`);
+      const s3 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2"))`);
+      t.check("shared save: best level 1, the stars added, a perfect park counted only for ★★★",
+        s3.parkingBestLevel === 1 && s3.parkingTotalStars === stars && (s3.parkingPerfectRuns || 0) === (stars === 3 ? 1 : 0), JSON.stringify([s3.parkingBestLevel, s3.parkingTotalStars, s3.parkingPerfectRuns]));
+      t.check("the attendant holds up the result board (no card)", await g(`!!ctx.parking._debug.board && !(L3.H && L3.H.screenOpen && L3.H.screenOpen())`));
+      await t.tap(0);   // ✕ skips the result
+      t.check("✕ → pull out into the lane for level 2", await t.until(`${S}.phase === "box" && ${S}.level === 2`, "box", 6000));
+      t.check("…the autopilot backs out of the bay into the lane, and level 2 is set out round her", await t.until(`${S}.level === 2 && ${S}.phase === "drive"`, "level 2", 60000));
+      await g(`ctx.parking.debug.autopark(false)`);
 
-    // ── layouts: phone portrait (touch) + TV mode ──
-    await t.page.setViewportSize({ width: 390, height: 844 });
-    await t.game(`L3.setState("title")`);
-    await t.frames(3);
-    await t.game(`ctx.parking.start({ challenge: true })`);
-    if (!await t.until(`__lulu3d.state === "parking" && ${S}.phase === "drive"`, "portrait challenge")) return;
-    await t.L(`(__lulu3d.input.device = "touch", document.body.classList.add("touch"), document.getElementById("touch").classList.remove("hidden"))`);
-    await t.frames(12);
-    await t.shot("portrait");
-    t.check("portrait: HUD bar fits the screen", await t.L(`(() => { const r = document.querySelector("#parkHud .ph-bar").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })()`));
-    await t.page.setViewportSize({ width: 1280, height: 720 });
-    await t.game(`(document.body.classList.add("tv"), __lulu3d.input.device = "gamepad", document.body.classList.remove("touch"), document.getElementById("touch").classList.add("hidden"))`);
-    await t.frames(12);
-    await t.shot("tv");
+      // ── a fail: ram a parked car ──
+      await t.frames(4);
+      const pc = await g(`(() => { const p = ctx.parking._debug.L.parked[0].obj.position; return { x: p.x, z: p.z }; })()`);
+      await place(pc.x + 5.2, pc.z, -Math.PI / 2, 4.2);
+      if (!await t.until(`${S}.phase === "result"`, "ramming a parked car fails")) return;
+      t.check("ramming a parked car = CRASH!", await g(`ctx.parking._debug.result === "fail" && ctx.parking._debug.failHit.who === "parked"`));
+      t.check("a fail costs one of the three lives", await g(`ctx.parking._debug.lives`) === 2);
+      await t.frames(40);
+      t.check("the angry grandpa storms over", await g(`!!ctx.parking._debug.angry`));
+      await t.shot("crash");
+      await t.tap(0);
+      t.check("…pull out to retry the same level", await t.until(`${S}.phase === "box" && ${S}.level === 2`, "retry", 6000));
+
+      // ── out of lives: no card — the attendant's board, one line, she's just driving again ──
+      if (!await startHere("level 2 again")) return;
+      await g(`(ctx.parking._debug.lives = 1, ctx.parking._debug.timeLeft = 0.2)`);
+      if (!await t.until(`${S}.phase === "result"`, "the clock runs out")) return;
+      t.check("out of time = fail", await g(`ctx.parking._debug.failHit.who`) === "timeout");
+      await t.tap(0);
+      t.check("the last life → the run ends: plain driving again, no end card", await t.until(`__lulu3d.state === "playing"`, "playing", 6000) && !await t.L(`!!document.querySelector("#screen:not(.hidden) #screenCard")`));
+      t.check("…the run's board + one line (level reached)", await g(`!!ctx.parking._debug.board && ctx.parking._debug.endStats.level === 2 && ctx.parking._debug.endStats.why === "lives"`));
+      await t.shot("run-over");
+
+      // ── driving out of the course ends it ──
+      await t.frames(30);
+      if (!await startHere("again")) return;
+      await place(16.5, 12, Math.PI / 2, 2);
+      t.check("driving out of the course ends the run (she just keeps driving)", await t.until(`__lulu3d.state === "playing"`, "left", 4000) && await g(`ctx.parking._debug.endStats.why === "left"`));
+
+      // ── ❚❚ › Leave the Parking Challenge ──
+      await t.frames(30);
+      if (!await startHere("again")) return;
+      await t.key("Escape");
+      t.check("the pause menu offers 'Leave the Parking Challenge'", await t.L(`!!document.querySelector('[data-pi="parkLeave"]')`));
+      await t.L(`document.querySelector('[data-pi="parkLeave"]').click()`);
+      t.check("…→ plain driving, right where she is", await t.until(`__lulu3d.state === "playing"`, "left via pause", 4000) && await g(`ctx.parking._debug.endStats.why === "quit"`));
+      await t.frames(30);
+    }
+
+    if (PARTS.includes("layouts")) {
+      // ── the HUD: phone portrait / landscape (touch) + TV, during a level ──
+      if (!await startHere("a level for the layouts")) return;
+      const fits = () => t.L(`(() => { const out = []; for (const sel of [".park-chip", "#slot-bottom .prompt"]) { const e = document.querySelector(sel); if (!e) continue; const r = e.getBoundingClientRect(); if (r.width && (r.left < -1 || r.right > innerWidth + 1 || r.top < -1 || r.bottom > innerHeight + 1)) out.push(sel); } const a = document.querySelector(".park-chip"), b = document.querySelector("#hud .speedo"); if (a && b) { const r = a.getBoundingClientRect(), q = b.getBoundingClientRect(); if (r.width && q.width && r.left < q.right && q.left < r.right && r.top < q.bottom && q.top < r.bottom) out.push("chip/speedo"); } return out; })()`);
+      for (const [name, w, h, tv, dev] of [["portrait", 390, 844, false, "touch"], ["landscape", 844, 390, false, "touch"], ["tv", 1280, 720, true, "gamepad"]]) {
+        await t.page.setViewportSize({ width: w, height: h });
+        await t.L(`(__lulu3d.input.device = "${dev}", document.body.classList.toggle("touch", ${dev === "touch"}), document.body.classList.toggle("tv", ${tv}), document.getElementById("touch").classList.toggle("hidden", ${dev !== "touch"}))`);
+        await t.frames(12);
+        const bad = await fits();
+        t.check(`${name}: the challenge's chip + prompt are on screen, clear of the speedo`, bad.length === 0, bad.join(","));
+        await t.shot(name);
+      }
+      await t.page.setViewportSize({ width: 1280, height: 720 });
+      await t.L(`(document.body.classList.remove("tv"), document.body.classList.remove("touch"))`);
+      await g(`ctx.parking.debug.endRun("quit")`);
+      await t.frames(10);
+    }
+    W.check(t, "the challenge on the lot (in and out, every level)", await W.report(t));
   },
 };

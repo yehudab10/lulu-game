@@ -249,7 +249,7 @@ function statsTab(S) {
         ["🏎️ Cars owned", `${(S.ownedSkins || ["pink"]).length} / ${SKIN_COUNT}`],
         ["📣 Honk scares", fmt(stat(S, "honks10"))],
         ["🚀 Cars missiled", fmt(stat(S, "missiles8"))],
-        ["🅿️ Pull-over parks", fmt(stat(S, "parks3"))],
+        ["🅿️ Parallel parks", fmt(stat(S, "parks3"))],
         ["🎫 Toll booths", fmt(stat(S, "tolls4"))],
         ["🚶 Distance walked", distStr(stat(S, "footDist"))],
         ["🧊 3D drives", fmt(stat(S, "runs3d"))],

@@ -76,6 +76,18 @@ module.exports = {
         return out; })()`);
       t.check("the lot is closed: hedge colliders on both sides + the back, the street front open", H.left && H.right && H.back && H.front, JSON.stringify(H));
     }
+    // ✋ GO INSIDE her house and back out: the house's inside plays IN the town (Midwood stays — friends in there see each other)
+    if (real) {
+      const door = await g(`ctx.decor.debug.spotAt("door")`);
+      await g(`(ctx.foot.pos.set(${door.x}, 0.05, ${door.z}), ctx.foot.obj.position.copy(ctx.foot.pos), true)`);
+      await t.until(`__lulu3d.ctx.interiors.luluHome.ready()`, "house warmed", 60000);
+      await g(`ctx.decor.enter()`);
+      t.check("into her house: still in Midwood (the town stands outside)", await t.until(`__lulu3d.state === "interior"`, "inside", 10000) && await g(`ctx.town.active && ctx.town.id === "midwood"`), await g(`String(ctx.town.active && ctx.town.id)`));
+      await t.frames(10);
+      await g(`(window.__interiors.room.leave(), true)`);
+      t.check("…and back out on her porch, in Midwood", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.town.active && __lulu3d.ctx.home.near(__lulu3d.ctx.foot.pos.x, __lulu3d.ctx.foot.pos.z, 14)`, "out", 15000));
+      await t.frames(10);
+    }
     await t.frames(40);
     await t.shot("porch-midwood");
     // get in and pull out onto E 16th St

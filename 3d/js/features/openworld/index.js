@@ -409,7 +409,7 @@ function hostTick(force = false) {
 function blockReason(k) {
     const G = GAMES[k];
     if (!G) return "?";
-    if (party() && !roam()) return "Games run in 🌍 Free Roam";
+    if (party() && !roam()) return "Games only work while you're playing with friends";
     if (!party() && !G.solo) return "Needs friends — 👯 Friends on the home screen";
     if (roam() && members().length < (G.min || 1)) return `Needs ${G.min} players — invite a friend 👯`;
     if (ctx.state !== "playing" && !(ctx.state === "footRun" && onFoot())) return "Get driving first 🚗";   // (on foot: back in the car at GO)
@@ -465,9 +465,10 @@ function endGameNow() {
 // ── pins for a game (asked for on the requesting screen: it knows where it is) ──
 const SPOT_NAMES = { pizza: "🍕", hall: "💍", yeshiva: "📚", chair: "🪑", lake: "🦢", welcome: "🪧", construction: "🏗️", construction2: "🏗️", band: "🎺",
     precinct: "🚓", court: "⚖️", hospital: "🏥", impound: "🚧",   // (features/places: the civic buildings)
-    dealer: "🚗", makolet: "🛒",   // (features/shops: Uncle Moishe's lot, the makolet — already listed by their town signs; their icons)
-    realty: "🏘️" };   // (features/realestate: the realtor's office)
-const SPOT_FALLBACK = { chair: "the one free parking spot", lake: "the lake (mind the geese)", welcome: "the WELCOME sign", band: "the band bus", construction: "the crane", construction2: "the other crane" };
+    dealer: "🚗", makolet: "🛒",   // (features/shops: Uncle Refael's lot, the makolet — already listed by their town signs; their icons)
+    realty: "🏘️",   // (features/realestate: the realtor's office)
+    cityhall: "🏛️" };   // (features/cityhall: city hall)
+const SPOT_FALLBACK = { chair: "the one free parking spot", lake: "the lake (mind the geese)", welcome: "the WELCOME sign", band: "the band bus", construction: "the crane", construction2: "the other crane", cityhall: "City Hall" };
 function spotName(key, plan) {
     const S = plan && plan.def && plan.def.lines && plan.def.lines.SIGNS;
     const sign = S && (S[key] || (key === "band" && S.bandBus));

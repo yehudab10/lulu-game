@@ -142,7 +142,9 @@ export { carBox, pushC };
  * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
  * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
  */
-const CAM_PAD = 0.25, CAM_MIN = 0.05, _cl = {};     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
+const CAM_PAD = 0.25, CAM_MIN = 0.05, _cl = {}, _cl2 = {};
+/** An open lot inside a town block (features/shops' car lot): walkable, the camera may stand over it. */
+const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z));     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;
@@ -196,7 +198,15 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             let p = CAM_PAD;
             if (ax > r.x0 - p && ax < r.x1 + p && az > r.z0 - p && az < r.z1 + p) p = 0.05;     // (right up against it)
             const x0 = r.x0 - p, x1 = r.x1 + p, z0 = r.z0 - p, z1 = r.z1 + p;
-            if (ax > x0 && ax < x1 && az > z0 && az < z1) continue;
+            if (ax > x0 && ax < x1 && az > z0 && az < z1) {
+                // (she's INSIDE the block: an open lot in it — features/shops' car lot. The camera stays over the lot: it stops
+                //  where the lot ends and the block goes on — the backyards behind it)
+                if (openLot(tgt.x, tgt.z)) for (let t = 0.3; t < best; t += 0.3) {
+                    const px = tgt.x + wx * t, pz = tgt.z + wz * t, Lp = pl.local(px, pz, _cl2);
+                    if (Lp.x > r.x0 && Lp.x < r.x1 && Lp.z > r.z0 && Lp.z < r.z1 && !openLot(px, pz)) { best = Math.max(CAM_MIN, t - 0.3); break; }
+                }
+                continue;
+            }
             let t0 = 0, t1 = best;
             if (Math.abs(dx) < 1e-9) { if (ax < x0 || ax > x1) continue; }
             else { let ta = (x0 - ax) / dx, tb = (x1 - ax) / dx; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }

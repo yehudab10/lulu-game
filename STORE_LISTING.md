@@ -14,7 +14,7 @@ Character limits are checked (the counts are in brackets). The step-by-step orde
 | **Subtitle** (≤ 30) | `Funny open world with friends` [29] |
 | **Primary category** | Games → **Simulation** (sub-category: **Adventure**) — or Games → Adventure; NOT the Kids category (ads aren't allowed there) |
 | **Secondary category** | Entertainment |
-| **Content Rights** | "No, it does not contain, show, or access third-party content" — the game, art, music and characters are your own (the parody airline/shop names are made up; the real place names — Midwood, Lakewood — are just places) |
+| **Content Rights** | "No, it does not contain, show, or access third-party content" — the game, art, music and characters are your own (the airlines and shops are made-up parodies — Kugel Air, El Oy, Shmear Jet; the real place names — Midwood, Lakewood, JFK — are just places) |
 | **Age Rating** | answer as in §5 → Apple calculates **13+** |
 | **Privacy Policy URL** | `https://lulu.boats/privacy.html` |
 | **Bundle ID / SKU** | already set (`boats.lulu.game`) — don't change |
@@ -28,9 +28,9 @@ Free. All countries (or your choice).
 
 **Promotional Text** (≤ 170, can be changed any time without review):
 ```
-2.0 is a whole new 3D world: start at home in Midwood, take the pink car down the highway to Lakewood, and walk into shops, shul and court — alone or with friends.
+2.0 is a whole new 3D world: start at home in Midwood, drive the highway to Lakewood or the airport, walk into shops, shul and court — alone or with friends.
 ```
-[163]
+[157]
 
 **Description** (≤ 4000):
 ```
@@ -41,6 +41,7 @@ Every game starts on Lulu's street in Midwood, Brooklyn. Ima is at the door with
 
 ONE WORLD, NO MENUS
 • Drive the highway between Midwood and Lakewood — each town has its own exit
+• Take Exit 12 to the airport: taxi runs from the kerb, a lost suitcase, planes overhead and Kugel Air at the check-in desk
 • Park and walk: knock on doors, go into houses, shops, the pizza place, the bakery and the shul
 • Every place is real in the game: the police precinct, the courthouse and the hospital are buildings you can walk into
 • Rest areas, side jobs, deliveries and a Story Trip all start from places in the world
@@ -54,12 +55,13 @@ Everything is slapstick: no blood, nothing realistic, all played for laughs.
 FRIENDS
 • Other players who are online are simply there, as see-through ghosts — no lobby, no chat
 • Add friends with a code or a link and join them in one tap
-• Do things together: share a wanted level, get caught together, break out together
+• Do things together: missions for friends, share a wanted level, get caught together, break out together
 • Online play is safe by design: preset emoji reactions only, no typing, generated names, strangers can't touch you, and you can remove or block a friend any time. One switch turns online play off.
 
 YOUR STUFF
-• Earn coins, buy cars at Uncle Moishe's Pre-Loved Cars, add horns and decorations
+• Earn coins, buy cars at Uncle Refael's Pre-Loved Cars, add horns and decorations
 • Decorate Lulu's house and her room
+• Buy homes in town with a mortgage from the bank (and watch out for the city's funny rules)
 • Your coins, cars and progress from earlier versions carry over
 
 ALL YEAR ROUND
@@ -84,10 +86,10 @@ open world,driving,car,town,friends,multiplayer,funny,family,jewish,brooklyn,lak
 ```
 Lulu's Road Trip 2.0 — the whole game rebuilt as a 3D world.
 
-• Start at home in Midwood and go anywhere: the highway, Lakewood, rest areas
+• Start at home in Midwood and go anywhere: the highway, Lakewood, the airport, rest areas
 • Walk into houses, shops, the pizza place, the shul, the courthouse and the hospital
 • Friends: add each other and play in the same world
-• Buy cars at Uncle Moishe's, decorate Lulu's house
+• Buy cars at Uncle Refael's, decorate Lulu's house
 • Game controller support, portrait and landscape, iPad
 • Your coins, cars and progress carry over
 • The game now gets new things and fixes without waiting for an App Store update
@@ -183,7 +185,7 @@ Lulu's Road Trip 2.0 is a 3D open-world comedy game built with web technology (C
 SEEING EVERYTHING IN 2 MINUTES
 1. Launch: the App Tracking Transparency prompt appears over the loading/title screen about 1-2 seconds in (either answer is fine). Then tap the big PLAY.
 2. You start at home on foot (Midwood). Walk with the on-screen stick; the hand button interacts (doors, people). The pink car is in the driveway: walk up to it and tap GET IN to drive.
-3. Drive onto the highway; the exits lead to the towns (Midwood, Lakewood) and rest areas. In town, park anywhere and walk into the open doors: shops, the pizza place, the shul, the police precinct, the courthouse, the hospital.
+3. Drive onto the highway; the exits lead to the towns (Midwood, Lakewood), the airport (Exit 12, parody airlines) and rest areas. In town, park anywhere and walk into the open doors: shops, the pizza place, the shul, the police precinct, the courthouse, the hospital.
 4. The phone button in the corner opens Lulu's phone: the Map (tap a place for a guide line), Jobs and Friends.
 5. The pause button: settings, "I'm stuck", and under More the Classic 2D game.
 

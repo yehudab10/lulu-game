@@ -1,313 +1,531 @@
-// features/parking — THE PARKING MINIGAME (port of src/03-art-parking-hud.js,
-// src/04-parking-logic.js and the pull-over in src/05-driving-loop.js).
+// features/parking — 🅿️ THE PARKING CHALLENGE, played on a REAL lot in the world (ci/parkinglot; the owner,
+// 2026-11-22: "I want one main world and that's it… parking challenge should move to a lot").
 //
-//  • In-drive PULL-OVER (pullover.js): crawl in a side lane for 1.6 s → "🅿️ Pull
-//    over" → Lulu eases onto the shoulder → the roadside lot. Park (or fail),
-//    then she climbs out and walks off: ctx.foot.start("droveOff").
-//  • 🅿️ PARKING CHALLENGE: 10 levels, 3 lives, unlock once for 1,000 coins (shared
-//    `parkingUnlocked`). Not a title mode any more (roadmap 10): started from INSIDE the world —
-//    the 🅿️ booth in a rest area's lot or its card in the 📱 💼 Jobs app (features/onegame: from "booth" |
-//    "phone") — and it ends where she started it: on foot by the booth, or back on the road. Spots tighten, cameras multiply,
-//    dusk then night, a cone in the bay (4+), a pedestrian (5+), traffic (7+),
-//    and Sasquatch watching the Boss Level.
-//  • Scoring exactly like 2D: ★★★ no contact at all · ★★ no car touched ·
-//    ★ dinged something. Pull-over pays 50 + 15/★ coins and +500 score; the
-//    challenge pays level × 25 + 15/★. Hit a car hard, bump a pedestrian or run
-//    out the clock → CRASH! −1 ♥ (and the angry grandpa).
+//  • THE COURSE (course.js): one in every rest area's truck lot, beside Mendel's garage — a kerb, a bay row, a lane,
+//    the attendant with his clipboard by his booth, a painted START box. Nothing is a separate scene any more.
+//  • STARTING: pull into the START box and stop — that's it: level 1 begins where she is (the challenge still unlocks
+//    once for 1,000 shared coins: the first time, the attendant asks — hold ✕). The 🅿️ booth's ✋ (on foot) and the
+//    card in 📱 💼 Jobs don't teleport her any more: they mark the course (a light over the START box).
+//  • A LEVEL: the course crew sets out the level (the parked cars, a cone, the cameras on the sidewalk, a pedestrian,
+//    cars cutting through, Sasquatch on the Boss Level — they pop in with a puff), the attendant blows his whistle, and
+//    she parks HER car with the game's real driving (the "parking" state is a DRIVING state: the world, the highway
+//    traffic and the rest area carry on around her; the lot is closed to other cars). A lot speed governor, reverse
+//    from a stop, a higher lot camera (🎥 cycles Lot cam · Overhead · Chase). Scored EXACTLY like 2D: ★★★ no contact
+//    at all · ★★ no car touched · ★ dinged something; level × 25 + 15/★ coins; ram a car hard, roll into the
+//    pedestrian, hit a car cutting through or run out the clock → CRASH! −1 of 3 lives (and the angry grandpa).
+//  • BETWEEN LEVELS no card: the attendant holds up a board (the stars + coins, or CRASH); she pulls out of the bay into
+//    the lane and stops, and the crew re-sets the course round her for the next level (the START box is for level 1). After level 10 / the last life: the board shows the run, one line, and she's just
+//    driving again. Driving out of the course (or ❚❚ › Leave the challenge) ends it.
+//  • The old roadside PULL-OVER (its own lot scene) is RETIRED: the highway has no kerb to park at and the lanes can't
+//    be closed while she manoeuvres; stopping on the shoulder still gets her out and walking (features/foot).
+//  • Save fields unchanged (the classic 2D game reads them): parkingUnlocked, parkingBestLevel, parkingTotalStars,
+//    parkingPerfectRuns, the shared wallet.
 //
-// Service: ctx.parking = { start(opts), active, pose() }  ·  emits parking:result {stars, coins}
-//   opts: { challenge: true, level, from: "booth" | "phone" | "title" } | { from: "pullover" | "foot" | <other>, onDone({ok, stars, coins}) }
+// Service: ctx.parking = { start(opts), active, phase, here(), mark(), pose() → null, debug }  ·  emits parking:result
+//   {stars, coins, level, mode, ok, fail} · parking:run {phase: "start" | "end", level, victory, why}
+//   start(opts): { challenge: true, from: "booth" | "phone" | "box" | <test>, level } — at a START box: the run begins;
+//   elsewhere: the nearest / next course is marked. Returns true when a run began.
 import * as THREE from "three";
-import { ctx, on, emit, registerState, setState, addMenuItem, wrapAngle } from "../../core/ctx.js";
+import { ctx, on, emit, hook, registerState, setState, addMenuItem, wrapAngle, css } from "../../core/ctx.js";
 import { save3d, saveSoon, store, shared, wallet } from "../../core/save.js";
-import { addCoins, addScore } from "../../core/driving.js";
-import { input, glyph, rumble, setBrakePedal } from "../../input.js";
+import { addCoins, updateDriving } from "../../core/driving.js";
+import { input, glyph, rumble, addTouchButton } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { resume } from "../../core/screens.js";
 import { spawnPerson } from "../../core/people.js";
-import { models } from "../../models.js";
+import { models, ensureModels, cloneWithColors, findNodes } from "../../models.js";
+import { beacon, hideBeacon } from "../openworld/marks.js";
 import * as LOT from "./lot.js";
+import * as CO from "./course.js";
 import { PH } from "./hud.js";
 import { tone, notes, wompWomp, crunch } from "./sfx.js";
-import { pullover } from "./pullover.js";
 
 export const UNLOCK_COST = 1000;          // PARKING_UNLOCK_COST in src/01-engine-core.js
 const MAXF = 4.0, MAXR = 2.5;             // lot speed governor (2D: 60 / 42 px/s)
 const SLOW = 8 / LOT.PXM;                 // "slow" = under 8 px/s in 2D
 const HOLD = 0.8;                         // seconds in the bay to count as parked
-const TRANSITION = 0.9;                   // parkingTransitionDuration
+const BOX_STOP = 0.5;                     // stopped this long in the START box → the level is set out
+const UNLOCK_HOLD = 1.0;                  // hold ✕ this long to spend the 1,000 💰
 const P3 = store("parking", { parks: 0, fails: 0, challengeRuns: 0, cam: 0 });
-const CAM_NAMES = ["Overhead", "Chase cam", "Bird's eye"];
-const FAIL_MSGS = { timeout: "Out of time!", pedestrian: "You bumped a pedestrian!", parked: "You dinged the other car!", traffic: "You drove into traffic!" };
+const CAM_NAMES = ["Lot cam", "Overhead", "Chase cam"];
+const FAIL_MSGS = { timeout: "Out of time!", pedestrian: "You bumped a pedestrian!", parked: "You dinged the other car!", traffic: "You hit a car cutting through!" };
+const LINES = {
+    go: ["Nice and easy. Like your Bubbe parks.", "Between the two cars. Not ON them.", "Tighter than last time. You got this!", "No dents, no drama."],
+    yay: ["Beautiful! Next one's tighter.", "Textbook! Pull out for the next one, sweetheart.", "Now THAT'S parking.", "My clipboard is impressed."],
+    nay: ["Oy. Pull out and try again.", "He's not happy. I'm not happy. Go again.", "Gently! It's a car, not a bumper car."],
+    win: ["ALL TEN! I'm putting your picture on the booth. 🏆"],
+    over: ["That's the run. Come back any time — I'm always here.", "Good effort! Pull up again when you're ready."],
+    left: ["Leaving already? The course isn't going anywhere."],
+};
+const pick = a => a[Math.floor(Math.random() * a.length)];
 
-const S = { active: false, phase: "idle", t: 0, lot: null, L: null, opts: {}, camPos: new THREE.Vector3(), camLook: new THREE.Vector3() };
-const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+const S = { active: false, phase: "idle", t: 0, c: null, L: null, opts: {}, level: 0, lives: 3, chStars: 0, chCoins: 0, pops: [],
+    camPos: new THREE.Vector3(), camLook: new THREE.Vector3(), camYaw: 0, camInit: false, boxT: 0, offer: null, holdT: 0, mark: null };
+const v1 = new THREE.Vector3(), v2 = new THREE.Vector3();
+const _a = {}, _b = {}, _c = {};
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const solo = () => !(ctx.party && ctx.party.active) && !(ctx.G && ctx.G.mode === "party");
+const unlocked = () => !!shared.get().parkingUnlocked;
+
+// ── where she is, in the course's frame ───────────────────────────────────
+/** Her car in course c's local frame: { x, z, h, fx, fz } (x / z metres, h local heading). */
+function local(c, out = {}) {
+    const car = ctx.car;
+    CO.toLocal(c, car.pos.x, car.pos.z, out);
+    out.h = CO.hLocal(c, car.h);
+    out.fx = Math.sin(out.h); out.fz = Math.cos(out.h);
+    return out;
+}
+const inBox = lc => Math.hypot(lc.x - CO.COURSE.start.x, lc.z - CO.COURSE.start.z) < CO.COURSE.start.r;
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.parking = {
-    /** Pull over into the parking minigame. See the header for opts. */
-    start(opts = {}) { start(opts); },
+    /** Start the challenge at a START box, or mark the nearest course. See the header. */
+    start(opts = {}) { return start(opts); },
     get active() { return S.active; },
-    /** Lulu's car in the lot in 2D lot pixels {x, y, r} (Shared Road party parking), or null. */
-    pose() {
-        if (!S.active || S.phase !== "drive" || !S.lot) return null;
-        const c = S.lot.car;
-        return { x: Math.round(LOT.toX2(c.pos.x)), y: Math.round(LOT.toY2(c.pos.z)), r: Math.round(LOT.hToRot(c.h) * 100) / 100 };
-    },
+    get phase() { return S.active ? S.phase : "idle"; },
+    /** The course she's at (her car within ~40 m of its middle), or null. */
+    here: () => hereCourse(40),
+    /** Mark the nearest / next course (a light over its START box). */
+    mark: () => markCourse(),
+    /** (The old roadside lot sent Shared Road party poses; the challenge happens in the world now: nothing to send.) */
+    pose: () => null,
+    /** Stopped in a START box: foot's "get out & walk" stands down (pulling up IS the start). */
+    holdsStop: () => !!S.offer || (S.active && ctx.state === "parking"),
 };
+function hereCourse(max) {
+    if (!ctx.car) return null;
+    const c = CO.nearestCourse(ctx.car.pos.x, ctx.car.pos.z, max);
+    return c && c.chunk && !c.chunk.dead ? c : null;
+}
+
+/** Why the challenge can't start right now ("" = it can). */
+export function parkBlock() {
+    if (!solo()) return "Not in a party 🎉";
+    if (S.active) return "You're already parking!";
+    if (ctx.shabbos && ctx.shabbos.active) return "Candles first — Bubbe's waiting! 🕯️";
+    if (ctx.law && (ctx.law.chasing || (ctx.law.wanted || 0) >= 2)) return "Lose the cops first 🚓";
+    if (ctx.foot && ctx.foot.borrowed) return "In HER car, please — the attendant knows it";
+    return "";
+}
 
 function start(opts) {
-    if (S.active && ctx.state === "parking") return;
     S.opts = opts || {};
-    S.challenge = !!S.opts.challenge;
-    S.from = S.opts.from || (S.challenge ? "title" : "pullover");
-    // a challenge from inside the world goes back where it came from: on foot (by the booth) or the road
-    S.ret = S.challenge && S.from !== "title" ? (S.opts.again || (ctx.state === "footRun" ? "foot" : "drive")) : "";
-    S.kidsInCar = false;
-    if (S.challenge) {
-        S.level = S.opts.level || 1;
-        S.lives = 3; S.chStars = 0; S.chCoins = 0;
-        P3.challengeRuns++; saveSoon();
-    } else S.level = 0;
-    setState("parking", { from: S.from });
+    const why = parkBlock();
+    if (why) { H.toast(why, "red"); return false; }
+    const c = hereCourse(40);
+    if (c && ctx.state === "playing" && inBox(local(c, _a))) return beginRun(c, S.opts.level || 1, S.opts.from || "box");
+    markCourse();
+    return false;
 }
 
-// The roadside lot is lit like the road she pulled off: atmos's look (the time of day +
-// weather the driving scene last showed — by now a set is up, so the live lights are
-// back to the leg's base palette and would read as daytime).
-function themeFromWorld() {
-    const lk = ctx.atmos && ctx.atmos.look ? ctx.atmos.look() : null;
-    if (lk) return lk.night > 0.6 ? "night" : lk.night > 0.22 ? "dusk" : "day";
-    const sun = ctx.lights && ctx.lights.sun ? ctx.lights.sun.intensity : 2.6;
-    return sun > 1.6 ? "day" : sun > 0.8 ? "dusk" : "night";
+/** A light over the nearest live course's START box (or the next rest area's), + one line. */
+function markCourse() {
+    const car = ctx.car;
+    let c = CO.nearestCourse(car.pos.x, car.pos.z, 400);
+    if (!c) {
+        const R = ((ctx.exits && ctx.exits.rests) || []).filter(r => r.s > car.s - 150).sort((a, b) => a.s - b.s)[0];
+        if (R) c = CO.courseAt(R.s);
+        if (c) H.toast(`🅿️ The Parking Challenge is at the ${R.name} rest area — pull up to the attendant`, "gold");
+        else { H.toast("🅿️ Every rest area has a Parking Challenge — pull in at the next one", "gold"); return false; }
+    } else H.toast("🅿️ Drive into the START box by the attendant", "gold");
+    S.mark = c;
+    return true;
+}
+function markTick() {
+    const c = S.mark;
+    if (!c || S.active || !ctx.car) { if (S.markOn) { hideBeacon("parkDest"); S.markOn = false; } return; }
+    const p = CO.startPoint(c), me = (ctx.foot && ctx.foot.active && ctx.foot.pos) || ctx.car.pos;
+    const d = Math.hypot(p.x - me.x, p.z - me.z);
+    if (d > 900 && Math.abs(c.s - ctx.car.s) > 1500) { S.mark = null; return; }
+    if (d < 600) { beacon("parkDest", p.x, p.z, "#1E88E5", 2.2, 26); S.markOn = true; } else if (S.markOn) { hideBeacon("parkDest"); S.markOn = false; }
 }
 
-function mulberry(seed) {
-    let a = seed >>> 0;
-    return () => {
-        a = (a + 0x6D2B79F5) >>> 0;
-        let t = a;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-// ── level setup ──────────────────────────────────────────────────────────
-function beginLevel() {
-    const lot = S.lot;
-    let cfg, layout;
-    if (S.challenge) {
-        cfg = LOT.levelConfig(S.level);
-        layout = LOT.challengeLayout(cfg.spotWidth);
-    } else {
-        cfg = LOT.casualConfig(themeFromWorld());
-        // Shared Road party parking: a friend room seeds the lot from its code and
-        // hands every member a different bay (same as the 2D game's mpParkingRng).
-        const mp = ctx.mp;
-        const rng = (mp && mp.parkingRng && mp.parkingRng()) || mulberry((Math.random() * 4294967296) >>> 0);
-        const idx = (mp && mp.parkingSpotIndex && mp.parkingSpotIndex()) || 0;
-        layout = LOT.roadsideLayout(rng, idx, cfg.spotWidth);
+// ── the START box: pulling up IS the start ─────────────────────────────────
+hook("update", (dt, P, controlsOn) => {
+    if (ctx.state !== "playing") { if (S.offer) clearOffer(); return; }
+    const c = controlsOn && solo() && !S.active ? hereCourse(30) : null;
+    const lc = c ? local(c, _a) : null;
+    const there = !!(lc && inBox(lc) && ctx.car.speed < 1.4 && !(ctx.foot && ctx.foot.borrowed));
+    if (!there) { if (S.offer) clearOffer(); S.boxT = 0; return; }
+    if (!S.offer) {
+        S.offer = c; S.holdT = 0; S.boxT = 0;
+        if (S.mark === c) S.mark = null;
+        if (c.person) say(c, unlocked() ? pick(LINES.go) : "Ten levels. 1,000 coins, once — forever.", 2.6);
     }
-    S.cfg = cfg; S.layout = layout;
-    S.L = LOT.buildLevel(lot, { cfg, layout });
-    // the pull-over wears the world's sky (+ its rain / snow); a challenge level keeps its own look
-    if (ctx.atmos && ctx.atmos.dress) { if (S.challenge) ctx.atmos.undress(lot.set); else ctx.atmos.dress(lot.set, { stars: false }); }
-    const car = LOT.syncLotCar(lot);
-    car.place(LOT.lotX(W2_START.x), LOT.lotZ(W2_START.y), LOT.rotToH(-Math.PI));
-    car.skids.clear();
-    const kids = LOT.makeKids(lot);
-    for (const k of kids) k.obj.visible = S.kidsInCar;
-    S.timeLeft = cfg.timeLimit;
-    S.inZoneT = 0; S.touched = false; S.perfect = true; S.failHit = null; S.result = null; S.stars = 0; S.bonus = 0;
-    S.hitCd = 0; S.flashT = 0; S.shake = 0; S.inZone = false; S.lastSec = Math.ceil(S.timeLeft);
-    S.angry = null; S.walker = null;
-    removeBubble();
-    if (S.challenge) {
-        S.introTitle = `Level ${S.level} · ${LOT.LEVEL_NAMES[Math.min(S.level - 1, 9)]}`;
-        let d = `${cfg.numCameras} 📹 · ${Math.floor(cfg.timeLimit)}s · ${cfg.theme.toUpperCase()}`;
-        if (cfg.coneInSpot) d += " · 🚧";
-        if (cfg.pedestrian) d += " · 🚶";
-        if (cfg.traffic) d += " · 🚗";
-        if (cfg.sasquatchWatcher) d += " · 🦍";
-        S.introDetails = d;
-    } else {
-        S.introTitle = "🅿️ PARALLEL PARKING";
-        S.introDetails = "Park between the two cars — gently!";
+    const why = parkBlock();
+    if (why) { H.prompt(`🅿️ ${why}`); return; }
+    if (unlocked()) {
+        // stop in the box → level 1 (no button: she pulled up to the attendant)
+        H.prompt(`🅿️ Parking Challenge — stop in the box to start`);
+        S.boxT = ctx.car.speed < 0.6 ? S.boxT + dt : 0;
+        if (S.boxT >= BOX_STOP) { clearOffer(); beginRun(c, 1, S.opts.from || "box"); }
+        return;
     }
-    lot.set.show();
-    snapCam("intro");
-    S.phase = "intro"; S.t = 0;
-    tone(880, 0.08, "sine", 0.18);
-    tone(1175, 0.12, "sine", 0.18, 0, 0.08);
+    // locked: the attendant asks first (a HOLD — 1,000 💰 is not a tap)
+    const have = wallet.coins;
+    if (have < UNLOCK_COST) { H.prompt(`🅿️ Parking Challenge — 🔒 ${UNLOCK_COST.toLocaleString()} 💰 (you've got ${have.toLocaleString()})`); return; }
+    const tap = P.interact && input.device === "touch";
+    S.holdT = input.interactHeld || tap ? S.holdT + (tap ? UNLOCK_HOLD : dt) : 0;
+    const pct = Math.min(100, S.holdT / UNLOCK_HOLD * 100).toFixed(0);
+    H.prompt(`🅿️ Hold ${glyph("interact")} to unlock the Parking Challenge — ${UNLOCK_COST.toLocaleString()} 💰<span class="po-bar"><i style="width:${pct}%"></i></span>`);
+    if (S.holdT >= UNLOCK_HOLD) {
+        S.holdT = 0;
+        if (unlock()) { say(c, "Unlocked! Level one's a nice wide spot. …They get worse. 😬", 3); clearOffer(); beginRun(c, 1, "box"); }
+    }
+}, -10);
+function clearOffer() { S.offer = null; S.holdT = 0; H.prompt(""); }
+export function unlock() {
+    if (unlocked()) return true;
+    if (!wallet.spend(UNLOCK_COST)) return false;
+    shared.update(s => { s.parkingUnlocked = true; });
+    A.sfxFanfare();
+    emit("parking:unlock", {});
+    return true;
 }
-const W2_START = { x: LOT.W2 - 50, y: Math.round(LOT.H2 * 0.55) };   // where the 2D car starts
+css("pullover", `.prompt .po-bar { display: inline-block; vertical-align: middle; margin-left: 10px; width: 64px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.25); overflow: hidden; }
+.prompt .po-bar i { display: block; height: 100%; background: #CE93D8; }
+body.tv .prompt .po-bar { width: 96px; height: 12px; }
+.day-chip.park-chip b { color: #FFD54F; } .day-chip.park-chip .pk-low { color: #FF5252; animation: phBlink .5s steps(2) infinite; }
+.day-chip.park-chip small { display: block; opacity: .85; }
+@media (max-width: 430px), (max-height: 430px) { .day-chip.park-chip small { display: none; } }
+body.park-on #slot-left .day-chip:not(.park-chip) { display: none; }      /* (📝 Ima's list steps aside while she parks) */`);
+addTouchButton({ id: "parkUnlock", emoji: "🔓", label: "UNLOCK", action: "interact", visible: () => !!S.offer && !unlocked() && wallet.coins >= UNLOCK_COST && ctx.state === "playing" });
 
-// ── the state ────────────────────────────────────────────────────────────
+// ── a run ────────────────────────────────────────────────────────────────
+function beginRun(c, level, from) {
+    S.c = c; S.from = from;
+    S.level = clamp(level | 0, 1, 10);
+    S.lives = 3; S.chStars = 0; S.chCoins = 0;
+    S.active = true;
+    P3.challengeRuns++; saveSoon();
+    emit("parking:run", { phase: "start", level: S.level, from });
+    emit("onegame:parking", { via: from });
+    if (ctx.paused) resume();
+    setState("parking", { from });
+    return true;
+}
+
+/** End the run: the attendant's board, one line, back to plain driving. why: "victory" | "lives" | "left" | "quit" */
+function endRun(why) {
+    if (!S.active) return;
+    const victory = why === "victory";
+    const st = { level: Math.min(S.level, 10), stars: S.chStars, coins: S.chCoins, victory, why };
+    S.endStats = st;
+    if (why === "victory" || why === "lives") {
+        emit("stat", { id: "parkingChallenges", n: 1 });
+        if (victory) { emit("stat", { id: "parkingMaster", n: 1 }); A.sfxFanfare(); rumble(0.4, 0.8, 500, true); }
+    }
+    emit("parking:run", { phase: "end", level: st.level, victory, why });
+    const best = shared.get().parkingBestLevel || 0;
+    const c = S.c;
+    showBoard(c, victory ? ["🏆 ALL 10!", `★ ${st.stars} · 💰 ${st.coins}`] : ["RUN OVER", `level ${st.level} · ★ ${st.stars}`, `best: ${best}`], victory ? "#2E7D32" : "#1565C0", 7);
+    say(c, pick(LINES[victory ? "win" : why === "lives" ? "over" : "left"]), 3.2);
+    H.toast(victory ? `🏆 MASTER PARKER — all 10 levels! ★ ${st.stars} · +${st.coins} 💰` : why === "lives" ? `🅿️ Parking run over — level ${st.level} · ★ ${st.stars} · +${st.coins} 💰 (best: level ${best})` : `🅿️ Parking Challenge — you left the course (level ${st.level})`, victory ? "gold" : "");
+    S.active = false;
+    clearLevel(true);
+    if (ctx.state === "parking") {
+        setState("playing");
+        if (ctx.cam && ctx.cam.state) ctx.cam.state.pos.copy(ctx.camera.position);
+        if (ctx.cam && ctx.cam.blend) ctx.cam.blend(0.8);
+    }
+}
+
+// ── the state: a DRIVING state (the world carries on round the lot) ─────────
 registerState("parking", {
-    hud: false, touch: true, pausable: true, world: false,
-    enter(data, prev) {
-        S.active = true;
-        S.t = 0;
-        PH.reset();
-        PH.show(true);
-        PH.showBar(false);
-        PH.hint("");
-        input.stick2d = false;
+    hud: true, touch: true, pausable: true, driving: true,
+    enter() {
+        if (!S.active || !S.c) { setState("playing"); return; }
+        S.phase = "setup"; S.t = 0; S.built = false;
+        S.camInit = false;
+        S.noBoost0 = ctx.G.noBoost; ctx.G.noBoost = true;
+        CO.attendantCtl.busy = S.c;
+        PH.reset(); PH.show(true);
+        document.body.classList.add("park-on");
         A.setMusic("../parking.mp3");
         A.sfxHorn(false);
-        // From the road: zoom in on Lulu's car + white flash (2D parkingIntro), while the lot loads.
-        S.phase = S.from === "title" || S.ret === "foot" ? "loading" : "zoomIn";
-        S.zoomFrom = ctx.camera.position.clone();
-        S.lotPromise = LOT.ensureLot().then(l => { S.lot = l; }).catch(e => { console.error("[parking] lot failed to load", e); S.loadFailed = true; });
-        P3.cam = P3.cam || 0;
+        H.prompt("");
+        ensureModels(LOT.MODELS).catch(() => {});
     },
     exit(next) {
-        if (next === "parkingEnd") return;
-        leaveLot();
+        ctx.G.noBoost = S.noBoost0 || false;
+        document.body.classList.remove("park-on");
+        CO.attendantCtl.busy = null;
+        PH.show(false);
+        chip(null);
+        H.prompt("");
+        hideBeacon("parkBox");
+        removeBubble();
+        if (S.active) {
+            // something else took over (a wreck, an arrest, the title, a party): the run just stops
+            S.active = false;
+            emit("parking:run", { phase: "end", level: S.level, victory: false, why: "interrupted" });
+            clearLevel(false);
+        }
+        if (next === "playing" || next === "footRun") A.setMusic("../luludriving.mp3");
     },
     update(dt, P) {
         S.t += dt;
-        if (S.loadFailed) { S.loadFailed = false; bailOut(); return; }
+        if (!S.active) return;
+        if (P.camera) { P3.cam = (P3.cam + 1) % 3; saveSoon(); S.camToast = 1.8; S.camInit = false; if (P3.cam === 2 && ctx.cam) { ctx.cam.state.pos.copy(ctx.camera.position); if (ctx.cam.blend) ctx.cam.blend(0.6); } }
         switch (S.phase) {
-            case "zoomIn":
-                PH.white(S.t / 0.45);
-                A.updateEngine(0, 0, 0, 0, false, false);
-                if (S.t >= 0.45 && S.lot) beginLevel();
-                break;
-            case "loading":
-                PH.white(1);
-                if (S.lot) beginLevel();
-                break;
-            case "intro": updateIntro(dt, P); break;
+            case "setup": updateSetup(dt, P); break;
             case "drive": updateDrive(dt, P); break;
             case "result": updateResult(dt, P); break;
-            case "outro":
-                animateLot(dt);
-                PH.white(S.t / 0.45);
-                if (S.t >= 0.45) route();
-                break;
-            case "walkout": updateWalkout(dt); break;
-            case "handoff":
-                // the foot feature normally switches state right away; if it hasn't after
-                // a few seconds, don't leave Lulu stranded on a frozen road
-                if (S.t > 4) returnToDriving("");
-                break;
+            case "box": updateBox(dt, P); break;
             default: break;
         }
-        if (S.phase !== "zoomIn" && S.phase !== "loading" && S.phase !== "handoff" && S.lot) updateCam(dt);
+        tickPops(dt);
+        if (S.active) chip(chipHtml());
     },
-    camera(dt) {
-        // driving scene (before the lot is up): push in on Lulu's car
-        if (S.phase !== "zoomIn" || !ctx.car) return false;
-        const car = ctx.car;
-        v1.set(car.pos.x, 1.0, car.pos.z);
-        ctx.camera.position.lerp(v1, Math.min(1, dt * 2.2));
-        ctx.camera.lookAt(v1);
-        return true;
-    },
+    camera(dt) { return lotCamera(dt); },
 });
 
-function leaveLot() {
-    if (!S.active) return;
-    S.active = false;
-    S.phase = "idle";
-    removeBubble();
-    if (S.walker) { S.walker.person.obj.removeFromParent(); S.walker = null; }
-    if (S.angry) { S.angry.person.obj.removeFromParent(); S.angry = null; }
-    if (S.lot) {
-        S.lot.set.hide();
-        LOT.clearLot(S.lot);
-        if (S.lot.kids) for (const k of S.lot.kids) k.obj.visible = false;
-    }
-    PH.show(false);
-    PH.fadeWhiteOut();
-    A.updateEngine(0, 0, 0, 0, false, false);
-    if (ctx.view && S.lot && ctx.view === S.lot.set.view) ctx.view = null;
-    if (ctx.cam) ctx.cam.snap();
-}
-
-function bailOut() {
-    // the lot couldn't load (offline + uncached models): carry on driving
-    if (S.challenge && S.ret) { backToWorld("🅿️ The parking lot didn't load — check your connection"); return; }
-    if (S.challenge) { leaveLot(); setState("title"); H.toast("🅿️ The parking lot didn't load — check your connection", "red"); }
-    else returnToDriving("🅿️ No parking here — keep driving!");
-}
-
-// ── intro: white fade + camera swoop + level card ──────────────────────────
-function updateIntro(dt) {
-    PH.white(1 - S.t / 0.6);
-    PH.intro(S.introTitle, S.introDetails, clamp(S.t / 0.25, 0, 1));
-    PH.showBar(true);
-    updateBar();
-    PH.hint("");
-    animateLot(dt);
-    idleCar(dt);
-    if (S.t >= 1.0) {
-        S.phase = "drive"; S.t = 0;
-        tone(523, 0.08, "triangle", 0.2);
-    }
-}
-
-function updateBar() {
-    const low = S.timeLeft <= 10 && S.phase === "drive";
-    if (S.challenge) PH.bar({ title: `LVL ${S.level} · ${LOT.LEVEL_NAMES[Math.min(S.level - 1, 9)]}`, lives: S.lives, stars: S.chStars, coins: S.chCoins, time: S.timeLeft, low });
-    else PH.bar({ title: "PARALLEL PARKING", lives: Math.max(0, ctx.G.hearts || 0), time: S.timeLeft, low });
-}
-
-function idleCar(dt) {
-    const car = S.lot.car;
-    car.updateVisual(dt, ctx.time, { steer: 0, throttle: 0, brake: 0, handbrake: false }, false);
-    A.updateEngine(Math.abs(car.vF), 0, 0, 0, false, true);
-}
-
-// ── driving in the lot ─────────────────────────────────────────────────────
-function updateDrive(dt, P) {
-    const lot = S.lot, L = S.L, car = lot.car;
-    // the level card lingers for a moment
-    PH.intro(S.introTitle, S.introDetails, clamp(1 - (S.t - 0.6) / 0.5, 0, 1));
-    if (P.camera) { P3.cam = (P3.cam + 1) % 3; saveSoon(); S.camToast = 1.6; snapCam(); }
-
-    // controls → the same PlayerCar physics, with a lot speed governor
-    const thr = input.throttle, brk = input.brake;
-    const vF = car.vF;
-    setBrakePedal(vF);           // the touch pedal: BRAKE while rolling forward, REVERSE from a stop
-    const ctl = {
+// the controls: her real car, with the lot's speed governor (2D's 60 / 42 px/s), reverse from a stop
+function lotCtl(hold = false) {
+    const car = ctx.car, thr = input.throttle, brk = input.brake, vF = car.vF;
+    if (hold) return { steer: 0, throttle: 0, brake: 1, handbrake: false, analog: true };
+    return {
         steer: clamp(input.steer * (save3d.settings.steerSens || 1), -1, 1),
         throttle: thr * 0.5 * clamp((MAXF - vF) / 1.2, 0, 1),
         brake: vF > 0.6 ? brk : brk * 0.65 * clamp((MAXR + vF) / 1.0, 0, 1),
         handbrake: false, analog: input.device !== "keyboard",
     };
-    const n = Math.max(1, Math.ceil(dt / (1 / 120)));
-    for (let i = 0; i < n; i++) car.step(dt / n, ctl, { offroad: 0 });
-    // gas while rolling backwards brakes (PlayerCar would just coast)
-    if (car.vF < -0.2 && thr > 0.05) slowAlong(car, 9 * thr * dt);
-    if (Math.abs(car.vF) < 0.05 && thr < 0.05 && brk < 0.05) { car.vx *= 0.8; car.vz *= 0.8; }
+}
+function drive(dt, P, hold = false) {
+    const car = ctx.car, ctl = lotCtl(hold);
+    updateDriving(dt, P, true, ctl);
+    if (hold) { car.vx *= Math.exp(-5 * dt); car.vz *= Math.exp(-5 * dt); return; }
+    // gas while rolling backwards brakes (the car would just coast)
+    const thr = Math.max(input.throttle, ctl.throttle * 2);
+    if (car.vF < -0.2 && thr > 0.05) slowAlong(car, 9 * Math.min(1, thr) * dt);
+    if (Math.abs(car.vF) < 0.05 && thr < 0.05 && input.brake < 0.05 && ctl.brake < 0.05) { car.vx *= 0.8; car.vz *= 0.8; }
+}
+function slowAlong(car, dv) {
+    const sp = Math.hypot(car.vx, car.vz);
+    if (sp < 1e-4) return;
+    const k = Math.max(0, sp - dv) / sp;
+    car.vx *= k; car.vz *= k;
+}
+/** Did she drive out of the course? (ends the run) */
+function leftCourse() {
+    const lc = local(S.c, _b);
+    if (CO.insideLocal(lc.x, lc.z)) return false;
+    endRun("left");
+    return true;
+}
 
+// ── setting out a level ───────────────────────────────────────────────────
+function updateSetup(dt, P) {
+    drive(dt, P, true);
+    if (!S.built) {
+        if (!LOT.MODELS.every(k => models[k])) { PH.hint("") ; chip(chipHtml()); return; }      // (the props are still loading: a beat)
+        buildLevel();
+        S.built = true; S.t = 0;
+        whistle();
+        S.introUntil = ctx.time + 3.2;          // (the level's name on the prompt line for a moment — no banner over the lot)
+    }
+    animateLevel(dt);
+    if (S.built) H.prompt(introText());
+    if (S.t >= 1.0) { S.phase = "drive"; S.t = 0; tone(523, 0.08, "triangle", 0.2); }
+}
+function whistle() {
+    tone(2350, 0.09, "square", 0.08); tone(2200, 0.22, "square", 0.08, 0, 0.12);
+    const p = S.c && S.c.person;
+    if (p) { p.face(ctx.car.pos.x, ctx.car.pos.z, 1, 99); }
+}
+
+/** Lay out the level's props in the course (local coords, in a group turned with the course). */
+function buildLevel() {
+    clearLevel(true);
+    const c = S.c, cfg = LOT.levelConfig(S.level), layout = LOT.challengeLayout(cfg.spotWidth);
+    S.cfg = cfg; S.layout = layout;
+    const G = new THREE.Group();
+    G.name = "ParkingLevel";
+    G.position.set(c.O.x, 0, c.O.z);
+    G.rotation.y = c.phi;
+    ctx.scene.add(G);
+    const zone = layout.zone, curbZ = CO.COURSE.curbZ;
+    const zx0 = LOT.lotX(zone.x), zx1 = LOT.lotX(zone.x + zone.w), zz0 = LOT.lotZ(zone.y), zz1 = LOT.lotZ(zone.y + zone.h);
+    const L = S.L = { G, zone, curbZ, zx0, zx1, zz0, zz1, parked: [], cams: [], cones: [], traffic: [], trafficT: 3, owned: [] };
+    const own = (...xs) => { L.owned.push(...xs); return xs[0]; };
+    const pop = o => { o.scale.multiplyScalar(0.01); S.pops.push({ obj: o, t: 0, dir: 1, s: 1 / 0.01 }); };
+
+    // the painted bay: a dashed outline (yellow → green when she's in it) + T marks + a bobbing chevron
+    L.outlineMat = own(new THREE.MeshStandardMaterial({ color: "#FFEB3B", emissive: "#FFEB3B", emissiveIntensity: 0.35, roughness: 0.5 }));
+    const dGeo = own(new THREE.PlaneGeometry(0.47, 0.11).rotateX(-Math.PI / 2));
+    const per = [];
+    const inset = 0.08, ax0 = zx0 + inset, ax1 = zx1 - inset, az0 = Math.max(curbZ + 0.08, zz0), az1 = zz1 - inset;
+    for (let x = ax0; x < ax1 - 0.2; x += 0.82) { per.push([x + 0.235, az0, 0]); per.push([x + 0.235, az1, 0]); }
+    for (let z = az0 + 0.3; z < az1 - 0.2; z += 0.82) { per.push([ax0, z + 0.235, 1]); per.push([ax1, z + 0.235, 1]); }
+    const outline = new THREE.InstancedMesh(dGeo, L.outlineMat, per.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = new THREE.Vector3(1, 1, 1);
+    per.forEach((p, i) => outline.setMatrixAt(i, m4.compose(v1.set(p[0], 0.05, p[1]), q.setFromEuler(e.set(0, p[2] ? Math.PI / 2 : 0, 0)), one)));
+    G.add(outline);
+    const chev = new THREE.Mesh(own(new THREE.ConeGeometry(0.42, 0.8, 4)), L.outlineMat);
+    chev.rotation.x = Math.PI;
+    chev.position.set((zx0 + zx1) / 2, 2.4, (Math.max(curbZ, zz0) + zz1) / 2);
+    G.add(chev);
+    L.chevron = chev;
+    const white = own(new THREE.MeshStandardMaterial({ color: "#F5F5EE", roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }));
+    const tGeo = own(new THREE.PlaneGeometry(0.1, 0.5).rotateX(-Math.PI / 2));
+    for (const pc of layout.cars) for (const s of [-1, 1]) { const m = new THREE.Mesh(tGeo, white); m.position.set(LOT.lotX(pc.x + s * 42), 0.048, zz1 - 0.2); G.add(m); }
+
+    // the parked cars (each a real car: dents go on its bodywork; the two either side of the bay can end the level)
+    for (const pc of layout.cars) {
+        const obj = cloneWithColors(models.sedan, { Paint: pc.color });
+        const h = LOT.rotToH(pc.rot || 0);
+        obj.position.set(LOT.lotX(pc.x), 0, LOT.lotZ(pc.y));
+        obj.rotation.y = h;
+        G.add(obj); pop(obj);
+        const fx = Math.sin(h), fz = Math.cos(h);
+        const circles = [-1.45, 0, 1.45].map(o => ({ x: obj.position.x + fx * o, z: obj.position.z + fz * o, r: 0.9 }));
+        L.parked.push({ obj, circles, deco: !!pc.deco });
+    }
+    // the security cameras on the sidewalk (1 → 3), each tracking her with a dashed red laser
+    const camXs = [-9.6, 0.9, 9.4];
+    const idx = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, cfg.numCameras);
+    for (const i of idx) {
+        const cam = cloneWithColors(models.parking_camera);
+        cam.position.set(camXs[i], 0.15, curbZ - 0.75);
+        G.add(cam); pop(cam);
+        const head = findNodes(cam, "CamHead")[0];
+        if (head) head.rotation.order = "YXZ";
+        const beamMat = own(new THREE.MeshBasicMaterial({ color: "#ff3b30", map: own(LOT.laserTex().clone()), transparent: true, opacity: 0.85,
+            blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+        beamMat.map.wrapS = beamMat.map.wrapT = THREE.RepeatWrapping; beamMat.map.needsUpdate = true;
+        const beamGeo = own(new THREE.PlaneGeometry(0.06, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5));
+        const beam = new THREE.Mesh(beamGeo, beamMat), beam2 = new THREE.Mesh(beamGeo, beamMat);
+        beam2.rotation.z = Math.PI / 2; beam.add(beam2); beam.renderOrder = 5;
+        if (head) { beam.position.set(0, 0.04, 0.86); head.add(beam); }
+        L.cams.push({ obj: cam, head, beam, beamMat, yaw: 0, pitch: 0.3 });
+    }
+    // a cone in the bay (4+) · a stray shopping cart in the lane (6+)
+    if (cfg.coneInSpot) {
+        const cone = cloneWithColors(models.parking_cone);
+        const cx = zone.x + zone.w / 2 + (Math.random() * 30 - 15), cy = zone.y + zone.h / 2 + (Math.random() * 20 - 10);
+        cone.position.set(LOT.lotX(cx), 0, Math.max(curbZ + 0.4, LOT.lotZ(cy)));
+        G.add(cone); pop(cone);
+        L.cones.push({ obj: cone, r: 0.26, knocked: false, v: new THREE.Vector3(), spin: new THREE.Vector3(), rest: false, y0: 0, kind: "cone" });
+    }
+    if (S.level >= 6) {
+        const ct = cartModel();
+        const me = local(c, _b);
+        let cx = 0, cz = 0;
+        for (let k = 0; k < 12; k++) { cx = -8 + Math.random() * 16; cz = zz1 + 2.2 + Math.random() * 1.5; if (Math.hypot(cx - me.x, cz - me.z) > 3.8) break; }
+        ct.position.set(cx, 0, cz);
+        ct.rotation.y = Math.random() * Math.PI * 2;
+        G.add(ct); pop(ct);
+        L.cones.push({ obj: ct, r: 0.5, knocked: false, v: new THREE.Vector3(), spin: new THREE.Vector3(), rest: false, y0: 0, kind: "cart" });
+    }
+    // a pedestrian (5+) crossing along the bay row's edge
+    if (cfg.pedestrian) {
+        const key = ["npcWoman", "npcMan", "npcKid"][Math.floor(Math.random() * 3)];
+        const p = spawnPerson(key, { colors: { Top: ["#E91E63", "#FFC107", "#43A047", "#2196F3", "#FF5722", "#9C27B0"][Math.floor(Math.random() * 6)] } });
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        p.obj.position.set(-12 * dir, 0, zz1 + 0.9);
+        p.obj.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+        p.obj.visible = false;
+        G.add(p.obj);
+        L.ped = { person: p, dir, speed: 1.4 + Math.random() * 0.6, delay: 2 + Math.random() * 4, state: "walk", fallT: 0 };
+    }
+    // Sasquatch watches the Boss Level from the sidewalk
+    if (cfg.sasquatchWatcher) {
+        const sq = spawnPerson("parking_sasquatch");
+        sq.obj.position.set(6, 0.15, curbZ - 1.0);
+        G.add(sq.obj); pop(sq.obj);
+        L.sasquatch = sq;
+    }
+    L.trafficOn = !!cfg.traffic;
+    S.auto = null;
+    S.inZoneT = 0; S.touched = false; S.perfect = true; S.failHit = null; S.result = null; S.stars = 0; S.bonus = 0;
+    S.hitCd = 0; S.flashT = 0; S.inZone = false; S.timeLeft = cfg.timeLimit; S.angry = null;
+    S.introTitle = `Level ${S.level} · ${LOT.LEVEL_NAMES[Math.min(S.level - 1, 9)]}`;
+    let d = `${cfg.numCameras} 📹 · ${Math.floor(cfg.timeLimit)}s`;
+    if (cfg.coneInSpot) d += " · 🚧";
+    if (S.level >= 6) d += " · 🛒";
+    if (cfg.pedestrian) d += " · 🚶";
+    if (cfg.traffic) d += " · 🚗";
+    if (cfg.sasquatchWatcher) d += " · 🦍";
+    S.introDetails = d;
+    // a puff where the crew set things out
+    const fx = ctx.car && ctx.car.fx;
+    if (fx) for (const p of L.parked) { const w = CO.toWorld(c, p.obj.position.x, p.obj.position.z, _c); fx.burst(w.x, 0.6, w.z, 10, 2.2, [0.85, 0.85, 0.82], 0.5, 0.6); }
+}
+
+/** The level's props go (pop out with a puff when `soft`); the parked cars' dents with them. */
+function clearLevel(soft) {
+    const L = S.L;
+    S.L = null;
+    removeAngry();
+    if (!L) return;
+    const done = () => {
+        L.G.traverse(o => { if (o.userData.dispose) o.userData.dispose(); });
+        L.G.removeFromParent();
+        for (const t of L.owned) if (t && t.dispose) t.dispose();
+    };
+    if (soft && L.parked.length) {
+        for (const o of L.G.children) S.pops.push({ obj: o, t: 0, dir: -1, s: o.scale.x });
+        S.pops.push({ obj: null, t: 0, dir: -1, done });
+    } else done();
+}
+function tickPops(dt) {
+    for (let i = S.pops.length - 1; i >= 0; i--) {
+        const p = S.pops[i];
+        p.t += dt;
+        const k = Math.min(1, p.t / 0.32);
+        if (p.obj) {
+            const e = p.dir > 0 ? 1 + 0.12 * Math.sin(k * Math.PI) : 1 - k;     // a little overshoot coming in
+            const base = p.dir > 0 ? (k < 1 ? 0.01 + (1 - 0.01) * k : 1) : 1;
+            p.obj.scale.setScalar(Math.max(0.01, p.dir > 0 ? base * e : p.s * e));
+        }
+        if (k >= 1) { S.pops.splice(i, 1); if (p.done) p.done(); }
+    }
+}
+// keep popping props tidy when nothing's running (a run ended, the props shrink away in the normal driving state)
+hook("hud", dt => { if (!S.active && S.pops.length) tickPops(dt); markTick(); boardTick(dt); });
+
+let cartTpl = null;
+function cartModel() {
+    if (!cartTpl) {
+        const steel = new THREE.MeshStandardMaterial({ color: "#B0BEC5", roughness: 0.4, metalness: 0.6 });
+        const red = new THREE.MeshStandardMaterial({ color: "#E53935", roughness: 0.6 });
+        const g = new THREE.Group();
+        const B = (w, h, d, x, y, z, m = steel) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); };
+        B(0.56, 0.42, 0.03, 0, 0.78, 0.44); B(0.56, 0.42, 0.03, 0, 0.78, -0.44); B(0.03, 0.42, 0.88, 0.28, 0.78, 0); B(0.03, 0.42, 0.88, -0.28, 0.78, 0);
+        B(0.56, 0.03, 0.88, 0, 0.58, 0);
+        for (const [x, z] of [[0.24, -0.38], [-0.24, -0.38], [0.24, 0.38], [-0.24, 0.38]]) B(0.04, 0.5, 0.04, x, 0.3, z);
+        B(0.6, 0.06, 0.06, 0, 1.02, -0.52, red);
+        cartTpl = g;
+    }
+    return cartTpl.clone();
+}
+
+// ── driving the level ─────────────────────────────────────────────────────
+function updateDrive(dt, P) {
+    const c = S.c, L = S.L, car = ctx.car;
+    drive(dt, P);
+    if (leftCourse()) return;
     S.hitCd = Math.max(0, S.hitCd - dt);
-    collideParked();
+    const lc = local(c, _a);
+    collideParked(lc);
     if (S.phase !== "drive") return;
-    collideCurbs();
-    updateCones(dt, true);
-    updatePed(dt, true);
+    collideKerb(local(c, _a));
+    updateCones(dt, true, local(c, _a));
+    updatePed(dt, true, local(c, _a));
     if (S.phase !== "drive") return;
-    LOT.updateTraffic(lot, L, dt);
-    collideTraffic();
+    updateTraffic(dt, local(c, _a));
     if (S.phase !== "drive") return;
+    animateLevel(dt);
 
-    car.updateVisual(dt, ctx.time, ctl, false);
-    A.updateEngine(Math.abs(car.vF) * 1.5, ctl.throttle * 2, car.slip, 0, false, true);
-    animateLot(dt);
-    partyGhosts();
-
-    // in the bay + slow + roughly lined up with the curb → hold for 0.8 s
+    // in the bay + slow + roughly lined up with the kerb → hold for 0.8 s
+    const l2 = local(c, _a);
     const zone = S.layout.zone;
-    const x2 = LOT.toX2(car.pos.x), y2 = LOT.toY2(car.pos.z);
-    const rotMod = ((LOT.hToRot(car.h) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const x2 = LOT.toX2(l2.x), y2 = LOT.toY2(l2.z);
+    const rotMod = ((LOT.hToRot(l2.h) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     const horizontalOK = rotMod < 0.35 || rotMod > Math.PI * 2 - 0.35 || Math.abs(rotMod - Math.PI) < 0.35;
-    S.inZone = LOT.centreInZone(zone, x2, y2) && cornersInBay(car, L);
+    S.inZone = LOT.centreInZone(zone, x2, y2) && cornersInBay(l2, L);
     const slow = Math.abs(car.vF) < SLOW;
     L.outlineMat.color.set(S.inZone ? "#4CAF50" : "#FFEB3B");
     L.outlineMat.emissive.set(S.inZone ? "#4CAF50" : "#FFEB3B");
@@ -315,10 +533,10 @@ function updateDrive(dt, P) {
         S.inZoneT += dt;
         if (S.inZoneT > HOLD) { success(); return; }
     } else S.inZoneT = 0;
-    PH.holdBar(S.inZone ? S.inZoneT / HOLD : 0);
-    if (S.inZone) PH.hint("HOLD STILL TO PARK!", true);
-    else if (S.camToast > 0) { S.camToast -= dt; PH.hint(`🎥 ${CAM_NAMES[P3.cam]} · ${glyph("camera")} to switch`); }
-    else PH.hint(hintText());
+    if (S.inZone) H.prompt(`<b>🅿️ HOLD STILL TO PARK!</b><span class="po-bar"><i style="width:${Math.min(100, S.inZoneT / HOLD * 100).toFixed(0)}%"></i></span>`);
+    else if (S.camToast > 0) { S.camToast -= dt; H.prompt(`🎥 ${CAM_NAMES[P3.cam]} · ${glyph("camera")} to switch`); }
+    else if (ctx.time < (S.introUntil || 0)) H.prompt(introText());
+    else H.prompt(hintText());
 
     // the clock (urgent beep each second under 10, higher under 5)
     const prev = S.timeLeft;
@@ -327,66 +545,59 @@ function updateDrive(dt, P) {
         tone(Math.ceil(S.timeLeft) <= 5 ? 880 : 660, 0.09, "square", 0.14);
         rumble(0.1, 0.3, 60);
     }
-    if (S.timeLeft <= 10 && S.timeLeft > 0) {
+    if (S.timeLeft <= 10 && S.timeLeft > 0 && !save3d.settings.calm) {
         const urg = (10 - S.timeLeft) / 10;
-        PH.vignette((0.25 + urg * 0.5) * (0.5 + 0.5 * Math.sin(ctx.time * (6 + urg * 8))));
+        PH.vignette((0.2 + urg * 0.4) * (0.5 + 0.5 * Math.sin(ctx.time * (6 + urg * 8))));
     } else PH.vignette(0);
-    updateBar();
     if (S.timeLeft <= 0) { S.failHit = { who: "timeout" }; fail(); }
 }
-
+const introText = () => innerWidth < 560 ? `🅿️ <b>${S.introTitle}</b>` : `🅿️ <b>${S.introTitle}</b> · ${S.introDetails}`;
 function hintText() {
-    if (input.device === "touch") return "Park between the two cars · STEER with the stick · GAS forward · REVERSE back";
-    return `Park between the two cars · ${glyph("steer")} steer · ${glyph("gas")} forward · ${glyph("reverse")} reverse`;
+    if (innerWidth < 560) return "🅿️ Park between the two cars";          // (a phone held upright: the pedals say GAS / REVERSE)
+    if (input.device === "touch") return "Park between the cars. GAS goes forward, REVERSE goes back.";
+    return `Park between the cars. ${glyph("gas")} goes forward, ${glyph("reverse")} goes back.`;
 }
 
-function slowAlong(car, dv) {
-    const sp = Math.hypot(car.vx, car.vz);
-    if (sp < 1e-4) return;
-    const k = Math.max(0, sp - dv) / sp;
-    car.vx *= k; car.vz *= k;
-}
-
-function corners(car, out) {
-    const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
+function corners(lc, out) {
+    const rx = -Math.cos(lc.h), rz = Math.sin(lc.h);
     let i = 0;
     for (const a of [2.05, -2.05]) for (const b of [0.9, -0.9]) {
         out[i] = out[i] || { x: 0, z: 0 };
-        out[i].x = car.pos.x + fx * a + rx * b; out[i].z = car.pos.z + fz * a + rz * b; i++;
+        out[i].x = lc.x + lc.fx * a + rx * b; out[i].z = lc.z + lc.fz * a + rz * b; i++;
     }
     return out;
 }
 const CORN = [];
-function cornersInBay(car, L) {
-    corners(car, CORN);
-    for (const c of CORN) {
-        if (c.x < L.zx0 - 0.45 || c.x > L.zx1 + 0.45 || c.z < L.curbZ - 0.1 || c.z > L.zz1 + 0.45) return false;
-    }
+function cornersInBay(lc, L) {
+    corners(lc, CORN);
+    for (const p of CORN) if (p.x < L.zx0 - 0.45 || p.x > L.zx1 + 0.45 || p.z < L.curbZ - 0.1 || p.z > L.zz1 + 0.45) return false;
     return true;
 }
 
-function collideParked() {
-    const car = S.lot.car, L = S.L;
+function collideParked(lc, scoring = true) {
+    const c = S.c, car = ctx.car, L = S.L;
     let best = 0, pc = null, cx = 0, cz = 0;
-    for (const p of L.parked) for (const c of p.circles) {
-        const dx = c.x - car.pos.x, dz = c.z - car.pos.z;
+    for (const p of L.parked) for (const ci of p.circles) {
+        const dx = ci.x - lc.x, dz = ci.z - lc.z;
         if (dx * dx + dz * dz > 20) continue;
-        const imp = car.collideStatic(c.x, c.z, c.r);
+        const w = CO.toWorld(c, ci.x, ci.z, _c);
+        const imp = car.collideStatic(w.x, w.z, ci.r);
         if (imp > best) {
             best = imp; pc = p;
-            const d = Math.hypot(car.pos.x - c.x, car.pos.z - c.z) || 1;
-            cx = c.x + (car.pos.x - c.x) / d * c.r; cz = c.z + (car.pos.z - c.z) / d * c.r;
+            const d = Math.hypot(car.pos.x - w.x, car.pos.z - w.z) || 1;
+            cx = w.x + (car.pos.x - w.x) / d * ci.r; cz = w.z + (car.pos.z - w.z) / d * ci.r;
         }
     }
     if (best < 0.05 || S.hitCd > 0) return;
     S.hitCd = 0.35;
+    if (!scoring) { if (best > 0.8) { A.sfxBump(); rumble(0.3, 0.4, 120, true); } return; }     // (between levels: solid, nothing scored)
     const sev = clamp(best / MAXF, 0, 1);
     v1.set(cx, 0.7, cz);
-    LOT.addDent(car.tilt, v1, sev);
     LOT.addDent(pc.obj, v1, sev, { hx: 0.9, hz: 2.2, y: 0.7 });
     S.touched = true; S.perfect = false;
+    if (S.autoAll) (S.trace = S.trace || []).push({ hit: pc.deco ? "deco" : L.parked.indexOf(pc), ph: S.auto && S.auto.phase, x: +lc.x.toFixed(2), z: +lc.z.toFixed(2), h: +lc.h.toFixed(2), sev: +sev.toFixed(2) });
     S.flashT = 0.2;
-    S.shake = 0.2 + sev * 0.3;
+    if (!save3d.settings.calm) ctx.G.shake = Math.max(ctx.G.shake || 0, 0.2 + sev * 0.3);
     car.fx.burst(cx, 0.7, cz, sev > 0.35 ? 24 : 10, 3, [1, 0.8, 0.4], 0.4, 0.5);
     if (sev > 0.35) car.fx.burst(cx, 0.9, cz, 12, 1.5, [0.6, 0.6, 0.62], 1.2, 1.0);
     crunch(0.6 + sev);
@@ -395,75 +606,77 @@ function collideParked() {
     if (sev > 0.4) { S.failHit = { who: "parked", car: pc, severity: sev }; fail(); }
 }
 
-function collideCurbs() {
-    const car = S.lot.car, L = S.L;
-    corners(car, CORN);
-    let minZ = 1e9, maxZ = -1e9, minX = 1e9, maxX = -1e9;
-    for (const c of CORN) { minZ = Math.min(minZ, c.z); maxZ = Math.max(maxZ, c.z); minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x); }
-    if (minZ < L.curbZ) {
-        car.pos.z += L.curbZ - minZ;
-        if (car.vz < 0) {
-            const imp = -car.vz;
-            car.vz *= -0.3;
-            if (imp > 0.25) {
-                S.perfect = false;
-                S.shake = Math.max(S.shake, 0.15);
-                tone(150, 0.1, "square", 0.12);
-                A.sfxBump();
-                rumble(0.3, 0.4, 120, true);
-            }
+/** The kerb stops her (the bay row's back edge), and the closed end's bollards. */
+function collideKerb(lc) {
+    const c = S.c, car = ctx.car, L = S.L;
+    corners(lc, CORN);
+    let minZ = 1e9, minX = 1e9;
+    for (const p of CORN) { minZ = Math.min(minZ, p.z); minX = Math.min(minX, p.x); }
+    const lv = CO.vecLocal(c, car.vx, car.vz, _b);
+    let dx = 0, dz = 0;
+    if (minZ < L.curbZ && lc.x > CO.COURSE.x0 - 0.5 && lc.x < CO.COURSE.x1 + 0.5) {
+        dz = L.curbZ - minZ;
+        if (lv.z < 0) {
+            const imp = -lv.z;
+            lv.z *= -0.3;
+            if (imp > 0.25) { S.perfect = false; tone(150, 0.1, "square", 0.12); A.sfxBump(); rumble(0.3, 0.4, 120, true); }
         }
     }
-    const lim = 13.25, far = 30.1;
-    if (maxX > lim) { car.pos.x -= maxX - lim; if (car.vx > 0) car.vx *= -0.3; }
-    if (minX < -lim) { car.pos.x += -lim - minX; if (car.vx < 0) car.vx *= -0.3; }
-    if (maxZ > far) { car.pos.z -= maxZ - far; if (car.vz > 0) car.vz *= -0.3; }
+    const lim = CO.COURSE.x0 - 0.2;
+    if (minX < lim) { dx = lim - minX; if (lv.x < 0) lv.x *= -0.3; }
+    if (dx || dz) {
+        const w = CO.vecWorld(c, dx, dz, _c);
+        car.pos.x += w.x; car.pos.z += w.z;
+        const vw = CO.vecWorld(c, lv.x, lv.z, _c);
+        car.vx = vw.x; car.vz = vw.z;
+    }
 }
 
-function updateCones(dt, live) {
-    const car = S.lot.car;
-    const fx = Math.sin(car.h), fz = Math.cos(car.h);
-    for (const c of S.L.cones) {
-        const o = c.obj;
-        if (!c.knocked && live) {
+function updateCones(dt, live, lc) {
+    const car = ctx.car, c = S.c;
+    for (const k of S.L.cones) {
+        const o = k.obj;
+        if (!k.knocked && live) {
             for (const off of [1.15, -1.15]) {
-                const px = car.pos.x + fx * off, pz = car.pos.z + fz * off;
+                const px = lc.x + lc.fx * off, pz = lc.z + lc.fz * off;
                 const dx = o.position.x - px, dz = o.position.z - pz;
-                if (dx * dx + dz * dz < (c.r + 0.93) ** 2) {
-                    // Boop! the cone goes flying (no damage, but no perfect park either)
-                    c.knocked = true;
+                if (dx * dx + dz * dz < (k.r + 0.93) ** 2) {
+                    // Boop! it goes flying (no damage, but no perfect park either)
+                    k.knocked = true;
                     const d = Math.hypot(dx, dz) || 1, sp = car.speed * 1.5 + 2;
-                    c.v.set(dx / d * sp, 2.6 + car.speed * 0.4, dz / d * sp);
-                    c.spin.set((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 14);
+                    k.v.set(dx / d * sp, (k.kind === "cart" ? 1.2 : 2.6) + car.speed * 0.4, dz / d * sp);
+                    k.spin.set((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 14);
+                    if (k.kind === "cart") k.spin.set(0, (Math.random() - 0.5) * 6, 0);
                     S.perfect = false;
-                    tone(220, 0.1, "square", 0.15);
-                    car.fx.burst(o.position.x, 0.4, o.position.z, 8, 3, [1, 0.34, 0.13], 0.25, 0.5);
+                    tone(k.kind === "cart" ? 330 : 220, 0.1, "square", 0.15);
+                    const w = CO.toWorld(c, o.position.x, o.position.z, _c);
+                    car.fx.burst(w.x, 0.4, w.z, 8, 3, k.kind === "cart" ? [0.75, 0.78, 0.8] : [1, 0.34, 0.13], 0.25, 0.5);
                     rumble(0.2, 0.4, 80);
                     break;
                 }
             }
         }
-        if (c.knocked && !c.rest) {
-            c.v.y -= 9.8 * dt;
-            o.position.addScaledVector(c.v, dt);
-            o.rotation.x += c.spin.x * dt; o.rotation.y += c.spin.y * dt; o.rotation.z += c.spin.z * dt;
-            if (o.position.y <= 0.13 && c.v.y < 0) {
-                o.position.y = 0.13;
-                c.v.y *= -0.35; c.v.x *= 0.6; c.v.z *= 0.6; c.spin.multiplyScalar(0.6);
-                if (Math.abs(c.v.y) < 0.6 && Math.hypot(c.v.x, c.v.z) < 0.5) {
-                    // settle lying on its side
-                    c.rest = true;
-                    o.rotation.set(Math.PI / 2, o.rotation.y, 0);
+        if (k.knocked && !k.rest) {
+            k.v.y -= 9.8 * dt;
+            o.position.addScaledVector(k.v, dt);
+            o.rotation.x += k.spin.x * dt; o.rotation.y += k.spin.y * dt; o.rotation.z += k.spin.z * dt;
+            const floor = k.kind === "cart" ? 0 : 0.13;
+            if (o.position.y <= floor && k.v.y < 0) {
+                o.position.y = floor;
+                k.v.y *= -0.35; k.v.x *= 0.6; k.v.z *= 0.6; k.spin.multiplyScalar(0.6);
+                if (Math.abs(k.v.y) < 0.6 && Math.hypot(k.v.x, k.v.z) < 0.5) {
+                    k.rest = true;
+                    if (k.kind === "cone") o.rotation.set(Math.PI / 2, o.rotation.y, 0); else o.rotation.set(0, o.rotation.y, 0);
                 }
             }
         }
     }
 }
 
-function updatePed(dt, live) {
+function updatePed(dt, live, lc) {
     const ped = S.L.ped;
     if (!ped) return;
-    const p = ped.person, o = p.obj, car = S.lot.car;
+    const car = ctx.car, p = ped.person, o = p.obj;
     if (ped.delay > 0) { ped.delay -= dt; if (ped.delay <= 0) o.visible = true; return; }
     if (ped.state === "fallen") {
         ped.fallT = Math.min(1, ped.fallT + dt * 3);
@@ -472,19 +685,25 @@ function updatePed(dt, live) {
         p.update(dt, { walk: 0 });
         return;
     }
-    // wait politely if the car is blocking the way
-    const ahead = (car.pos.x - o.position.x) * ped.dir;
-    const blocked = live && ahead > 0 && ahead < 2.9 && Math.abs(car.pos.z - o.position.z) < 1.9;
-    const sp = blocked ? 0 : ped.speed;
+    // wait politely if the car is blocking the way — and after a moment, step round it on the lane side
+    ped.z0 = ped.z0 == null ? o.position.z : ped.z0;
+    const ahead = (lc.x - o.position.x) * ped.dir;
+    const inPath = ahead > -2.6 && ahead < 3.2 && Math.abs(lc.z - ped.z0) < 2.2;
+    const blocked = !ped.round && live && ahead > 0 && ahead < 2.9 && Math.abs(lc.z - o.position.z) < 1.9;
+    ped.waitT = blocked ? (ped.waitT || 0) + dt : 0;
+    if (ped.waitT > 2.0) ped.round = true;
+    if (ped.round && !inPath) ped.round = false;
+    const wantZ = ped.round ? Math.max(ped.z0, lc.z + 2.7) : ped.z0;
+    o.position.z += clamp(wantZ - o.position.z, -1.6 * dt, 1.6 * dt);
+    const sp = blocked ? 0 : ped.speed * (Math.abs(wantZ - o.position.z) > 0.3 ? 0.4 : 1);
     o.position.x += ped.dir * sp * dt;
-    p.update(dt, { walk: sp, talk: blocked });
+    p.update(dt, { walk: sp + Math.abs(wantZ - o.position.z) * 0.2, talk: blocked });
     if (blocked && !ped.ahem) { ped.ahem = true; showBubble(o, "Ahem!", 2.3, 1.2); }
     if (!blocked) ped.ahem = false;
-    if (Math.abs(o.position.x) > 18) { o.visible = false; S.L.ped = null; return; }
+    if (Math.abs(o.position.x) > 13.5) { o.visible = false; S.L.ped = null; return; }
     if (!live) return;
-    const fx = Math.sin(car.h), fz = Math.cos(car.h);
     for (const off of [1.15, -1.15]) {
-        const px = car.pos.x + fx * off, pz = car.pos.z + fz * off;
+        const px = lc.x + lc.fx * off, pz = lc.z + lc.fz * off;
         const dx = o.position.x - px, dz = o.position.z - pz;
         const d = Math.hypot(dx, dz);
         if (d < 0.93 + 0.32) {
@@ -502,19 +721,48 @@ function updatePed(dt, live) {
     }
 }
 
-function collideTraffic() {
-    const car = S.lot.car;
-    for (const t of S.L.traffic) {
+// ── cars cutting through (7+): out of the gap between the semis, across the lane's far side, out past the entrance ──
+function updateTraffic(dt, lc) {
+    const L = S.L;
+    if (!L || !L.trafficOn) return;
+    const c = S.c, car = ctx.car;
+    L.trafficT -= dt;
+    if (L.trafficT <= 0 && L.traffic.length < 2) {
+        L.trafficT = 6 + Math.random() * 4;
+        const kind = Math.random() < 0.7 ? "sedan" : "van";
+        if (models[kind]) {
+            const obj = cloneWithColors(models[kind], { Paint: LOT.ENEMY_COLS[Math.floor(Math.random() * LOT.ENEMY_COLS.length)] });
+            obj.position.set(1.6, 0, 27);
+            obj.rotation.y = Math.PI;
+            L.G.add(obj);
+            L.traffic.push({ obj, h: Math.PI, speed: 5 + Math.random(), v: 0, wheels: findNodes(obj, "Wheel_"), len: kind === "van" ? 1.5 : 1.3 });
+        }
+    }
+    for (let i = L.traffic.length - 1; i >= 0; i--) {
+        const t = L.traffic[i], o = t.obj;
+        // turn toward the entrance once on the lane's far side
+        const want = o.position.z < 17.8 ? Math.PI / 2 : Math.PI;
+        t.h += clamp(wrapAngle(want - t.h), -1.7 * dt, 1.7 * dt);
+        const fx = Math.sin(t.h), fz = Math.cos(t.h);
+        // politely stop for her when she's right in front
+        const ax = lc.x - o.position.x, az = lc.z - o.position.z, along = ax * fx + az * fz, side = Math.abs(ax * fz - az * fx);
+        const blocked = along > 0 && along < 6 && side < 2.6;
+        t.v += clamp((blocked ? 0 : t.speed) - t.v, -8 * dt, 3 * dt);
+        o.position.x += fx * t.v * dt; o.position.z += fz * t.v * dt;
+        o.rotation.y = t.h;
+        for (const w of t.wheels) w.rotation.x += t.v * dt / 0.34;
+        if (o.position.x > 19) { o.removeFromParent(); L.traffic.splice(i, 1); continue; }
         for (const off of [-t.len, 0, t.len]) {
-            const x = t.obj.position.x + off * t.dir, z = t.obj.position.z;
-            const dx = x - car.pos.x, dz = z - car.pos.z;
+            const px = o.position.x + fx * off, pz = o.position.z + fz * off;
+            const dx = px - lc.x, dz = pz - lc.z;
             if (dx * dx + dz * dz > 9) continue;
-            const imp = car.collideStatic(x, z, 0.95);
+            const w = CO.toWorld(c, px, pz, _c);
+            const imp = car.collideStatic(w.x, w.z, 0.95);
             if (imp > 0 || dx * dx + dz * dz < 3.4) {
-                t.speed = 0;
-                car.applyImpulse(t.dir * 3, 0, (Math.random() - 0.5) * 2);
-                v1.set((x + car.pos.x) / 2, 0.7, (z + car.pos.z) / 2);
-                LOT.addDent(car.tilt, v1, 0.8);
+                if (S.phase !== "drive") { t.v = 0; continue; }       // (between levels: it just waits for her)
+                t.speed = 0; t.v = 0;
+                const iw = CO.vecWorld(c, fx * 3, fz * 3, _b);
+                car.applyImpulse(iw.x, 0, iw.z);
                 A.sfxCrash(0.8);
                 S.failHit = { who: "traffic" };
                 fail();
@@ -524,49 +772,47 @@ function collideTraffic() {
     }
 }
 
-// cameras track Lulu · LEDs blink · the bay chevron bobs · the sasquatch watches
-function animateLot(dt) {
-    const L = S.L, car = S.lot.car;
+// cameras track Lulu · LEDs blink · the bay chevron bobs · the sasquatch watches · the attendant watches too
+function animateLevel(dt) {
+    const L = S.L, car = ctx.car, c = S.c;
     if (!L) return;
     LOT.blinkLeds(ctx.time);
     const tgt = v2.set(car.pos.x, 0.8, car.pos.z);
-    for (const c of L.cams) {
-        if (!c.head) continue;
-        c.head.getWorldPosition(v1);
+    for (const k of L.cams) {
+        if (!k.head) continue;
+        k.head.getWorldPosition(v1);
         const dx = tgt.x - v1.x, dz = tgt.z - v1.z;
-        const yaw = Math.atan2(dx, dz), pitch = Math.atan2(v1.y - tgt.y, Math.hypot(dx, dz));
-        c.yaw += wrapAngle(yaw - c.yaw) * Math.min(1, dt * 6);
-        c.pitch += (pitch - c.pitch) * Math.min(1, dt * 6);
-        c.head.rotation.y = c.yaw;
-        c.head.rotation.x = c.pitch;
+        // (the head sits in the course's turned frame: aim in its parent's space)
+        const yaw = Math.atan2(dx, dz) - c.phi, pitch = Math.atan2(v1.y - tgt.y, Math.hypot(dx, dz));
+        k.yaw += wrapAngle(yaw - k.yaw) * Math.min(1, dt * 6);
+        k.pitch += (pitch - k.pitch) * Math.min(1, dt * 6);
+        k.head.rotation.y = k.yaw;
+        k.head.rotation.x = k.pitch;
         const dist = v1.distanceTo(tgt);
-        c.beam.scale.z = Math.max(0.5, dist - 1.4);
-        c.beamMat.map.repeat.y = c.beam.scale.z / 0.7;
-        c.beamMat.map.offset.y -= dt * 1.8;
-        c.beamMat.opacity = S.phase === "drive" ? 0.7 : 0.35;
+        k.beam.scale.z = Math.max(0.5, dist - 1.4);
+        k.beamMat.map.repeat.y = k.beam.scale.z / 0.7;
+        k.beamMat.map.offset.y -= dt * 1.8;
+        k.beamMat.opacity = S.phase === "drive" ? 0.7 : 0.35;
     }
     if (L.chevron) {
-        L.chevron.visible = S.phase === "drive" || S.phase === "intro";
+        L.chevron.visible = S.phase === "drive" || S.phase === "setup";
         L.chevron.position.y = 2.4 + Math.sin(ctx.time * 3) * 0.25;
         L.chevron.rotation.y += dt * 1.5;
     }
     if (L.sasquatch) {
-        L.sasquatch.face(car.pos.x, car.pos.z, dt, 3);
+        const lc = local(c, _b);
+        const o = L.sasquatch.obj;
+        o.rotation.y += wrapAngle(Math.atan2(lc.x - o.position.x, lc.z - o.position.z) - o.rotation.y) * Math.min(1, dt * 3);
         L.sasquatch.update(dt, { cheer: S.result === "success", talk: S.result === "fail" });
     }
+    const p = c.person;
+    if (p) { p.face(car.pos.x, car.pos.z, dt, 4); p.update(dt, { cheer: S.result === "success" && S.phase === "result", talk: S.result === "fail" && S.phase === "result" }); }
     if (S.flashT > 0) { S.flashT -= dt; PH.flash(S.flashT / 0.2); } else PH.flash(0);
-    if (S.lot.kids) for (const k of S.lot.kids) if (k.obj.visible) k.update(dt, { cheer: true });
     if (S.bubble) S.bubble.sprite.position.y = S.bubble.baseY + Math.sin(ctx.time * 4) * 0.08;
     if (S.bubble && (S.bubble.life -= dt) <= 0 && S.bubble.temp) removeBubble();
 }
 
-function partyGhosts() {
-    const mp = ctx.mp;
-    const list = mp && mp.parkingGhosts ? mp.parkingGhosts() : null;
-    if (list || (S.lot.ghosts && Object.keys(S.lot.ghosts).length)) LOT.updateLotGhosts(S.lot, list || [], ctx.time);
-}
-
-// ── success / fail (triggerParkingSuccess / triggerParkingFail) ────────────
+// ── success / fail ───────────────────────────────────────────────────────
 function calcStars() {
     if (S.perfect && !S.touched) return 3;
     if (!S.touched) return 2;
@@ -576,329 +822,204 @@ function calcStars() {
 function success() {
     S.result = "success";
     S.phase = "result"; S.t = 0;
-    S.resultT = 3.0;
-    S.kidsInCar = true;
-    for (const k of LOT.makeKids(S.lot)) k.obj.visible = true;
+    S.resultT = 2.6;
     notes([[523, 0.1], [659, 0.1], [784, 0.1], [1046, 0.18, "triangle", 0.22]], 0.1);
     rumble(0.3, 0.7, 300, true);
     const stars = calcStars();
-    const levelBonus = S.challenge ? S.level * 25 : 50;
-    const bonus = levelBonus + stars * 15;
+    const bonus = S.level * 25 + stars * 15;
     S.stars = stars; S.bonus = bonus;
     addCoins(bonus, "parking");
-    if (S.challenge) {
-        S.chCoins += bonus;
-        S.chStars += stars;
-        const lvl = S.level;
-        shared.update(s => {
-            s.parkingTotalStars = (s.parkingTotalStars || 0) + stars;
-            if (stars === 3) s.parkingPerfectRuns = (s.parkingPerfectRuns || 0) + 1;
-            if (lvl > (s.parkingBestLevel || 0)) s.parkingBestLevel = lvl;
-        });
-    } else {
-        addScore(500, "parking");
-    }
+    S.chCoins += bonus;
+    S.chStars += stars;
+    const lvl = S.level;
+    shared.update(s => {
+        s.parkingTotalStars = (s.parkingTotalStars || 0) + stars;
+        if (stars === 3) s.parkingPerfectRuns = (s.parkingPerfectRuns || 0) + 1;
+        if (lvl > (s.parkingBestLevel || 0)) s.parkingBestLevel = lvl;
+    });
     P3.parks++; saveSoon();
     emit("stat", { id: "parks", n: 1 });
+    emit("stat", { id: "parks3", n: 1 });          // the weekly "Parallel Pro" (the pull-over's quest, now the course's)
     if (stars === 3) emit("stat", { id: "perfectParks", n: 1 });
-    emit("parking:result", { stars, coins: bonus, level: S.level, mode: S.challenge ? "challenge" : "casual", ok: true });
-    showBubble(S.lot.car.obj, "YAY ICE CREAM!", 2.5, 99, false, -2.2);
-    PH.hint("");
-    PH.holdBar(0);
+    emit("parking:result", { stars, coins: bonus, level: S.level, mode: "challenge", ok: true });
+    showBubble(ctx.car.obj, "YAY!", 2.5, 2.4, true, 0);
     PH.vignette(0);
-    const perfect = stars >= 3 ? `<div class="perfect">✨ PERFECT PARK! ✨</div>` : "";
-    const pay = `${stars > 0 ? "⭐".repeat(stars) + " · " : ""}+${bonus} coins${S.challenge ? "" : " · +500 score"}`;
-    PH.big(`${perfect}<h1>PARKED! 🎉</h1><div class="sub">ICE CREAM TIME!</div><div class="pay">${pay}</div><div class="ph-rate" style="opacity:0"></div>`);
-    PH.rate(stars, 0);
-    PH.tint("radial-gradient(ellipse at center, rgba(76,175,80,0) 45%, rgba(76,175,80,0.35) 100%)", 1);
-    PH.intro("", "", 0);
-    updateBar();
+    showBoard(S.c, [stars >= 3 ? "PERFECT!" : "PARKED!", "⭐".repeat(stars) + "☆".repeat(3 - stars), `+${bonus} 💰`], stars >= 3 ? "#2E7D32" : "#1565C0", 3.2);
+    H.toast(`🅿️ Level ${S.level}: ${"⭐".repeat(stars)} · +${bonus} 💰`, "gold");
+    say(S.c, pick(LINES.yay), 2.6);
 }
 
 function fail() {
     if (S.phase !== "drive") return;
     S.result = "fail";
     S.phase = "result"; S.t = 0;
-    S.resultT = 4.0;
+    S.resultT = 3.2;
     A.sfxCrash(0.9);
     setTimeout(wompWomp, 300);
     rumble(1, 1, 450, true);
-    if (S.challenge) S.lives--;
-    else {
-        const G = ctx.G;
-        G.hearts = Math.max(0, (G.hearts || 0) - 1);
-        H.setHearts(G.hearts, G.maxHearts || 3);
-        emit("damage", { power: 0.8, why: "Dinged a car parking", source: "parking" });
-    }
+    S.lives--;
     P3.fails++; saveSoon();
-    emit("parking:result", { stars: 0, coins: 0, level: S.level, mode: S.challenge ? "challenge" : "casual", ok: false, fail: S.failHit && S.failHit.who });
-    PH.hint(""); PH.holdBar(0); PH.vignette(0);
+    emit("parking:result", { stars: 0, coins: 0, level: S.level, mode: "challenge", ok: false, fail: S.failHit && S.failHit.who });
+    PH.vignette(0);
     const who = S.failHit && S.failHit.who;
-    PH.big(`<h1>CRASH!</h1><div class="sub">${FAIL_MSGS[who] || FAIL_MSGS.parked}</div><div class="heart">-1 ♥</div>`, true);
-    PH.tint("rgba(0,0,0,0.32)", 1);
-    PH.intro("", "", 0);
-    updateBar();
+    showBoard(S.c, ["CRASH!", FAIL_MSGS[who] || FAIL_MSGS.parked, S.lives > 0 ? `♥ ${S.lives} left` : "no lives left"], "#C62828", 3.6);
+    H.toast(`🅿️ CRASH! ${FAIL_MSGS[who] || FAIL_MSGS.parked} · ♥ ${Math.max(0, S.lives)} left`, "red");
     // the angry grandpa climbs out of the car she dinged (or storms over from the sidewalk)
-    const car = S.lot.car;
-    const ang = spawnPerson("parking_angryman");
-    const fromCar = S.failHit && S.failHit.car;
-    if (fromCar) ang.obj.position.set(fromCar.obj.position.x, 0, fromCar.obj.position.z + 1.7);
-    else ang.obj.position.set(car.pos.x - 4, 0.16, S.L.curbZ - 1.2);
-    S.lot.content.add(ang.obj);
-    S.angry = { person: ang, t: 0 };
+    if (models.parking_angryman) {
+        const ang = spawnPerson("parking_angryman");
+        const fromCar = S.failHit && S.failHit.car;
+        const lc = local(S.c, _b);
+        if (fromCar) ang.obj.position.set(fromCar.obj.position.x, 0, fromCar.obj.position.z + 1.7);
+        else ang.obj.position.set(lc.x - 4, 0.15, S.L.curbZ - 1.0);
+        S.L.G.add(ang.obj);
+        S.angry = { person: ang, t: 0 };
+    }
 }
+function removeAngry() { if (S.angry) { S.angry.person.obj.removeFromParent(); S.angry = null; } }
 
 function updateResult(dt, P) {
-    const lot = S.lot, car = lot.car;
+    const c = S.c;
+    drive(dt, P, true);
     S.resultT -= dt;
-    car.vx *= Math.exp(-4 * dt); car.vz *= Math.exp(-4 * dt);
-    car.step(dt, { steer: 0, throttle: 0, brake: 1, handbrake: false, analog: true }, { offroad: 0 });
-    car.updateVisual(dt, ctx.time, { steer: 0, throttle: 0, brake: 1 }, false);
-    A.updateEngine(0, 0, 0, 0, false, true);
-    updateCones(dt, false);
-    updatePed(dt, false);
-    LOT.updateTraffic(lot, S.L, dt);
-    animateLot(dt);
-    if (S.resultT > 0.3 && S.t > 0.3) PH.skip(`${glyph("confirm")} continue`); else PH.skip("");
-    if ((P.confirm || P.start) && S.resultT > 0.3 && S.t > 0.3) S.resultT = 0.1;   // skip like the 2D click
+    const lc = local(c, _a);
+    updateCones(dt, false, lc);
+    updatePed(dt, false, lc);
+    updateTraffic(dt, lc);
+    animateLevel(dt);
+    if ((P.confirm || P.start) && S.resultT > 0.3 && S.t > 0.4) S.resultT = 0.1;   // ✕ skips
+    H.prompt(S.resultT > 0.3 && S.t > 0.4 ? `${glyph("confirm")} continue` : "");
+    const car = ctx.car;
     if (S.result === "success") {
-        // confetti + the star rating fading in
         for (let i = 0; i < 2; i++) {
-            const c = [[1, 0.5, 0.67], [1, 0.84, 0], [0.31, 0.76, 0.97], [0.5, 0.78, 0.52], [1, 0.72, 0.3]][Math.floor(Math.random() * 5)];
-            car.fx.emit(car.pos.x + (Math.random() - 0.5) * 12, 7 + Math.random() * 2, car.pos.z + (Math.random() - 0.5) * 9,
-                (Math.random() - 0.5) * 1.5, -1.5 - Math.random() * 2, (Math.random() - 0.5) * 1.5, 0.28, 2.2, c);
+            const col = [[1, 0.5, 0.67], [1, 0.84, 0], [0.31, 0.76, 0.97], [0.5, 0.78, 0.52], [1, 0.72, 0.3]][Math.floor(Math.random() * 5)];
+            car.fx.emit(car.pos.x + (Math.random() - 0.5) * 10, 6 + Math.random() * 2, car.pos.z + (Math.random() - 0.5) * 8,
+                (Math.random() - 0.5) * 1.5, -1.5 - Math.random() * 2, (Math.random() - 0.5) * 1.5, 0.28, 2.2, col);
         }
-        PH.rate(S.stars, clamp((2.5 - S.resultT) * 2, 0, 1));
     } else {
-        // Lulu cries; grandpa storms over and yells
-        if (Math.random() > 0.6) {
-            const fx = Math.sin(car.h), fz = Math.cos(car.h), lx = Math.cos(car.h), lz = -Math.sin(car.h);
-            car.fx.emit(car.pos.x + lx * 0.38 - fx * 0.38, 1.6, car.pos.z + lz * 0.38 - fz * 0.38, (Math.random() - 0.5) * 0.5, 0.6, (Math.random() - 0.5) * 0.5, 0.12, 0.6, [0.31, 0.76, 0.97]);
-        }
         const a = S.angry;
         if (a) {
             a.t += dt;
             const o = a.person.obj;
-            const lx = Math.cos(car.h), lz = -Math.sin(car.h);
-            const side = (o.position.x - car.pos.x) * lx + (o.position.z - car.pos.z) * lz >= 0 ? 1 : -1;
-            v1.set(car.pos.x + lx * 2.0 * side, 0, car.pos.z + lz * 2.0 * side);
-            const d = Math.hypot(v1.x - o.position.x, v1.z - o.position.z);
+            const lx = Math.cos(lc.h), lz = -Math.sin(lc.h);
+            const side = (o.position.x - lc.x) * lx + (o.position.z - lc.z) * lz >= 0 ? 1 : -1;
+            const tx = lc.x + lx * 2.0 * side, tz = lc.z + lz * 2.0 * side;
+            const d = Math.hypot(tx - o.position.x, tz - o.position.z);
             if (d > 0.15) {
                 const sp = Math.min(d, 2.2 * dt);
-                o.position.x += (v1.x - o.position.x) / d * sp;
-                o.position.z += (v1.z - o.position.z) / d * sp;
+                o.position.x += (tx - o.position.x) / d * sp;
+                o.position.z += (tz - o.position.z) / d * sp;
                 if (o.position.z > S.L.curbZ) o.position.y = 0;
-                a.person.face(v1.x, v1.z, dt, 10);
+                o.rotation.y += wrapAngle(Math.atan2(tx - o.position.x, tz - o.position.z) - o.rotation.y) * Math.min(1, dt * 10);
                 a.person.update(dt, { walk: 2.2 });
             } else {
-                a.person.face(car.pos.x, car.pos.z, dt, 8);
+                o.rotation.y += wrapAngle(Math.atan2(lc.x - o.position.x, lc.z - o.position.z) - o.rotation.y) * Math.min(1, dt * 8);
                 a.person.update(dt, { talk: true, wave: true });
                 if (!a.yelled) { a.yelled = true; showBubble(o, "WHO TAUGHT YOU\nTO DRIVE!?", 2.4, 99, false); tone(200, 0.15, "sawtooth", 0.08); }
             }
         }
     }
-    if (S.resultT <= 0) { S.phase = "outro"; S.t = 0; PH.skip(""); }
-}
-
-// ── routing after the result (updateParkingResult) ───────────────────────
-function route() {
-    const ok = S.result === "success";
-    PH.big(""); PH.tint("transparent", 0);
+    if (S.resultT > 0) return;
+    // what's next
+    H.prompt("");
     removeBubble();
-    if (S.angry) { S.angry.person.obj.removeFromParent(); S.angry = null; }
-    if (typeof S.opts.onDone === "function") {
-        const cb = S.opts.onDone, res = { ok, stars: S.stars, coins: S.bonus };
-        leaveLot();
-        try { cb(res); } catch (e) { console.error("[parking] onDone", e); setState("title"); }
-        return;
-    }
-    if (S.from === "pullover") {
-        // Pulled over → she steps out + walks off, THEN the foot world (park or no park)
-        if (ok) emit("stat", { id: "parks3", n: 1 });   // weekly quest: pull-over park completed
-        if (ctx.foot && ctx.foot.start) beginWalkout();
-        else if (!ok && (ctx.G.hearts || 0) <= 0) toGameOver();
-        else returnToDriving(ok ? `🍦 ICE CREAM TIME! +${S.bonus} coins` : "Better luck next time!");
-        return;
-    }
-    if (S.challenge) {
-        if (ok) {
-            S.level++;
-            if (S.level > 10) finishChallenge(true);
-            else beginLevel();
-        } else if (S.lives <= 0) finishChallenge(false);
-        else beginLevel();       // retry the same level
-        return;
-    }
-    if (S.from === "foot") {
-        leaveLot();
-        if (ctx.foot && ctx.foot.start) ctx.foot.start("parked"); else setState("title");
-        return;
-    }
-    if (!ok && (ctx.G.hearts || 0) <= 0) {
-        // out of hearts → the car's wrecked, Lulu sets off on foot
-        leaveLot();
-        if (ctx.foot && ctx.foot.start) ctx.foot.start("carWreck", { from: "parkingCrash" }); else toGameOver();
-        return;
-    }
-    returnToDriving(ok ? "🍦 ICE CREAM TIME! +50 coins" : "Better luck next time!");
+    removeAngry();
+    if (S.result === "success") {
+        if (S.level >= 10) { endRun("victory"); return; }
+        S.level++;
+    } else if (S.lives <= 0) { endRun("lives"); return; }
+    S.phase = "box"; S.t = 0; S.boxT = 0;
+    say(c, S.result === "success" ? "Pull out into the lane — next one's tighter!" : pick(LINES.nay), 2.6);
 }
 
-function toGameOver() {
-    leaveLot();
-    setState("gameover", { why: "parking", source: "parking", quote: `"Who taught you to PARK?!" — the man whose car you dinged 🚗💢` });
+// ── between levels: pull out into the lane and stop — the crew re-sets the course round her ─────────
+const LANE_Z = 7.2;
+const inLane = lc => lc.z > LANE_Z && lc.z < CO.COURSE.farZ && lc.x > CO.COURSE.x0 + 1.5 && lc.x < CO.COURSE.x1;
+function updateBox(dt, P) {
+    drive(dt, P);
+    if (leftCourse()) return;
+    S.hitCd = Math.max(0, S.hitCd - dt);
+    collideParked(local(S.c, _a), false);
+    const lc = local(S.c, _a);
+    updateCones(dt, false, lc);
+    updatePed(dt, false, lc);
+    updateTraffic(dt, lc);
+    animateLevel(dt);
+    const there = inLane(lc);
+    if (!there) { const p = CO.toWorld(S.c, clamp(lc.x, -6, 6), 9.6, _b); beacon("parkBox", p.x, p.z, "#1E88E5", 2.0, 8); } else hideBeacon("parkBox");
+    S.boxT = there && ctx.car.speed < 0.6 ? S.boxT + dt : 0;
+    H.prompt(there ? `🅿️ Level ${S.level} — stop here…` : `🅿️ Level ${S.level} — pull out into the lane and stop`);
+    if (S.boxT >= BOX_STOP) { hideBeacon("parkBox"); H.prompt(""); S.phase = "setup"; S.t = 0; S.built = false; }
 }
 
-/** A challenge started in the world ends there: on her feet by the booth (foot was suspended) or back on the road. */
-function backToWorld(msg = "") {
-    const ret = S.ret;
-    S.ret = "";
-    if (ret === "foot" && ctx.foot && ctx.foot.active) {
-        leaveLot();
-        setState("footRun", { resume: "parking" });
-        if (msg) H.toast(msg, "gold");
-        return;
-    }
-    if (ret === "drive" || ret === "foot") { returnToDriving(msg); return; }
-    leaveLot();
-    setState("title");
+// ── the HUD: one chip (the level, lives, stars, coins, the clock) + the prompt line ─────────
+function chipHtml() {
+    const low = S.phase === "drive" && S.timeLeft <= 10;
+    const t = S.phase === "drive" || S.phase === "result" ? `<span class="${low ? "pk-low" : ""}">⏱ ${Math.max(0, Math.ceil(S.timeLeft || 0))}s</span>` : "⏱ —";
+    return `🅿️ <b>LVL ${S.level}</b> · ♥${Math.max(0, S.lives)} · ★${S.chStars} · ${t}<small>💰 ${S.chCoins} · ${LOT.LEVEL_NAMES[Math.min(Math.max(S.level, 1) - 1, 9)]}</small>`;
 }
-export function challengeFromWorld() { return !!(S.challenge && S.ret); }
-
-/** Back onto the road where she pulled over (returnToDriving in 2D). */
-function returnToDriving(msg) {
-    leaveLot();
-    const G = ctx.G, car = ctx.car, road = ctx.world.road;
-    G.hearts = Math.max(1, G.hearts || 0);   // never resume driving with 0 hearts
-    H.setHearts(G.hearts, G.maxHearts || 3);
-    const near = road.nearest(car.pos.x, car.pos.z, car.s, {});
-    const p = road.point(near.s + 3, 5.25, {});        // back into the outer lane of OUR side
-    car.place(p.x, p.z, p.h);
-    car.s = near.s + 3; car.d = 5.25;
-    const sp = 8;
-    car.vx = Math.sin(car.h) * sp; car.vz = Math.cos(car.h) * sp;
-    car.showDriver(true);
-    car.obj.visible = true;
-    G.invT = Math.max(G.invT || 0, 2.0);
-    for (const c of ctx.traffic.cars.slice()) if (Math.abs(c.s - car.s) < 30 && !c.keep) ctx.traffic.remove(c);
-    if (ctx.cam) ctx.cam.snap();
-    A.setMusic("../luludriving.mp3");
-    setState("playing");
-    if (msg) H.toast(msg, "gold");
+let chipEl = null, chipLast = "";
+function chip(html) {
+    if (!html) { if (chipEl) { chipEl.remove(); chipEl = null; chipLast = ""; } return; }
+    if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "day-chip park-chip"; H.hudSlot("left").appendChild(chipEl); }
+    if (html !== chipLast) { chipLast = html; chipEl.innerHTML = html; }
 }
 
-// ── the walk-out: Lulu steps out of the parked car and walks off ───────────
-function beginWalkout() {
-    const lot = S.lot, car = lot.car;
-    car.showDriver(false);
-    for (const k of lot.kids || []) k.obj.visible = false;
-    const style = ctx.car && ctx.car.hairStyle;
-    const key = style && models["luluPerson_" + style] ? "luluPerson_" + style : "luluPerson";
-    const lulu = spawnPerson(key, ctx.car && ctx.car.hairColor ? { colors: { Hair: ctx.car.hairColor } } : {});
-    const lx = Math.cos(car.h), lz = -Math.sin(car.h);   // the driver's side (her left)
-    let side = 1;
-    if (car.pos.z + lz * 1.3 < S.L.curbZ + 0.3) side = -1;   // curb side? climb out the other way
-    const from = new THREE.Vector3(car.pos.x + lx * 1.25 * side, 0, car.pos.z + lz * 1.25 * side);
-    const dx = car.pos.x < 0 ? 1 : -1;                       // toward the middle of the lot
-    const to = new THREE.Vector3(from.x + dx * 2.0, 0, from.z + 1.3);
-    lulu.obj.position.copy(from);
-    lulu.obj.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
-    lot.content.add(lulu.obj);
-    S.walker = { person: lulu, from, to };
-    S.phase = "walkout"; S.t = 0;
-    A.updateEngine(0, 0, 0, 0, false, false);
-    tone(330, 0.08, "triangle", 0.12);
-    tone(392, 0.1, "triangle", 0.12, 0, 0.1);
+// ── the attendant's board (the result, held up over his head) + what he says ─────────
+function boardTexture(lines, bg) {
+    const cv = document.createElement("canvas");
+    cv.width = 512; cv.height = 320;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#FFF8E1"; g.fillRect(0, 0, 512, 320);
+    g.fillStyle = bg; g.fillRect(0, 0, 512, 92);
+    g.strokeStyle = "#5D4037"; g.lineWidth = 10; g.strokeRect(5, 5, 502, 310);
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "#fff"; g.font = "bold 64px Fredoka, Arial, sans-serif"; g.fillText(lines[0], 256, 50, 480);
+    g.fillStyle = "#2b1b2e";
+    for (let i = 1; i < lines.length; i++) { g.font = `bold ${i === 1 ? 56 : 44}px Fredoka, Arial, sans-serif`; g.fillText(lines[i], 256, 92 + (i - 0.5) * (228 / (lines.length - 1)), 480); }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+function showBoard(c, lines, bg, secs) {
+    hideBoard();
+    if (!c) return;
+    const tex = boardTexture(lines, bg);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true }));
+    sp.scale.set(1.9, 1.19, 1);
+    sp.renderOrder = 8;
+    const at = CO.attendantPoint(c);
+    sp.position.set(at.x, 2.75, at.z);
+    ctx.scene.add(sp);
+    S.board = { sprite: sp, tex, until: ctx.time + secs, c, t: 0 };
+}
+function hideBoard() {
+    const b = S.board;
+    if (!b) return;
+    b.sprite.removeFromParent(); b.tex.dispose(); b.sprite.material.dispose();
+    S.board = null;
+}
+function boardTick(dt) {
+    const b = S.board;
+    if (!b) return;
+    b.t += dt;
+    const k = Math.min(1, b.t / 0.25);
+    b.sprite.scale.set(1.9 * k, 1.19 * k, 1);
+    b.sprite.position.y = 2.75 + Math.sin(ctx.time * 2.4) * 0.05;
+    if (ctx.time > b.until || (b.c && !b.c.chunk)) hideBoard();
+}
+function say(c, text, secs = 2.6) {
+    if (!c || !c.person || !text) return;
+    showBubble(c.person.obj, text, 2.45, secs, true);
 }
 
-function updateWalkout(dt) {
-    const w = S.walker;
-    animateLot(dt);
-    S.lot.car.updateVisual(dt, ctx.time, { steer: 0, throttle: 0, brake: 0 }, false);
-    const pr = clamp(S.t / 1.1, 0, 1);
-    w.person.obj.position.lerpVectors(w.from, w.to, pr);
-    w.person.update(dt, { walk: pr < 1 ? 1.4 : 0, wave: pr >= 1 });
-    PH.white(clamp((S.t - 1.25) / 0.4, 0, 1));
-    if (S.t >= 1.65) handOffToFoot();
-}
-
-function handOffToFoot() {
-    leaveLot();
-    const car = ctx.car;
-    car.vx = car.vz = 0; car.spin = 0;
-    car.showDriver(false);
-    S.phase = "handoff"; S.t = 0;
-    try {
-        ctx.foot.start("droveOff", { from: "parking", parked: true, noIntro: true });   // she just walked out — no second climb-out
-    } catch (e) {
-        console.error("[parking] foot.start failed", e);
-        returnToDriving("");
-    }
-}
-
-// ── Parking Challenge end screen (drawParkingEnd) ──────────────────────────
-function finishChallenge(victory) {
-    S.endStats = { level: Math.min(S.level, 10), stars: S.chStars, coins: S.chCoins, victory };
-    emit("stat", { id: "parkingChallenges", n: 1 });
-    if (victory) emit("stat", { id: "parkingMaster", n: 1 });
-    setState("parkingEnd");
-}
-
-registerState("parkingEnd", {
-    hud: false, touch: false, pausable: false, world: false,
-    enter() {
-        PH.show(false);
-        if (S.lot) { S.lot.set.show(); S.orbit = 0; }
-        const st = S.endStats || { level: 1, stars: 0, coins: 0, victory: false };
-        const s2 = shared.get();
-        if (st.victory) { A.sfxFanfare(); rumble(0.4, 0.8, 500, true); }
-        H.showScreen(`
-            <h2>${st.victory ? "🏆 MASTER PARKER!" : "🅿️ PARKING OVER"}</h2>
-            <p><b>${st.victory ? "You beat ALL 10 levels!" : `You reached Level ${st.level}`}</b></p>
-            <p class="fine" style="margin-top:10px">THIS RUN</p>
-            <div class="stats">
-                <div class="stat"><b>${st.level}</b><span>LEVEL REACHED</span></div>
-                <div class="stat"><b>★ ${st.stars}</b><span>STARS EARNED</span></div>
-                <div class="stat"><b>$ ${st.coins}</b><span>COINS EARNED</span></div>
-            </div>
-            <p class="fine">ALL-TIME</p>
-            <div class="stats">
-                <div class="stat"><b>${s2.parkingBestLevel || 0}</b><span>BEST LEVEL</span></div>
-                <div class="stat"><b>${(wallet.coins).toLocaleString()}</b><span>💰 COINS</span></div>
-                <div class="stat"><b>${s2.parkingPerfectRuns || 0}</b><span>PERFECT PARKS</span></div>
-            </div>`,
-            S.ret ? [
-                { label: `🅿️ Play again ${glyph("confirm")}`, action: () => { H.hideScreen(); start({ challenge: true, from: S.from, again: S.ret }); } },
-                { id: "parkBack", label: S.ret === "foot" ? "🚶 Back to the lot" : "🚗 Back on the road", cls: "purple", action: () => { H.hideScreen(); backToWorld(); } },
-            ] : [
-                { label: `🅿️ Play again ${glyph("confirm")}`, action: () => { H.hideScreen(); start({ challenge: true }); } },
-                { label: "⌂ Title screen", cls: "purple", action: () => { H.hideScreen(); setState("title"); } },
-            ], { onBack: () => { H.hideScreen(); if (S.ret) backToWorld(); else setState("title"); } });
-    },
-    exit(next) {
-        H.hideScreen();
-        if (next !== "parking") leaveLot();
-        else { S.active = false; if (S.lot) LOT.clearLot(S.lot); }
-    },
-    update(dt, P) {
-        H.menuInput(P);
-        if (!S.lot) return;
-        S.orbit = (S.orbit || 0) + dt * 0.2;
-        const c = S.lot.set.camera, car = S.lot.car;
-        c.position.set(car.pos.x + Math.sin(S.orbit) * 11, 6.5, car.pos.z + Math.cos(S.orbit) * 11);
-        c.lookAt(car.pos.x, 0.8, car.pos.z);
-        animateLot(dt);
-        if (S.lot.kids) for (const k of S.lot.kids) if (k.obj.visible) k.update(dt, { cheer: true });
-    },
-});
-
-// ── speech bubbles ─────────────────────────────────────────────────────────
+// ── speech bubbles (3D sprites: they read the same in the car and on foot) ─────────
 function showBubble(obj, text, y = 2.4, life = 2, temp = true, side = 0) {
     removeBubble();
-    const sp = LOT.bubbleSprite(text, { w: text.length > 12 ? 3.4 : 2.6 });
+    const sp = LOT.bubbleSprite(text, { w: text.length > 14 ? 3.4 : 2.6 });
     sp.position.set(side, y, 0);
     sp.scale.multiplyScalar(1 / (obj.scale.x || 1));
     obj.add(sp);
-    S.bubble = { sprite: sp, baseY: y, life, temp };
+    S.bubble = { sprite: sp, baseY: y, life, temp, obj };
 }
 function removeBubble() {
     if (!S.bubble) return;
@@ -906,84 +1027,200 @@ function removeBubble() {
     S.bubble.sprite.userData.dispose();
     S.bubble = null;
 }
+hook("hud", dt => { if (!S.active && S.bubble && (S.bubble.life -= dt) <= 0) removeBubble(); });
 
-// ── the lot camera: overhead (2D-like), chase, bird's eye; swoops + orbits ──
-function camTarget(out) {
-    const car = S.lot.car, L = S.L;
-    const bx = (L.zx0 + L.zx1) / 2, bz = (Math.max(L.curbZ, L.zz0) + L.zz1) / 2;
-    return out.set(car.pos.x * 0.55 + bx * 0.45, 0.4, car.pos.z * 0.55 + bz * 0.45 - 0.8);
-}
-function camWanted(mode, posOut, lookOut) {
-    const car = S.lot.car, cam = S.lot.set.camera;
-    const portrait = cam.aspect < 1;
-    if (S.phase === "result" || S.phase === "outro") {
-        S.orbit = (S.orbit || 0) + 0.004;
-        const a = -0.45 + Math.sin(ctx.time * 0.35) * 0.45;
-        const R = (S.result === "fail" ? 10.5 : 11) * (portrait ? 1.35 : 1);
-        posOut.set(car.pos.x + Math.sin(a) * R, S.result === "fail" ? 5.4 : 6.6, car.pos.z + Math.cos(a) * R);
-        lookOut.set(car.pos.x, 2.4, car.pos.z);
-        return portrait ? 62 : 48;
+// ── the lot camera: 🎥 Lot cam (higher, further back: the bay and her car both in view) · Overhead · Chase ─────────
+function lotCamera(dt) {
+    if (!S.active || !S.c || P3.cam === 2) return false;           // Chase: the regular driving camera
+    const c = S.c, car = ctx.car, cam = ctx.camera, portrait = cam.aspect < 1;
+    const L = S.L;
+    const lc = local(c, _a);
+    let fov;
+    if (!S.camInit) { S.camPos.copy(cam.position); _look(S.camLook, cam); S.camYaw = car.h; S.camInit = true; }
+    if (P3.cam === 1 && L) {
+        // overhead: frame Lulu AND her bay, the kerb at the top of the screen (like 2D)
+        const bx = (L.zx0 + L.zx1) / 2, bz = (Math.max(L.curbZ, L.zz0) + L.zz1) / 2;
+        const tx = lc.x * 0.55 + bx * 0.45, tz = lc.z * 0.55 + bz * 0.45 - 0.8;
+        const sep = Math.hypot(lc.x - bx, lc.z - bz);
+        const hgt = clamp(9.5 + sep * 0.6, 11, 21) * (portrait ? 1.45 : 1);
+        const lk = CO.toWorld(c, tx, tz, _b), ps = CO.toWorld(c, tx, tz + hgt * 0.78, _c);
+        v1.set(ps.x, hgt, ps.z); v2.set(lk.x, 0.4, lk.z);
+        fov = portrait ? 62 : 50;
+    } else {
+        // lot cam: behind her heading (eased), high, looking a little ahead — reversing doesn't swing it round
+        S.camYaw += wrapAngle(car.h - S.camYaw) * Math.min(1, dt * 2.2);
+        const dist = 8.6 * (portrait ? 1.3 : 1), up = 6.4 * (portrait ? 1.25 : 1);
+        v1.set(car.pos.x - Math.sin(S.camYaw) * dist, up, car.pos.z - Math.cos(S.camYaw) * dist);
+        v2.set(car.pos.x + Math.sin(S.camYaw) * 2.2, 0.4, car.pos.z + Math.cos(S.camYaw) * 2.2);
+        fov = portrait ? 70 : 56;
     }
-    if (S.phase === "walkout" && S.walker) {
-        const p = S.walker.person.obj.position;
-        posOut.set(p.x + 1.5, 4.8, p.z + 7.5);
-        lookOut.set(p.x, 1.0, p.z);
-        return portrait ? 62 : 48;
-    }
-    if (mode === 1) {   // chase
-        const fx = Math.sin(car.h), fz = Math.cos(car.h);
-        posOut.set(car.pos.x - fx * 6.6, 2.9, car.pos.z - fz * 6.6);
-        lookOut.set(car.pos.x + fx * 3, 0.8, car.pos.z + fz * 3);
-        return portrait ? 72 : 60;
-    }
-    // overhead: frame Lulu AND her bay, zooming in as she closes on it (curb at the top, like 2D)
-    camTarget(lookOut);
-    const L = S.L, bx = (L.zx0 + L.zx1) / 2, bz = (Math.max(L.curbZ, L.zz0) + L.zz1) / 2;
-    const sep = Math.hypot(car.pos.x - bx, car.pos.z - bz);
-    const hgt = clamp(9.5 + sep * 0.6, 11, 21) * (portrait ? 1.45 : 1);
-    if (mode === 2) { posOut.set(lookOut.x, hgt * 1.5, lookOut.z + 0.6); return portrait ? 56 : 50; }
-    posOut.set(lookOut.x, hgt, lookOut.z + hgt * 0.78);
-    return portrait ? 62 : 50;
-}
-function snapCam(kind) {
-    if (!S.lot) return;
-    const cam = S.lot.set.camera;
-    camWanted(P3.cam, S.camPos, S.camLook);
-    if (kind === "intro") S.camPos.add(v3.set(0, 26, 20));
-    cam.position.copy(S.camPos);
-    cam.lookAt(S.camLook);
-}
-function updateCam(dt) {
-    const cam = S.lot.set.camera;
-    const fov = camWanted(P3.cam, v1, v2);
-    const rate = S.phase === "intro" ? 3.2 : S.phase === "drive" ? 4.5 : 2.2;
+    const rate = S.phase === "setup" ? 2.6 : 4;
     S.camPos.lerp(v1, Math.min(1, dt * rate));
     S.camLook.lerp(v2, Math.min(1, dt * rate * 1.4));
     cam.position.copy(S.camPos);
-    if (S.shake > 0 && !save3d.settings.calm) {
-        const k = S.shake * 0.35;
-        cam.position.x += (Math.random() - 0.5) * k; cam.position.y += (Math.random() - 0.5) * k; cam.position.z += (Math.random() - 0.5) * k;
-    }
-    S.shake = Math.max(0, S.shake - dt * 1.5);
+    const sh = save3d.settings.calm ? 0 : (ctx.G.shake || 0);
+    if (sh > 0) { const k = sh * 0.3; cam.position.x += (Math.random() - 0.5) * k; cam.position.y += (Math.random() - 0.5) * k; cam.position.z += (Math.random() - 0.5) * k; }
+    ctx.G.shake = Math.max(0, (ctx.G.shake || 0) - dt * 1.5);
     cam.lookAt(S.camLook);
     cam.fov += (fov - cam.fov) * Math.min(1, dt * 3);
     cam.updateProjectionMatrix();
+    if (ctx.cam && ctx.cam.state) ctx.cam.state.pos.copy(cam.position);
+    return true;
 }
+function _look(out, cam) { cam.getWorldDirection(out); out.multiplyScalar(8).add(cam.position); return out; }
 
-// ── 🅿️ Parking Challenge: no title tile any more (roadmap 10) — the 🅿️ booth at a rest area and the 📱 💼 Jobs app's card
-// (features/onegame) unlock it (UNLOCK_COST, once, shared with 2D) and start it: ctx.parking.start({ challenge: true, from }).
-// leave a challenge you started in the world (the pause menu): straight back where you were
-addMenuItem("pause", { id: "parkLeave", order: 87, cls: "alt", label: () => S.ret === "foot" ? "🚶 Leave the challenge (back to the lot)" : "🚗 Leave the challenge (back on the road)",
-    visible: () => ctx.state === "parking" && S.challenge && !!S.ret,
-    action: () => { resume(); backToWorld(); } });
-// a pause-menu shortcut while parking: retry the level
-addMenuItem("pause", { id: "parkRetry", order: 75, cls: "pink", label: "↺ Retry this park",
-    visible: () => ctx.state === "parking" && S.challenge && S.phase === "drive",
-    action: () => { resume(); beginLevel(); } });
+// ── the pause menu: leave the challenge (she's just driving again, right where she is) ─────────
+addMenuItem("pause", { id: "parkLeave", order: 87, cls: "alt", label: "🚗 Leave the Parking Challenge",
+    visible: () => ctx.state === "parking" && S.active,
+    action: () => { resume(); endRun("quit"); } });
 
-// keep the 3D parking stats on the scrapbook-ish title info for the curious
-on("title", () => { if (S.active) leaveLot(); });
+// preload the level's props once she's near a course (so setting out a level never waits)
+let preT = 0;
+hook("hud", dt => {
+    if ((preT -= dt) > 0 || !ctx.car) return;
+    preT = 2;
+    if (CO.nearestCourse(ctx.car.pos.x, ctx.car.pos.z, 220)) ensureModels(LOT.MODELS).catch(() => {});
+});
+on("title", () => { if (S.active) { S.active = false; clearLevel(false); } S.mark = null; S.autoAll = false; hideBoard(); });
+on("run:start", () => { S.mark = null; hideBoard(); clearOffer(); });
+
+// ── the tests' autopilot: a real reverse parallel park with her car's own physics (the "controls" hook, like the
+//    banter autopilot), facing either way along the row — A: along the lane to beside the front car (backing up if
+//    she's past it) · B: reverse, full lock, the tail swings in · C: reverse, counter-lock, straight · D: ease to the
+//    bay's middle and stop. Between levels it backs out and pulls into the lane. Debug only: never on outside a test.
+const WB = 2.56;
+hook("controls", ctl => {
+    if (!S.autoAll || !S.active || ctx.state !== "parking") return;
+    const lc = local(S.c, _c), v = ctx.car.vF;
+    const speed = sp => {
+        if (sp > 0) { ctl.throttle = v < sp ? 0.8 : 0; ctl.brake = v > sp + 0.5 ? 0.5 : 0; }
+        else if (sp < 0) { ctl.throttle = v < sp - 0.3 && v < -0.5 ? 0.4 : 0; ctl.brake = v > sp ? 0.9 : 0; }
+        else { ctl.throttle = v < -0.5 ? 0.5 : 0; ctl.brake = v > 0.05 ? 0.7 : 0; }
+    };
+    ctl.handbrake = false; ctl.analog = true;
+    const pursue = (tx, tz, sp) => {
+        const err = wrapAngle(lc.h - Math.atan2(tx - lc.x, tz - lc.z));
+        ctl.steer = clamp(err * 2.6, -1, 1); speed(sp);
+    };
+    if (S.phase === "box") {
+        const away0 = Math.sign(-Math.sin(lc.h)) || 1;              // +1: facing −X
+        const A = S.boxAuto || (S.boxAuto = { away: away0, st: lc.z < 5.2 && S.L ? "u1" : "u2" });
+        const away = A.away;
+        if (A.st === "u1") {
+            // in the bay: back up to the car behind (a little room to swing out)
+            const tx = away > 0 ? S.L.zx1 - 2.25 : S.L.zx0 + 2.25;
+            const hT = away > 0 ? -Math.PI / 2 : Math.PI / 2, e = wrapAngle(lc.h - hT);
+            ctl.steer = clamp(-e * 2.6, -1, 1); speed(-0.6);
+            if (away * (tx - lc.x) <= 0.05) A.st = "u2";
+            return;
+        }
+        if (A.st === "u2") {
+            // pull out to a spot in the lane, then stop there
+            const tx = clamp(lc.x - away * 3, -8, 8), tz = 9.4;
+            pursue(tx, tz, 0.9);
+            if (inLane(lc) && Math.abs(lc.z - tz) < 1.4) A.st = "stop";
+            return;
+        }
+        speed(0); ctl.steer = 0;
+        return;
+    }
+    S.boxAuto = null;
+    if (S.phase !== "drive" || !S.L) return;
+    const A = S.auto || (S.auto = { phase: "A", sgn: Math.abs(wrapAngle(lc.h - START_H_LOCAL)) < Math.PI / 2 ? 1 : -1 });
+    const sgn = A.sgn, hT = sgn > 0 ? -Math.PI / 2 : Math.PI / 2, e = wrapAngle(lc.h - hT);
+    const K = S.autoP || AUTO;
+    const bx = (S.L.zx0 + S.L.zx1) / 2 + sgn * K.dx, bz = K.zT;
+    const R = WB / Math.tan(0.62 / (1 + 1.1 / 13)), th = Math.acos(1 - K.dz / (2 * R));
+    const xA = bx - sgn * 2 * R * Math.sin(th), zA = bz + K.dz;
+    // (give way to the pedestrian when she's in front of where the car is going)
+    const pd = S.L.ped;
+    if (pd && pd.person.obj.visible && pd.state !== "fallen") {
+        const o = pd.person.obj.position, dir = Math.sign(v) || (A.phase === "A" ? 1 : -1);
+        const ax = (o.x - lc.x) * lc.fx + (o.z - lc.z) * lc.fz, sd = Math.abs((o.x - lc.x) * lc.fz - (o.z - lc.z) * lc.fx);
+        if (ax * dir > 0 && Math.abs(ax) < 4.6 && sd < 2.0) { speed(0); return; }
+    }
+    const xS = xA - sgn * 4.0;
+    if (A.phase === "A0") {
+        // not enough run-up to line up: back up the lane first (straightening as she goes)
+        const xR = xS + sgn * 11, left = sgn * (xR - lc.x);
+        // (reversing: aim the TAIL at a point on the lane line behind her)
+        const look = Math.max(3.5, Math.min(6, left + 1));
+        const tailH = Math.atan2(sgn * look, zA - lc.z);
+        ctl.steer = clamp(-wrapAngle(lc.h + Math.PI - tailH) * 2.6, -1, 1);
+        speed(left > 1 ? -1.6 : left > 0.1 ? -0.6 : 0);
+        if (left <= 0.1 && Math.abs(v) < 0.1) { A.phase = "A"; tr(A, lc); }
+        return;
+    }
+    if (A.phase === "A" && !A.checked) {
+        A.checked = true;
+        if (sgn * (lc.x - xS) < 11 && (Math.abs(lc.z - zA) > 0.3 || Math.abs(e) > 0.15)) { A.phase = "A0"; tr(A, lc); return; }
+    }
+    if (A.phase === "A") {
+        // forward along the lane to a little past the front car, lined up with the lane
+        const left = sgn * (lc.x - xS);
+        // (pure pursuit of a point on the lane line ahead: she arrives lined up)
+        const look = Math.max(3.5, Math.min(6, left + 1));
+        const err = wrapAngle(lc.h - Math.atan2(-sgn * look, zA - lc.z));
+        ctl.steer = clamp(err * 2.6, -1, 1);
+        speed(left > 2.5 ? 1.8 : left > 0.15 ? 0.7 : 0);
+        if (left <= 0.15 && Math.abs(v) < 0.1) { A.phase = "A2"; tr(A, lc); }
+    } else if (A.phase === "A2") {
+        // back up to beside the front car, keeping the line
+        const left = sgn * (xA - lc.x);
+        const look = Math.max(3.5, left + 1.5);
+        ctl.steer = clamp(-wrapAngle(lc.h + Math.PI - Math.atan2(sgn * look, zA - lc.z)) * 2.6, -1, 1);
+        speed(left > 1.2 ? -1.2 : left > 0.1 ? -0.5 : 0);
+        if (left <= 0.1 && Math.abs(v) < 0.08) { A.phase = "B"; tr(A, lc); }
+    } else if (A.phase === "B") {
+        ctl.steer = sgn; speed(-1.1);
+        corners(lc, CORN);
+        const rearZ = Math.min(CORN[2].z, CORN[3].z);
+        if (sgn * e >= th || rearZ < S.L.curbZ + 0.25) { A.phase = "C"; tr(A, lc); }
+    } else if (A.phase === "C") {
+        ctl.steer = -sgn; speed(-1.1);
+        if (sgn * e <= 0.03) { A.phase = "D"; tr(A, lc); }
+    } else {
+        const dx = sgn * (lc.x - bx);
+        if (dx > 0.2) { speed(0.5); ctl.steer = clamp(e * 2.6, -1, 1); }
+        else if (dx < -0.2) { speed(-0.5); ctl.steer = clamp(-e * 2.6, -1, 1); }
+        else { speed(0); ctl.steer = 0; }
+    }
+}, -200);
+const START_H_LOCAL = CO.START_H;
+const AUTO = { dz: 1.6, zT: 3.9, dx: 0.3 };
+const tr = (A, lc) => (S.trace = S.trace || []).push({ ph: A.phase, x: +lc.x.toFixed(2), z: +lc.z.toFixed(2), h: +lc.h.toFixed(2), v: +ctx.car.vF.toFixed(2) });
 
 // test / debug hook
 ctx.parking._debug = S;
-export { S as parkingSession, pullover };
+ctx.parking.debug = {
+    S, CO, LOT,
+    /** Her car into the nearest live course's START box (stopped, facing along the row). */
+    toBox(c = null) {
+        c = c || CO.nearestCourse(ctx.car.pos.x, ctx.car.pos.z, 2000);
+        if (!c) return false;
+        const p = CO.startPoint(c);
+        ctx.car.place(p.x, p.z, CO.hWorld(c, CO.START_H));
+        ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0;
+        const r = ctx.world.highway || ctx.world.road, n = r.nearest(p.x, p.z, c.s + 160, {});
+        ctx.car.s = n.s; ctx.car.d = n.d;
+        if (ctx.cam) ctx.cam.snap();
+        return true;
+    },
+    /** Her car placed in the course at local (x, z) with local heading h. */
+    place(x, z, h, v = 0) {
+        const c = S.c || CO.nearestCourse(ctx.car.pos.x, ctx.car.pos.z, 2000);
+        if (!c) return false;
+        const p = CO.toWorld(c, x, z, {}), hw = CO.hWorld(c, h);
+        ctx.car.place(p.x, p.z, hw);
+        ctx.car.vx = Math.sin(hw) * v; ctx.car.vz = Math.cos(hw) * v; ctx.car.vF = v;
+        return true;
+    },
+    /** The bay's middle (local) for the level that's out. */
+    bay() { const L = S.L; return L ? { x: (L.zx0 + L.zx1) / 2, z: (Math.max(L.curbZ, L.zz0) + L.zz1) / 2 } : null; },
+    local: () => S.c ? local(S.c, {}) : null,
+    courses: () => CO.liveCourses().map(c => { const st = CO.startPoint(c), at = CO.attendantPoint(c), bt = CO.boothPoint(c); return { s: c.s, x: st.x, z: st.z, attendant: !!c.person, ax: at.x, az: at.z, bx: bt.x, bz: bt.z }; }),
+    /** The autopilot on (parks every level + drives back to the START box) / off. */
+    autopark(on = true, p = null) { S.autoAll = !!on; S.auto = null; S.boxAuto = null; S.autoP = p ? Object.assign({}, AUTO, p) : null; return true; },
+    endRun, unlock, markCourse,
+};
+export { S as parkingSession };

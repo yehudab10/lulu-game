@@ -28,8 +28,8 @@ function resultsHtml() {
     const best = g.k === "pin" && g.ps.length === 1 ? (CL.newBest ? `<p class="lp-note">⭐ New best to ${esc(g.pin.name)}!${CL.lastBest ? ` (was ${fmtRace(CL.lastBest)})` : ""}</p>` : CL.lastBest ? `<p class="lp-note">Your best: ${fmtRace(CL.lastBest)}</p>` : "") : "";
     return `<div class="lp-card ow-head"><span class="lp-av">${G.emoji}</span><span class="lp-tx"><b>${CL.lastTitle}</b><small>${esc(G.name)}${g.cut ? " · ended early" : ""}</small></span></div>${best}
         <div class="ow-res">${CL.lastRows.map((r, i) => `<button class="btn lp-row${r.uid === E.me() ? " me" : ""}"><span class="rk">${medal[i] || i + 1}</span><span class="lp-tx"><b><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${r.hex};margin-right:6px"></i>${esc(r.name)}${r.uid === E.me() && r.uid !== "me" ? " (you)" : ""}</b><small>${esc(r.val)}</small></span></button>`).join("")}</div>
-        ${row("owRematch", "🔁", "Rematch", `${esc(G.name)} again, from here`)}
-        ${row("owDone", "🌍", "Back to roaming", "close the phone")}`;
+        ${row("owRematch", "🔁", "Rematch", `Play ${esc(G.name)} again, from here`)}
+        ${row("owDone", "🌍", "Back to driving around", "Closes the phone")}`;
 }
 function wireResults(el, api) {
     on(el, "#owRematch", () => { const why = E.requestGame(E.CL.last.k); if (why) api.toast(why); else api.close(); });
@@ -45,15 +45,15 @@ function driversHtml() {
     const near = conn ? Object.values(M._debug.peers).filter(p => p.onScreen && p.ws != null) : [];
     const others = conn ? Math.max(0, M.riders - 1) : 0;
     let html = `<div class="ow-sec">Other drivers${conn ? ` · ${others} online` : ""}</div>`;
-    if (!near.length) html += `<p class="lp-note">${online ? "Nobody near you right now — other drivers show up as see-through ghosts." : "Play online is off — just you out here."}</p>`;
+    if (!near.length) html += `<p class="lp-note">${online ? "Nobody near you right now. Other players show up see-through." : "Play online is off, so it's just you out here."}</p>`;
     const clock = M._debug.clock;
     for (const p of near.slice(0, 4)) {
         const rec = p.rec && clock - p.rec.at < 120 ? ` · 🎉 a record: ${Math.round(p.rec.score).toLocaleString()}` : "";   // (never a pop-up: ci/calm)
         const fr = ctx.friends && ctx.friends.ui ? ctx.friends.ui.driverNote(p.id) : "";          // (features/friends: ➕ ask a driver — a line here, never a pop-up)
         html += row("owN_" + esc(p.id), p.m === 1 ? "🚶‍♀️" : "👻", esc(p.name), (p.m === 1 ? "on foot" : "driving") + rec + (fr ? " · " + fr : ""), mi(d2({ x: p.ws, z: p.wd })), false, ` data-drv="${esc(p.id)}" data-nm="${esc(p.name)}"`);
     }
-    html += row("owInviteSolo", "📤", "Invite friends", "they pop up right next to you · names, games together");
-    html += row("owOnline", "🌐", online ? "Go solo" : "Go online", online ? "hide every other driver (⚙️ Settings › Play online)" : "see other drivers out in the world");
+    html += row("owInviteSolo", "📤", "Play with a friend", "Send a link. They'll show up next to you.");
+    html += row("owOnline", "🌐", online ? "Go solo" : "Go online", online ? "Hide all the other players" : "See other players out in the world");
     return html;
 }
 function wireDrivers(el, api) {
@@ -66,23 +66,23 @@ function wireDrivers(el, api) {
 function partyHome(el, api) {
     const g = E.getG(), t = E.now(), host = ctx.party.isHost;
     const mem = E.members().filter(u => u !== E.me());
-    let html = `<div class="lp-card ow-head"><span class="lp-av">🌍</span><span class="lp-tx"><b>Free Roam · ${esc(ctx.party.code)}</b><small>${mem.length ? `${mem.length + 1} in the party${host ? " · 👑 you're hosting" : ""}` : "just you so far — share the code!"}</small></span></div>`;
+    let html = `<div class="lp-card ow-head"><span class="lp-av">🌍</span><span class="lp-tx"><b>Playing with friends</b><small>${mem.length ? `${mem.length + 1} of you${host ? ", and you started it" : ""}. Code: ${esc(ctx.party.code)}` : `Just you so far. Share the code: ${esc(ctx.party.code)}`}</small></span></div>`;
     if (g && g.ph === "in") {                           // an invitation is open: join it (or, as its starter, go now / call it off)
         const G = E.GAMES[g.k], left = Math.max(0, Math.ceil((g.until - t) / 1000)), mine = g.ps.includes(E.me());
         html += `<div class="lp-card"><span class="lp-av">${G.emoji}</span><span class="lp-tx"><b>${esc(G.name)} is starting${g.spot ? " at " + esc(g.spot.name) : ""}</b><small>${g.ps.length} in · ${left} s · ${esc(E.nameOf(g.by))} started it</small></span></div>`;
-        if (!mine) html += row("owJoin", "✅", `Join ${esc(G.name)}`, "you'll line up at the start when it goes");
-        else if (g.by === E.me()) html += row("owGoNow", "▶", "Start now", `${g.ps.length} playing`) + row("owCallOff", "✖", "Call it off", "nobody minds");
+        if (!mine) html += row("owJoin", "✅", `Join ${esc(G.name)}`, "You'll line up at the start when it goes");
+        else if (g.by === E.me()) html += row("owGoNow", "▶", "Start now", `${g.ps.length} playing`) + row("owCallOff", "✖", "Call it off", "Nobody minds");
         else html += `<p class="lp-note">✅ You're in — it starts in ${left} s.</p>`;
     }
     if (g && g.ph === "go") {
         const G = E.GAMES[g.k], left = g.k === "kugel" ? "" : ` · ${Math.max(0, Math.ceil((g.t0 + g.dur - t) / 1000))} s left`;
         html += `<div class="lp-card"><span class="lp-av">${G.emoji}</span><span class="lp-tx"><b>${esc(G.name)} is on${left}</b><small>${g.ps.includes(E.me()) ? "you're playing" : "you're in the next one"}</small></span></div>`;
-        if (host) html += row("owEnd", "✋", "End this game", "everyone gets the scoreboard");
-        if (g.ps.includes(E.me()) && (g.at.zone || "") !== E.zone()) html += row("owBack", "🚀", "Warp back to the game", g.at.zone ? "it's in town" : "it's on the highway");
+        if (host) html += row("owEnd", "✋", "End this game", "Everyone gets the scoreboard");
+        if (g.ps.includes(E.me()) && (g.at.zone || "") !== E.zone()) html += row("owBack", "🚀", "Warp back to the game", g.at.zone ? "It's in town" : "It's on the highway");
     }
-    if (E.riding()) html += row("owHopH", "🚪", `Hop out of ${esc(E.nameOf(E.riding()))}'s car`, "back in your own");
+    if (E.riding()) html += row("owHopH", "🚪", `Hop out of ${esc(E.nameOf(E.riding()))}'s car`, "Back in your own");
     html += `<div class="ow-sec">Friends</div>`;
-    if (!mem.length) html += `<p class="lp-note">Nobody else yet — the code is <b>${esc(ctx.party.code)}</b>.</p>`;
+    if (!mem.length) html += `<p class="lp-note">Nobody else yet. The code is <b>${esc(ctx.party.code)}</b>.</p>`;
     for (const u of mem) {
         const p = ctx.party.peer(u), z = E.zoneOfPeer(p), pos = E.posOf(u);
         const where = z ? `${z === E.zone() ? "here in" : "in"} ${esc(townName(z))}` : E.zone() ? "on the highway" : "on the highway";
@@ -97,13 +97,13 @@ function partyHome(el, api) {
     }
     if (ctx.friends && ctx.friends.ui && ctx.friends.ui.voteRows) html += ctx.friends.ui.voteRows();
     if (ctx.friends && ctx.friends.ui && ctx.friends.ui.missionRows) html += ctx.friends.ui.missionRows();   // (missions together: what friends can join)     // (🏁 race · 🏡 road trip · 🕎 dash · 🚓 tag — everyone says yes)
-    if (E.CL.last) html += `<div class="ow-sec">Last game</div>` + row("owLast", "🏆", E.CL.lastTitle, "the scoreboard · 🔁 rematch");
-    if (ctx.friends && ctx.friends.ui) html += row("owFL", "📇", "My friends list", "friends you keep — who's playing, join them, add by code");
-    html += `<div class="ow-sec">The party</div>`;
-    html += row("owInvite", "📤", "Invite friends", `send the link — they pop up right next to you · code ${esc(ctx.party.code)}`);
-    html += row("owLeave", "🚪", "Leave the group", "carry on alone from home — your friends keep playing, and stay on your 👯 list");
-    if (ctx.mp && ctx.mp.setOnline) html += row("owOnline", "🌐", ctx.mp.online ? "Hide other drivers" : "Show other drivers", ctx.mp.online ? "strangers out in the world are ghosts · just your friends instead" : "see the other drivers out in the world too");
-    html += `<p class="lp-fine">Start one here, or walk up to the 🕹️ arcade / 📋 notice board in town — friends opt in, nobody gets dragged along. Honk ${glyph("honk")} to wave at a friend.</p>`;
+    if (E.CL.last) html += `<div class="ow-sec">Last game</div>` + row("owLast", "🏆", E.CL.lastTitle, "See the scoreboard, or play again");
+    if (ctx.friends && ctx.friends.ui) html += row("owFL", "📇", "My friends list", "See who's playing, join them, or add a friend");
+    html += `<div class="ow-sec">Your group</div>`;
+    html += row("owInvite", "📤", "Invite more friends", `Send the link, or share the code ${esc(ctx.party.code)}`);
+    html += row("owLeave", "🚪", "Leave the group", "You go home and play alone. Your friends keep playing.");
+    if (ctx.mp && ctx.mp.setOnline) html += row("owOnline", "🌐", ctx.mp.online ? "Hide other drivers" : "Show other drivers", ctx.mp.online ? "See only your friends" : "See everyone else out in the world too");
+    html += `<p class="lp-fine">Start a game here, or at the arcade or notice board in town. Friends choose to join. Honk ${glyph("honk")} to wave at a friend.</p>`;
     el.innerHTML = html;
     on(el, "[data-u]", b => api.open("owparty", { friend: b.dataset.u }));
     on(el, "[data-k]", b => { const why = E.requestGame(b.dataset.k); if (why) api.toast(why); else api.close(); });
@@ -131,9 +131,9 @@ function friendView(el, api, uid) {
     const p = ctx.party.peer(uid), z = E.zoneOfPeer(p), pos = E.posOf(uid);
     const name = esc(E.nameOf(uid)), pr = doing(uid);
     el.innerHTML = `<div class="lp-card ow-head"><span class="lp-av">${pr ? esc(pr.icon) : "🚗"}</span><span class="lp-tx"><b>${name}</b><small>${pr ? esc(pr.label) + " · " : ""}${z ? "in " + esc(townName(z)) : "on the highway"}${pos ? " · " + mi(d2(pos)) : ""}</small></span></div>
-        ${E.riding() === uid ? row("owHop", "🚪", "Hop out", "back in your own car, right beside them") : row("owRide", "🚗", `Ride with ${name}`, "hop in their passenger seat · ✕ to hop out")}
-        ${row("owWarp", "🚀", `Catch up with ${name}`, "a puff of glitter and you're right behind them")}
-        ${pos || ctx.together ? row("owPinF", "📍", `Head to ${name}`, "a beam over them + the distance, until you meet up") : ""}
+        ${E.riding() === uid ? row("owHop", "🚪", "Hop out", "Back in your own car, right beside them") : row("owRide", "🚗", `Ride with ${name}`, "Sit in their passenger seat")}
+        ${row("owWarp", "🚀", `Catch up with ${name}`, "A puff of glitter and you're right behind them")}
+        ${pos || ctx.together ? row("owPinF", "📍", `Head to ${name}`, "A light shows where they are until you meet") : ""}
         ${ctx.friends && ctx.friends.ui ? ctx.friends.ui.partyRow(uid) : ""}
         ${row("owBackF", "‹", "Back", "")}`;
     if (ctx.friends && ctx.friends.ui) ctx.friends.ui.wirePartyRow(el, api);
@@ -150,7 +150,7 @@ function nearbyHome(el, api) {
     const T = ctx.town, inTown = !!E.zone(), party = E.party();
     let html = "";
     const pn = E.pinned;
-    if (pn) html += row("owUnpin", "✖", `Clear the pin: ${esc(pn.name)}`, "the beacon goes away");
+    if (pn) html += row("owUnpin", "✖", `Clear the pin: ${esc(pn.name)}`, "The light goes away");
     const g = E.getG();
     // things to do (solo — with friends they're in 👯)
     if (!party) {
@@ -164,17 +164,17 @@ function nearbyHome(el, api) {
             }
             if (E.CL.last) html += row("owLastS", "🏆", E.CL.lastTitle, "the last result");
         }
-    } else if (E.roam()) html += row("owToParty", "👯", "Games with your friends", "Cops & Robbers, Hot Kugel… in the 👯 app");
+    } else if (E.roam()) html += row("owToParty", "👯", "Games with your friends", "Cops & Robbers, Hot Kugel and more");
     if (inTown) {
         const people = (T.people ? T.people() : []).map(p => Object.assign(p, { d: d2(p) })).sort((a, b) => a.d - b.d).slice(0, 5);
-        if (people.length) html += `<div class="ow-sec">People to talk to</div>` + people.map((p, i) => row("owP" + i, PERSON_ICON[p.id] || "💬", esc(p.name), "hop out &amp; walk up to talk", mi(p.d), false, ` data-pin="p${i}"`)).join("");
+        if (people.length) html += `<div class="ow-sec">People to talk to</div>` + people.map((p, i) => row("owP" + i, PERSON_ICON[p.id] || "💬", esc(p.name), "Walk up to them to talk", mi(p.d), false, ` data-pin="p${i}"`)).join("");
         const sights = E.townSights().map(s => Object.assign(s, { d: d2(s) })).sort((a, b) => a.d - b.d);
         if (sights.length) html += `<div class="ow-sec">Around ${esc(T.name || "town")}</div>` + sights.map((s, i) => row("owT" + i, s.icon, esc(s.name), "a landmark", mi(s.d), false, ` data-pin="t${i}"`)).join("");
         const coins = (T.coins || []).filter(c => !c.taken).map(c => Object.assign({ x: c.x, z: c.z }, { d: d2(c) })).sort((a, b) => a.d - b.d);
         html += `<div class="ow-sec">Coins &amp; the way out</div>`;
-        if (coins.length) html += row("owC", "🪙", `${coins.length} coin${coins.length === 1 ? "" : "s"} left in town`, "pin the nearest", mi(coins[0].d), false, ` data-pin="c"`);
+        if (coins.length) html += row("owC", "🪙", `${coins.length} coin${coins.length === 1 ? "" : "s"} left in town`, "Show the nearest one", mi(coins[0].d), false, ` data-pin="c"`);
         const ex = exitsHere();
-        ex.forEach((x, i) => { html += row("owX" + i, "🛣️", esc(x.name), "back to the highway", mi(d2(x)), false, ` data-pin="x${i}"`); });
+        ex.forEach((x, i) => { html += row("owX" + i, "🛣️", esc(x.name), "Back to the highway", mi(d2(x)), false, ` data-pin="x${i}"`); });
         V.list = { people, sights, coins, ex };
     } else {
         html += `<div class="ow-sec">Up the road</div>`;

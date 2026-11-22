@@ -61,9 +61,9 @@ async function body(t, guests) {
   const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
   for (const P of [Hp, A]) {
     await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
-    // (Lakewood by name: its models aren't loaded just by being in the lobby now that the first exit is Midwood's)
-    if (!await P.until(`(ctx.town.load("lakewood"), ctx.town.loaded("lakewood"))`, `${P.label}: Lakewood's models`, 120000)) return;
-    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await P.game(`(ctx.town.load("lakewood"), true)`);         // (Lakewood isn't the first exit any more — ci/exits2: load it)
+    await P.until(`ctx.town.loaded("lakewood")`, `${P.label}: Lakewood's models`, 120000);
+    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf ? ctx.town.exitOf("lakewood") : ctx.town.exits.find(e => e.town === "lakewood").s, speed: 0 })`);   // (each town its own exit since ci/exits2)
     await P.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, `${P.label}: in Lakewood`, 40000);
   }
   // both on foot on the bank's pavement, either side of the door (out in the street a friend's town loop minivan BONKs her)
@@ -77,6 +77,7 @@ async function body(t, guests) {
   await W.install(t);
   const AW = { L: A.L };            // (QA: the watchdog on the friend's screen too)
   await W.install(AW);
+  await A.frames(15); await W.reset(AW); await W.reset(t);     // (the test just put both at the bank: watch from here)
   const coins0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
 
   // ── a robbery on the host's screen (she's on foot: the robber fumbles in the doorway) ──
@@ -93,6 +94,7 @@ async function body(t, guests) {
   // the guest runs up and TACKLES him (the ✋ spot on her screen → the host checks she's really there)
   await A.game(`(() => { const p = ctx.heist.debug.party(); return true; })()`);
   const rob = await g(`(() => { const o = ctx.heist.robbery.robber.obj.position; return { x: o.x, z: o.z }; })()`);
+  await W.moved(AW);                // (the test walks her up to him in one go: a declared cut for the watchdog)
   await A.game(`(ctx.foot.debug.F.pos.set(${rob.x} + 1.2, 0.05, ${rob.z} + 0.6), true)`);
   await A.frames(6);
   // (the host checks the claim against where IT sees her: let her walk reach the host's screen first)
@@ -131,9 +133,19 @@ async function body(t, guests) {
   await t.shot("robbery-foiled-host");
   // a payout broadcast by someone who isn't the host is ignored (the host's screen hears it and pays nobody)
   const hc0 = await PH.H.game(`L3.wallet.coins`);
+  // (QA: every coin award on the host's screen meanwhile, with its reason — only a robbery share would be the hole)
+  await PH.H.L(`import("./js/core/ctx.js").then(m => { window.__coinEv = []; if (!window.__coinHook) { window.__coinHook = true; m.on("coin", e => window.__coinEv && window.__coinEv.push(e)); } return true; })`);
+  // (QA: who each screen thinks the party host is, frame by frame, while the fake goes round — a host that flips between the
+  //  two screens would make the "non-host" a host for a moment)
+  const hostWatch = P => P.L(`(() => { window.__hostLog = []; const c = __lulu3d.ctx, f0 = c.frames; const tick = () => { if (c.frames - f0 > 60) return; const h = c.party.host; const l = window.__hostLog; if (!l.length || l[l.length - 1][1] !== h) l.push([c.frames - f0, h]); requestAnimationFrame(tick); }; tick(); return true; })()`);
+  await hostWatch(PH.H); await hostWatch(PH.O);
+  const senderUid = await PH.O.game(`ctx.party.uid`);
   await PH.O.game(`(ctx.party.broadcast("hfa", 4242, ctx.party.uid, "ram", [[${HU}, 80], [${GU}, 80]]), true)`);
   await PH.H.frames(40);
-  t.check("a fake payout from a non-host pays nobody", (await PH.H.game(`L3.wallet.coins`)) === hc0, JSON.stringify({ was: hc0, now: await PH.H.game(`L3.wallet.coins`) }));
+  console.log("   host as seen during the fake: receiver", JSON.stringify(await PH.H.L(`window.__hostLog`)), "sender", JSON.stringify(await PH.O.L(`window.__hostLog`)), "sender uid", senderUid);
+  const cev = await PH.H.L(`window.__coinEv || []`);
+  t.check("a fake payout from a non-host pays nobody", !cev.some(e => /heist/.test(e.why || "")), JSON.stringify({ was: hc0, now: await PH.H.game(`L3.wallet.coins`), awards: cev }));
+  if (cev.length) console.log("   (other coins on the host's screen meanwhile:", JSON.stringify(cev), ")");
   // the same claim twice never pays twice
   const cc = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   await g(`(ctx.party.sendEvent("hfo", ctx.heist.robbery ? ctx.heist.robbery.id : 1, "tackle", [${HU}, ${GU}], 120), true)`);
@@ -156,6 +168,7 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   const HU = JSON.stringify(hostUid), GU = JSON.stringify(guestUid);
   // both into the bank's lobby
   for (const P of [Hp, A]) {
+    await P.L(`(window.__qa && (window.__qa.cutF = __lulu3d.ctx.frames + 3, window.__qa.last = null), true)`);   // (QA: the test's own warp to the door — a declared cut)
     await P.game(`(() => { const sp = ctx.town.spot("bank"); ctx.foot.debug.F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
     await P.frames(4);
     await P.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
@@ -182,17 +195,23 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   t.check("guest: ✋ at the window = 🗣️ Distract the teller", /Distract the teller/.test(await A.game(HOT("crewTalk")) || ""));
   t.check("host: ✋ at the vault = 🔓 Crack the vault", /Crack the vault/.test(await g(HOT("vault"))));
   await t.shot("crew-inside");
+  // (both screens agree who the party host is BEFORE the alarm: waiting for that after it left the friend standing still
+  //  in the getaway for up to 2 minutes — long enough for a cop on foot to catch her, and then she got no share)
+  await agreeHost(t, Hp, A, hostUid);
   await A.game(`ctx.heist.debug.crew.done("talker")`);
   await g(`ctx.heist.debug.crew.done("vault")`);
-  // the alarm: both out of the lobby, the getaway is on
-  await Hp.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.ph === "getaway" && ctx.state === "footRun"`, "host: THE ALARM — out on the street", 60000);
-  await A.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.ph === "getaway" && ctx.state === "footRun"`, "guest: out on the street too", 60000);
-  t.check("taking part spends each one's own heist (one a run)", await g(`ctx.heist.debug.J.done`) && await A.game(`ctx.heist.debug.J.done`));
+  // the alarm: both out of the lobby, the getaway is on — each one "shakes the cops" the moment SHE is out on the street
+  // (standing still on the kerb while the test waited on the other screen, a cop on foot caught the friend → no share)
+  const OUT = `ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.ph === "getaway" && ctx.state === "footRun"`;
   const c0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
-  // results: both shake the cops → the party host splits the take (both screens agreeing who that is first)
-  await agreeHost(t, Hp, A, hostUid);
-  await A.game(`ctx.heist.debug.crew.result("ok")`);
-  await g(`ctx.heist.debug.crew.result("ok")`);
+  const done = { h: false, a: false }, end = Date.now() + 180000;
+  while ((!done.h || !done.a) && Date.now() < end) {
+    if (!done.h && await g(OUT)) { await g(`ctx.heist.debug.crew.result("ok")`); done.h = true; }
+    if (!done.a && await A.game(OUT)) { await A.game(`ctx.heist.debug.crew.result("ok")`); done.a = true; }
+    await t.frames(2);
+  }
+  t.check("host + guest: THE ALARM — both out on the street, both shake the cops", done.h && done.a, JSON.stringify(done));
+  t.check("taking part spends each one's own heist (one a run)", await g(`ctx.heist.debug.J.done`) && await A.game(`ctx.heist.debug.J.done`));
   await Hp.until(`!ctx.heist.debug.crew.C.lead && ctx.heist.debug.crew.C.paid.size > 0`, "host: the take is settled", 60000);
   await A.until(`ctx.heist.debug.crew.C.paid.size > 0`, "guest: her share arrives", 60000);
   const dh = (await g(`L3.wallet.coins`)) - c0.h, da = (await A.game(`L3.wallet.coins`)) - c0.a, max = await g(`ctx.heist.debug.crew.MAX_TAKE`);

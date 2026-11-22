@@ -276,6 +276,8 @@ function slotSpot(id) {
     };
 }
 on("boot", () => {
+    // (her house is on a Midwood street — roadmap 14: its inside plays IN the town, the town standing outside)
+    if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     try { outsideInit(); } catch (e) { console.error("[decor] outside", e); }
     if (ctx.foot && ctx.foot.addSpot) {
         ctx.foot.addSpot(doorSpot);
@@ -310,7 +312,10 @@ export function enter() {
     VIS.owner = fr ? fr.owner : P && P.active ? P.uid : "";
     VIS.placed = fr ? fr.placed : null;
     const st = at(0.6, 7.1);
-    const n = ctx.world.road.nearest(st.x, st.z, S_HOME, {});
+    // (in town — the house is on its Midwood lot: the town's own streets, near where she stands — like a town house's
+    //  door, features/homes; the highway's home s would take her out of the town on the way in)
+    const F = ctx.foot.debug && ctx.foot.debug.F;
+    const n = ctx.world.road.nearest(st.x, st.z, home.site === "town" ? (F ? F.s : null) : S_HOME, {});
     const side = Math.sign(n.d) || 1;
     const door = { s: n.s, d: n.d + side * 1.4, side, id: HOUSE_ID };
     if (!ctx.foot.handoff(HOUSE_ID, door)) return false;
@@ -368,7 +373,7 @@ on("world:homeStart", () => {
     const tick = () => {
         if (ctx.state !== "footRun" || S.visits > 0) return;
         if (ctx.time - t0 < 7) { setTimeout(tick, 500); return; }
-        H.toast("🛋️ Your house is open! ✋ at the front door — spend coins decorating", "pink", { key: "decorNudge" });
+        H.toast("🛋️ Your house is open! Go in the front door to decorate it.", "pink", { key: "decorNudge" });
     };
     setTimeout(tick, 500);
 });

@@ -263,14 +263,14 @@ const playSubs = [];
 export function addPlaySub(fn, priority = 0) { playSubs.push({ fn, priority }); playSubs.sort((a, b) => b.priority - a.priority); }
 function playSub() {
     for (const p of playSubs) { try { const s = p.fn(); if (s) return s; } catch (e) { console.error("[title] play sub", e); } }
-    return "Lulu's world: home · the highway · the towns";
+    return "Start at home and go anywhere.";
 }
 addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶ PLAY ${glyph("confirm")}`, sub: playSub, action: () => startRun({ mode: "cruise" }) });
 addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
-    sub: () => { const n = ownedSkins().length; return n > 1 ? `${n} cars in the garage · ${glyph("confirm")} to switch` : "buy more cars in the shop"; }, action: cycleSkin });
+    sub: () => { const n = ownedSkins().length; return n > 1 ? `You have ${n} cars. ${glyph("confirm")} to switch.` : "Buy more at Uncle Refael's in town"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
-addMenuItem("title", { id: "settings", order: 80, group: "more", label: "⚙️ Settings", sub: "graphics · HUD · sound · chatter", action: () => showSettings(() => showTitle(true)) });
-addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "Classic 2D", label: "🕹️ Classic 2D (legacy)", sub: "the original · same coins, same cars", action: () => { location.href = "../classic.html"; } });
+addMenuItem("title", { id: "settings", order: 80, group: "more", label: "⚙️ Settings", sub: "Sound, graphics and the screen", action: () => showSettings(() => showTitle(true)) });
+addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "Classic 2D", label: "🕹️ Classic 2D", sub: "The original game, with the same coins and cars", action: () => { location.href = "../classic.html"; } });
 
 function ownedSkins() {
     const owned = (shared.get().ownedSkins || ["pink"]).filter(k => SKINS[k]);

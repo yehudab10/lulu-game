@@ -1,5 +1,5 @@
 // 🛍️ Shops (features/shops): the shop moved into the world.
-//   • 🚗 Uncle Moishe's Pre-Loved Cars stands in both towns (town data `uses.dealer`): the showroom + every car for sale on
+//   • 🚗 Uncle Refael's Pre-Loved Cars stands in both towns (town data `uses.dealer`): the showroom + every car for sale on
 //     the lot with a price board; ✋ at a car → the card (stats, price) → ask → buy; buying writes the SHARED save exactly
 //     like the old Shop (ownedSkins + selectedSkin), can't overspend; the test drive puts her in it and gives it back
 //   • 🔑 her garage at home: the cars she owns are picked in the driveway (✋ MY CARS)
@@ -72,14 +72,14 @@ module.exports = {
       t.check("the Garage drawer has 🛍️ Where to shop (not a 🛒 Shop)", items.some(s => /Where to shop/.test(s)) && !items.some(s => /🛒 Shop/.test(s)), items.filter(s => /shop/i.test(s)).join(" | "));
       await t.click(/Where to shop/);
       const txt = await t.L(`document.getElementById("screenCard").textContent`);
-      t.check("…lists Uncle Moishe's lot with what it sells + where", /Uncle Moishe/.test(txt) && /Cars/.test(txt) && /Lakewood/.test(txt) && /Midwood/.test(txt), txt.slice(0, 200));
+      t.check("…lists Uncle Refael's lot with what it sells + where", /Uncle Refael/.test(txt) && /Cars/.test(txt) && /Lakewood/.test(txt) && /Midwood/.test(txt), txt.slice(0, 200));
       t.check("…and the garage at home", /garage at home/i.test(txt));
       t.check("…the makolet + Shmerel's van for the items", /makolet/i.test(txt) && /Shmerel/.test(txt) && /Pepper spray/i.test(txt) && /Missiles/.test(txt));
-      t.check("…Moishe's Bling Bay for horns + decorations", /Bling Bay/.test(txt) && /horns/.test(txt) && /decorations/.test(txt));
+      t.check("…Refael's Bling Bay for horns + decorations", /Bling Bay/.test(txt) && /horns/.test(txt) && /decorations/.test(txt));
       t.check("…and no menu counter any more: everything is sold somewhere in the world", !/old shop counter/i.test(txt), txt.slice(0, 400));
-      await t.click(/Uncle Moishe/);
+      await t.click(/Uncle Refael/);
       t.check("✕ on it marks it (the destination)", await g(`ctx.shops.dest() === "dealer"`));
-      t.check("…no pop-up for it (no toast)", !await t.L(`[...document.querySelectorAll(".toast")].some(e => /Moishe/.test(e.textContent))`));
+      t.check("…no pop-up for it (no toast)", !await t.L(`[...document.querySelectorAll(".toast")].some(e => /Refael/.test(e.textContent))`));
       await t.shot("guide");
       await t.click(/Done/);
       // the old counter no longer sells cars
@@ -102,11 +102,11 @@ module.exports = {
       await t.tap(0);
       await t.frames(6);
       t.check("✋ opens the garage card", await cardUp());
-      t.check("…the pink car is in the driveway, the rest are at Uncle Moishe's", /driveway/i.test(await tagOf("pink")) && /💰/.test(await tagOf("ninja")));
+      t.check("…the pink car is in the driveway, the rest are at Uncle Refael's", /driveway/i.test(await tagOf("pink")) && /💰/.test(await tagOf("ninja")));
       const shot = await g(`L3.ctx.car.skinKey`);
       await t.L(`document.querySelector('#screenCard .dp-opt[data-opt="gold"]').click()`);
       await t.frames(3);
-      t.check("…a car she doesn't own can't be picked (says where to get it)", await g(`ctx.car.skinKey`) === shot && /Moishe/.test(await t.L(`document.querySelector("#screenCard .dp-desc").textContent`)));
+      t.check("…a car she doesn't own can't be picked (says where to get it)", await g(`ctx.car.skinKey`) === shot && /Refael/.test(await t.L(`document.querySelector("#screenCard .dp-desc").textContent`)));
       await t.shot("garage-home");
       await t.tap(1);
       await t.frames(6);
@@ -131,13 +131,56 @@ module.exports = {
     await step("lot", async () => {
       if (!await town("lakewood")) return;
       const spots = await g(`(() => { const S = ctx.town.spots; return Object.keys(S).filter(k => k === "dealer" || k.startsWith("lot_")); })()`);
-      t.check("Lakewood has Uncle Moishe's + 7 cars on the lot", spots.includes("dealer") && spots.filter(k => k.startsWith("lot_")).length === 7, spots.join(","));
+      t.check("Lakewood has Uncle Refael's + 7 cars on the lot", spots.includes("dealer") && spots.filter(k => k.startsWith("lot_")).length === 7, spots.join(","));
       await view("dealer", "lot-lakewood", 10, 7, 20);
-      t.check("the mark is over Uncle Moishe's door in town", await g(`(() => { const tg = ctx.shops.debug.guide.target(), sp = ctx.town.spot("dealer"); return !!(tg && tg.x != null && Math.hypot(tg.x - sp.x, tg.z - sp.z) < 1); })()`));
+      t.check("the mark is over Uncle Refael's door in town", await g(`(() => { const tg = ctx.shops.debug.guide.target(), sp = ctx.town.spot("dealer"); return !!(tg && tg.x != null && Math.hypot(tg.x - sp.x, tg.z - sp.z) < 1); })()`));
+      // the ✋ is up wherever she'd naturally stand — not only on the one spot in front of a price board (the owner
+      // walked up to the cars and to the man himself and found nothing to press)
+      const labelAt = async (name, du, dn) => {
+        await W.pause(t, false);
+        await g(`(() => { const sp = ctx.town.spot(${JSON.stringify(name)}); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${dn} + sp.ux * ${du}, 0.05, sp.z + sp.nz * ${dn} + sp.uz * ${du}); F.phase = "walk"; return true; })()`);
+        await t.frames(8);
+        return label();
+      };
+      await onFootAt("lot_purple");
+      const reach = { kerb: await labelAt("lot_purple", 1.2, 2.8), midWalk: await labelAt("lot_purple", -1.2, 1.5), onLot: await labelAt("lot_purple", 0.4, -4), nextCar: await labelAt("lot_orange", 0, -3) };
+      t.check("✋ at a car from the kerb, the middle of the sidewalk and standing on the lot beside it", /ROYAL PURPLE/.test(reach.kerb) && /ROYAL PURPLE/.test(reach.midWalk) && /ROYAL PURPLE/.test(reach.onLot), JSON.stringify(reach));
+      t.check("…and each bay is its own car's (the next one along)", /SUNSET GLOW/.test(reach.nextCar), reach.nextCar);
+      const man = await g(`(() => { const o = ctx.scene.getObjectByName("UncleRefael"), sp = ctx.town.spot("dealer"); return o ? [(o.position.x - sp.x) * sp.ux + (o.position.z - sp.z) * sp.uz, (o.position.x - sp.x) * sp.nx + (o.position.z - sp.z) * sp.nz] : null; })()`);
+      const byMan = man ? await labelAt("dealer", man[0], man[1] + 1.1) : "";
+      t.check("✋ standing in front of the dealer himself (not only at his door)", /BROWSE/.test(byMan), JSON.stringify({ man, byMan }));
+      await labelAt("lot_purple", 0.4, -4); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`); await t.frames(20); await t.shot("lot-standing-on-it");
+      // ON the lot (open ground inside the block): the camera never goes into the showroom — whichever way she faces —
+      // and the watchdog looks on (the lot isn't "inside a block")
+      t.check("the lot is open ground (ctx.shops.onLot)", await g(`ctx.shops.onLot(ctx.foot.pos.x, ctx.foot.pos.z)`));
+      const camIn = [];
+      for (const [du, dn] of [[0.4, -4], [1.6, -5.5], [0.4, -1.4]]) for (const turn of [0, 1, 2, 3]) {
+        // (the test turns her + the camera: the watchdog looks away for the turn, then watches it settle there)
+        await W.pause(t, false);
+        await g(`(() => { const sp = ctx.town.spot("lot_purple"), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${dn} + sp.ux * ${du}, 0.05, sp.z + sp.nz * ${dn} + sp.uz * ${du}); F.phase = "walk";
+          if (ctx.cam && ctx.cam.free) ctx.cam.free.yaw = Math.atan2(sp.ux, sp.uz) + ${turn} * Math.PI / 2; return true; })()`);
+        await t.frames(12); await W.pause(t, true); await W.moved(t);
+        await t.frames(20);
+        const inside = await g(`(() => { const sp = ctx.town.spot("dealer"), c = ctx.camera.position, cs = Math.cos(sp.rot), sn = Math.sin(sp.rot), dx = c.x - sp.cx, dz = c.z - sp.cz;
+          const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs; return Math.abs(lx) < 7.4 && Math.abs(lz) < 4.9 && c.y < 5.2; })()`);
+        if (inside) camIn.push(`${du},${dn},turn${turn}`);
+      }
+      t.check("standing on the lot by the showroom: the camera never goes inside it", camIn.length === 0, camIn.join(" | "));
+      await t.shot("lot-on-it-camera");
+      // driving up to the lot: one quiet line says what to do (the ✋ needs her on her feet)
+      await W.pause(t, false);
+      await g(`(ctx.foot.debug.getIn ? ctx.foot.debug.getIn() : ctx.foot.end("test"), true)`);
+      await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
+      await g(`(() => { const sp = ctx.town.spot("lot_orange"); ctx.car.place(sp.x + sp.nx * 4.2, sp.z + sp.nz * 4.2, Math.atan2(sp.ux, sp.uz)); ctx.car.vx = ctx.car.vz = 0; return true; })()`);
+      await t.frames(10);
+      const driveLine = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
+      t.check("in the car, stopped at the lot: one line says to get out and walk up to a car", /get out and walk up/.test(driveLine), driveLine);
+      t.check("…a prompt line, not a toast", !await t.L(`[...document.querySelectorAll(".toast")].some(e => /walk up to a car/.test(e.textContent))`));
+      await onFootAt("lot_purple");      // (back on the sidewalk; the watchdog looks again from here)
       // the card
       t.check("✋ opens the car card", await look("purple"));
       await t.frames(4);
-      const W0 = await coins();       // (after: Ima's list may tick "say hi to Uncle Moishe" as the card opens — once a day)
+      const W0 = await coins();       // (after: Ima's list may tick "say hi to Uncle Refael" as the card opens — once a day)
       t.check("…the real car stands on the lot while she looks", await g(`${D}.D.lifted && ${D}.D.lifted.k === "purple" && !!${D}.D.lifted.obj.parent`));
       t.check("…stats bars + flavour line", await t.L(`document.querySelectorAll("#screenCard .sp-bar").length === 4 && /Royalty/.test(document.querySelector("#screenCard .sp-head").textContent)`));
       t.check("…all 7 cars on the lot as tiles", await t.L(`document.querySelectorAll("#screenCard .dp-opt").length`) === 7);
@@ -214,7 +257,7 @@ module.exports = {
     await step("midwood", async () => {
       if (!await town("midwood")) return;
       const spots = await g(`Object.keys(ctx.town.spots).filter(k => k === "dealer" || k.startsWith("lot_"))`);
-      t.check("Midwood has Uncle Moishe's Brooklyn lot + 7 cars", spots.includes("dealer") && spots.filter(k => k.startsWith("lot_")).length === 7, spots.join(","));
+      t.check("Midwood has Uncle Refael's Brooklyn lot + 7 cars", spots.includes("dealer") && spots.filter(k => k.startsWith("lot_")).length === 7, spots.join(","));
       await view("dealer", "lot-midwood", 10, 7, 20);
       t.check("✋ at a car there opens the card too", await look("ninja"));
       await t.tap(1); await t.frames(4);
@@ -223,7 +266,7 @@ module.exports = {
     // ════ 7. every catalogue car is buyable somewhere a solo player reaches ════
     await step("catalogue", async () => {
       const r = await t.L(`Promise.all([import("./js/features/garage/data.js"), import("./js/features/shops/lot.js")]).then(([d, l]) => ({ cars: d.SKIN_KEYS.filter(k => d.SKIN_SHOP[k].price > 0 && !l.LOT.includes(k)) }))`);
-      t.check("every car for sale stands on Uncle Moishe's lot", r.cars.length === 0, JSON.stringify(r));
+      t.check("every car for sale stands on Uncle Refael's lot", r.cars.length === 0, JSON.stringify(r));
     });
 
     // ════ 7b. the makolet + Shmerel's van (items) ════
@@ -293,7 +336,7 @@ module.exports = {
       t.check("…and the old counter no longer sells items", !r.tabs.includes("items"), JSON.stringify(r.tabs));
     });
 
-    // ════ 7c. ✨ the Bling Bay (horns + decorations) at Uncle Moishe's ════
+    // ════ 7c. ✨ the Bling Bay (horns + decorations) at Uncle Refael's ════
     await step("bling", async () => {
       if (!await town("lakewood")) return;
       await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 3000; }); })`);

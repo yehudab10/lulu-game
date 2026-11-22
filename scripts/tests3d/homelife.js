@@ -124,7 +124,7 @@ module.exports = {
       if (!await g(`ctx.homes.enter(${JSON.stringify(key)}, ${JSON.stringify(mode)}, "door")`)) return false;
       return inside();
     };
-    const WALL = `(() => { const r = ${D}.room(); const walls = r.cols.filter(c => /^([pq]\d|back|f\d)$/.test(c.id)), B = r.bounds, bad = [];
+    const WALL = `(() => { const r = ${D}.room(); const walls = r.cols.filter(c => /^([pq]\\d|back|f\\d)$/.test(c.id)), B = r.bounds, bad = [];
       for (const q of r.res) {
         const inWall = walls.some(c => q.x > c.x0 - 0.12 && q.x < c.x1 + 0.12 && q.z > c.z0 - 0.12 && q.z < c.z1 + 0.12);
         const out = q.x < B.x0 - 0.3 || q.x > B.x1 + 0.3 || q.z < B.z0 - 0.3 || q.z > B.z1 + 0.3;

@@ -26,7 +26,7 @@ import { bubbleMaterial, setDistracted, distracted } from "./items.js";
 
 const TABS = [["cars", "🚗 Cars"], ["items", "🚀 Items"], ["bling", "✨ Bling"]];
 /** features/shops: a tab whose things are sold at a place in the world now leaves this counter (🚗 cars → Uncle
- *  Moishe's lot …). With every tab retired the old Shop is only a showroom nobody opens. */
+ *  Refael's lot …). With every tab retired the old Shop is only a showroom nobody opens. */
 export function retireTab(id) { const i = TABS.findIndex(t => t[0] === id); if (i >= 0) TABS.splice(i, 1); }
 export const shopTabs = () => TABS.map(t => t[0]);
 const CAM_YAW = 0.62;   // the camera looks at the turntable from the front-right
