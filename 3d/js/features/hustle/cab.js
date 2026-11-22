@@ -15,6 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
 import { FARES, CAB, PAY, TUNE, JOBS } from "./data.js";
 import { registerJob, finishJob } from "./jobs.js";
+import { payCrew } from "./together.js";
 import { boardRider, unboardRider, unseat, seatWorld } from "./rider.js";
 import { need, models, cloneWithColors, findNodes, pt, rand, pick, clamp, carDist, bubble, burst } from "./util.js";
 import * as SFX from "./sfx.js";
@@ -297,12 +298,13 @@ function dropOff(job) {
     if (onTime) { job.streak++; job.bestStreak = Math.max(job.bestStreak, job.streak); }
     const bonus = onTime && job.streak > 1 ? PAY.streak * (job.streak - 1) : 0;
     const pay = base + tip + bonus;
-    addCoins(pay, "hustle");
+    const mine = payCrew(job, pay);                  // (a cab for two: the fare split with the navigator — together.js)
+    addCoins(mine, "hustle");
     addScore(150 + pay * 4, "hustle");
     job.sums.fares += base; job.sums.tips += tip; job.sums.streak += bonus;
     job.paid++;
     job.names.push(c.fare.emoji);
-    H.toast(`🚕 +${pay} 💰${tip ? ` (tip ${tip})` : ""}${bonus ? ` 🔥×${job.streak}` : ""}`, "gold", { merge: false });
+    H.toast(`🚕 +${mine} 💰${mine < pay ? ` (your half of ${pay})` : ""}${tip ? ` (tip ${tip})` : ""}${bonus ? ` 🔥×${job.streak}` : ""}`, "gold", { merge: false });
     SFX.kaching();
     const cat = onTime ? "arrive" : "lateArrive";
     const line = pick(c.fare.lines[cat] || c.fare.lines.arrive);

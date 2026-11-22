@@ -11,6 +11,7 @@
 import * as THREE from "three";
 import { ctx, emit, addActor, registerState, setState } from "../../core/ctx.js";
 import { addCoins, addScore, updateDriving } from "../../core/driving.js";
+import { payCrew } from "./together.js";
 import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
 import { CREW, GETAWAY, PAY, TUNE, JOBS } from "./data.js";
@@ -209,7 +210,7 @@ function summary(job, result, why) {
     const kept = Math.round(base * Math.max(0.25, 1 - job.lost * PAY.bagLost));
     const heat = PAY.heatBonus * Math.max(job.maxHeat, ctx.law ? 1 : 0);
     const pay = kept + heat;
-    addCoins(pay, "hustle");
+    addCoins(payCrew(job, pay), "hustle");          // (for two: the pay split with the crew — together.js)
     addScore(1500 + pay * 3, "hustle");
     emit("stat", { id: "hustleHeists", n: 1 });
     const rows = [["Your cut of the jackpot", `+${base}`]];

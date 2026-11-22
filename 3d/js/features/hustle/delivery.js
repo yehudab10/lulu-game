@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { ctx, emit, addActor } from "../../core/ctx.js";
 import { addCoins, addScore } from "../../core/driving.js";
+import { payCrew } from "./together.js";
 import { SHOULDER } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import { input } from "../../input.js";
@@ -187,7 +188,7 @@ function summary(job, result, why) {
     const food = Math.round(base * (0.35 + 0.65 * job.heat) * (1 - job.spill * 0.85));
     const tip = Math.round(Math.min(20, Math.max(0, job.T - job.rideT)) * PAY.deliveryTip * (st >= 4 ? 1 : 0.4));   // caps at 20 s early
     const pay = Math.max(5, food + tip);
-    addCoins(pay, "hustle");
+    addCoins(payCrew(job, pay), "hustle");          // (for two: the pay split with the crew — together.js)
     addScore(600 + pay * 4, "hustle");
     emit("stat", { id: "hustleDeliveries", n: 1 });
     const rows = [[`${f.emoji} ${f.name} (🔥 ${Math.round(job.heat * 100)}% · 💦 ${Math.round(job.spill * 100)}% spilled)`, `+${food}`]];
