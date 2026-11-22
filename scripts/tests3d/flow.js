@@ -181,8 +181,8 @@ async function oneWorld(t, g, watch, moved) {
   await t.frames(3);
   await watch(true);
   if (!await t.until(`!__lulu3d.ctx.town.active`, "she drives back out to the T", 60000)) return;
-  const out = await g(`({ road: ctx.world.road === ctx.world.highway, s: Math.round(ctx.car.s - ${E}), d: +ctx.car.d.toFixed(1), standing: ctx.town.standing.length })`);
-  t.check("…out past the line: the highway's road under her again, by the T — the town still standing there", out.road && out.s > 150 && out.s < 200 && out.d > 20 && out.d < 70 && out.standing >= 2, JSON.stringify(out));
+  const out = await g(`({ road: ctx.world.road === ctx.world.highway, s: Math.round(ctx.car.s - ${E}), d: +ctx.car.d.toFixed(1), standing: ctx.town.standing.filter(b => b.town === "lakewood" && Math.abs(b.exitS - ${E}) < 1).length })`);
+  t.check("…out past the line: the highway's road under her again, by the T — the town still standing there", out.road && out.s > 150 && out.s < 200 && out.d > 20 && out.d < 70 && out.standing === 1, JSON.stringify(out));
   await t.frames(20);
   m = await moved();
   t.check("…and out: no jump either (≤ 1.5 m between two frames)", m.max <= 1.5, JSON.stringify(m));
