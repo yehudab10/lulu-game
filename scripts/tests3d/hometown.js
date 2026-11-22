@@ -12,6 +12,17 @@ module.exports = {
     const g = t.game;
     const EXIT = 1600;
     const real = await g(`!!(ctx.town.home && typeof ctx.town.spotOf === "function")`);
+    if (!real && !/[?&]standIn=1/.test(await t.L(`location.search`))) {
+      // (no town lot on this build — the town engine's ci/exits2 isn't in: home stays the old highway house, unchanged.
+      //  The stand-in below fakes a lot on top of a generated house, so driving off it is blocked — run it with ?standIn=1)
+      t.check("no town lot yet: home is the highway house (the fallback — nothing changes)", await g(`ctx.home.site === "highway" && ctx.home.ready`), await g(`String(ctx.home.site)`));
+      await g(`L3.setState("title")`);
+      await t.frames(10);
+      await t.click(/PLAY/);
+      t.check("…▶ PLAY: on foot at home", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "footRun", 3000));
+      t.check("…not in a town", await g(`!ctx.town.active`));
+      return;
+    }
     if (!real) {
       // ── the stand-in: Midwood built at EXIT, a lot on E 16th St (the house nearest local (100, 95), facing −x) ──
       await g(`(ctx.town.load("midwood"), true)`);
