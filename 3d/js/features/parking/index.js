@@ -189,7 +189,8 @@ css("pullover", `.prompt .po-bar { display: inline-block; vertical-align: middle
 body.tv .prompt .po-bar { width: 96px; height: 12px; }
 .day-chip.park-chip b { color: #FFD54F; } .day-chip.park-chip .pk-low { color: #FF5252; animation: phBlink .5s steps(2) infinite; }
 .day-chip.park-chip small { display: block; opacity: .85; }
-@media (max-width: 430px), (max-height: 430px) { .day-chip.park-chip small { display: none; } }`);
+@media (max-width: 430px), (max-height: 430px) { .day-chip.park-chip small { display: none; } }
+body.park-on #slot-left .day-chip:not(.park-chip) { display: none; }      /* (📝 Ima's list steps aside while she parks) */`);
 addTouchButton({ id: "parkUnlock", emoji: "🔓", label: "UNLOCK", action: "interact", visible: () => !!S.offer && !unlocked() && wallet.coins >= UNLOCK_COST && ctx.state === "playing" });
 
 // ── a run ────────────────────────────────────────────────────────────────
@@ -241,6 +242,7 @@ registerState("parking", {
         S.noBoost0 = ctx.G.noBoost; ctx.G.noBoost = true;
         CO.attendantCtl.busy = S.c;
         PH.reset(); PH.show(true);
+        document.body.classList.add("park-on");
         A.setMusic("../parking.mp3");
         A.sfxHorn(false);
         H.prompt("");
@@ -248,6 +250,7 @@ registerState("parking", {
     },
     exit(next) {
         ctx.G.noBoost = S.noBoost0 || false;
+        document.body.classList.remove("park-on");
         CO.attendantCtl.busy = null;
         PH.show(false);
         chip(null);
@@ -321,9 +324,10 @@ function updateSetup(dt, P) {
         buildLevel();
         S.built = true; S.t = 0;
         whistle();
-        H.banner(`<b>🅿️ ${S.introTitle}</b><small>${S.introDetails}</small>`, 2200, { key: "parking:intro" });
+        S.introUntil = ctx.time + 3.2;          // (the level's name on the prompt line for a moment — no banner over the lot)
     }
     animateLevel(dt);
+    if (S.built) H.prompt(introText());
     if (S.t >= 1.0) { S.phase = "drive"; S.t = 0; tone(523, 0.08, "triangle", 0.2); }
 }
 function whistle() {
@@ -531,6 +535,7 @@ function updateDrive(dt, P) {
     } else S.inZoneT = 0;
     if (S.inZone) H.prompt(`<b>🅿️ HOLD STILL TO PARK!</b><span class="po-bar"><i style="width:${Math.min(100, S.inZoneT / HOLD * 100).toFixed(0)}%"></i></span>`);
     else if (S.camToast > 0) { S.camToast -= dt; H.prompt(`🎥 ${CAM_NAMES[P3.cam]} · ${glyph("camera")} to switch`); }
+    else if (ctx.time < (S.introUntil || 0)) H.prompt(introText());
     else H.prompt(hintText());
 
     // the clock (urgent beep each second under 10, higher under 5)
@@ -546,6 +551,7 @@ function updateDrive(dt, P) {
     } else PH.vignette(0);
     if (S.timeLeft <= 0) { S.failHit = { who: "timeout" }; fail(); }
 }
+const introText = () => innerWidth < 560 ? `🅿️ <b>${S.introTitle}</b>` : `🅿️ <b>${S.introTitle}</b> · ${S.introDetails}`;
 function hintText() {
     if (innerWidth < 560) return "🅿️ Park between the two cars";          // (a phone held upright: the pedals say GAS / REVERSE)
     if (input.device === "touch") return "Park between the cars · GAS forward · REVERSE back";

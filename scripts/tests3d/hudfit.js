@@ -9,7 +9,7 @@
 //   3. a controller on a narrow portrait screen: the bottom prompt / hint on the speedo
 //   4. the "WELCOME TO …" banner over the 📝 chip
 // + every other pair of the named HUD pieces (none on top of another, all on screen) — and the same for the 🅿️ Parking
-//   Challenge's HUD on a rest area's lot (its chip, its prompt line, the level banner).
+//   Challenge's HUD on a rest area's lot (its chip, its prompt line with the level's name).
 const VIEWS = [
   // name, width, height, TV mode, device
   ["phone", 390, 844, false, "touch"],
@@ -175,14 +175,14 @@ module.exports = {
       await setSave(`m.save3d.settings.tv = ${tv ? '"on"' : '"off"'};`);
       await g(`(ctx.applySettings(), ctx.parking._debug.timeLeft = 50, ctx.G.score = Math.max(ctx.G.score || 0, 12345), true)`);
       await device(t, d);
-      await g(`(() => { const S = ctx.parking._debug; L3.H.banner("<b>🅿️ " + S.introTitle + "</b><small>" + S.introDetails + "</small>", 0, { key: "parking:intro" }); return true; })()`);
+      await g(`(ctx.parking._debug.introUntil = ctx.time + 99, true)`);      // (the level's name on the prompt line: its longest text)
       await t.frames(8);
       const m = await measure(t);
       const where = `🅿️ Parking Challenge, ${name} (${w}×${h}${tv ? " TV" : ""}, ${d})`;
       t.check(`${where}: the challenge's chip is on the HUD`, m.groups.includes("left") && await t.L(`!!document.querySelector("#slot-left .park-chip")`));
       t.check(`${where}: no two HUD pieces on top of each other, all on screen`, !m.pairs.length && !m.off.length, m.pairs.map(p => p.txt).concat(m.off.map(o => "off-screen " + o)).join(" | "));
       await t.shot(`parking-${name}`);
-      await g(`(L3.H.hideBanner(), true)`);
+      await g(`(ctx.parking._debug.introUntil = 0, true)`);
     }
     await g(`ctx.parking.debug.endRun("quit")`);
     await t.page.setViewportSize({ width: 390, height: 844 });

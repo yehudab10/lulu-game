@@ -1279,8 +1279,8 @@ the clock → CRASH, −1 of 3 lives, the grandpa). **Between levels no card**: 
 coins / CRASH) + one toast, and she pulls out into the lane and stops (a beacon) — the crew re-sets the course round her for
 the next level (the START box is for level 1). After 10 / the last life: the board shows the run + one line, and she's in `playing` again. Driving out of the course or
 ❚❚ › Leave the Parking Challenge ends it. HUD: one chip in the left slot (`.day-chip.park-chip`: LVL · ♥ · ★ · 💰 · ⏱ + the level
-name), the hints / HOLD STILL TO PARK on the prompt line, the level card as the HUD banner, the red low-time vignette and bump
-flash (`hud.js`). 🎥 cycles Lot cam (higher + further back, eased behind her heading, reversing doesn't swing it) · Overhead (her
+name; 📝 Ima's list steps aside while she parks — `body.park-on`), the level's name (a moment) / the hints / HOLD STILL TO PARK
+on the prompt line, the red low-time vignette and bump flash (`hud.js`). 🎥 cycles Lot cam (higher + further back, eased behind her heading, reversing doesn't swing it) · Overhead (her
 + the bay, the kerb at the top, like 2D) · Chase (the regular camera). The weekly quest `parks3` counts the course's parks.
 **The roadside pull-over is retired** (the highway has no kerb to park at and its lanes can't be closed while she manoeuvres;
 stopping on the shoulder still gets her out and walking) — with it the Shared Road party lot (`pose()` → null). Ads: there's no
