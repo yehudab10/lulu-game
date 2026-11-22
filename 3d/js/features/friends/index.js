@@ -22,6 +22,7 @@ import * as ST from "./store.js";
 import * as HS from "./handshake.js";
 import * as BL from "./bell.js";
 import * as UI from "./ui.js";
+import "./group.js";              // ctx.group — "with friends" as a group you're in (stage 2, step 1: today = the party)
 
 const QS = new URLSearchParams(location.search);
 export const CODE_RE = /^[A-HJ-NP-Z2-9]{6}$/;
