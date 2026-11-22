@@ -35,7 +35,7 @@ async function clickEveryItem(t, label) {
 
 module.exports = {
   name: "dina",
-  query: "&enable=dina",
+  query: "&enable=dina&dinaTile=1",     // (her title tile is hidden for now — onegame/switches.js; this test covers her mode through it)
   padId: PS5,
   save2d: { totalCoins: 200, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {

@@ -3,7 +3,7 @@
 // calls still working, party mode, the touch layout (fewer buttons), layouts, frame cost.
 module.exports = {
   name: "phone",
-  query: "&enable=phone",
+  query: "&enable=phone&story=1",     // (story=1: the 🗺️ story map app — hidden for now, onegame/switches.js)
   viewport: { width: 1280, height: 720 },
   async run(t) {
     const g = t.game;
