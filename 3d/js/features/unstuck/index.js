@@ -52,6 +52,25 @@ const townOn = () => !!(ctx.town && ctx.town.active && PL.STREETS.length);
 const footF = () => (ctx.foot && ctx.foot.debug ? ctx.foot.debug.F : null);
 const _l = {}, _n = {}, _p = {};
 
+// ── open lots inside a block (Lulu's own lot on Midwood's E 34th St: no house from the town — she walks it, her porch is
+//    on it): never "inside a block" there ──
+const LOT = { town: null, r: null };
+function onLot(x, z) {
+    const T = ctx.town;
+    if (!T || !T.active) return false;
+    if (LOT.town !== T.def) {
+        LOT.town = T.def; LOT.r = null;
+        const sp = T.spot && T.spot("luluHome");
+        // (the spot: (x, z) the back of the lot, (lotX, lotZ) a point 12 m toward the street; u along the street, n toward it)
+        if (sp && fin(sp.lotX) && fin(sp.ux) && fin(sp.nx)) LOT.r = { cx: (sp.x + sp.lotX) / 2, cz: (sp.z + sp.lotZ) / 2, ux: sp.ux, uz: sp.uz, nx: sp.nx, nz: sp.nz, hw: (sp.w || 14) / 2 + 1, hd: (sp.d || 24) / 2 + 1 };
+    }
+    const r = LOT.r;
+    if (!r) return false;
+    const dx = x - r.cx, dz = z - r.cz;
+    return Math.abs(dx * r.ux + dz * r.uz) < r.hw && Math.abs(dx * r.nx + dz * r.nz) < r.hd;
+}
+on("town:leave", () => { LOT.town = null; LOT.r = null; });
+
 // ── "surely normal" ────────────────────────────────────────────────────────
 /** Why (x, z) is NOT a normal spot for a `kind` ("car" | "foot") — or null when it is. opts.ignore: a traffic car to skip. */
 export function normal(x, z, kind = "car", opts = {}) {
@@ -70,7 +89,7 @@ export function normal(x, z, kind = "car", opts = {}) {
     if (townOn()) {
         toLocal(x, z, _l);
         const p = car ? 1.2 : 0.4;
-        for (const r of PL.OCCLUDERS) if (_l.x > r.x0 - p && _l.x < r.x1 + p && _l.z > r.z0 - p && _l.z < r.z1 + p) return "block";
+        if (!onLot(x, z)) for (const r of PL.OCCLUDERS) if (_l.x > r.x0 - p && _l.x < r.x1 + p && _l.z > r.z0 - p && _l.z < r.z1 + p) return "block";
         const def = ctx.town.def;
         for (const W of (def && def.water) || []) if (_l.x > W.x0 + 1 - p && _l.x < W.x1 + 4 + p && _l.z > W.z0 - p && _l.z < W.z1 + p) return "water";
     }
@@ -560,7 +579,7 @@ function edge(x, z, foot, hint) {
 function insideCar(x, z) {
     if (townOn()) {
         toLocal(x, z, _l);
-        for (const r of PL.OCCLUDERS) if (_l.x > r.x0 + 0.5 && _l.x < r.x1 - 0.5 && _l.z > r.z0 + 0.5 && _l.z < r.z1 - 0.5) return true;
+        if (!onLot(x, z)) for (const r of PL.OCCLUDERS) if (_l.x > r.x0 + 0.5 && _l.x < r.x1 - 0.5 && _l.z > r.z0 + 0.5 && _l.z < r.z1 - 0.5) return true;
         const def = ctx.town.def;
         for (const W of (def && def.water) || []) if (_l.x > W.x0 + 5 && _l.x < W.x1 + 3 && _l.z > W.z0 + 2 && _l.z < W.z1 - 2) return true;
     }
@@ -575,7 +594,7 @@ function insideFoot(F) {
     const x = F.pos.x, z = F.pos.z, y = F.y || 0;
     if (townOn()) {
         toLocal(x, z, _l);
-        for (const r of PL.OCCLUDERS) if (_l.x > r.x0 + 0.3 && _l.x < r.x1 - 0.3 && _l.z > r.z0 + 0.3 && _l.z < r.z1 - 0.3) return true;
+        if (!onLot(x, z)) for (const r of PL.OCCLUDERS) if (_l.x > r.x0 + 0.3 && _l.x < r.x1 - 0.3 && _l.z > r.z0 + 0.3 && _l.z < r.z1 - 0.3) return true;
         const def = ctx.town.def;
         for (const W of (def && def.water) || []) if (_l.x > W.x0 + 5 && _l.x < W.x1 + 3 && _l.z > W.z0 + 2 && _l.z < W.z1 - 2) return true;
     }
@@ -664,5 +683,5 @@ ctx.unstuck = {
     spot: kind => pick(kind, footF(), kind === "kerb" && footF() && footF().car ? footF().car.stub : null),
     /** Why (x, z) isn't a normal spot ("collider:tree" | "block" | "water" | "car" | "nan"…) — or null. */
     normal,
-    debug: { U, badNow, clearFades, anyFadeUp, carBad: () => carBad(footF()), openCard, get hatch() { return !!ctx.pauseHatch; }, get button() { return pBtn.classList.contains("on"); } },
+    debug: { U, badNow, onLot, clearFades, anyFadeUp, carBad: () => carBad(footF()), openCard, get hatch() { return !!ctx.pauseHatch; }, get button() { return pBtn.classList.contains("on"); } },
 };
