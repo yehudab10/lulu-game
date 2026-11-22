@@ -63,7 +63,8 @@ function goHome(opts = {}) {
     OG.homes++; saveSoon();
     emit("onegame:home", { via });
     const line = opts.line != null ? opts.line : pick(BACK[via] || BACK.any);
-    const run = () => startRun({ mode: "cruise", home: true, homeLine: line, camBlend: opts.camBlend || 0 });
+    // (homeVia: why she's going home — "dinner" always means the FAMILY house, whatever ctx.home.startAt says; family: force it)
+    const run = () => startRun({ mode: "cruise", home: true, homeLine: line, camBlend: opts.camBlend || 0, homeVia: via, family: !!opts.family });
     if (opts.camBlend) run(); else dissolve(run, { ms: 650 });
     return true;
 }
@@ -295,6 +296,8 @@ hook("hud", dt => {
     suitcaseTick();
 });
 on("state", () => { if (!SC.built) { buildSuitcase(); tuneDinaRange(); } suitcaseTick(); });
+// (home moved — features/world rebuilt it on its Midwood lot: the suitcase goes by the car again)
+on("world:homeBuilt", () => { if (SC.obj) SC.obj.removeFromParent(); SC.obj = null; SC.built = false; });
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.onegame = {

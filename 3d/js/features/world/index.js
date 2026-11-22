@@ -33,7 +33,8 @@
 import { ctx, on, hook } from "../../core/ctx.js";
 import { registerModels } from "../../models.js";
 import * as H from "../../hud.js";
-import { home, homeTick, titleCamera, onTitle, streetVisibility, applyHoliday, placeParked, holidayNow, S_HOME } from "./home.js";
+import { home, homeTick, titleCamera, onTitle, streetVisibility, applyHoliday, placeParked, holidayNow, S_HOME, tendSite, relocate } from "./home.js";
+import { store, saveSoon } from "../../core/save.js";
 import { departInfo, comeHome } from "./depart.js";
 import { placesApi, reservePlaces } from "./places.js";
 import { openFamilyMap } from "./map.js";
@@ -63,6 +64,7 @@ on("boot", () => {
         title.update = function (dt, P) {
             if (!home.ready) return orig.call(this, dt, P);
             H.menuInput(P);
+            tendSite(dt);
             homeTick(dt);
         };
     }
@@ -71,12 +73,44 @@ on("boot", () => {
     if (ctx.atmos && ctx.enabled("world")) ctx.atmos.titleClock = () => clockOverride != null ? clockOverride : localClock();
 });
 hook("titleCamera", (dt, camera) => titleCamera(dt, camera), -1000);
-hook("update", () => streetVisibility(), -90);
+hook("update", dt => { tendSite(dt); streetVisibility(); }, -90);
+hook("hud", dt => { if (!home.ready) tendSite(dt); });
 on("state", ({ from, to }) => {
     if (to === "title") onTitle(from);
     streetVisibility();
 });
 on("run:start", () => streetVisibility());
+
+// ── ctx.home: where Lulu lives (roadmap 14 — the family house on its Midwood lot) ──
+const HM = store("home", { startAt: null });
+/** Is (x, z) on a lot: inside its w × d rectangle (+pad), from its centre along ux/uz and nx/nz. */
+function onLot(sp, x, z, pad = 1) {
+    if (!sp) return false;
+    const dx = x - sp.x, dz = z - sp.z, a = dx * sp.ux + dz * sp.uz, b = dx * sp.nx + dz * sp.nz;
+    return Math.abs(a) <= (sp.w || 14) / 2 + pad && Math.abs(b) <= (sp.d || 24) / 2 + pad;
+}
+ctx.home = {
+    /** "town" (the family house on its lot) | "highway" (the old cul-de-sac — only while the town engine has no lot). */
+    get site() { return home.site; },
+    /** The town the family house is in ("midwood"), or null on the highway site. */
+    get town() { return home.site === "town" ? home.town : null; },
+    /** The family lot (world coords: x, z, nx, nz, ux, uz, door, drive, w, d) or null. */
+    get lot() { return home.site === "town" ? home.lotSpot : null; },
+    /** The name of her street, from the town's data (the lot's spot: `street`) — the owner wants East 34th St. */
+    get street() { return home.site === "town" && home.lotSpot ? (home.lotSpot.street || "") : ""; },
+    get ready() { return home.ready; },
+    /** The parked car's pose in the driveway {x, z, h}. */
+    get park() { return home.park ? { x: home.park.x, z: home.park.z, h: home.park.h } : null; },
+    /** Inside the family lot? (features/realestate never lists it.) */
+    isFamily: (x, z) => onLot(home.lotSpot, x, z, 1),
+    /** Within r m of the family house (world distance — works on the highway site too). */
+    near(x, z, r = 90) { const h = home.hp; return !!h && Math.hypot(x - h.x, z - h.z) < r; },
+    /** Where a day starts (features/realestate: "🏠 Start my day here"): null = the family house, else
+     *  { town, key, door: {x, z}, face, label, car?: {x, z, h} }. Persists in the 3D save. */
+    get startAt() { return HM.startAt || null; },
+    setStartAt(v) { HM.startAt = v && Number.isFinite(v.door && v.door.x) ? Object.assign({}, v) : null; saveSoon(); return HM.startAt; },
+    debug: { relocate: force => relocate(!!force), home },
+};
 
 ctx.places = Object.assign(placesApi, {
     openMap: back => openFamilyMap(back),
@@ -93,6 +127,7 @@ ctx.places = Object.assign(placesApi, {
         get decor() { return Object.fromEntries(Object.entries(home.deco).map(([k, o]) => [k, o.visible])); },
         get extras() { return (home.extras || []).map(o => o.name); },
         S: S_HOME,
+        get site() { return home.site; },
     },
     debug: {
         /** Pin the title clock (0..1 or null = the device's time). */

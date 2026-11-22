@@ -764,6 +764,28 @@ the angry man / Hillel the adjuster / animal swarm…; only the traffic within 9
 ER (~30%) or the knock-out beside her car), foot **1** (only `ctx.foot.force.wreck === true`: the old "borrow a car"
 walk-away). Unclaimed → core's knock-out (Run API).
 
+**Home is in MIDWOOD (world, roadmap 14 — `ci/hometown`):** the family house stands on its own lot on a Midwood street
+— E 16th St between Avenue L and Avenue K, an EMPTY `uses.luluHome` lot (~14 × 24 m) the town engine reserves among
+ordinary Midwood houses (no generated house, `homes` door or parked cars there; the block's ring of colliders is open
+across its frontage). `home.js` builds the house, porch, driveway slab, car pose, Ima + Dina and the holiday dressing
+around that lot (`ctx.town.spotOf(home.town, "luluHome", home.exitS)` — pure data, ready before the town is built; the
+house is solid via `ctx.town.addCollider`). `ctx.town.home` = `{ town, exitS }` (Midwood's own exit, the route's first —
+fixed). The town engine builds the home town in slices behind the title (its own idle loop) and keeps it standing across
+the title + a run's start. **A day starts IN town:** the `runStart` hook makes home's town the district first
+(`ctx.town.warp({ town, exitS, at: the driveway, quiet: true, home: true })` — no welcome sign / gossip) — then the
+porch start below; the pull-out + the dinner beat are `ctx.town.allowState`'d. `ctx.onegame.home()` from anywhere
+(the highway, Lakewood, a rest area…) lands her on the porch the same way. Pulling out means driving through her own
+neighbourhood: Ima's list points a highway errand at `ctx.town.wayOut()` (the beam + "this way to the highway") and the
+first drive-off ever gets one "🛣️ To the highway: take Avenue P" line. Features that measure along the HIGHWAY skip /
+translate town streets (their s isn't the highway's): the journey's trip layer waits in a town and a leg that started in
+town counts from where she joins the road; foot's "you WALKED to Bubbe's" never fires in a town; the Erev Shabbos Rush
+measures with `ctx.town.highwayS` (the exit) and Ima's mid-cruise Friday call waits for the highway.
+`ctx.home` = `{ site ("town" | "highway"), town, lot, ready, park {x, z, h}, isFamily(x, z), near(x, z, r), startAt,
+setStartAt(v) }` — `startAt` (features/realestate's "🏠 Start my day here": `{ town, key, door, face, label, car? }`) starts
+a day on foot at THAT door (its town, its kerb; no Ima); "home for dinner" (`onegame.home({ via: "dinner" })`) and
+`{ family: true }` always mean the family house. The old highway cul-de-sac (s ≈ 0) is only a FALLBACK now — towns off
+(`?test` without `town`) or no town engine; with towns on nothing of it is built.
+
 **The home street (world):** the title is a live scene, not an attract loop. `features/world` wraps the
 title state's `update` (menu input + its own tick instead of core's `autopilot`), owns the title camera
 (`titleCamera` hook at priority −1000, so every other titleCamera hook still runs first) and parks the car at
@@ -776,8 +798,8 @@ the camera glides in from the title shot to behind her, she walks at once (no co
 doorway with one line (`imaPerson`), a pink marker bobs over the car, the first-ever start gets a gentler hint
 (`store("worldHome").starts`), Ima nudges once if she just stands there; no random townsfolk / busking / "get in a
 car" nudges on her own street (`home.quiet`). ✋ GET IN = foot's hop-in into the `worldPullOut` state (driving, its own
-camera from the lawn side so the chase cam isn't in the garage) → `playing` once she's on the street (no picture
-jump). `startRun({ quick: true })` (every test), checkpoints, mid-run starts and parties keep the instant 3-2-1. atmos: `ctx.atmos.titleClock` (a
+camera from the lawn side so the chase cam isn't in the garage — on a town lot, from out by the kerb looking back at
+the car, the house and Ima) → `playing` once she's on the street (a glide in town). `startRun({ quick: true })` (every test), checkpoints, mid-run starts and parties keep the instant 3-2-1. atmos: `ctx.atmos.titleClock` (a
 function, set by world) keeps the day + weather running on the title on the device's clock; Cruise continues
 from that clock. Holiday dressing reads `ctx.meta.holiday()`.
 

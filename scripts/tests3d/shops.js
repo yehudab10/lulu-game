@@ -114,7 +114,8 @@ module.exports = {
       // Where to shop's mark: at home it points at the next exit into a town (the guide part marks it; run alone, mark it here)
       await g(`(ctx.shops.dest() || ctx.shops.setDest("dealer"), true)`);
       const tg = await g(`ctx.shops.debug.guide.target()`);
-      t.check("the mark points at an exit into town from home", !!tg && /exit|town/i.test(tg.label || ""), JSON.stringify(tg));
+      // (home is in Midwood now — roadmap 14: from home the mark is the lot in her own town; from the highway, an exit into town)
+      t.check("the mark points the way to a car lot from home (her own town's lot, or an exit into town)", !!tg && (/exit|town/i.test(tg.label || "") || await g(`!!(ctx.town && ctx.town.active)`)), JSON.stringify(tg));
       t.check("…as one small line on the HUD", await t.until(`!!document.querySelector(".shops-dest")`, "dest chip", 3000));
     });
 

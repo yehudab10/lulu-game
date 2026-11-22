@@ -118,15 +118,19 @@ function skyClock() {
     return c;
 }
 
+/** Where she is along the HIGHWAY: in a town, its exit (features/town highwayS — the town's own streets have their own s);
+ *  home is a Midwood street now (roadmap 14), so the rush can start in town. */
+const roadS = () => (ctx.town && ctx.town.active && ctx.town.highwayS != null ? ctx.town.highwayS : ctx.car.s);
+
 // ── arming / tearing down ─────────────────────────────────────────────────
 function arm(G, via) {
     teardown(false);
     const car = ctx.car;
     Object.assign(R, {
-        active: true, phase: "drive", via, s0: car.s, used: 0, bonus: 0, ima: 0, said: {}, signs: 0, ticks: 0,
+        active: true, phase: "drive", via, s0: roadS(), used: 0, bonus: 0, ima: 0, said: {}, signs: 0, ticks: 0,
         pedT: 4, lineT: 9, margin: 0, pay: 0, newBadge: false, late: "", arr: null, waits: [], blendFrom: null, blendT: 0,
     });
-    R.dest = destS(car.s);
+    R.dest = destS(R.s0);
     R.total = Math.round(Math.max(TUNE.minT, TUNE.baseT + (R.dest - R.s0) / TUNE.pace));
     if (via === "cruise" && ctx.atmos) { R.blendFrom = ctx.atmos.clock; R.blendT = 0; }
     G.mode = "shabbos";
@@ -198,13 +202,13 @@ on("boot", () => {
         progress() {
             if (!R.active) return base ? base.progress() : 1;
             if (R.phase !== "drive") return 1;
-            return Math.max(0, Math.min(1, (ctx.car.s - R.s0) / Math.max(1, R.dest - TUNE.pullIn - R.s0)));
+            return Math.max(0, Math.min(1, (roadS() - R.s0) / Math.max(1, R.dest - TUNE.pullIn - R.s0)));
         },
         label() {
             if (!R.active) return base ? base.label() : `CRUISE · ${Math.max(0, (ctx.car.s - (ctx.G.startS || 0)) / 1609).toFixed(1)} mi`;
             if (R.phase === "arrive" || R.phase === "done") return "🏡 BUBBE'S HOUSE · GOOD SHABBOS!";
             if (R.phase === "late") return "🕯️ Candles are lit…";
-            const l = Math.max(0, left()), mi = Math.max(0, (R.dest - ctx.car.s) / 1609);
+            const l = Math.max(0, left()), mi = Math.max(0, (R.dest - roadS()) / 1609);
             return l < 30 ? `🕯️ CANDLES IN ${fmtTime(Math.ceil(l))}! · ${mi.toFixed(1)} mi` : `🕯️ Candles in ${fmtTime(Math.ceil(l))} · ${mi.toFixed(1)} mi`;
         },
     };
@@ -232,7 +236,7 @@ hook("update", (dt, P, controlsOn) => {
             R.used += dt;
             escalate(dt);
             if (left() <= 0) { lateNow(); return; }
-            if (ctx.car.s >= R.dest - TUNE.pullIn) { arrive(); return; }
+            if (roadS() >= R.dest - TUNE.pullIn) { arrive(); return; }
         }
         const u = Math.min(1.2, frac());
         tickProps(dt, u, left());
@@ -323,6 +327,7 @@ export function offer() {
     if (ctx.hustle && ctx.hustle.job) return false;
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted > 0)) return false;
     if (ctx.foot && ctx.foot.active) return false;
+    if (ctx.town && ctx.town.active) return false;          // (out on the highway only — a town's streets have their own s)
     const dest = destS(car.s);
     if (car.s < TUNE.cruise.minS || dest - car.s < TUNE.cruise.minLeft) return false;
     if (ctx.atmos && ctx.atmos.clock > TUNE.clockStart - 0.01) return false;     // it's already evening / night
@@ -464,7 +469,7 @@ function resultHtml(made) {
     } else {
         rows.push(`<div class="candles">🕯️🌙</div><div class="top">Too late for candles…</div>`);
         rows.push(`<div class="quote">${R.late}<small>— the family group chat 📱</small></div>`);
-        const mi = Math.max(0, (R.dest - ctx.car.s) / 1609);
+        const mi = Math.max(0, (R.dest - roadS()) / 1609);
         rows.push(`<div class="rw"><span class="pill2 grey">${mi < 0.1 ? "SO close" : `${mi.toFixed(1)} mi short`}</span>${REC.made ? `<span class="pill2 grey">made it ${REC.made}× before</span>` : ""}</div>`);
     }
     rows.push(statsHtml());

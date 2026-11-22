@@ -158,7 +158,18 @@ function target() {
     const todo = DAY.list.filter(id => !isDone(id)).map(byId);
     if (!todo.length) {
         const P = ctx.places && ctx.places.home && ctx.places.home.park;
-        return P ? { kind: "home", s: P.s, x: P.x, z: P.z, label: "🏠 Home for dinner!" } : null;
+        if (!P) return null;
+        // home is a house on a town street (roadmap 14: Midwood): in that town, the beam over the driveway; on the
+        // highway, the town's exit; in another town, back out to the highway first
+        const HM = ctx.home, T = ctx.town;
+        if (HM && HM.site === "town") {
+            const name = (T && T.towns && T.towns[HM.town] && T.towns[HM.town].name) || "home";
+            if (T && T.active && T.id === HM.town) return { kind: "home", x: P.x, z: P.z, far: Math.hypot(P.x - ctx.car.pos.x, P.z - ctx.car.pos.z), label: "🏠 Home for dinner!" };
+            if (T && T.active) return { kind: "home", label: `🏠 Home for dinner! · back to the highway → ${name}` };
+            const ex = T && T.home;
+            return { kind: "home", s: ex ? ex.exitS : null, label: `🏠 Home for dinner! · the ${name} exit` };
+        }
+        return { kind: "home", s: P.s, x: P.x, z: P.z, label: "🏠 Home for dinner!" };
     }
     const place = todo.find(it => it.kind === "place");
     if (place) {
@@ -168,13 +179,26 @@ function target() {
     }
     return { kind: todo[0].kind, label: `${todo[0].icon} ${todo[0].text}`, it: todo[0] };
 }
+/** In a town, a highway target points at the town's way out (features/town wayOut: where its streets hand over to the
+ *  on-ramp) — the beam over that corner, the distance to it — so she's never lost getting out of town. */
+function viaWayOut(t) {
+    if (!t || t.far != null || !(ctx.town && ctx.town.active) || typeof ctx.town.wayOut !== "function") return t;
+    if (t.kind !== "home" && t.s == null) return t;
+    let w = null;
+    try { w = ctx.town.wayOut(); } catch (e) { w = null; }
+    if (!w || !Number.isFinite(w.x)) return t;
+    return Object.assign({}, t, { x: w.x, z: w.z, far: Math.hypot(w.x - ctx.car.pos.x, w.z - ctx.car.pos.z), way: true,
+        label: t.label + (t.kind === "home" ? "" : " · this way to the highway") });
+}
 function chipTick() {
     const def = ctx.states[ctx.state];
     if (!S.active || !def || !def.hud) { clearChip(); return; }
-    const t = target();
+    const t = viaWayOut(target());
     const n = DAY.list.filter(isDone).length;
-    const far = t && t.s != null ? Math.abs(t.s - hwS()) : null;
-    const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${t.s < hwS() ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!") : "";
+    // (a highway place from a town: its distance from the exit she took — hwS; a town target (home in Midwood) carries its own `far`)
+    const far = t && t.far != null ? t.far : t && t.s != null ? Math.abs(t.s - hwS()) : null;
+    const back = t && t.far == null && t.s != null && t.s < hwS();
+    const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${back ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!") : "";
     const txt = `📝 Ima's list <span class="ok">${n}/${DAY.list.length}</span><small>${t ? t.label + dist : ""}</small>`;
     if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = ""; }
     if (txt !== S.chipText) { S.chipText = txt; S.chip.innerHTML = txt; }
@@ -196,7 +220,7 @@ function beacon() {
 }
 function hideBeacon() { if (S.beacon) S.beacon.visible = false; }
 function beaconTick(dt) {
-    const t = target();
+    const t = viaWayOut(target());
     const b = beacon();
     const on = !!(t && t.x != null && Math.hypot(t.x - ctx.car.pos.x, t.z - ctx.car.pos.z) < 450 && (t.kind !== "home" || ctx.state !== "footRun" || Math.hypot(t.x - ctx.car.pos.x, t.z - ctx.car.pos.z) > 4));
     b.visible = on;

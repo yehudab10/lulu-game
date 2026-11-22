@@ -970,7 +970,12 @@ ctx.town = {
     people: () => S.active ? LIFE.people.filter(r => r.lines).map(r => ({ id: r.id, name: r.name, x: r.p.obj.position.x, z: r.p.obj.position.z })) : [],
     /** Go into town now (no ramp; tests / debug). opts: { town: "lakewood" | "midwood", exitS, speed }. Its models must be
      *  loaded (await ctx.town.load(id)). */
-    enter(opts = {}) { return enterTown(null, opts); },
+    enter(opts = {}) {
+        // (already in ANOTHER town — a day starts at home in Midwood now (ci/hometown), so a test / debug jump to Lakewood
+        //  comes from inside a town: leave it first, as warp() does; the game's own callers leave first themselves)
+        if (S.active && opts.town && S.def && S.def.id !== opts.town) leaveTown("reset");
+        return enterTown(null, opts);
+    },
     /**
      * Put her in the attached town `town` at the interchange `exitS` now, at `at` ({x, z, h} world; else the entry street),
      * leaving the town she's in first (no cut of its own — wrap it in ctx.dissolve if you want one). opts as enter():
