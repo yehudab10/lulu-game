@@ -17,7 +17,7 @@
 // chip) + a ✅ row in 👯; whoever opts in within 30 s plays (the offerer can ▶ go now once one friend is in), everyone
 // else carries on. Host-run: offers / opt-ins are reliable host events (gmp id · gmy n · gmg n · gmx n), the host publishes
 // the open offer as its snapshot extra x.gm = [n, id, byUid, inUids, untilClock] and the start as a broadcast gms [n, id,
-// inUids, seed] that every participant's client turns into def.start(...).
+// inUids, seed, byUid] that every participant's client turns into def.start(...).
 import { ctx, on, emit } from "../../core/ctx.js";
 
 const LIFE = 30000, ID_RE = /^[a-z0-9._-]{1,32}$/;
@@ -39,11 +39,11 @@ function publish() { const p = P(); if (p && p.setX) p.setX("gm", O.id ? [O.n, O
 function startNow() {
     const p = P();
     if (!O.id || !p) return;
-    const n = O.n, id = O.id, ins = O.ins.slice(), seed = (Math.random() * 4294967295) >>> 0;
+    const n = O.n, id = O.id, ins = O.ins.slice(), seed = (Math.random() * 4294967295) >>> 0, by = O.by;
     O.id = ""; publish();
     if (ins.length < 2) return;                              // (nobody joined: it just closes)
-    p.broadcast("gms", n, id, ins, seed);
-    begin(n, id, ins, seed, O.by);
+    p.broadcast("gms", n, id, ins, seed, by);
+    begin(n, id, ins, seed, by);
 }
 function onHost(uid, kind, a) {
     const p = P();
@@ -85,9 +85,10 @@ on("party:bc", ({ k, a, p: from }) => {
     if (k !== "gms" || !Array.isArray(a)) return;
     const p = P();
     if (!p || !from || from.uid !== p.host) return;           // (only the host starts a mission)
-    const [n, id, ins, seed] = a;
+    const [n, id, ins, seed, by] = a;
     if (typeof n !== "number" || !ID_RE.test(String(id)) || !Array.isArray(ins)) return;
-    begin(n, id, ins.filter(u => typeof u === "string").slice(0, 8), seed >>> 0, null);
+    const mem = ins.filter(u => typeof u === "string").slice(0, 8);
+    begin(n, id, mem, seed >>> 0, typeof by === "string" && mem.includes(by) ? by : null);
 });
 on("party:status", e => { if (!(e && e.want)) { O.id = ""; started.clear(); } });
 setInterval(() => {

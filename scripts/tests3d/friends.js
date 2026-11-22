@@ -181,7 +181,7 @@ async function body(t, pages) {
     await A.game(`ctx.group.goNow()`);
     const both = await A.until(`window.__ms.length === 1`, "A: the mission starts", 30000) && await B.until(`window.__ms.length === 1`, "B: the mission starts", 30000);
     const ma = await A.game(`window.__ms[0]`), mb = await B.game(`window.__ms[0]`);
-    t.check("▶ go now → start() runs on BOTH screens with the same members + seed", both && ma.members.length === 2 && ma.seed === mb.seed && ma.members.join() === mb.members.join(), JSON.stringify([ma, mb]));
+    t.check("▶ go now → start() runs on BOTH screens with the same members + seed", both && ma.members.length === 2 && ma.seed === mb.seed && ma.members.join() === mb.members.join() && !!ma.by && ma.by === mb.by, JSON.stringify([ma, mb]));
   }
   // 🚪 Leave the group (one tap in 👯): carry on alone from home — not the title screen
   await A.game(`(ctx.phone.openPhone("owparty"), true)`);

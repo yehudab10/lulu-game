@@ -1444,7 +1444,7 @@ feature adopts in its own branch):** `ctx.group.invitable({ id, icon, title, blu
 members, me, by, seed }) })` registers something friends can join (a side job, Ima's list, a road-trip leg, a crime for two,
 the bank job). `ctx.group.offer(id)` (👯 › Missions, or the feature's own button) → the others get ONE quiet chip ("🔥 Kugel
 Kid: Hot Delivery — join?") + ✅ Join in; whoever opts in within 30 s plays (the offerer can ▶ Go now once one friend is in;
-`max` starts it at once), everyone else carries on. The HOST starts it: a broadcast `gms` [n, id, members, seed] → `start()` on
+`max` starts it at once), everyone else carries on. The HOST starts it: a broadcast `gms` [n, id, members, seed, by] → `start()` on
 every participant's screen at once (only the host's `gms` counts). Offers / opt-ins are reliable host events (`gmp` / `gmy`
 / `gmg` / `gmx`), the open offer is the host's extra `x.gm`. **Rewards are the feature's own rules** (per player as solo, or a
 pot split + capped) — never multiplied by the group (golden rule 5). `ctx.group.offerNow()`, `missions()`. Test: `scripts/tests3d/friends.js` (add from Nearby, no
