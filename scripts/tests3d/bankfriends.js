@@ -61,7 +61,7 @@ async function body(t, guests) {
   const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
   for (const P of [Hp, A]) {
     await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
-    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf ? ctx.town.exitOf("lakewood") : ctx.town.exits.find(e => e.town === "lakewood").s, speed: 0 })`);   // (each town its own exit since ci/exits2)
     await P.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, `${P.label}: in Lakewood`, 40000);
   }
   // both on foot on the bank's pavement, either side of the door (out in the street a friend's town loop minivan BONKs her)
