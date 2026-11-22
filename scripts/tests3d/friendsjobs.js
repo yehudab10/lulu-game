@@ -1,4 +1,5 @@
 // 👯 MISSIONS TOGETHER (ci/friends stage 2, step 3) — two real pages against the LOCAL relay (never production):
+//   SMOOTH     a friend's car shoved 15 m sideways in one go slides over on my screen (party/remote.js glideRate)
 //   SIDE JOBS FOR TWO  👯 › Missions lists 🚕 Lulu Cab · 🔥 Hot Delivery · 💰 The Getaway "for two"; A offers the cab,
 //                      B joins, A goes → A is driving the cab job, B is her navigator; each fare is SPLIT (A keeps her
 //                      half, B's half lands in B's wallet) — together never more than the solo fare; the job ends →
@@ -51,6 +52,19 @@ async function body(t, pages) {
   if (!await B.until(`ctx.party.active && ctx.party.activity && ctx.party.activity.k === "roam" && (ctx.state === "playing" || ctx.state === "footRun")`, "B joins A in Free Roam", 120000)) return;
   await B.game(QUIET);
   await A.until(`ctx.party.players.length === 2`, "A sees B", 30000);
+
+  // ── a friend's car shoved 15 m sideways: on my screen it SLIDES (never a one-frame jump) ──
+  await B.until(`ctx.state === "playing"`, "B: driving", 60000);
+  if (await A.until(`!!(ctx.party.remoteCar(${JSON.stringify(await B.game(`ctx.party.uid`))}) || {}).shown`, "A: B's car is on my screen", 60000)) {
+    const BU = JSON.stringify(await B.game(`ctx.party.uid`));
+    await B.game(`(() => { const c = ctx.car; c.vx = c.vz = 0; c.vF = 0; return true; })()`);
+    await A.frames(40);
+    await A.L(`(() => { const L3 = __lulu3d, rc = L3.ctx.party.remoteCar(${BU}); window.__steps = []; let last = [rc.x, rc.z]; const tick = () => { const r = L3.ctx.party.remoteCar(${BU}); if (r && r.shown) { window.__steps.push(Math.hypot(r.x - last[0], r.z - last[1])); last = [r.x, r.z]; } if (window.__steps.length < 240) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return true; })()`);
+    await B.game(`(() => { const c = ctx.car, p = ctx.world.road.point(c.s, c.d + 15 > 6 ? c.d - 15 : c.d + 15, {}); c.place(p.x, p.z, c.h); c.d = c.d + 15 > 6 ? c.d - 15 : c.d + 15; c.vx = c.vz = 0; c.vF = 0; return true; })()`);
+    await A.until(`window.__steps.length >= 240`, "A: watched B's car for 240 frames", 60000);
+    const st = await A.L(`({ max: Math.max(...window.__steps), sum: window.__steps.reduce((a, b) => a + b, 0) })`);
+    t.check("a friend's car shoved 15 m: it slides over on my screen (no step over 4 m a frame)", st.max < 4 && st.sum > 10, JSON.stringify(st));
+  }
 
   // ── the list ──
   const ids = await A.game(`ctx.group.missions().map(m => m.id)`);

@@ -10,8 +10,10 @@
 // metres per PARTY second, so it is right even when a slow device runs its
 // game slower than real time). Past the newest snapshot it extrapolates for
 // 0.3 s and then glides to a stop. Any discontinuity (a late packet, a
-// correction) is absorbed into an error offset that decays in ~0.12 s, so a
-// car never pops; only a real respawn (> 25 m) snaps — behind a sparkle poof.
+// correction, a shove that arrives as a jump) is absorbed into an error offset
+// that decays in ~0.12 s but never closes faster than a slide (glideRate), so a
+// car never pops; only a real respawn or a warp (> 60 m along / 30 m across)
+// snaps — behind a sparkle poof.
 //
 // Performance: models are shared clones (cloneWithColors caches recoloured
 // materials), one taillight material per car, canvas sprites redrawn only
@@ -369,6 +371,12 @@ export function updateCars(dt, show, decorate, frameOf) {
     for (const [uid, rc] of cars) if (!N.players.has(uid)) { poof(rc); rc.dispose(); cars.delete(uid); }
 }
 
+// a jump bigger than this between snapshots is a real warp (a town cut, a teleport): snap with a poof
+const WARP_S = 60, WARP_D = 30;
+/** how fast an error is allowed to close (m/s): small ones as before, a big shove as a quick slide */
+const glideRate = e => Math.min(40, 8 + 2 * e);
+export const remoteTune = { WARP_S, WARP_D, glideRate };
+
 function step(rc, p, dt, road, cam) {
     const st = rc.st, o = rc.out, S = p.samples;
     // adaptive delay: the sender's rhythm + jitter (ms), eased so render time never jumps
@@ -389,17 +397,23 @@ function step(rc, p, dt, road, cam) {
         rc.v.root.visible = false; rc.shown = false;
         return;
     }
-    // smooth corrections (see the header) / snap on a real respawn
+    // smooth corrections (see the header) / snap only on a real respawn or warp: a shove (a pratfall, a bump) that arrives
+    // as a jump between snapshots is absorbed into the error and glides out — never a teleport (ci/friends, qafriends)
     const expS = st.rawS + st.vS * dt, expD = st.rawD + st.vD * dt;
-    if (!st.init || p.respawn || Math.abs(o.s - expS) > 25 || Math.abs(o.d - expD) > 12) {
+    if (!st.init || p.respawn || Math.abs(o.s - expS) > WARP_S || Math.abs(o.d - expD) > WARP_D) {
         if (st.init) poof(rc);
         st.errS = st.errD = 0; st.init = true; p.respawn = false;
         if (rc.trace) rc.trace.push({ T, snap: 1 });
     } else {
         st.errS -= o.s - expS; st.errD -= o.d - expD;
     }
-    const k = Math.exp(-dt / 0.12);
-    st.errS *= k; st.errD *= k;
+    // ease the error out (τ 0.12 s), but never faster than a slide: at most GLIDE m/s of correction (a slow page's long frame
+    // would otherwise apply a whole 15 m correction at once)
+    const k = Math.exp(-dt / 0.12), eMag = Math.hypot(st.errS, st.errD);
+    if (eMag > 0) {
+        const cut = Math.min(eMag * (1 - k), glideRate(eMag) * dt), f = (eMag - cut) / eMag;
+        st.errS *= f; st.errD *= f;
+    }
     if (Math.abs(st.errS) < 1e-4) st.errS = 0;
     if (Math.abs(st.errD) < 1e-4) st.errD = 0;
     st.rawS = o.s; st.rawD = o.d; st.vS = o.vs; st.vD = o.vd;
