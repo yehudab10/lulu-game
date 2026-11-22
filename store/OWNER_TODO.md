@@ -43,8 +43,8 @@ app"), a copy that doesn't start is rolled back automatically, and if a bad chan
 
 ## The steps
 
-1. **Nothing to do for the update channel.** It switches itself on when this work lands on `main`. (To check later:
-   GitHub → Actions → "App updates (stable channel)" shows a green tick after each green "Smoke test".)
+1. **Nothing to do for the update channel.** It's already running (first publish 22 Nov 2026). To check any time:
+   GitHub → Actions → "App updates (stable channel)" shows a green tick after each green "Smoke test".
 
 2. **Build in Codemagic.** codemagic.io → Lulu's Road Trip → workflow `ios-capacitor` → **Start new build** (branch
    `main`). What you should see and the three likely first-time errors: `IOS_BUILD.md` › *Press Start in Codemagic*.
