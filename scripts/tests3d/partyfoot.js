@@ -251,7 +251,7 @@ async function partyRun(t, guests) {
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 90000)) return;
   for (const p of pages) {
     await p.game(`(ctx.law.hold(9999), true)`);
-    await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
+    await p.until(`(ctx.town.load("lakewood"), ctx.town.debug.S.loaded)`, "town models", 90000);
     await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 90000);

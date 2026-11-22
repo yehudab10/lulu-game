@@ -759,7 +759,7 @@ function layoutFace(kind, len, R, def = null) {
     const use = def && def.uses && def.uses[kind];
     if (use && use.lot) {
         // an EMPTY lot among ordinary houses (`among`: the face's usual kind) — another feature draws what stands on it
-        // (ci/hometown: Lulu's house on E 16th St). Its own key "lot": no model, no `homes` door, no parked cars at its kerb.
+        // (ci/hometown: Lulu's house on E 34th St). Its own key "lot": no model, no `homes` door, no parked cars at its kerb.
         const W = use.dims.w, u0 = len / 2 + (use.u || 0), sub = (a, b) => {
             if (b - a < 6) return;
             for (const o of layoutFace(use.among || "mwhomes", b - a, R, null)) out.push(Object.assign(o, { u: o.u + a }));
@@ -828,6 +828,19 @@ function layoutFace(kind, len, R, def = null) {
 
 /** An empty lot's spot (local): centre + rot, along / toward-the-street vectors, its door, the driveway (a car parked
  *  nose-out: h toward the street) and its kerb end, w × d — from the face frame and where along it the lot is. */
+/** The name of the street nearest a local point (the lot's kerb → its address). */
+function streetNear(x, z) {
+    let best = null, bd = 1e9;
+    for (const st of PL.STREETS) {
+        if (st.approach) continue;
+        let d;
+        if (st.axis === "ns") { const a = Math.max(st.a0, Math.min(st.a1, z)); d = Math.hypot(st.c - x, a - z); }
+        else if (st.axis === "ew") { const a = Math.max(st.a0, Math.min(st.a1, x)); d = Math.hypot(a - x, st.c - z); }
+        else { const t = (x - st.px) * st.ux + (z - st.pz) * st.uz, a = Math.max(st.a0, Math.min(st.a1, t)); d = Math.hypot(st.px + st.ux * a - x, st.pz + st.uz * a - z); }
+        if (d < bd) { bd = d; best = st; }
+    }
+    return best ? best.name : "";
+}
 function lotSpotOf(fr, u, use) {
     const W = use.dims.w, Dp = use.dims.d, nx = fr.nx, nz = fr.nz, ux = fr.ux, uz = fr.uz;
     const lotX = fr.ox + ux * u, lotZ = fr.oz + uz * u;
@@ -835,7 +848,7 @@ function lotSpotOf(fr, u, use) {
     const c = at(0, Dp / 2), k0 = at(0, -(FRONT - PARK));
     return { lot: true, x: c.x, z: c.z, rot: fr.rot, ux, uz, nx, nz, w: W, d: Dp, lotX, lotZ,
         door: at(-W / 4, 7.5), drive: Object.assign(at(W / 2 - 2.4, 3.2), { h: fr.rot }), kerb: Object.assign(at(W / 2 - 2.4, -(FRONT - CURB)), { h: fr.rot }),
-        noPark: { x: k0.x, z: k0.z, r: W / 2 + 3.5 } };
+        noPark: { x: k0.x, z: k0.z, r: W / 2 + 3.5 }, street: streetNear(k0.x, k0.z) };
 }
 /** The CURRENT plan's empty lot named `spot` (a `uses` entry with lot: true), local, without building anything — the
  *  same numbers the build will put in T.spots (the lot's place along its face doesn't depend on the town's dice). */
