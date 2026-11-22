@@ -20,8 +20,8 @@ export function tick(dt) {
         const last = L.get(uid);
         if (!last) continue;
         // gone from the street: inside (m 7, presence "in") within a moment of the last step I drew — not a warp,
-        // not a scene elsewhere (the presence can land a snapshot after they vanish: wait up to 1.5 s for it)
-        if (performance.now() - last.at > 1500 || !p) { L.delete(uid); continue; }
+        // not a scene elsewhere (the presence can land a snapshot after they vanish: wait up to 4 s for it (a slow device))
+        if (performance.now() - last.at > 4000 || !p) { L.delete(uid); continue; }
         const pr = P.presenceOf(uid);
         if (p.m !== 7 || !pr || pr.mode !== "in") continue;
         L.delete(uid);
