@@ -215,7 +215,7 @@ function crewTab(S) {
     const lbl = rel <= 20 ? "😈 Sworn Nemesis" : rel <= 40 ? "😒 Rivals" : rel <= 60 ? "😏 Frenemies" : rel <= 80 ? "😊 Friends" : "💜 Besties";
     const tours = S.storyCycle || 0;
     const fam = [
-        ...(ONEGAME.story ? [["bubbe", "👵", "Bubbe", `${(S.postcards || []).length} / 5 postcards`]] : []),
+        ["bubbe", "👵", "Bubbe", ONEGAME.story ? `${(S.postcards || []).length} / 5 postcards` : "always has kugel"],
         ["uncle", "👨", "The uncles", `${fmt(stat(S, "uncles3"))} run-ins`],
         ["heshy", "🏊", "Heshy", `${fmt(stat(S, "heshy2"))} pool finds`],
         ["ima", "📞", "Ima", `${fmt(stat(S, "imaCalls"))} calls taken · ${fmt(stat(S, "imaDeclines"))} declined`],

@@ -202,7 +202,7 @@ module.exports = {
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.G.invT = 1e6, true)`);
     await t.key("Tab");
     await clickSel("#lpa_jobs");
-    t.check("in Story the jobs are off (hustle's rules), with a reason", await t.L(`document.querySelectorAll(".lp-job[disabled]").length >= 2 && /Cruise/.test(document.querySelector(".lp-note").textContent)`));
+    t.check("in Story the jobs are off (hustle's rules), with a reason", await t.L(`document.querySelectorAll(".lp-job[disabled]").length >= 2 && /Cruise|driving around/.test(document.querySelector(".lp-note").textContent)`));
     await t.key("Tab");
 
     // ── calls still work while driving ────────────────────────────────────

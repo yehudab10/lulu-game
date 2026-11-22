@@ -106,10 +106,11 @@ module.exports = {
     t.check("…next to it: 👧 Dina's room — play as Dina", (await g(`(() => { const n = window.__interiors.room.near; return n ? n.id : ""; })()`)) === "dinaRoom");
     await t.shot("dina-door");
     await t.tap(0);
-    await t.until(`!!document.querySelector("#dialog .opt")`, "the door asks", 4000);
+    t.check("…the door asks: 👧 Play as Dina?", await t.until(`!!document.querySelector("#dialog .opt") && /Play as Dina/.test(document.querySelector("#dialog .opt").textContent)`, "the door asks", 30000));
     await t.frames(20);
-    await t.L(`document.querySelector("#dialog .opt").click()`);          // 👧 Play as Dina
-    t.check("✋ → Dina's bedroom (her mode)", await t.until(`__lulu3d.state === "dinaHome"`, "dinaHome", 20000), await g(`ctx.state`));
+    await t.L(`(document.querySelector("#dialog .opt") || { click() { } }).click()`);          // 👧 Play as Dina
+    // (her bedroom's models load first — slow on a CI runner)
+    t.check("✋ → Dina's bedroom (her mode)", await t.until(`__lulu3d.state === "dinaHome"`, "dinaHome", 90000), await g(`ctx.state`));
     await t.frames(20);
     await t.shot("dina-room");
     await g(`L3.setState("dinaSelect")`);
