@@ -18,8 +18,9 @@
 //   job     (kind "job")    any side job passed (hustle's 📞 payphones / 📋 boards) — `hustle:end` result "pass"
 //   silly   (kind "stat")   counted from the shared `stat` events: pet an animal, 5 close calls,
 //                           chat with strangers on foot, pop into a shop on foot…
-// Off in a 🎉 party, in Story / the Shabbos Rush (they have their own goals) and in ?test runs
-// unless &enable=day.
+// Off in a 🎉 party (unless friends say yes to 👯 › Missions › 📝 Ima's list together — together.js: the offerer's
+// list, helpers tick it too and get the thank-you at dinner, never the coins), in Story / the Shabbos Rush (they have
+// their own goals) and in ?test runs unless &enable=day.
 //
 // Service: ctx.day { active, list(), today, done(id), complete, home, imaLine(G), debug }.
 // Events: day:start {list}, day:tick {id, pay}, day:home {pay}. Stats: dayItems, dayDone.
@@ -30,6 +31,7 @@ import { addCoins } from "../../core/driving.js";
 import { glyph } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
+import "./together.js";            // 👯 Ima's list with friends (a 👯 › Missions invitation)
 
 const DAY = store("day", { day: -1, list: [], prog: {}, paid: [], home: false, days: 0, best: 0 });
 export const PAY = { item: 15, home: 40 };
@@ -54,7 +56,7 @@ const ITEMS = {
 const ALL = [...ITEMS.errand, ...ITEMS.job, ...ITEMS.silly];
 const byId = id => ALL.find(x => x.id === id);
 
-const S = { active: false, beacon: null, chip: null, chipText: "", homeT: 0, dateOverride: null };
+const S = { active: false, beacon: null, chip: null, chipText: "", homeT: 0, dateOverride: null, group: null };   // group: 👯 my list with friends (together.js)
 
 // ── today ────────────────────────────────────────────────────────────────
 function today() {
@@ -89,7 +91,7 @@ function imaLine() {
 // ── on / off ─────────────────────────────────────────────────────────────
 function allowed() {
     const G = ctx.G;
-    return ctx.enabled("day") && !(ctx.party && ctx.party.active) && G && G.mode === "cruise";
+    return ctx.enabled("day") && G && ((!(ctx.party && ctx.party.active) && G.mode === "cruise") || !!S.group);
 }
 on("world:homeStart", ({ mode, friday }) => {
     // (a real Friday afternoon: Ima asks for the Erev Shabbos Rush instead — the list waits until she walks off / made it)
@@ -223,7 +225,8 @@ function homeTick(dt) {
     const said = pick(["My errand girl! Wash your hands, dinner's ready! 🍲", "Everything?! Who ARE you? Sit, eat!", "Bubbe called — she LOVED it. Now EAT."]);
     const banner = `🏠 <b>HOME FOR DINNER!</b><small>Ima: “${said}”${pay ? ` · +${pay} 💰` : ""}</small>`;
     // the day's ending: park, walk up to the porch, the title (world's beat) — or just the banner without it
-    if (!(ctx.places.home.comeHome && ctx.places.home.comeHome({ line: banner }))) H.banner(banner, 3400, { prio: 2 });
+    // (with friends: just the banner — the beat ends in a fresh solo run at home, and the group stays together)
+    if (S.group || !(ctx.places.home.comeHome && ctx.places.home.comeHome({ line: banner }))) H.banner(banner, 3400, { prio: 2 });
     emit("day:home", { pay });
     S.active = false;
     clearChip(); hideBeacon();
@@ -264,3 +267,5 @@ ctx.day = {
         activate() { ensureToday(); S.active = !DAY.home; return S.active; },
     },
 };
+/** For together.js (Ima's list with friends): the list's insides. */
+export const DAYX = { DAY, S, ALL, byId, bump, ensureToday, isDone, complete };

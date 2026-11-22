@@ -5,12 +5,14 @@
 //                      "shift over" on B, and no more shares
 //   CRIMES FOR TWO + THE BANK JOB  listed too (partners' 🎲 / 🚗 / 🔔, heist's 💰): a 🎲 Double dare offer → both
 //                      screens get the same briefing naming the partner (the crimes still happen by doing them)
+//   IMA'S LIST TOGETHER  A offers 📝 her list, B helps: B does the thing on A's list → it ticks on A's screen (A's
+//                      once-a-day coins, B none); B sees A's list in a chip; home for dinner → B gets Ima's thank-you
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 let relay = null;
 const PORT = 31000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=party,openworld,foot,town,phone,friends,hustle,law,heist,partners&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=party,openworld,foot,town,phone,friends,hustle,law,heist,partners,day&mpurl=${encodeURIComponent(url)}`;
 const COINS = `JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`;
 
 module.exports = {
@@ -96,4 +98,35 @@ async function body(t, pages) {
   const ba = await A.until(`/Double dare/.test(${BAN})`, "A: the dare briefing", 30000), bb = await B.until(`/Double dare/.test(${BAN})`, "B: the dare briefing", 30000);
   const bt = await B.L(BAN);
   t.check("both get the 🎲 briefing, naming the partner", ba && bb && /Kugel Kid/.test(bt), bt);
+
+  // ── 📝 Ima's list together: A's list, B helps ──
+  await A.until(`!ctx.group.offerNow()`, "A: the dare offer is closed", 30000);
+  const off3 = await A.game(`ctx.group.offer("day.list")`);
+  t.check("A offers 📝 Ima's list together", off3 === "", off3);
+  if (!await B.until(`(ctx.group.offerNow() || {}).id === "day.list"`, "B: the list offer arrives", 30000)) return;
+  await B.game(`ctx.group.joinOffer()`);
+  await A.until(`((ctx.group.offerNow() || {}).ins || []).length === 2 || ctx.day.active`, "A: B is in", 30000);
+  await A.game(`ctx.day.active || ctx.group.goNow()`);
+  if (!await A.until(`ctx.day.active`, "A: her list is on (in a party)", 30000)) return;
+  const list = await A.game(`ctx.day.list()`);
+  const chipOk = await B.until(`(() => { const c = document.querySelector(".day-chip"); return !!c && /Kugel Kid's list/.test(c.textContent); })()`, "B: A's list in a chip", 30000);
+  t.check("B sees A's list in a chip", chipOk);
+  // B does the first thing on A's list
+  const first = list.find(x => !x.done);
+  const it = await A.game(`ctx.day.ITEMS ? Object.values(ctx.day.ITEMS).flat().find(x => x.id === ${JSON.stringify(first.id)}) : null`);
+  const fire = it.kind === "place" ? `m.emit("world:visit", { id: ${JSON.stringify(it.place)} })` : it.kind === "job" ? `m.emit("hustle:end", { id: "cab", result: "pass" })`
+    : it.kind === "stat" ? `m.emit("stat", { id: ${JSON.stringify(it.stat)}, n: ${it.n || 1} })` : `m.emit(${JSON.stringify(it.ev)}, {})`;
+  const a1 = await A.game(COINS), b1 = await B.game(COINS);
+  await B.L(`import("./js/core/ctx.js").then(m => { ${fire}; return true; })`);
+  const ticked = await A.until(`ctx.day.done(${JSON.stringify(first.id)})`, "A: B's help ticks A's list", 30000);
+  t.check(`B helps (${first.id}) → it ticks on A's list`, ticked);
+  const paid = await A.until(`${COINS} === ${a1 + 15}`, "A: the item's coins", 30000);
+  t.check("…A gets her once-a-day item coins (as solo)", paid, `${a1} → ${await A.game(COINS)}`);
+  // the rest done on A's screen, then home for dinner
+  await A.L(`import("./js/features/day/index.js").then(m => { for (const id of m.DAYX.DAY.list) m.DAYX.bump(id, 5); return true; })`);
+  await A.game(`(() => { const P = ctx.places.home.park; ctx.car.place(P.x, P.z, P.h || 0); ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+  const home = await A.until(`ctx.day.home`, "A: home for dinner", 30000);
+  t.check("A pulls into her driveway → home for dinner (and stays in the group)", home && await A.game(`ctx.party.active && ctx.party.activity.k === "roam"`));
+  t.check("B gets Ima's thank-you at dinner", await B.until(`/Thank you for helping/.test(${BAN})`, "B: the thank-you", 30000));
+  t.check("…and no coins for the helper (they're A's)", (await B.game(COINS)) === b1, `${b1} → ${await B.game(COINS)}`);
 }
