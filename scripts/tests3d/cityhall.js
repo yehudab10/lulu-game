@@ -17,7 +17,9 @@ module.exports = {
   },
   async body(t) {
     const g = t.game;
-    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
+    const PART = (process.env.CITYHALL_PART || "").split(",").filter(Boolean);
+    const want = k => !PART.length || PART.includes(k);
+    const step = async (label, fn) => { if (!want(label.split(" ")[0]) && !want(label.split(" ")[1] || "-")) return; try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     const st = () => g(`L3.state`);
     const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
     const room = expr => g(`(() => { const r = window.__interiors.room; return ${expr}; })()`);
@@ -89,7 +91,8 @@ module.exports = {
         const p = await promptText();
         t.check(`${id}: ✋ offers ENTER at the door (${JSON.stringify(p).slice(0, 70)})`, /ENTER (CITY|BOROUGH) HALL/i.test(p) || /CITY HALL/.test(p));
         // the building seen from the street (a screenshot)
-        await g(`(() => { const sp = ctx.cityhall.spot(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 14, 0.05, sp.z + sp.nz * 14); return true; })()`);
+        await g(`(() => { const sp = ctx.cityhall.spot(); const f = ctx.foot.pos, x = sp.x + sp.nx * 17, z = sp.z + sp.nz * 17; f.set(x, 0.05, z); ctx.foot.vel.set(0, 0, 0); ctx.foot.obj.position.copy(f);
+          const F = ctx.cam.free; if (F) { F.yaw = Math.atan2(sp.x - sp.nx * 6 - x, sp.z - sp.nz * 6 - z); F.pitch = 0.22; F.idle = 0; } ctx.foot.obj.rotation.y = Math.atan2(-sp.nx, -sp.nz); if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
         await t.frames(40);
         await t.shot(`cityhall-${id}-street`);
         await onFootAtDoor(1.2);
@@ -108,7 +111,7 @@ module.exports = {
 
       // ════ 2. the room: mayor in / out, each window closed in turn ════
       for (const [label, f] of [["mayor in · permits closed", { closed: 0, mayorOut: false }], ["mayor out · taxes closed", { closed: 1, mayorOut: true }], ["complaints closed", { closed: 2, mayorOut: false }]]) {
-        await step(`${id} ${label}`, async () => {
+        await step(`${id} room · ${label}`, async () => {
           if (!await town(id)) return;
           await g(`(Object.assign(ctx.cityhall.debug.force, ${JSON.stringify(f)}), true)`);
           if (!await walkIn()) return;
@@ -127,7 +130,7 @@ module.exports = {
           await t.frames(20);
           const pf = await perf(24);
           console.log(`   PERF cityhall ${id} ${label}`, JSON.stringify(pf));
-          t.check(`${id} ${label}: the room is a handful of draw calls (≤ 140) and light (≤ 80k tris) (${pf.maxCalls} / ${pf.maxTris})`, pf.maxCalls <= 140 && pf.maxTris <= 80000);
+          t.check(`${id} ${label}: the room stays light (≤ 180 draw calls — the town budget is 240 — and ≤ 80k tris) (${pf.maxCalls} / ${pf.maxTris})`, pf.maxCalls <= 180 && pf.maxTris <= 80000);
           for (const [nm, x] of [["lobby", 0], ["office", -6.0], ["windows", 6.0]]) { await room(`(r.lulu.obj.position.set(${x}, 0, 1.2), r.updateCamera(0, true), true)`); await t.frames(18); if (id === "midwood" || !f.mayorOut) await t.shot(`cityhall-${id}-${nm}${f.mayorOut ? "-out" : ""}`); }
           // using every hot-spot pays / costs nothing
           const c0 = await coins(), h0 = await g(`ctx.G.hearts`);

@@ -175,3 +175,68 @@ export const RIBBON_HELP = {
 };
 /** Timing: one ribbon cutting at most every `gap` s on foot in town, ≤ perRun a run. */
 export const RIBBON_TUNE = { gap: [150, 260], firstAfter: 45, perRun: 2, near: [22, 40], life: 40 };
+
+// ── stage 2: property tax, silly fees, the lien (tax.js, fees.js) ────────────────────────────────────────────────
+// A GENTLE coin sink: billed only on days she actually plays, never taken by itself (she pays at the Taxes window or
+// from the 📞 Phone), never below 0, never takes a home away (real estate's Abandoned Kugel Ordinance is the only thing
+// that touches ownership). Unpaid bills only get letters, a silly lien notice and — if she likes — a day in court.
+export const TAX = {
+    rate: 0.002,          // of a home's value, per played day (a 7,000 rowhouse ≈ 14 · a 16,000 house ≈ 32)
+    dayCap: 50,           // at most this much tax a played day across ALL her homes (scaled down to fit)
+    owedCapDays: 7,       // unpaid tax stops growing at this many days' worth (the town gets bored)
+    letterAt: 3,          // played days a tax bill can sit unpaid before the stern letter
+    lienAt: 6,            // … before the lien notice (+ the lien fee below, and a case in Courtroom 2B)
+    lienFee: 10,          // "lien processing" (a silly fee on the lien; the court can waive it)
+};
+/** Silly fees: tiny, jokes, at most FEE_CAP a real day in total, mailed to the 📱 inbox quietly. Unpaid ones simply expire
+ *  after `expire` played days ("the city lost the paperwork") — no letters, no lien, nothing else. */
+export const FEE_CAP = 10;
+export const FEES = {
+    honk: { what: "🔊 Loud-honk surcharge", amount: 2, why: "We counted six honks in thirty seconds. That's a lot of honk." },
+    hydrant: { what: "🚒 Parking near a hydrant (in spirit)", amount: 3, why: "There was no hydrant. But there COULD have been." },
+    porch: { what: "🪑 Porch-sitting licence", amount: 3, why: "You own a porch. Sitting on it requires a licence. You're welcome." },
+    complaint: { what: "📣 Complaint filing fee", amount: 1, why: "Your complaint has been received. So has this fee." },
+};
+export const FEE_TUNE = { expire: 7, honkN: 6, honkWindow: 30, hydrantChance: 0.3, porchChance: 0.4 };
+export const TAX_LINES = {
+    from: "City Hall", emoji: "🏛️", color: "#455A64",
+    bill: (n, homes) => `Your property tax for today: ${n} coins for ${homes === 1 ? "your home" : homes + " homes"}. Pay at the Taxes window, or in 📞 Phone › City Hall.`,
+    fee: f => `${f.what}: ${f.amount} coins. ${f.why}`,
+    letter: n => `A STERN LETTER. You owe ${n} coins in property tax. Please pay soon. We're not angry. We're disappointed.`,
+    lien: (n, fee) => `LIEN NOTICE. You owe ${n} coins, so the town has put a lien on your mailbox flag. Lien processing: ${fee} coins. You can pay, or fight it in Courtroom 2B.`,
+    paid: n => `Thank you! ${n} coins received. The mayor will spend it wisely. (He won't.)`,
+    lifted: "Good news: the lien on your mailbox flag is lifted. The flag may go up again.",
+    expired: "We lost the paperwork on some of your fees. Consider them forgiven. Please don't tell anyone.",
+};
+/** The Taxes window (and the phone contact) when there's something to pay. */
+export const TAX_WINDOW = {
+    nothing: ["You don't owe the town a thing! That's rare. I'm going to frame this moment.", "All paid up. Go enjoy your town. It's partly yours now."],
+    owe: (n, k) => `You owe ${n} coins — ${k} ${k === 1 ? "bill" : "bills"}. Would you like to pay?`,
+    payAll: n => `💰 Pay it all — ${n} 💰`,
+    payPart: n => `💰 Pay what I can — ${n} 💰`,
+    confirm: n => `✍️ Pay — ${n} 💰`,
+    list: "📋 What are these for?",
+    later: "‹ Not today",
+    broke: "You can't cover even one bill right now. That's okay. The town will wait. The town is very patient. Mostly.",
+    done: ["*stamp* PAID. Look at you. A model citizen.", "*stamp stamp* Done! The stamp is my favourite part."],
+};
+/** ⚖️ Fighting the lien in Courtroom 2B (one hearing; won = the lien fee waived + the lien lifted; lost = pay the bills
+ *  now — only as much as she has). */
+export const LIEN_COURT = {
+    counsel: { name: "THE TOWN ATTORNEY", emoji: "📁", color: "#455A64" },
+    open: "Case number 412: The Town versus Lulu. The matter of the mailbox-flag lien.",
+    town: ["Your honour, the defendant owes property tax. We have a spreadsheet. It has COLOURS.", "Your honour, the town needs this money. The mayor has ribbons to buy."],
+    judgeAsk: "Young lady. What do you have to say about this lien?",
+    defence: [
+        { label: "📬 \"A lien on my mailbox FLAG? Is that even a thing?\"", judge: "…I'll be honest. I had to look it up." },
+        { label: "🥧 \"I'll pay. I was busy. I brought kugel.\"", judge: "The court does not accept kugel. The court would like to see the kugel." },
+        { label: "🧾 \"The city lost my paperwork. Twice.\"", judge: "That does sound like the city." },
+    ],
+    won: "Lien LIFTED, and the lien fee waived. Pay your tax when you can. Next case!",
+    lost: (n, all) => `The lien stands. The defendant pays ${n} coins today${all ? "" : " — what she has — and the rest when she can"}. Next case!`,
+    nothing: "There's nothing to rule on. The lien has been paid. Why are we all here? Go home, everybody.",
+    docket: "📋 NOW: The Town v. Lulu — the mailbox-flag lien",
+    label: "⚖️ Fight the lien on your mailbox flag",
+    win: 0.5,
+};
+export const CONTACT = { name: "City Hall", tag: "property tax · fees · pay here" };

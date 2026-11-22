@@ -74,8 +74,8 @@ function build(rt) {
     B.box(0.08, 1.0, 0.08, "#9E9E9E", tx, 0.5, tz); B.box(0.36, 0.42, 0.28, "#C62828", tx, 1.2, tz);
     B.box(0.2, 0.05, 0.05, "#FFFFFF", tx, 1.15, tz + 0.15);
     B.col("ticket", tx - 0.25, tx + 0.25, tz - 0.2, tz + 0.2);
-    V.tex37 = rt.own(signTexture(["NOW SERVING", String(TICKET.nowServing)], 1.4, 0.7, { bg: "#1B1B1B", fg: ["#FF5252", "#FF1744"], font: 60 }));
-    V.tex38 = rt.own(signTexture(["NOW SERVING", String(TICKET.nowServing + 1)], 1.4, 0.7, { bg: "#1B1B1B", fg: ["#FF5252", "#FF1744"], font: 60 }));
+    V.tex37 = rt.own(signTexture(["NOW SERVING", String(TICKET.nowServing)], 1.4, 0.7, { bg: "#1B1B1B", fg: ["#FF5252", "#FF1744"], font: 60, sizes: [0.7, 1.9] }));
+    V.tex38 = rt.own(signTexture(["NOW SERVING", String(TICKET.nowServing + 1)], 1.4, 0.7, { bg: "#1B1B1B", fg: ["#FF5252", "#FF1744"], font: 60, sizes: [0.7, 1.9] }));
     V.display = B.sign(["NOW SERVING", String(TICKET.nowServing)], LB + 2.2, 2.25, bz + 0.02, 1.4, 0.7, { bg: "#1B1B1B", fg: ["#FF5252", "#FF1744"] });
     V.display.material.map = V.tex37;
     // the notice board + the mayor's poster
@@ -103,7 +103,7 @@ function build(rt) {
     const wx = [WN - 2.0, WN, WN + 2.0], cz = -1.55;
     B.box(6.0, 1.05, 0.55, "#8D6E63", WN, 0.52, cz);                     // one long counter
     B.box(6.04, 0.06, 0.62, "#D7CCC8", WN, 1.07, cz);
-    B.col("counter", WN - 3.1, WN + 3.1, bz, cz + 0.3);
+    B.col("counter", WN - 3.1, WN + 3.1, cz - 0.3, cz + 0.3);      // (the counter spans the room: nobody gets behind it)
     for (let k = 0; k < 4; k++) B.box(0.08, 1.6, 0.55, "#5D4037", WN - 3.0 + k * 2.0, 1.85, cz);     // the dividers
     const glass = B.mat("#B3E5FC");
     WINDOWS.forEach((w, i) => {
@@ -130,13 +130,13 @@ function build(rt) {
         action: r => r.say(T.secretary.name, V.mayor ? secLine() : OUT_CUTTING, { emoji: "🗂️", person: r.byId.secretary, color: "#6A1B9A" }) });
     if (V.mayor) {
         try { rt.person("mayor", "npcMan", { x: MO, z: -2.1, ry: 0 }, { name: T.mayor.name, colors: T.mayor.colors, pose: {}, scale: 1.04 }); } catch (e) { /* model */ }
-        rt.hot({ id: "mayor", x: MO, z: -0.85, who: "mayor", r: 1.1, label: `${T.mayor.emoji} Meet ${T.mayor.short}`, action: talkMayor });
+        rt.hot({ id: "mayor", x: MO, z: -0.5, who: "mayor", r: 1.1, label: `${T.mayor.emoji} Meet ${T.mayor.short}`, action: talkMayor });
     } else {
-        rt.hot({ id: "mayor", x: MO, z: -0.85, r: 1.1, label: "🪑 The mayor's empty chair", action: r => r.say("Lulu", pick(["Empty. There's a note: 'OUT CUTTING. BACK SOON. — THE MAYOR'.", "His chair is still spinning. He left in a hurry. A ribbon emergency."]), { emoji: "🪑" }) });
+        rt.hot({ id: "mayor", x: MO, z: -0.5, r: 1.1, label: "🪑 The mayor's empty chair", action: r => r.say("Lulu", pick(["Empty. A note on the desk: 'OUT CUTTING. BACK SOON.' Behind it, his portrait smiles at nobody.", "His chair is still spinning. He left in a hurry. A ribbon emergency."]), { emoji: "🪑" }) });
     }
     rt.hot({ id: "scissors", x: MO + 2.15, z: bz + 0.95, r: 0.8, label: "✂️ The giant scissors", action: r => r.say("Lulu", pick(["Giant golden scissors. For ribbons. He's cut forty-one this year.", "A label: 'THE SCISSORS OF THE PEOPLE. DO NOT TOUCH. — the people'."]), { emoji: "✂️" }) });
-    rt.hot({ id: "portrait", x: MO, z: -0.1, r: 0.6, enabled: () => !V.mayor, label: "🖼️ The portrait", action: r => r.say("Lulu", "A painting of the mayor, by the mayor. He gave himself more hair.", { emoji: "🖼️" }) });
 
+    B.bake();       // (every plain box above → one mesh)
     // Lulu: in through the front door
     rt.lulu.obj.position.set(B.doorX, 0, D / 2 - 0.9);
     rt.lulu.obj.rotation.y = Math.PI;
