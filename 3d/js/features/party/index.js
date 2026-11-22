@@ -339,16 +339,36 @@ function openHub() {
     const html = `<h2>👯 Friends</h2>
         <p class="pt-sub">${can ? "Play together in the same world — up to 8 friends. Everyone else out there is a ghost; friends are real cars with their names." : "Playing with friends needs an internet connection."}</p>${around ? `<p class="pt-sub pt-around">${around}</p>` : ""}`;
     const buttons = [];
+    // 👯 your friends list first (features/friends): who's playing right now → ▶ Join in one tap (ci/friends stage 2,
+    // step 5: 👯 is just "Friends" — no lobby to host; the old lobby games are votes inside 🌍 Free Roam)
+    const F = ctx.friends;
+    if (can && F && F.live) {
+        if (!HUB.checked) { HUB.checked = true; Promise.resolve(F.check()).then(() => { if (HUB.open && ctx.state === "title") openHub(); }); }
+        const on = F.list.filter(f => f.presence && f.presence.on).slice(0, 4);
+        for (const f of on) buttons.push({ id: "pt_fj_" + f.f, cls: "pt-big", label: `<span>▶ Join ${U.esc(f.label)}</span><small>${U.esc(f.presence.w || "playing")}</small>`, action: () => hubJoin(f.f) });
+    }
     if (can) {
-        buttons.push({ id: "pt_roam", cls: "pt-big", label: `<span>📤 Invite friends ${glyph("confirm")}</span><small>you head out · send the link · they pop up right next to you</small>`, action: hostRoam });
+        buttons.push({ id: "pt_roam", cls: on0(buttons) ? "pt-big" : "purple", label: `<span>📤 Invite friends ${glyph("confirm")}</span><small>you head out · send the link · they pop up right next to you</small>`, action: hostRoam });
         buttons.push({ id: "pt_join", cls: "purple", label: `<span>🔑 Join with a code</span><small>type your friend's 4 letters</small>`, action: () => openJoin() });
-        buttons.push({ id: "pt_host", cls: "", label: `<span>🎮 Party games</span><small>races · a road trip · dreidel dash · cop tag (a lobby)</small>`, action: () => hostParty() });
     }
     if (ctx.mp && ctx.mp.setOnline) buttons.push({ id: "pt_online", cls: "alt", label: `<span>🌐 Play online: ${ctx.mp.online ? "ON" : "OFF"}</span><small>${ctx.mp.online ? "other drivers show up as ghosts · tap to go solo" : "just you · tap to see other drivers"}</small>`, action: () => { ctx.mp.setOnline(!ctx.mp.online); openHub(); } });
     // Classic 2D cross-play (a Shared Road code room + your rider name) — small, last
     if (ctx.mp) buttons.push({ id: "pt_open", cls: "alt", label: `<span>🕹️ Classic 2D friends</span><small>a room code that works with the 2D game · your rider name</small>`, action: () => ctx.mp.open("party") });
     buttons.push({ id: "pt_back", cls: "alt", label: `<span>Back ${glyph("back")}</span>`, action: () => showTitle(true) });
-    H.showScreen(html, buttons, { onBack: () => showTitle(true), focus: buttons[0].id, cls: "pt-card pt-hub" });
+    const fl = can && F && F.live ? F.list : [];
+    const note = fl.length ? `<p class="pt-sub">👯 ${fl.length} friend${fl.length === 1 ? "" : "s"} · ${fl.filter(f => f.presence && f.presence.on).length} playing now${HUB.checked && F.list.some(f => !f.presence) ? " · checking…" : ""} — add or manage them in 📱 👯 out in the world</p>`
+        : can && F && F.live ? `<p class="pt-sub">👯 No friends on your list yet — out in the world: 📍 Nearby › a driver › ➕, or 📱 👯 › ➕ Add by code</p>` : "";
+    HUB.open = true;
+    H.showScreen(html + note, buttons, { onBack: () => { HUB.open = false; HUB.checked = false; showTitle(true); }, focus: buttons[0].id, cls: "pt-card pt-hub" });
+}
+const HUB = { open: false, checked: false };
+on("state", () => { if (ctx.state !== "title") { HUB.open = false; HUB.checked = false; } });
+const on0 = btns => !btns.some(b => /^pt_fj_/.test(b.id));
+async function hubJoin(fid) {
+    H.showScreen(`<h2>👯 Friends</h2><p class="pt-sub">⏳ Knocking…</p>`, [{ id: "pt_back", cls: "alt", label: `Back ${glyph("back")}`, action: openHub }], { onBack: openHub, cls: "pt-card pt-hub" });
+    const msg = await ctx.friends.joinFriend(fid, () => H.showScreen(`<h2>👯 Friends</h2><p class="pt-sub">⏳ Asking — they say yes on their screen…</p>`, [{ id: "pt_back", cls: "alt", label: `Back ${glyph("back")}`, action: openHub }], { onBack: openHub, cls: "pt-card pt-hub" }));
+    if (/^🚀/.test(msg)) { HUB.open = false; H.toast(msg, "pink", { prio: 2 }); return; }
+    if (ctx.state === "title") { openHub(); if (msg) H.toast(msg, "", { prio: 2 }); }
 }
 function openJoin(code = "", msg = "", msgCls = "") {
     U.showCodeEntry({ code, msg, msgCls, onDone: c => joinParty(c), onBack: openHub });
@@ -361,7 +381,11 @@ addMenuItem("title", {
     visible: () => !ctx.TEST || ctx.enabled("party") || ctx.enabled("multiplayer"),
     action: openHub,
 });
-addMenuItem("pause", { id: "partyLobby", order: 86, cls: "", label: "🏠 Everyone back to the lobby", visible: () => N.want && N.isHost && N.A.k !== "lobby", action: () => { resume(); hostToLobby(); } });
+addMenuItem("pause", { id: "partyLobby", order: 86, cls: "",
+    // (a game the group voted for from 🌍 Free Roam goes back to Free Roam — features/friends stage 2; an old-style lobby party → the lobby)
+    label: () => (N.A.fromRoam && ACTS.roam ? "🌍 Everyone back to Free Roam" : "🏠 Everyone back to the lobby"),
+    visible: () => N.want && N.isHost && N.A.k !== "lobby" && N.A.k !== "roam",
+    action: () => { resume(); if (N.A.fromRoam && ACTS.roam) hostStart("roam"); else hostToLobby(); } });
 addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Leave the party", visible: () => N.want, action: () => leave() });
 
 // ── host actions ─────────────────────────────────────────────────────────

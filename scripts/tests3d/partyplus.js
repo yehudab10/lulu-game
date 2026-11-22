@@ -100,7 +100,7 @@ async function partyRun(t, guests) {
   const g = t.game;
   t.check("ctx.party claim API", await g(`typeof ctx.party.claim === "function" && typeof ctx.party.claimPose === "function" && typeof ctx.party.addTrafficKind === "function"`));
   await t.click(/Friends/);
-  await t.click(/Party games/);
+  await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);

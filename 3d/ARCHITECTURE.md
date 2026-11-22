@@ -1434,7 +1434,12 @@ everyone who hasn't answered gets ONE quiet chip ("🏁 Kugel Kid wants a race �
 HOST starts it (`ctx.party.hostStart(k, { fromRoam: 1 })`) only when EVERY member said yes within 40 s (a party shares one
 activity — a maybe never pulls anyone in); the asker can ✖ call it off. Votes are reliable host events (`gvp` / `gvy` /
 `gvx`), the tally is the host's snapshot extra `x.gv` = [n, key, byUid, yesUids, untilClock]. A voted game's results offer
-🔁 again (still from Free Roam) and **🌍 Back to Free Roam** instead of the lobby (`pt_roamback`). Test: `scripts/tests3d/friends.js` (add from Nearby, no
+🔁 again (still from Free Roam) and **🌍 Back to Free Roam** instead of the lobby (`pt_roamback`). **Step 5 (👯 is just "Friends"):** the title's 👯 Friends
+hub leads with YOUR FRIENDS — up to 4 "▶ Join Kugel Kid #37 · in Midwood" (it knocks on opening; `hubJoin` → the same JOIN as
+the phone) + a line (how many, how many playing, "add or manage them in 📱 👯") — then 📤 Invite friends · 🔑 Join with a
+code · 🌐 Play online · 🕹️ Classic 2D. **No lobby to host** (the old `pt_host` "🎮 Party games" is gone: those games are votes
+in Free Roam); `ctx.party.hostParty()` still hosts the lobby for tests / old flows. The host's pause item reads "🌍 Everyone
+back to Free Roam" during a voted game (hidden while roaming). Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).

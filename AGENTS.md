@@ -265,7 +265,7 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
      (a road-trip leg) · `ci/partners` (a crime for two) · `ci/bankfriends` (the bank job) — each in its own branch.
   4. **The lobby activities** (🏁 race, 🏡 road trip, 🕎 dreidel dash, 🚓 cop tag — `ci/friends`) — **built 2026-11-22 as everyone-says-yes invitations from Free Roam (`features/friends/vote.js`)**; the hub's lobby button stays until step 5: spots / phone invitations
      like openworld's GAMES (Race to a pin is the model); the party lobby state goes away.
-  5. **👯 is just "Friends"** (`ci/friends` with `ci/onegame`'s owner): the title tile opens the friends list (playing now ·
+  5. **👯 is just "Friends"** (`ci/friends` with `ci/onegame`'s owner) — **built 2026-11-22: the hub leads with your friends (▶ Join), no lobby button; party tests host the lobby with `ctx.party.hostParty()`**: the title tile opens the friends list (playing now ·
      ▶ Join · 📤 invite · ➕ add); no "host a party"; the in-game 👯 app = friends + the group + invitations.
   Order: 1 → 2 → 4 → 5 (mine), 3 per feature after 1. Active agents: keep using `ctx.party.active` until (1) lands; then
   read `ctx.group.active`; expose an invitable when your feature has something two can do.
