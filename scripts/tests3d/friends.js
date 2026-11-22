@@ -167,6 +167,22 @@ async function body(t, pages) {
     t.check("…and back to 🌍 Free Roam after (no lobby)", await A.until(`ctx.party.activity.k === "roam"`, "A: back in Free Roam", 60000) && await B.until(`ctx.party.activity.k === "roam"`, "B: back in Free Roam", 60000));
     await A.until(`ctx.state === "playing" || ctx.state === "footRun"`, "A: roaming again", 60000);
   }
+  // 🤝 missions together (the API features adopt): a test mission on both screens; A offers, B joins, A goes → both start
+  const REG = `(window.__ms = [], ctx.group.invitable({ id: "test.pair", icon: "🧪", title: "Test pair job", blurb: "two of us", max: 4, start: o => window.__ms.push(o) }))`;
+  await A.game(REG); await B.game(REG);
+  const off = await A.game(`ctx.group.offer("test.pair")`);
+  t.check("missions: A offers a mission from 👯", off === "", off);
+  if (await B.until(`(ctx.group.offerNow() || {}).id === "test.pair"`, "B: the offer arrives", 30000)) {
+    await B.frames(6);
+    const mchip = await B.L(`(() => { const c = document.getElementById("frChip"); return c && c.offsetParent !== null ? c.textContent : ""; })()`);
+    t.check("B: ONE quiet chip — Kugel Kid: Test pair job — join?", /Test pair job — join\?/.test(mchip), mchip);
+    await B.game(`ctx.group.joinOffer()`);
+    await A.until(`(ctx.group.offerNow() || {}).ins && ctx.group.offerNow().ins.length === 2`, "A: B is in", 30000);
+    await A.game(`ctx.group.goNow()`);
+    const both = await A.until(`window.__ms.length === 1`, "A: the mission starts", 30000) && await B.until(`window.__ms.length === 1`, "B: the mission starts", 30000);
+    const ma = await A.game(`window.__ms[0]`), mb = await B.game(`window.__ms[0]`);
+    t.check("▶ go now → start() runs on BOTH screens with the same members + seed", both && ma.members.length === 2 && ma.seed === mb.seed && ma.members.join() === mb.members.join(), JSON.stringify([ma, mb]));
+  }
   // 🚪 Leave the group (one tap in 👯): carry on alone from home — not the title screen
   await A.game(`(ctx.phone.openPhone("owparty"), true)`);
   await A.frames(4);

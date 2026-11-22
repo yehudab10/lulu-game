@@ -45,6 +45,10 @@ ctx.group = group;
 // step 4: the lobby games as invitations (vote.js) — ctx.group.vote = { propose(k) → "" | why, yes(), callOff(), current(), LOBBY }
 import * as VOTE from "./vote.js";
 group.vote = { propose: k => VOTE.propose(k), yes: () => VOTE.voteYes(), callOff: () => VOTE.callOff(), current: () => VOTE.current(), LOBBY: VOTE.LOBBY };
+// step 3: missions together (missions.js) — a feature registers what friends can join
+import * as MIS from "./missions.js";
+Object.assign(group, { invitable: d => MIS.invitable(d), offer: id => MIS.offer(id), joinOffer: () => MIS.joinOffer(), goNow: () => MIS.goNow(),
+    callOffOffer: () => MIS.callOffOffer(), offerNow: () => MIS.offerNow(), missions: () => MIS.list() });
 
 // ── step 2: "your friends went another way" ───────────────────────────────
 /** Pure: my town zone + where my friends are → the chip's line ("" = nothing to say). */

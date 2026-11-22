@@ -257,12 +257,12 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
      `ctx.group.active` instead — an alias first, so nothing breaks; each feature switches when it's next touched.
   2. **Forming / leaving** (`ci/friends`) — **built 2026-11-22** (leave = home, not the title; the away chip): joining a friend (stage 1) or 📤 inviting = a group; no lobby screen ever. Leave =
      👯 › one tap; driving off to another town alone shows ONE chip "Leave the group?" (never automatic).
-  3. **Missions together** (`ci/friends` builds the API in openworld's invitation engine, each feature adopts it): a
+  3. **Missions together** — **the API is built 2026-11-22: `ctx.group.invitable({ id, icon, title, blurb, max, canStart, start({ members, me, by, seed }) })` (`features/friends/missions.js`, ARCHITECTURE › A friends list that lasts › Step 3); feature agents: register yours and pay by your own rules** (original plan: a
      feature registers `ctx.group.invitable({ id, title, icon, canStart(), start(members), rules })` → the same opt-in chip
      + 📱 👯 card the party games use; nobody is pulled out of what they're doing. Rewards = each feature's own rules (per
      player as solo, or split) — never multiplied by the group (golden rule 5). Adopters: `features/hustle` (a side job
      for two) · `features/day` (Ima's list — the HOST's list, helpers get a thank-you, not the coins) · `features/journey`
-     (a road-trip leg) · `ci/partners` (a crime for two) · `ci/bankfriends` (the bank job) — each in its own branch.
+     (a road-trip leg) · `ci/partners` (a crime for two) · `ci/bankfriends` (the bank job) — each in its own branch.)
   4. **The lobby activities** (🏁 race, 🏡 road trip, 🕎 dreidel dash, 🚓 cop tag — `ci/friends`) — **built 2026-11-22 as everyone-says-yes invitations from Free Roam (`features/friends/vote.js`)**; the hub's lobby button stays until step 5: spots / phone invitations
      like openworld's GAMES (Race to a pin is the model); the party lobby state goes away.
   5. **👯 is just "Friends"** (`ci/friends` with `ci/onegame`'s owner) — **built 2026-11-22: the hub leads with your friends (▶ Join), no lobby button; party tests host the lobby with `ctx.party.hostParty()`**: the title tile opens the friends list (playing now ·

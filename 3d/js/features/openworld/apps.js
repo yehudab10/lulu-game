@@ -95,7 +95,8 @@ function partyHome(el, api) {
         const G = E.GAMES[k], why = E.blockReason(k);
         html += row("owG_" + k, G.emoji, esc(G.name), esc(why || G.blurb), why ? "" : "Start", !!why && !/already on/.test(why), ` data-k="${k}"`);
     }
-    if (ctx.friends && ctx.friends.ui && ctx.friends.ui.voteRows) html += ctx.friends.ui.voteRows();     // (🏁 race · 🏡 road trip · 🕎 dash · 🚓 tag — everyone says yes)
+    if (ctx.friends && ctx.friends.ui && ctx.friends.ui.voteRows) html += ctx.friends.ui.voteRows();
+    if (ctx.friends && ctx.friends.ui && ctx.friends.ui.missionRows) html += ctx.friends.ui.missionRows();   // (missions together: what friends can join)     // (🏁 race · 🏡 road trip · 🕎 dash · 🚓 tag — everyone says yes)
     if (E.CL.last) html += `<div class="ow-sec">Last game</div>` + row("owLast", "🏆", E.CL.lastTitle, "the scoreboard · 🔁 rematch");
     if (ctx.friends && ctx.friends.ui) html += row("owFL", "📇", "My friends list", "friends you keep — who's playing, join them, add by code");
     html += `<div class="ow-sec">The party</div>`;
@@ -112,6 +113,7 @@ function partyHome(el, api) {
     on(el, "#owLeave", () => { api.close(); if (ctx.group) ctx.group.leave(); else ctx.party.leave(); });
     on(el, "#owFL", () => api.open("owparty", { fl: {} }));
     if (ctx.friends && ctx.friends.ui && ctx.friends.ui.wireVote) ctx.friends.ui.wireVote(el, api);
+    if (ctx.friends && ctx.friends.ui && ctx.friends.ui.wireMissions) ctx.friends.ui.wireMissions(el, api);
     on(el, "#owGoNow", () => { const g2 = E.getG(); if (g2) E.send("owgo", g2.n); api.close(); });
     on(el, "#owCallOff", () => { const g2 = E.getG(); if (g2) E.send("owx", g2.n); api.close(); });
     on(el, "#owBack", () => { api.close(); E.warpToGame(); });

@@ -155,6 +155,6 @@ ctx.friends = {
     showCode, closeCode, useCode, codeLink,
     get code() { return C.mine ? C.code : ""; },
     /** the views openworld's 👯 / 📍 Nearby borrow */
-    ui: { voteRows: UI.voteRows, wireVote: UI.wireVote, render: UI.render, partyRow: UI.partyRow, wirePartyRow: UI.wirePartyRow, driverNote: UI.driverNote, driverView: UI.driverView, open: UI.openApp },
+    ui: { missionRows: UI.missionRows, wireMissions: UI.wireMissions, voteRows: UI.voteRows, wireVote: UI.wireVote, render: UI.render, partyRow: UI.partyRow, wirePartyRow: UI.wirePartyRow, driverNote: UI.driverNote, driverView: UI.driverView, open: UI.openApp },
     debug: () => ({ hs: HS.debug(), bell: BL.debug(), store: { me: ST.S.me, n: ST.S.list.length, blocked: ST.S.blocked.length, join: ST.S.join, hidden: ST.S.hidden } }),
 };

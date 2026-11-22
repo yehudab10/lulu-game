@@ -1439,7 +1439,15 @@ hub leads with YOUR FRIENDS — up to 4 "▶ Join Kugel Kid #37 · in Midwood" (
 the phone) + a line (how many, how many playing, "add or manage them in 📱 👯") — then 📤 Invite friends · 🔑 Join with a
 code · 🌐 Play online · 🕹️ Classic 2D. **No lobby to host** (the old `pt_host` "🎮 Party games" is gone: those games are votes
 in Free Roam); `ctx.party.hostParty()` still hosts the lobby for tests / old flows. The host's pause item reads "🌍 Everyone
-back to Free Roam" during a voted game (hidden while roaming). Test: `scripts/tests3d/friends.js` (add from Nearby, no
+back to Free Roam" during a voted game (hidden while roaming). **Step 3 (missions together, `missions.js` — the API each
+feature adopts in its own branch):** `ctx.group.invitable({ id, icon, title, blurb, max, canStart() → "" | why, start({
+members, me, by, seed }) })` registers something friends can join (a side job, Ima's list, a road-trip leg, a crime for two,
+the bank job). `ctx.group.offer(id)` (👯 › Missions, or the feature's own button) → the others get ONE quiet chip ("🔥 Kugel
+Kid: Hot Delivery — join?") + ✅ Join in; whoever opts in within 30 s plays (the offerer can ▶ Go now once one friend is in;
+`max` starts it at once), everyone else carries on. The HOST starts it: a broadcast `gms` [n, id, members, seed] → `start()` on
+every participant's screen at once (only the host's `gms` counts). Offers / opt-ins are reliable host events (`gmp` / `gmy`
+/ `gmg` / `gmx`), the open offer is the host's extra `x.gm`. **Rewards are the feature's own rules** (per player as solo, or a
+pot split + capped) — never multiplied by the group (golden rule 5). `ctx.group.offerNow()`, `missions()`. Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).
