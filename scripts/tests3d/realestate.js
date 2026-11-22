@@ -209,6 +209,8 @@ module.exports = {
       await t.frames(6);
       t.check("the second press buys: coins − price", (await coins()) === 500, await coins());
       t.check("…it's hers (registry + event)", (await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)) && (await evs(/realestate:owner/)).length === 1);
+      const HH = await g(`ctx.homes && ctx.homes.household ? (ctx.homes.household(${JSON.stringify(homeId)}) || { missing: true }) : { noHook: true }`);
+      t.check("…homes gives the door up: the same id, no family behind it (status \"mine\")", !!HH && (HH.noHook || HH.status === "mine"), JSON.stringify(HH && { id: HH.id, status: HH.status, missing: HH.missing, noHook: HH.noHook }));
       await closeAll();
       await t.frames(30);
       const C = await g(`ctx.realestate.debug.counts()`);
