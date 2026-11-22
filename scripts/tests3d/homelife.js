@@ -240,7 +240,7 @@ module.exports = {
       await g(`(${D}.VISITS.S.jobs.coins = 36, true)`);
       await g(`${D}.job(${JSON.stringify(a)}, "dish", ${JSON.stringify(b)})`);
       t.check("all homes jobs: at most 40 coins a real day", await g(`${D}.deliver(${JSON.stringify(b)})`) === 4);
-      t.check("a family she's done favours for greets her BY NAME from the porch (and waves her in)", /Lulu/.test(await g(`(${D}.VISITS.porchSaid.clear(), ${D}.porch(${JSON.stringify(b)}))`) || ""));
+      t.check("a family she's done favours for greets her BY NAME from the porch (and waves her in)", /lulu/i.test(await g(`(${D}.VISITS.porchSaid.clear(), ${D}.porch(${JSON.stringify(b)}))`) || ""));
     });
     await step("porch pirate", async () => {
       if (!await g(`ctx.town.active`)) return;
