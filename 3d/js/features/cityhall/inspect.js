@@ -68,7 +68,12 @@ export function startInspection(home) {
     const road = ctx.world && ctx.world.road;
     const n = road ? road.nearest(home.x, home.z, undefined, {}) : null;
     let x = home.x, z = home.z;
-    if (n && n.street) { const P = road.point(n.s, (Math.sign(n.d) || 1) * (n.street.curb + 1.4), {}); x = home.x + (P.x - home.x) * 0.45; z = home.z + (P.z - home.z) * 0.45; }
+    if (n && n.street) {
+        // halfway down the front path, then 2.4 m to the side (clear of her mailbox + the path itself)
+        const P = road.point(n.s, (Math.sign(n.d) || 1) * (n.street.curb + 1.4), {});
+        const tx = P.x - home.x, tz = P.z - home.z, tl = Math.hypot(tx, tz) || 1;
+        x = home.x + tx * 0.5 + (-tz / tl) * 2.4; z = home.z + tz * 0.5 + (tx / tl) * 2.4;
+    }
     const I = inspector();
     const rec = IN.cur = spawn(I.id, x, z, home.x, home.z);
     Object.assign(rec, { home, mood: I.mood, t: 0, done: false, finding: pick(FINDINGS) });
