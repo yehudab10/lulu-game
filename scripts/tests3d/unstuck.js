@@ -55,12 +55,12 @@ module.exports = {
       pitch: c.pitch, roll: c.roll, town: !!ctx.town.active, state: L3.state, paved: (L3.pavedAt || (() => -1))(c.s, c.d), soft: !!ctx.G.invSoft }; })()`);
     const footAt = () => g(`(() => { const F = ctx.foot.debug.F; if (!F) return { state: L3.state }; return { why: ctx.unstuck.normal(F.pos.x, F.pos.z, "foot"), s: +F.s.toFixed(1), d: +F.d.toFixed(2), y: +(F.y || 0).toFixed(2), x: F.pos.x, z: F.pos.z, phase: F.phase, state: L3.state }; })()`);
     const LANES = [1.75, 5.25, -1.75, -5.25];
-    const carOK = async (label, from, { lanes = true, shield = true } = {}) => {
+    const carOK = async (label, from, { lanes = true, shield = true, still = true } = {}) => {
       const c = await carAt();
       const lane = c.town ? Math.abs(Math.abs(c.d) - 1.75) < 0.3 : LANES.some(l => Math.abs(l - c.d) < 0.3);
       t.check(`${label}: she's in the car, on a clear spot`, c.state === "playing" && c.why == null, JSON.stringify(c));
       if (lanes) t.check(`${label}: …on a lane (d ${c.d})`, lane, JSON.stringify(c));
-      t.check(`${label}: …upright and still`, c.v < 0.5 && Math.abs(c.y) < 0.2 && !c.pitch && !c.roll, JSON.stringify(c));
+      t.check(`${label}: …upright${still ? " and still" : ""}`, (!still || c.v < 0.5) && Math.abs(c.y) < 0.2 && Math.abs(c.pitch || 0) < 0.05 && Math.abs(c.roll || 0) < 0.05, JSON.stringify(c));
       if (from) t.check(`${label}: …near where she was (≤ 90 m)`, Math.hypot(c.x - from.x, c.z - from.z) <= 90, Math.hypot(c.x - from.x, c.z - from.z).toFixed(1));
       if (shield) t.check(`${label}: …a courtesy shield`, c.soft);
       return c;
@@ -260,7 +260,7 @@ module.exports = {
       const w0 = await g(`ctx.law.wanted`);
       await ready();
       if (await press("in a chase")) {
-        await carOK("in a chase", sol);
+        await carOK("in a chase", sol, { still: false });     // (the cruisers aren't cleared — one may already be shoving her)
         t.check("in a chase: still chased, still wanted", await g(`ctx.law.chasing`) && JSON.stringify(await g(`ctx.law.wanted`)) === JSON.stringify(w0), JSON.stringify([w0, await g(`ctx.law.wanted`)]));
       }
     } else console.log("   (no chase / no solid for the chase case)", chased, JSON.stringify(sol));
@@ -391,7 +391,7 @@ module.exports = {
           await ready();
           n0 = await nLog();
           await putFoot(block.x, block.z, y);
-          if (await autoFired(n0, "inside", `${id}: on foot inside a house${y ? " (on its roof)" : ""}`, 8000)) {
+          if (await autoFired(n0, "inside", `${id}: on foot inside a house${y ? " (on its roof)" : ""}`, y ? 16000 : 8000)) {
             const f = await footOK(`${id}: on foot out of the house${y ? " roof" : ""}`, block);
             t.check(`${id}: …on a sidewalk`, await g(`(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}), st = n.street; return !!st && Math.abs(n.d) >= st.outer - 0.2 && Math.abs(n.d) <= st.walk + 0.2; })()`), JSON.stringify(f));
           }

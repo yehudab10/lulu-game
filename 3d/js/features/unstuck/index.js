@@ -122,6 +122,19 @@ function roadHeading(x, z, s, h0) {
     }
     return best;
 }
+/** A town's nearest k streets to world (x, z): [{ st, along (clamped to the street), d, dist }] nearest first. */
+function townStreets(x, z, k) {
+    toLocal(x, z, _l);
+    const all = [];
+    for (const st of PL.APPROACH ? [...PL.STREETS, PL.APPROACH] : PL.STREETS) {
+        const dx = _l.x - st.px, dz = _l.z - st.pz;
+        const al = st.axis === "ns" ? _l.z : st.axis === "ew" ? _l.x : dx * st.ux + dz * st.uz;
+        const d = st.axis === "ns" ? st.c - _l.x : st.axis === "ew" ? _l.z - st.c : dx * st.rx + dz * st.rz;
+        const a = Math.max(st.a0 + 4, Math.min(st.a1 - 4, al));
+        all.push({ st, along: a, d, dist: Math.hypot(al - a, d) });
+    }
+    return all.sort((p, q) => p.dist - q.dist).slice(0, k);
+}
 /** Car spots: [{ x, z, h, s, d }] nearest first. */
 /** Where to search from: (x, z) and a road hint s — her last finite place when she's gone NaN. */
 function anchor(x, z, s) {
@@ -133,16 +146,18 @@ function carSpots() {
     const hx = fin(car.h) ? Math.sin(car.h) : 0, hz = fin(car.h) ? Math.cos(car.h) : 1;
     const rd = ctx.world.road;
     if (townOn()) {
-        const n = townStreet(x, z, A.s);
-        if (n) {
-            out.off = Math.hypot(n.d, n.over);
-            const st = n.st, dir = st.oneway ? Math.sign(st.oneway) : (hx * Math.sin(n.h) + hz * Math.cos(n.h) >= 0 ? 1 : -1);
-            const lane = st.oneway ? (n.d >= 0 ? 1 : -1) * LANE / 2 : dir * LANE / 2;
-            for (const o of OFFS) {
+        // the nearest three streets, both lanes: her side of the nearest first (pen: the other way +8 m, as if further) —
+        // a lane can be full (Route 9's forever-jam): then the other lane / the next street
+        const near = townStreets(x, z, 3);
+        if (near.length) out.off = near[0].dist;
+        for (const n of near) {
+            const st = n.st, h = st.h + PL.ROT, mine = st.oneway ? Math.sign(st.oneway) : (hx * Math.sin(h) + hz * Math.cos(h) >= 0 ? 1 : -1);
+            const lanes = st.oneway ? [[mine, LANE / 2], [mine, -LANE / 2]] : [[mine, mine * LANE / 2], [-mine, -mine * LANE / 2]];
+            for (const [dir, lane] of lanes) for (const o of OFFS) {
                 const a = n.along + o;
                 if (a < st.a0 + 3 || a > st.a1 - 3) continue;
                 const p = rd.point(st.base + a, lane, {});
-                out.push({ x: p.x, z: p.z, h: dir > 0 ? p.h : p.h + Math.PI, s: st.base + a, d: lane });
+                out.push({ x: p.x, z: p.z, h: dir > 0 ? p.h : p.h + Math.PI, s: st.base + a, d: lane, pen: dir === mine ? 0 : 8 });
             }
         }
     } else {
@@ -237,7 +252,7 @@ function kerbSpots(F) {
 function sortNear(list, x, z) {
     const ok = fin(x) && fin(z);
     for (const c of list) c.dist = ok ? Math.hypot(c.x - x, c.z - z) : 0;
-    const out = list.filter(c => fin(c.x) && fin(c.z)).sort((a, b) => a.dist - b.dist);
+    const out = list.filter(c => fin(c.x) && fin(c.z)).sort((a, b) => a.dist + (a.pen || 0) - b.dist - (b.pen || 0));
     out.off = fin(list.off) ? list.off : 0;
     return out;
 }
