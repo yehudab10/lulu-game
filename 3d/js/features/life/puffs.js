@@ -26,7 +26,7 @@ export const PUFF = {
     manholeR: 90, manholeN: 16,
     ventR: 80,
 };
-const MAX = 220, MAXG = 16;
+const MAX = 300, MAXG = 16;          // (round 3: + breath, the tailpipe, dawn mist — breath.js)
 /** Chimney tops per house model (three.js model frame: x = model +X, y up, z out of the front) — from the Blender
  *  builders (assets_town.py › build_duplex: chim at (−w·0.3, d·0.2, wh + 1.9) ± 0.7; assets_midwood.py › build_house). */
 const CHIMNEY = { town_duplex: [-3.3, 8.75, -2.0], town_mw_house: [-5.25, 8.95, 0.5] };
@@ -52,7 +52,7 @@ export function glow(x, y, z, r, g, b, size) {
     d[o] = x; d[o + 1] = y; d[o + 2] = z; d[o + 3] = r; d[o + 4] = g; d[o + 5] = b; d[o + 6] = size;
     return true;
 }
-const K = { CHIM: 1, STEAM: 2, VENT: 3 };
+export const K = { CHIM: 1, STEAM: 2, VENT: 3, BREATH: 4, EXHAUST: 5, MIST: 6 };
 export const PU = { key: "", homesKey: "", chimneys: [], manholes: [], vents: [], live: [], liveMh: [], scanT: 0, sx: 1e9, sz: 1e9, mesh: null, mhMesh: null,
     dataAttr: null, drawn: 0, mhDrawn: 0, hiss: null, hissPt: { x: 0, y: 0.1, z: 0 }, smelled: new Set(), steamed: 0, emitted: 0 };
 
@@ -191,7 +191,7 @@ function ensureMh() {
 }
 
 // ── puffs ─────────────────────────────────────────────────────────────────
-function addPuff(kind, x, y, z, vx, vy, vz, life, s0, s1, a0, r, g, b) {
+export function addPuff(kind, x, y, z, vx, vy, vz, life, s0, s1, a0, r, g, b) {
     if (PF.n >= MAX) return false;
     const i = PF.n++;
     PF.kind[i] = kind; PF.x[i] = x; PF.y[i] = y; PF.z[i] = z; PF.vx[i] = vx; PF.vy[i] = vy; PF.vz[i] = vz;
@@ -345,18 +345,22 @@ function hissFor() {
     } else if (PU.hiss) PU.hiss = PU.hiss.stop(0.5) || null;
 }
 export function tickPuffs(dt) {
-    const want = L.on && L.town && buildSites();
-    if (!want) { puffsHide(); return; }
-    const cold = coldNow(), night = L.night;
-    wantChim = cold && L.rain < 0.6;
-    litShare = night > 0.5 ? PUFF.chimneyLitNight : PUFF.chimneyLit;
-    PU.scanT -= dt;
-    if (PU.scanT <= 0 || Math.abs(L.x - PU.sx) + Math.abs(L.z - PU.sz) > 8) { PU.scanT = 0.5; PU.sx = L.x; PU.sz = L.z; pickLive(); }
-    emit(dt, cold, night);
+    if (!L.on) { puffsHide(); return; }
+    // (round 3: breath, the tailpipe and the alarm's glows happen on the highway too — the town's emitters only in town)
+    const town = L.town && buildSites();
+    if (town) {
+        const cold = coldNow(), night = L.night;
+        wantChim = cold && L.rain < 0.6;
+        litShare = night > 0.5 ? PUFF.chimneyLitNight : PUFF.chimneyLit;
+        PU.scanT -= dt;
+        if (PU.scanT <= 0 || Math.abs(L.x - PU.sx) + Math.abs(L.z - PU.sz) > 8) { PU.scanT = 0.5; PU.sx = L.x; PU.sz = L.z; pickLive(); }
+        emit(dt, cold, night);
+    } else if (PU.live.length || PU.liveMh.length) { PU.live.length = 0; PU.liveMh.length = 0; PU.sx = PU.sz = 1e9; }
+    if (!town && !PF.n && !GLOW.n) { if (PU.mesh && PU.mesh.visible) { PU.mesh.visible = false; PU.mesh.count = 0; PU.drawn = 0; } if (PU.mhMesh) PU.mhMesh.visible = false; if (PU.hiss) PU.hiss = PU.hiss.stop(0.3) || null; return; }
     simulate(dt);
     draw();
     drawManholes();
-    notice();
+    if (town) notice();
     hissFor();
     stats.puffs = PF.n;
 }

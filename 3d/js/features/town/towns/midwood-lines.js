@@ -49,6 +49,8 @@ export const SIGNS = {
     ],
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
     bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
+    makolet: ["YANKY'S 24-HOUR MAKOLET", "open 24 hrs · closed Shabbos · it's complicated"],   // features/shops (uses.makolet)
+    dealer: ["UNCLE MOISHE'S PRE-LOVED CARS — BROOKLYN", "the Coney Island Ave branch · we also do tires (badly)"],   // features/shops (uses.dealer)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · 70½TH PRECINCT", "courtesy · professionalism · parking"],
     court: ["KINGS COUNTY-ISH CIVIL COURT", "small claims · big feelings"],

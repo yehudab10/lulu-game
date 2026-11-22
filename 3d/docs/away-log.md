@@ -3,6 +3,20 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 (evening) — 🍃 The town feels alive, part 3: as the sun goes down in Lakewood and Midwood the houses' windows now
+  light up a few at a time — each house when its family gets home, room by room, warm lamp light (some with the curtains half
+  drawn, now and then the blue flicker of a TV) — and late at night some go dark again for bedtime; at dawn they switch off. On a
+  cold night you can see Lulu's breath (faster when she's been running), the neighbours' and your friends' too, and the car's
+  exhaust steams while it waits at a light; at dawn a low mist lies over the town and burns off as the sun comes up. Fumble a
+  hotwire and the car alarm goes off for real now — hazard lights, the WHOOP-WHOOP, and the owner yelling "Young lady! That is
+  NOT your car!". And the radio DJs notice the weather: when it starts raining (or snowing, or foggy) or the sun sets, the next
+  thing the DJ says is about that. In a thunderstorm in town the dogs start barking after a big clap and the lit windows
+  flicker for a moment, like the power nearly went. No new pop-ups; the sounds follow ⚙️ 🐦 Street sounds.
+- 2026-11-21 (airport kerb) — ✈️ Two small JFK fixes (the airport is still switched off in the real game until the "each town its
+  own exit" work lands): when the police pull Lulu over at the terminal kerb she now stops right where she is, facing along the
+  kerb road, with the police car right behind her — before, she crept forward and turned toward the far-away highway while
+  braking. And a police car that bumps or rams her at the kerb can no longer shove her car up onto the sidewalk in front of the
+  terminal (it stops at the kerb, and the police car can't push through her either).
 - 2026-11-21 (screen layout) — 📏 Nothing on the screen sits on anything else any more, on a phone held either way, a small
   phone, a tablet, a laptop and a TV, with fingers or a controller: on a phone on its side the WALK stick no longer covers
   📝 Ima's list / ON FOOT (the hearts + coins share a row, the stick is a touch smaller, and while a text message is up the ON FOOT

@@ -226,7 +226,7 @@ module.exports = {
       // (the town's crowd + traffic move between the two windows, so the renderer's totals are reported, not judged:
       //  what life itself draws is its own meshes — each one draw call)
       // (round 1's own meshes — round 2's puffs / manholes / pigeons are judged in life2.js)
-      const mine = await g(`ctx.scene.children.filter(o => /^life/.test(o.name) && !/^life(Puffs|Pigeons|Manholes)$/.test(o.name) && o.visible).map(o => o.name)`);
+      const mine = await g(`ctx.scene.children.filter(o => /^life/.test(o.name) && !/^life(Puffs|Pigeons|Manholes|Windows)$/.test(o.name) && o.visible).map(o => o.name)`);   // (round 2 + 3 count their own: life2, life3)
       t.check("life draws ≤ 4 meshes (≤ 4 draw calls)", mine.length <= 4 && mine.length >= 2, `${mine.join(", ")} · renderer peak ${off.maxCalls} → ${on.maxCalls}, avg ${off.calls} → ${on.calls}`);
       t.check("life's tick is cheap (avg ≤ 1.5 ms in software GL)", ms[0] <= 1.5, `avg ${ms[0]} ms, max ${ms[1]} ms`);
     });

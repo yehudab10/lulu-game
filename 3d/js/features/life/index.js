@@ -15,6 +15,14 @@
 //      puff off the bakery's / pizza shop's oven vent (and now and then Lulu smells it)
 //   🚨 car alarms (alarm.js): a bumped parked car blinks its hazards, the alarm carries on, the owner yells (a bubble)
 //   👣 friends' footsteps (friends.js): a friend walking near her in a party is heard too
+// Round 3 (ci/life3):
+//   🪟 windows at dusk (windows.js): the houses near her light up room by room as it gets dark (a TV's blue flicker in
+//      some), a few go dark again at bedtime, the rest switch off one by one at dawn
+//   🌬️ cold air (breath.js): her breath on cold nights (the townsfolk's + friends' too), the car's tailpipe steaming on
+//      a cold day, low dawn mist over the town that burns off with the sun
+//   🚨 a fumbled hotwire sets the car alarm off (alarm.js, foot's `foot:hotwireFail`) — the hazards, the alarm, the owner
+//   📻 the radio's DJ notices the weather + the sunset (radio.js, through hustle's topical hook)
+//   ⛈️ after the thunder (storm.js, atmos' `atmos:thunder`): the dogs bark, the lit windows flicker, Lulu jumps
 //
 // Everything is local + cosmetic (fine in a 🎉 party; the sites are hashed from the town's plan, so friends see the
 // same puddles and piles). The seasons follow the device's date (`?lifeSeason=autumn|spring|summer|winter` to preview).
@@ -35,6 +43,10 @@ import { tickPuffs, puffsHide, puffsClear, puffInfo, nearestPuff, PUFF, PU } fro
 import { tickPigeons, pigeonsHide, pigeonsClear, pigeonInfo, nearestFlock, scatterNearest, PIG, PG } from "./pigeons.js";
 import { tickAlarm, alarmClear, alarmInfo, ALARM } from "./alarm.js";
 import { tickFriendSteps, friendStepInfo, fakeParty } from "./friends.js";
+import { tickWindows, windowsHide, windowsClear, windowInfo, nearestPane, nearestHouse, WIN, WN } from "./windows.js";
+import { tickRadio, radioInfo, radioOffer } from "./radio.js";
+import { tickStorm, stormClear, stormInfo } from "./storm.js";
+import { tickBreath, breathClear, breathInfo, setMistPin, BREATH, BR } from "./breath.js";
 
 let lastT = -1, seasonT = 0, wasOn = false, off = false;
 const dinaMode = () => /^dina/.test(ctx.state || "") || !!(ctx.G && ctx.G.mode === "dina");
@@ -81,21 +93,25 @@ function tick(dt) {
     try { tickAmbience(L.dt); } catch (e) { console.error("[life] ambience", e); }
     try { tickPigeons(L.dt); } catch (e) { console.error("[life] pigeons", e); }
     try { tickAlarm(L.dt); } catch (e) { console.error("[life] alarm", e); }        // (before the puffs: its glows ride their mesh)
+    try { tickBreath(L.dt); } catch (e) { console.error("[life] breath", e); }      // (before the puffs too: breath + mist are puffs)
     try { tickPuffs(L.dt); } catch (e) { console.error("[life] puffs", e); }
     try { tickFriendSteps(L.dt); } catch (e) { console.error("[life] friends", e); }
+    try { tickWindows(L.dt); } catch (e) { console.error("[life] windows", e); }
+    try { tickRadio(); } catch (e) { console.error("[life] radio", e); }
+    try { tickStorm(); } catch (e) { console.error("[life] storm", e); }
     const ms = performance.now() - t0;
     stats.ms = stats.ms * 0.95 + ms * 0.05; stats.maxMs = Math.max(stats.maxMs, ms); stats.ticks++;
 }
-function hideAll() { windHide(); ambienceStop(); if (PUD.mesh) PUD.mesh.visible = false; puffsHide(); pigeonsHide(); alarmClear(); }
+function hideAll() { windHide(); ambienceStop(); if (PUD.mesh) PUD.mesh.visible = false; puffsHide(); pigeonsHide(); alarmClear(); windowsHide(); }
 hook("hud", dt => tick(dt));
 hook("update", dt => { const def = ctx.states[ctx.state]; if (!def || !def.hud) tick(dt); }, -62);
 
 on("foot:land", () => { if (ctx.enabled("life") && L.on) try { landed(); } catch (e) { /* cosmetic */ } });
-on("run:start", () => { windClear(); ambienceStop(); WS.said.clear(); alarmClear(); PU.smelled.clear(); });
-on("town:leave", () => { windClear(); clearSites(); puffsClear(); pigeonsClear(); alarmClear(); });
+on("run:start", () => { windClear(); ambienceStop(); WS.said.clear(); alarmClear(); PU.smelled.clear(); breathClear(); stormClear(); });
+on("town:leave", () => { windClear(); clearSites(); puffsClear(); pigeonsClear(); alarmClear(); windowsClear(); });
 on("town:enter", () => { windClear(); WS.gustT = Math.min(WS.gustT, 10); });
 on("state", ({ to } = {}) => {
-    if (to === "title") { windClear(); ambienceStop(); clearSites(); puffsClear(); pigeonsClear(); alarmClear(); }
+    if (to === "title") { windClear(); ambienceStop(); clearSites(); puffsClear(); pigeonsClear(); alarmClear(); windowsClear(); }
     // (the title / a set / Dina's world tick none of our hooks: switch off now, not on the next world frame)
     if (!placeOK() && L.on) { L.on = false; wasOn = false; hideAll(); }
 });
@@ -121,10 +137,10 @@ ctx.life = {
             sounds: soundsOn(), steps: Object.assign({ n: stats.steps, kinds: Object.assign({}, stats.stepKinds) }, stepInfo()),
             puddles: puddleInfo(), wind: windInfo(), ambience: ambienceInfo(),
             splashes: stats.splashes, carSplashes: stats.carSplashes, soaked: stats.soaked, flyersRead: stats.read, pilesKicked: stats.kicked,
-            puffs: puffInfo(), pigeons: pigeonInfo(), alarm: alarmInfo(), friends: friendStepInfo(), lines: LINE.said };
+            puffs: puffInfo(), pigeons: pigeonInfo(), alarm: alarmInfo(), friends: friendStepInfo(), windows: windowInfo(), breath: breathInfo(), radio: radioInfo(), storm: stormInfo(), lines: LINE.said };
     },
     debug: {
-        stats, L, WIND, SOUND_KINDS, PUFF, PIG, PG, ALARM, LINE,
+        stats, L, WIND, SOUND_KINDS, PUFF, PIG, PG, ALARM, LINE, WIN, WN, BREATH, BR,
         /** Pin the puddles' water level 0..1 (null = follow the weather again). */
         rain(level = 1) { return forceLevel(level); },
         /** Pin the season ("autumn" | "spring" | "summer" | "winter"; null = the device's date). */
@@ -146,6 +162,14 @@ ctx.life = {
         lineReady() { LINE.at = -1e9; return true; },
         /** Tests: friends' footsteps from a stand-in party ({ active, uid, members(), remoteCar(uid) }; null = the real one). */
         fakeParty(p) { return fakeParty(p); },
+        /** The nearest drawn window pane ("lit" | "dark" | "tv") → {x, y, z, rot, k, tv, d} | null. */
+        pane(kind = "lit") { return nearestPane(kind); },
+        /** The nearest house with window panes → {x, z, nx, nz, cx, cz, n} | null. */
+        house() { return nearestHouse(); },
+        /** Offer the radio a topic now ("rain" | "snow" | "fog" | "clear" | "sunset" | "night"). */
+        radio(kind = "rain") { return radioOffer(kind); },
+        /** Pin the dawn mist on / off (null = atmos' clock: dawn in town). */
+        mist(v = true) { setMistPin(v); return v; },
         /** Tests / perf: everything off (hidden, quiet) as if the feature weren't there. */
         off(v = true) { off = !!v; if (off) hideAll(); return off; },
     },

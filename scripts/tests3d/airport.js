@@ -23,9 +23,10 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
     const g = t.game;
-    // AIRPORT_PART=<step> runs just that step after the build (local debugging: "bump", "chase", "perf"…)
+    // AIRPORT_PART=<step>[,<step>…] runs just those steps after the build (local debugging: "bump", "chase", "perf",
+    // "kerb bust", "kerb shove"…)
     const PART = process.env.AIRPORT_PART || "";
-    const step = async (label, fn) => { if (PART && label !== PART) return; try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
+    const step = async (label, fn) => { if (PART && !PART.split(",").includes(label)) return; try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["airport:enter", "airport:leave", "airport:door", "airport:fence", "airport:built", "airport:bump", "airport:security", "foot:start"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 90)));
       m.on("damage", e => { const c = m.ctx.car.pos, q = m.ctx.airport.debug.local(c.x, c.z) || {}; __ev.push("damage:" + (e && e.why) + "/" + (e && e.source) + "@" + Math.round(q.f) + "," + Math.round(q.r) + " s" + Math.round(m.ctx.car.s)); });
       // the test driver: steer toward waypoints (world x / z) at a target speed; stop = brake to a halt at the end
@@ -439,6 +440,115 @@ module.exports = {
       t.check("…so the real cops catch up (a cruiser within 30 m of her in the landside — or BUSTED)", busted || closest < 30, String(closest));
       if (await g(`L3.state === "playing"`)) await g(`(ctx.law.standDown("test"), true)`);
       await t.frames(30);
+    });
+
+    // the kerb road's heading (the loop runs DEPARTURES → ARRIVALS: +f) and her car's outer edge toward the terminal
+    const kerbYaw = () => g(`ctx.airport.debug.G().F.yaw(1, 0)`);
+    const wrapDeg = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return Math.abs(a) * 180 / Math.PI; };
+    const driving = async label => {
+      if (await g(`L3.state !== "playing" && /^law/.test(L3.state)`)) { await g(`(__m.setState("playing"), true)`); await t.frames(10); }
+      if (await g(`L3.state === "playing" && ctx.law && ctx.law.chasing`)) { await g(`(ctx.law.standDown("test"), true)`); await t.frames(10); }
+      return t.check(`${label}: she's driving (state playing, not on foot)`, await g(`L3.state === "playing" && !(ctx.foot && ctx.foot.active)`), await g(`L3.state`));
+    };
+
+    // ── a BUST at the kerb (ci/airport-kerb): law's pull-over asks the airport (hook "pullOverSpot") — she stops right where
+    //    she is, facing along the kerb road, instead of easing toward the highway's shoulder 190 m away; the cruiser pulls in
+    //    behind her on the kerb road ──
+    await step("kerb bust", async () => {
+      if (!await g(`!!(ctx.law && ctx.law.startChase)`)) return;
+      if (!await driving("kerb bust")) return;
+      const KY = await kerbYaw();
+      const p = await A(-40, LY.KERB_R);
+      await placeCar(p.x, p.z, KY, 5);
+      await route([await A(-20, LY.KERB_R), await A(10, LY.KERB_R), await A(60, LY.KERB_R), await A(100, LY.KERB_R)], 5, { r: 6 });
+      await g(`(ctx.law.hold(0), ctx.law._dbg.L.grace = 0, ctx.law._dbg.FORCE.bustOutcome = "free", true)`);
+      // the pull-over's track, every frame (her airport-frame f / r, heading, speed)
+      await g(`(() => { if (!window.__btOn) { window.__btOn = true; __m.hook("update", () => { const L3 = window.__lulu3d, ctx = L3.ctx; if (L3.state !== "lawBust" || !window.__bt) return;
+          const c = ctx.car, q = ctx.airport.debug.local(c.pos.x, c.pos.z); window.__bt.push([+q.f.toFixed(3), +q.r.toFixed(3), +c.h.toFixed(4), +c.speed.toFixed(2)]); }, -999); } window.__bt = []; return true; })()`);
+      const spots0 = await g(`ctx.airport.debug.pullSpots ? ctx.airport.debug.pullSpots() : 0`);
+      await g(`ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" })`);
+      // the first cruiser: put it on the kerb road 9 m behind her (it'd otherwise come all the way round from the highway)
+      const ok = await t.until(`__lulu3d.ctx.law._dbg.L.units.some(u => u.mode === "chase" && u.car)`, "a cruiser joins the chase", 20000);
+      if (!t.check("kerb bust: a cruiser on the chase", ok)) return;
+      await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.mode === "chase" && u.car), c = u.car, car = ctx.car; c.x = car.pos.x - Math.sin(car.h) * 9; c.z = car.pos.z - Math.cos(car.h) * 9; c.h = car.h; c.s = car.s; c.speed = 5; return true; })()`);
+      const busted = await t.until(`__lulu3d.state === "lawBust"`, "rolling slowly with a cruiser on her tail at the kerb = BUSTED", 60000);
+      t.check("kerb bust: rolling slowly with a cruiser on her tail at the kerb = BUSTED (law's pull-over)", busted, await g(`L3.state`));
+      if (!busted) { await noRoute(); return; }
+      await t.until(`!!document.querySelector("#dialog.open") || __lulu3d.state !== "lawBust"`, "the officer at her window", 30000);
+      await t.frames(12);
+      await t.shot("kerb-bust");
+      const bt = await g(`window.__bt.slice()`);
+      const end = await g(`(() => { const L = ctx.law._dbg.L, car = ctx.car, F = ctx.airport.debug.G().F, fx = Math.sin(car.h), fz = Math.cos(car.h);
+        const u = L.units.find(u => u.mode === "pull" && u.car), c = u && u.car; if (!c) return { cop: null };
+        const dx = c.x - car.pos.x, dz = c.z - car.pos.z, q = F.local(c.x, c.z, {}); return { cop: { lon: +(dx * fx + dz * fz).toFixed(1), lat: +(-dx * fz + dz * fx).toFixed(1), f: Math.round(q.f), r: +q.r.toFixed(1) } }; })()`);
+      const spots = (await g(`ctx.airport.debug.pullSpots ? ctx.airport.debug.pullSpots() : 0`)) - spots0;
+      await g(`(__m.setState("playing"), delete ctx.law._dbg.FORCE.bustOutcome, true)`);
+      await noRoute();
+      await t.frames(5);
+      if (await g(`L3.state === "playing" && ctx.law.chasing`)) await g(`(ctx.law.standDown("test"), true)`);
+      await g(`(ctx.law.hold(900), true)`);
+      if (!t.check("kerb bust: the pull-over was tracked", bt.length > 10, String(bt.length))) return;
+      const [f0, r0] = bt[0], last = bt[bt.length - 1];
+      let lat = 0, minR = 1e9, maxR = -1e9, iRest = -1, creep = 0, maxH = 0;
+      bt.forEach(([f, r, h, v], i) => { lat = Math.max(lat, Math.abs(r - r0)); minR = Math.min(minR, r); maxR = Math.max(maxR, r); maxH = Math.max(maxH, wrapDeg(h - KY)); if (iRest < 0 && v < 0.3) iRest = i; });
+      if (iRest >= 0) for (let i = iRest; i < bt.length; i++) creep = Math.max(creep, Math.hypot(bt[i][0] - bt[iRest][0], bt[i][1] - bt[iRest][1]));
+      const along = last[0] - f0, hEnd = wrapDeg(last[2] - KY);
+      console.log("   kerb bust:", JSON.stringify({ frames: bt.length, start: bt[0], end: last, along: +along.toFixed(2), lat: +lat.toFixed(2), minR, maxR, iRest, creep: +creep.toFixed(2), hEnd: +hEnd.toFixed(1), maxH: +maxH.toFixed(1), spots, cop: end.cop }));
+      t.check("kerb bust: law asked the airport where to stop (hook pullOverSpot answered)", spots > 0, String(spots));
+      t.check(`…she stops right where she is: ≤ 6 m on along the kerb road (${along.toFixed(1)}), no creep once stopped (${creep.toFixed(2)} ≤ 0.3 m)`, along >= -0.5 && along <= 6 && iRest >= 0 && creep <= 0.3, JSON.stringify({ along, iRest, creep }));
+      t.check(`…not toward the highway: sideways ≤ 0.25 m (${lat.toFixed(2)}), still in the kerb road's lanes (r ${minR.toFixed(1)} – ${maxR.toFixed(1)})`, lat <= 0.25 && minR > LY.KERB_R - 5.25 && maxR < LY.KERB_R + 5.25, JSON.stringify({ lat, minR, maxR }));
+      t.check(`…facing along the kerb road (${hEnd.toFixed(1)}° at the window, worst ${maxH.toFixed(1)}° ≤ 6°)`, maxH <= 6, JSON.stringify({ hEnd, maxH }));
+      t.check("…and the cruiser pulls in right behind her on the kerb road (4–14 m back, in line)", !!end.cop && end.cop.lon < -4 && end.cop.lon > -14 && Math.abs(end.cop.lat) < 3.5 && end.cop.r > LY.KERB_R - 5.25 && end.cop.r < LY.KERB_R + 5.25, JSON.stringify(end.cop));
+      await t.frames(20);
+      await W.reset(t);
+    });
+
+    // ── a cruiser that SHOVES her at the kerb (ci/airport-kerb): her car stays on the kerb road — the kerb edge holds it off
+    //    the sidewalk for a moment after a cop's contact (and holds the cruiser off her) — a slow lean and a hard ram ──
+    await step("kerb shove", async () => {
+      if (!await driving("kerb shove")) return;
+      await g(`(ctx.law && ctx.law.hold && ctx.law.hold(900), true)`);
+      // (the bust's cruisers, given up and parked: out of the way)
+      await g(`(ctx.law && ctx.law._dbg ? ctx.law._dbg.L.units.slice().forEach(u => { if (u.car) ctx.traffic.remove(u.car); }) : 0, true)`);
+      await noRoute();
+      const KY = await kerbYaw(), WALK_R0 = await g(`ctx.airport.debug.LY.WALK.r0`), GIVE = await g(`ctx.airport.debug.KERB_EDGE ? ctx.airport.debug.KERB_EDGE.give : 0`);
+      // the recorder: her car's outer edge toward the terminal (r of its circles + their radius), the gap to the cruiser
+      await g(`(() => { if (!window.__svOn) { window.__svOn = true; __m.hook("update", dt => { const S = window.__sv; if (!S || !S.c) return; const ctx = window.__lulu3d.ctx, car = ctx.car, F = ctx.airport.debug.G().F, q = F.local(car.pos.x, car.pos.z, {});
+          const dr = Math.sin(car.h) * F.rx + Math.cos(car.h) * F.rz, gap = Math.hypot(S.c.x - car.pos.x, S.c.z - car.pos.z); S.t += dt;
+          if (S.contact == null && (S.c.hit || gap < 3.4)) S.contact = S.t;      // (nose to her side: ~3.2 m between centres; a hard ram wrecks the cruiser)
+          S.maxOut = Math.max(S.maxOut, q.r + Math.abs(dr) * 1.15 + 0.93); S.minGap = Math.min(S.minGap, gap); }, -999); } return true; })()`);
+      const res = {};
+      for (const V of [{ id: "lean", v: 3, push: 1.2 }, { id: "ram", v: 9, push: 0.3 }]) {
+        const p = await A(-22.5, LY.KERB_LANE);
+        await placeCar(p.x, p.z, KY, 0);
+        const holds0 = await g(`ctx.airport.debug.kerbHolds ? ctx.airport.debug.kerbHolds() : 0`);
+        // a cruiser on the middle lane, nose toward the terminal, driving into her side (a law car: data.law)
+        await g(`(() => { const car = ctx.car, F = ctx.airport.debug.G().F, w = F.world(-22.5, ${LY.KERB_LANE} - 6, {});
+          const c = ctx.traffic.add("cop", car.s, 5.25, 1, 0, { keep: true, noNearMiss: true, data: { law: { test: true } } });
+          c.free = true; c.x = w.x; c.z = w.z; c.h = F.yaw(0, 1); c.s = car.s; c.speed = ${V.v};
+          window.__sv = { c, t: 0, v: ${V.v}, push: ${V.push}, contact: null, maxOut: 0, minGap: 99 };
+          c.ai = (dt, c) => { const S = window.__sv;
+            const go = S.contact == null || S.t - S.contact < S.push; c.speed = go ? Math.min(S.v, c.speed + 12 * dt) : Math.max(0, c.speed - 14 * dt); c.x += Math.sin(c.h) * c.speed * dt; c.z += Math.cos(c.h) * c.speed * dt; c.s = ctx.car.s; };
+          return true; })()`);
+        await steps(true);
+        await t.until(`window.__sv && window.__sv.contact != null && window.__sv.t - window.__sv.contact > ${V.push} + 0.25`, `the cruiser ${V.id}s into her`, 15000);
+        await t.frames(30);
+        await t.shot("kerb-shove-" + V.id);
+        await t.frames(30);
+        const st = await steps(false);
+        res[V.id] = await g(`(() => { const S = window.__sv, car = ctx.car, q = ctx.airport.debug.local(car.pos.x, car.pos.z); const out = { contact: S.contact != null, maxOut: +S.maxOut.toFixed(2), minGap: +S.minGap.toFixed(2), her: [+q.f.toFixed(1), +q.r.toFixed(1)], copHit: !!S.c.hit,
+          holds: (ctx.airport.debug.kerbHolds ? ctx.airport.debug.kerbHolds() : 0) - ${holds0} }; ctx.traffic.remove(S.c); window.__sv = null; return out; })()`);
+        res[V.id].step = st.car;
+        await t.frames(5);
+      }
+      console.log("   kerb shove:", JSON.stringify(res), "limit", WALK_R0 + GIVE);
+      const lim = WALK_R0 + GIVE + 0.05;
+      t.check(`a cruiser leaning on her at the kerb: her car stays on the kerb road (outer edge r ${res.lean.maxOut} ≤ ${lim.toFixed(2)}, the sidewalk starts at ${WALK_R0})`, res.lean.contact && res.lean.maxOut <= lim, JSON.stringify(res.lean));
+      t.check(`…and a hard ram (outer edge r ${res.ram.maxOut} ≤ ${lim.toFixed(2)})`, res.ram.contact && res.ram.maxOut <= lim, JSON.stringify(res.ram));
+      t.check("…the kerb edge did the holding (airport kerbHolds > 0 on the lean)", res.lean.holds > 0, JSON.stringify(res));
+      t.check(`…the cruiser doesn't drive through her car (centres ≥ 1.5 m: lean ${res.lean.minGap}, ram ${res.ram.minGap})`, res.lean.minGap >= 1.5 && res.ram.minGap >= 1.5, JSON.stringify(res));
+      t.check(`…no teleport: her car ≤ 0.5 m a frame (lean ${res.lean.step}, ram ${res.ram.step})`, res.lean.step <= 0.5 && res.ram.step <= 0.5, JSON.stringify(res));
+      await W.reset(t);
     });
   },
 };
