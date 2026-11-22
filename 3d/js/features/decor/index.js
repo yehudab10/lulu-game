@@ -310,7 +310,10 @@ export function enter() {
     VIS.owner = fr ? fr.owner : P && P.active ? P.uid : "";
     VIS.placed = fr ? fr.placed : null;
     const st = at(0.6, 7.1);
-    const n = ctx.world.road.nearest(st.x, st.z, S_HOME, {});
+    // (in town — the house is on its Midwood lot: the town's own streets, near where she stands — like a town house's
+    //  door, features/homes; the highway's home s would take her out of the town on the way in)
+    const F = ctx.foot.debug && ctx.foot.debug.F;
+    const n = ctx.world.road.nearest(st.x, st.z, home.site === "town" ? (F ? F.s : null) : S_HOME, {});
     const side = Math.sign(n.d) || 1;
     const door = { s: n.s, d: n.d + side * 1.4, side, id: HOUSE_ID };
     if (!ctx.foot.handoff(HOUSE_ID, door)) return false;
