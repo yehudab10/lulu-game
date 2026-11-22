@@ -26,9 +26,12 @@
 //                handlers are idempotent so a new host may safely re-run them.
 //                Ephemeral broadcasts (emotes, chat, waves) ride in `bc` for
 //                ~1.5 s and are de-duplicated per sender.
-//  • election  — host silent > 4 s (or gone) → the first FRESH uid in the
-//                roster order claims epoch + 1; higher epoch wins, ties go to
-//                roster order. The old host steps down if it comes back.
+//  • election  — host silent > 4 s AND for 20 of my own frames (one long stall
+//                of a crawling page isn't a dead host) → the first FRESH uid in
+//                the roster order claims epoch + 1; higher epoch wins, ties go to
+//                roster order. The old host steps down if it comes back. On any
+//                host change, clients re-send their reliable events of the last
+//                8 s with new nonces (the old host may have acked and lost one).
 import { ctx, emit } from "../../core/ctx.js";
 import { shared } from "../../core/save.js";
 
