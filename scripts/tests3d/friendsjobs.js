@@ -3,12 +3,14 @@
 //                      B joins, A goes → A is driving the cab job, B is her navigator; each fare is SPLIT (A keeps her
 //                      half, B's half lands in B's wallet) — together never more than the solo fare; the job ends →
 //                      "shift over" on B, and no more shares
+//   CRIMES FOR TWO + THE BANK JOB  listed too (partners' 🎲 / 🚗 / 🔔, heist's 💰): a 🎲 Double dare offer → both
+//                      screens get the same briefing naming the partner (the crimes still happen by doing them)
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 let relay = null;
 const PORT = 31000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=party,openworld,foot,town,phone,friends,hustle&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=party,openworld,foot,town,phone,friends,hustle,law,heist,partners&mpurl=${encodeURIComponent(url)}`;
 const COINS = `JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`;
 
 module.exports = {
@@ -51,6 +53,7 @@ async function body(t, pages) {
   // ── the list ──
   const ids = await A.game(`ctx.group.missions().map(m => m.id)`);
   t.check("👯 › Missions lists the cab, the delivery and the getaway for two", ["hustle.cab", "hustle.delivery", "hustle.getaway"].every(i => ids.includes(i)), JSON.stringify(ids));
+  t.check("…and the crimes for two + the bank job", ["partners.dare", "partners.grab", "partners.ring", "heist.bank"].every(i => ids.includes(i)), JSON.stringify(ids));
   // ── A offers the cab; B joins; A goes ──
   const off = await A.game(`ctx.group.offer("hustle.cab")`);
   t.check("A offers 🚕 Lulu Cab for two", off === "", off);
@@ -82,4 +85,15 @@ async function body(t, pages) {
   await A.game(`(ctx.hustle.end("quit", "test"), true)`);
   t.check("job over → B's shift ends (\"shift over\")", await B.until(`!ctx.hustle._dbg.together().driver`, "B: shift over", 30000));
   t.check("after the job, payCrew pays the driver everything again", await A.L(`import("./js/features/hustle/together.js").then(m => m.payCrew({ def: { id: "cab" }, crew: ["a", "b"] }, 31))`) === 31);
+
+  // ── a crime for two: the invitation + the same briefing on both screens ──
+  await A.until(`!ctx.group.offerNow()`, "A: the cab offer is closed", 30000);
+  const off2 = await A.game(`ctx.group.offer("partners.dare")`);
+  t.check("A offers 🎲 Double dare", off2 === "", off2);
+  if (!await B.until(`(ctx.group.offerNow() || {}).id === "partners.dare"`, "B: the dare offer arrives", 30000)) return;
+  await B.game(`ctx.group.joinOffer()`);
+  const BAN = `(() => { const b = document.getElementById("banner"); return b && !b.classList.contains("hidden") ? b.textContent : ""; })()`;
+  const ba = await A.until(`/Double dare/.test(${BAN})`, "A: the dare briefing", 30000), bb = await B.until(`/Double dare/.test(${BAN})`, "B: the dare briefing", 30000);
+  const bt = await B.L(BAN);
+  t.check("both get the 🎲 briefing, naming the partner", ba && bb && /Kugel Kid/.test(bt), bt);
 }
