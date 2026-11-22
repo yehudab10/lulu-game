@@ -72,7 +72,7 @@ async function body(t, guests) {
   for (const p of both) {
     await p.game(`(ctx.town.load("lakewood"), true)`);
     if (!await p.until(`ctx.town.loaded("lakewood")`, `${p.label}: Lakewood's models`, 120000)) return;
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     if (!await p.until(`ctx.town.active && ctx.town.id === "lakewood" && !!ctx.civic.spot("precinct")`, `${p.label}: in Lakewood`, 60000)) return;
   }
   const carAt = (p, dist, side) => p.game(`(() => { if (ctx.foot.active) ctx.foot.end("test"); if (ctx.state !== "playing") L3.setState("playing"); const sp = ctx.civic.spot("precinct"); const car = ctx.car;

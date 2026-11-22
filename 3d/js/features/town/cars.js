@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { registerKind } from "../../traffic.js";
+import { lodBody } from "./ambient.js";
 import { PL, LANE, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, toWorld, wH, blocked, rng, cutAt, otherAt, stopsAt, sightBlocked } from "./plan.js";
 
 registerKind("town_van", { len: 5.0, halfW: 0.98, circles: [1.5, -1.5], r: 1.0, mass: 1.5, model: "town_minivan", colors: { Paint: "#C3C8CE" } });
@@ -69,20 +70,52 @@ function lean(c) {
  *  houses (they cost a dozen draw calls each). Re-judged every few frames; anything close is always drawn. */
 let lodN = 0;
 const _cl = {}, _ol = {};
+/** Past this a town minivan in sight is drawn as the parked cars' LOD model — every one of them in ONE instanced draw
+ *  call (lodIM) instead of a dozen each; its pooled body is just hidden (nothing on it changes). */
+export const LOD_D = 100;
+let lodIM = null;
+function lodMesh() {
+    if (lodIM) return lodIM;
+    const b = lodBody();
+    if (!b) return null;
+    lodIM = new THREE.InstancedMesh(b.geo, b.mat, 24);
+    lodIM.frustumCulled = false; lodIM.castShadow = false; lodIM.receiveShadow = true; lodIM.count = 0; lodIM.name = "townLodCars";
+    ctx.scene.add(lodIM);
+    return lodIM;
+}
 export function lodDrivers(cam, far = 210, near = 45) {
-    if ((lodN = (lodN + 1) % 3) !== 1) return;
-    toLocal(cam.x, cam.z, _cl);
-    for (const c of C.cars) {
-        const d = Math.hypot(c.x - cam.x, c.z - cam.z);
-        let vis = d < near;
-        if (!vis && d < far) { toLocal(c.x, c.z, _ol); vis = !sightBlocked(_cl.x, _cl.z, _ol.x, _ol.z); }
-        c.obj.visible = vis;
+    if ((lodN = (lodN + 1) % 3) === 1) {
+        toLocal(cam.x, cam.z, _cl);
+        const im = lodMesh();
+        for (const c of C.cars) {
+            const d = Math.hypot(c.x - cam.x, c.z - cam.z);
+            let vis = d < near;
+            if (!vis && d < far) { toLocal(c.x, c.z, _ol); vis = !sightBlocked(_cl.x, _cl.z, _ol.x, _ol.z); }
+            const lod = !!im && vis && d > LOD_D && c.kind === "town_van" && !c.hit;
+            if (c.data && c.data.town) c.data.town.lod = lod;
+            c.obj.visible = vis && !lod;
+        }
     }
+    drawLod();
+}
+/** Every frame: the far minivans' instances where their cars are now. */
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1), UPV = new THREE.Vector3(0, 1, 0);
+function drawLod() {
+    if (!lodIM) return;
+    let n = 0;
+    for (const c of C.cars) {
+        if (!(c.data && c.data.town && c.data.town.lod) || n >= 24 || !ctx.traffic.cars.includes(c)) continue;
+        _m.compose(_v.set(c.x, 0, c.z), _q.setFromAxisAngle(UPV, c.h), _one);
+        lodIM.setMatrixAt(n++, _m);
+    }
+    lodIM.count = n;
+    lodIM.instanceMatrix.needsUpdate = true;
 }
 
 export function clearDrivers() {
-    for (const c of C.cars) { c.obj.visible = true; if (ctx.traffic.cars.includes(c)) ctx.traffic.remove(c); }
+    for (const c of C.cars) { c.obj.visible = true; if (c.data && c.data.town) c.data.town.lod = false; if (ctx.traffic.cars.includes(c)) ctx.traffic.remove(c); }
     C.cars.length = 0; C.hazards.length = 0; C.patrol = null;
+    if (lodIM) lodIM.count = 0;
 }
 
 /** Someone (or Lulu, on foot or driving) in this car's lane just ahead: the gap in metres. */

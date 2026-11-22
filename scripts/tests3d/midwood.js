@@ -45,7 +45,7 @@ module.exports = {
     };
 
     t.check("both towns are data (towns/lakewood.js + towns/midwood.js)", await g(`!!(ctx.town.towns.lakewood && ctx.town.towns.midwood)`));
-    t.check("every Cruise interchange offers both towns: Lakewood (inner branch), Midwood (outer)", await t.L(`import("./js/features/town/towns/index.js").then(m => m.INTERCHANGE.towns.map(t => t.id).join(","))`) === "lakewood,midwood");
+    t.check("each town has its OWN exit, in a fixed order along the road: Midwood (home), then Lakewood", await t.L(`import("./js/features/town/towns/index.js").then(m => m.ROUTE.stops.map(s => s.town.id).join(","))`) === "midwood,lakewood");
 
     // ── 1. busy Cruise baseline + the second exit is Midwood's ───────────
     await g(`L3.startRun({ mode: "cruise" })`);
@@ -63,8 +63,39 @@ module.exports = {
       // drive (teleport) up to the first exit: the planner adds the next one, and it's Midwood's
       await g(`(() => { const e = ${D}.X.exits[0], r = ctx.world.road, s = e.s - 950, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; return true; })()`);
       await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 1`, "the next exit gets planned", 10000);
-      t.check("exits #1 and #2 both offer Lakewood + Midwood", await g(`${D}.X.exits.slice(0, 2).every(e => e.towns.map(t => t.id).join(",") === "lakewood,midwood")`), await g(`${D}.X.exits.map(e => e.towns.map(t => t.id).join("+")).join(",")`));
-      t.check("Midwood's branch has its own sign (PARALLEL PARK) + the interchange names BROOKLYN", await g(`ctx.world.signs.some(s => /PARALLEL PARK/.test(s.lines.join(" "))) && ctx.world.signs.some(s => /BROOKLYN/.test(s.lines.join(" ")))`));
+      const ex = await g(`${D}.X.exits.map(e => e.towns.map(t => t.id).join("+") + "@" + Math.round(e.s))`);
+      t.check("exit #1 is Midwood's alone (home), exit #2 Lakewood's alone — no ramp that splits", /^midwood@/.test(ex[0] || "") && /^lakewood@/.test(ex[1] || ""), ex.join(","));
+      t.check("…exit #1 is ctx.town.home's", await g(`(() => { const h = ctx.town.home; return !!h && h.town === "midwood" && Math.abs(h.exitS - ${D}.X.exits[0].s) < 1; })()`), JSON.stringify(await g(`ctx.town.home`)));
+      t.check("Midwood's exit has its own signs (BROOKLYN · MIDWOOD, PARALLEL PARK) and no 'LAKEWOOD OR BROOKLYN?' board", await g(`ctx.world.signs.some(s => /PARALLEL PARK/.test(s.lines.join(" "))) && ctx.world.signs.some(s => /BROOKLYN/.test(s.lines.join(" "))) && !ctx.world.signs.some(s => /LAKEWOOD OR BROOKLYN/.test(s.lines.join(" ")))`));
+      // the same metres on every run (a pure function of the road — friends and the title see the same exits)
+      await g(`L3.startRun({ mode: "cruise" })`);
+      await t.until(`__lulu3d.state === "playing"`, "a second run");
+      await g(`(() => { const e = ${D}.X.exits[0], r = ctx.world.road, s = e.s - 950, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; return true; })()`);
+      await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 1`, "the next exit gets planned (2nd run)", 10000);
+      const ex2 = await g(`${D}.X.exits.map(e => e.towns.map(t => t.id).join("+") + "@" + Math.round(e.s))`);
+      t.check("…and the same exits at the same metres on a second run", ex2.slice(0, 2).join(",") === ex.slice(0, 2).join(","), ex.slice(0, 2).join(",") + " | " + ex2.slice(0, 2).join(","));
+    });
+
+    await step("home", async () => {
+      // ── the home start (ci/hometown): Lulu's empty lot in Midwood + a QUIET warp onto its driveway ──
+      await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "Midwood's models load", 60000);
+      const H = await g(`ctx.town.home`);
+      const sp = await g(`ctx.town.spotOf("midwood", "luluHome", ${H.exitS})`);
+      t.check("the home lot is a spot before the town is built (door, drive, kerb)", !!(sp && sp.door && sp.drive && sp.kerb), JSON.stringify(sp).slice(0, 200));
+      await t.L(`import("./js/core/ctx.js").then(m => { window.__visits = 0; m.on("stat", e => { if (e && e.id === "townVisits") window.__visits++; }); })`);
+      const n0 = (await evs()).length;
+      const ok = await g(`ctx.town.warp({ town: "midwood", at: { x: ${sp.drive.x}, z: ${sp.drive.z}, h: ${sp.drive.h} }, quiet: true, home: true })`);
+      t.check("ctx.town.warp puts her in Midwood (attached, at the home exit)", ok && await g(`ctx.town.active && ctx.town.id === "midwood" && ctx.town.attached && Math.abs(${D}.S.exitS - ${H.exitS}) < 1`));
+      t.check("…on her driveway, standing still", await g(`Math.hypot(ctx.car.pos.x - ${sp.drive.x}, ctx.car.pos.z - ${sp.drive.z}) < 0.5 && ctx.car.speed < 0.1`), JSON.stringify(await g(`[ctx.car.pos.x, ctx.car.pos.z, ctx.car.speed]`)));
+      const ev = (await evs()).slice(n0).find(e => e.startsWith("town:enter")) || "";
+      t.check("…quietly: town:enter says quiet + home, no visit counted", /"quiet":true/.test(ev) && /"home":true/.test(ev) && await t.L(`window.__visits`) === 0, ev);
+      const sp2 = await g(`ctx.town.spotOf("midwood", "luluHome", ${H.exitS})`);
+      t.check("…and the lot's spot is the same once the town stands", sp2 && sp2.built && Math.hypot(sp2.door.x - sp.door.x, sp2.door.z - sp.door.z) < 0.01, JSON.stringify([sp.door, sp2 && sp2.door]));
+      // a second warp while in town (to the same place): she leaves the town she's in without a cut, then is put down again
+      t.check("warp again from inside the town works", await g(`ctx.town.warp({ town: "midwood", at: { x: ${sp.drive.x}, z: ${sp.drive.z}, h: ${sp.drive.h} }, quiet: true }) && ctx.town.active`));
+      await t.frames(30);
+      t.check("…the road under her is the town's (s/d sane)", await g(`ctx.world.road.town === true && Math.abs(ctx.car.d) < 60`), String(await g(`[ctx.car.s, ctx.car.d]`)));
+      await g(`(ctx.town.leave("reset"), true)`);
     });
 
     await step("exit", async () => {
