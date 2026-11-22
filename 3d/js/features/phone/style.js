@@ -70,6 +70,8 @@ body.dev-touch .lp-fb .glyph { display: none; }
 
 /* the home screen's notification cards (latest unread texts) */
 .lp-notes { display: flex; flex-direction: column; gap: 6px; }
+.lp-home.tight .lp-big { font-size: 32px; margin-top: 0; } .lp-home.tight .lp-hello { margin-bottom: 2px; } .lp-home.tight .lp-grid { gap: 6px 4px; }
+body.tv .lp-home.tight .lp-big { font-size: 46px; }
 .lp-notif { border: none; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 9px; text-align: left; color: var(--ink);
   background: rgba(255, 255, 255, .86); border-radius: 16px; padding: 7px 10px; box-shadow: 0 3px 10px rgba(60, 10, 40, .18); }
 .lp-notif .lp-av { width: 32px; height: 32px; font-size: 18px; }
