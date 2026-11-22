@@ -43,6 +43,8 @@ module.exports = {
 
     // 1 · paused on the very last second: the clock stops under the pause menu
     if (await startTest("paused")) {
+      // (away from the lot first: parked at its kerb after 6 s counts as "brought it back")
+      await t.hold(7, 0.6); await t.frames(90); await t.hold(7, 0); await t.hold(6, 1); await t.frames(30); await t.hold(6, 0);
       await g(`(${D}.TD.t = ${D}.TEST.secs - 1, true)`);
       await t.tap(9);
       await t.until(`__lulu3d.ctx.paused`, "paused", 3000);
