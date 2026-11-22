@@ -743,7 +743,7 @@ function layoutFace(kind, len, R, def = null) {
             // (a `with` entry that names its own dims / sign / spot is a landmark too — features/places' court + impound
             //  share the precinct's face; a plain one is an ordinary building beside the landmark)
             if (w.dims || w.sign || w.spot) { const k2 = models[w.key] ? w.key : w.fallback; if (k2 && (DIMS[k2] || w.dims)) out.push({ key: k2, u: len / 2 + w.u, use: Object.assign({ dims: DIMS[k2] }, w) }); }
-            else if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u, list: w.list });     // (list: a storefront's sign list — features/realestate keeps Avenue M's own, already in the atlas)
+            else if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u, list: w.list });     // (list: a storefront's sign list — features/shops' makolet sits in a row of Avenue J stores)
         }
         return out;
     }
@@ -826,14 +826,18 @@ function* placeFace(B, kind, fr, counters) {
         }
         if (it.use) {                  // a landmark another feature models (the town's `uses`: data, see layoutFace)
             const u = it.use;
-            place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false });
+            // (a `tag: true` landmark can be lifted out of the merge — features/shops' cars on the dealer's lot: its
+            //  Fixed_* nodes, the pad and the price board, stay put; the tag is on its spot)
+            const tag = u.tag ? {} : null;
+            if (tag) { place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false, tag, skip: /^Fixed_/ }); place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false, skip: /^(?!Fixed_)/ }); }
+            else place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false });
             const a = u.sign && anchorAt(it.key, cx, cz, fr.rot);
-            if (a) { const g = u.signSize || [11.4, 1.15, 104]; sign({ lines: u.sign, bg: u.signBg || "#FBF8F0", fg: u.signFg || ["#1F2D63", "#6D4C41"], w: 1024, h: g[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, g[0], g[1]); }
+            if (a) { const g = u.signSize || [11.4, 1.15, 104]; sign({ lines: u.sign, bg: u.signBg || "#FBF8F0", fg: u.signFg || ["#1F2D63", "#6D4C41"], w: u.signW || 1024, h: g[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, g[0], g[1]); }
             // (the spot stands on the sidewalk in front of the model's Anchor_door when it has one — features/places' hospital
             //  door is off-centre — else in front of its middle)
             const ad = anchorAt(it.key, cx, cz, fr.rot, "Anchor_door"), du = ad ? (ad.x - lotX) * fr.ux + (ad.z - lotZ) * fr.uz : 0;
             T.spots[u.spot || kind] = { x: lotX + fr.ux * du + fr.nx * 2.6, z: lotZ + fr.uz * du + fr.nz * 2.6, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, len: D.w,
-                cx, cz, du };
+                cx, cz, du, tag };
             continue;
         }
         const k = it.key;

@@ -465,6 +465,7 @@ function endGameNow() {
 // ── pins for a game (asked for on the requesting screen: it knows where it is) ──
 const SPOT_NAMES = { pizza: "🍕", hall: "💍", yeshiva: "📚", chair: "🪑", lake: "🦢", welcome: "🪧", construction: "🏗️", construction2: "🏗️", band: "🎺",
     precinct: "🚓", court: "⚖️", hospital: "🏥", impound: "🚧",   // (features/places: the civic buildings)
+    dealer: "🚗", makolet: "🛒",   // (features/shops: Uncle Moishe's lot, the makolet — already listed by their town signs; their icons)
     realty: "🏘️" };   // (features/realestate: the realtor's office)
 const SPOT_FALLBACK = { chair: "the one free parking spot", lake: "the lake (mind the geese)", welcome: "the WELCOME sign", band: "the band bus", construction: "the crane", construction2: "the other crane" };
 function spotName(key, plan) {

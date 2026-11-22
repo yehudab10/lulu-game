@@ -48,6 +48,8 @@ module.exports = {
     await t.shot("title");
 
     // ── PLAY: a first-time player is walking at home within seconds ──────────
+    // (an ordinary weekday: on a REAL Friday afternoon Ima would ask for the Shabbos rush instead — that's tested below)
+    await g(`(ctx.shabbos && ctx.shabbos.debug && ctx.shabbos.debug.date && ctx.shabbos.debug.date("2026-11-18T15:00"), true)`);
     const f0 = await g(`ctx.frames`);
     await t.tap(0);
     t.check("✕ on PLAY → on foot at home (never locked)", await t.until(`__lulu3d.state === "footRun"`, "footRun", 4000));

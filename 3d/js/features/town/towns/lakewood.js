@@ -7,6 +7,7 @@
 // Local frame: metres, x → "east", z → "north" (the highway ramp comes in from the south).
 // Streets: axis "ns" (constant x = c, runs along z from a0 to a1) or "ew" (constant z = c).
 import * as L from "./lakewood-lines.js";
+import { dealerUse } from "../../shops/lot.js";
 
 const P = 76, SPAN = 304;
 const ns = (name, i, a0 = -14, a1 = SPAN + 14) => ({ name, axis: "ns", c: i * P, a0, a1 });
@@ -30,13 +31,14 @@ export default {
         "1,0": { faces: { s: "townhouses", w: "townhouses" } },
         "2,0": { faces: { s: "construction" } },
         "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "realty" } },    // (features/realestate: Gold Standard Realty on Main St, across from the bank)
-        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "shops" } }, "3,2": { faces: { s: "bank" } },
+        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "makolet" } }, "3,2": { faces: { s: "bank" } },     // (features/shops: Zissy's makolet on Main St, block 1,2)
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
         "2,3": { all: "townhouses" },
         "3,0": { faces: { n: "baisyaakov" } },
         "2,2": { faces: { s: "hall", n: "civic" } },          // (features/places: the precinct, the court + the impound lot on Minivan Way)
         "0,1": { faces: { n: "shops", w: "hospital" } },      // (features/places: St. Shloimy's on Route 9, the first big thing in town)
+        "0,0": { faces: { w: "dealer" } },                     // (features/shops: Uncle Moishe's Pre-Loved Cars, the first thing on Route 9)
     },
     // landmark uses modelled by other features (build.js › layoutFace): the Bais Yaakov on Carpool Ln (features/community),
     // the bank on Main St beside the Simcha Palace (features/heist: a bank you can walk into, case, rob — or save)
@@ -57,6 +59,12 @@ export default {
             ] },
         hospital: { key: "places_hospital", fallback: "town_shop", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
             tints: { Walls: "#EEF2F1", Trim: "#00897B", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#FFFFFF", signFg: ["#00695C", "#C62828"] },
+        // features/shops: Uncle Moishe's Pre-Loved Cars — a showroom + the cars on the lot with their price boards (shops/lot.js)
+        // features/shops: Zissy's Makolet & Pharmacy — a Main St shopfront between two others (pepper spray, the bubble wrap, the phone plan)
+        makolet: { key: "town_shop", fallback: "town_shop", dims: { w: 12, d: 13, prot: 1.5 }, sign: L.SIGNS.makolet, spot: "makolet",
+            tints: { Walls: "#F3E6C4", Awning: "#2E7D32" }, signSize: [10.0, 0.98, 64], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
+            with: [{ key: "town_shop", u: -13 }, { key: "town_shop", u: 13 }] },
+        dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#F3EFE6", Trim: "#C62828", Roof: "#5B5F66" } }),
         // features/realestate (roadmap 16): the realtor's shopfront between two ordinary shops (a shop row stays a shop row)
         realty: { key: "town_shop", fallback: "town_shop", dims: { w: 12, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
             tints: { Walls: "#F3E5D8", Awning: "#C2185B" }, signSize: [11.0, 1.0, 100], signBg: "#3E2723", signFg: ["#FFD54F", "#FFF3E0"],
@@ -77,7 +85,11 @@ export default {
     clearParking: [{ street: "Main St", from: 2 * P, to: 3 * P, side: 1 },
         // (features/places: POLICE ONLY in front of the precinct + court, AMBULANCE ONLY at St. Shloimy's — her car is
         //  parked there when she walks out, the cruiser pulls up there)
-        { street: "Minivan Way", from: 2 * P + 8, to: 3 * P - 8 }, { street: "Route 9", from: P + 14, to: 2 * P - 14 }],
+        { street: "Minivan Way", from: 2 * P + 8, to: 3 * P - 8 }, { street: "Route 9", from: P + 14, to: 2 * P - 14 },
+        // (features/shops: the kerb in front of Uncle Moishe's lot — a test drive starts and ends there)
+        { street: "Route 9", from: 10, to: P - 10 },
+        // (features/shops: Shmerel's van stands at the kerb by the construction site on 14th St)
+        { street: "14th St", from: 2 * P + 6, to: 3 * P - 6 }],
     bumps: [{ street: "Carpool Ln", every: 10.5 }],
     chair: { street: "Forest Ave", along: P + 38, side: -1 },
     water: [{ x0: SPAN + 16, x1: SPAN + 170, z0: -40, z1: SPAN + 50, geese: true }],

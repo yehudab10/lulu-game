@@ -47,6 +47,8 @@ export const SIGNS = {
     bandBus: ["THE MAZEL TONES", "simcha band · 11 players · 1 bus · 0 parking"],
     realty: ["GOLD STANDARD REALTY", "Shprintzy Gold · we sell COZY · se habla Yiddish"],   // features/realestate (uses.realty)
     bank: ["FIRST MINIVAN BANK OF LAKEWOOD", "drive-thru · 9 lanes · still a line"],   // features/heist's bank (uses.bank)
+    makolet: ["ZISSY'S MAKOLET & PHARMACY", "milk · kugel pans · pepper spray · bubble wrap"],   // features/shops (uses.makolet)
+    dealer: ["UNCLE MOISHE'S PRE-LOVED CARS", "every car was loved · some of them TOO much"],   // features/shops' dealership (uses.dealer)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · PRECINCT 18½", "we bend the rules so you don't have to"],
     court: ["LAKEWOOD MUNICIPAL COURT", "justice · traffic tickets · Tuesdays only"],
