@@ -318,12 +318,22 @@ export function speedMul(F) {
     for (const f of SLOW) { try { const m = f(F); if (m >= 0 && m < 1) k *= m; } catch (e) { /* not theirs */ } }
     return k;
 }
+/** On paved ground or right beside a road off the highway (a ramp, the cross road out to an attached town — Midwood's runs
+ *  60–75 m out, through the "mud" band — a lot): the fields' grass / mud aren't under her feet. (cached per frame) */
+const RD = { f: -1, s: NaN, v: false };
+function byRoad(F) {
+    if (RD.f === ctx.frames && RD.s === F.s) return RD.v;
+    const s = F.s, d = F.d;
+    RD.f = ctx.frames; RD.s = s;
+    RD.v = pavedAt(s, d) >= 1 || pavedAt(s + 4, d) >= 3 || pavedAt(s - 4, d) >= 3 || pavedAt(s, d + 4) >= 3 || pavedAt(s, d - 4) >= 3;
+    return RD.v;
+}
 function baseMul(F) {
     const B = F.bx;
     if (!B) return 1;
     let k = B.soreK;
     if (B.shoo) return k * 0.92;          // adrenaline: the goose doesn't care about the mud, and neither does she
-    if (calm(F)) {
+    if (calm(F) && !(Math.abs(F.d) >= EDGE.grass && byRoad(F))) {
         const ad = Math.abs(F.d);
         k *= 1 - (1 - EDGE.slowGrass) * smooth(EDGE.grass, EDGE.grassFull, ad);
         k *= 1 - (1 - EDGE.slowMud / EDGE.slowGrass) * smooth(EDGE.mud, EDGE.mudFull, ad);
@@ -415,7 +425,7 @@ export function update(F, dt) {
 
 function terrain(F, B, dt) {
     const ad = Math.abs(F.d), side = Math.sign(F.d) || 1;
-    const zone = ad >= EDGE.mud ? "mud" : ad >= EDGE.grass ? "grass" : ad > 9 ? "verge" : ad > HALF_ROAD ? "shoulder" : "lanes";
+    const zone = ad >= EDGE.grass && byRoad(F) ? "verge" : ad >= EDGE.mud ? "mud" : ad >= EDGE.grass ? "grass" : ad > 9 ? "verge" : ad > HALF_ROAD ? "shoulder" : "lanes";
     const sp = Math.hypot(F.vel.x, F.vel.z);
     if (zone !== B.zone) {
         if ((zone === "grass" || zone === "mud") && !B.said[zone]) {

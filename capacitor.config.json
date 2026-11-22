@@ -10,6 +10,26 @@
   "plugins": {
     "AdMob": {
       "initializeForTesting": false
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "directUpdate": false,
+      "updateUrl": "",
+      "statsUrl": "",
+      "channelUrl": "",
+      "allowModifyUrl": false,
+      "persistModifyUrl": false,
+      "allowPreview": false,
+      "shakeMenu": false,
+      "autoSplashscreen": false,
+      "httpsOnly": true,
+      "appReadyTimeout": 40000,
+      "responseTimeout": 30,
+      "resetWhenUpdate": true,
+      "autoDeleteFailed": true,
+      "autoDeletePrevious": true,
+      "keepUrlPathAfterReload": false,
+      "disableJSLogging": true
     }
   }
 }
