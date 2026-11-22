@@ -243,7 +243,7 @@ module.exports = {
       t.check("back out", await leaveRoom());
       // …and a new day really starts there (ci/hometown's home start; Lakewood, not the family's Midwood)
       const st0 = await g(`ctx.home && ctx.home.startAt`);
-      if (st0 && st0.key === homeId) {
+      if (st0 && st0.key === homeId && await g(`ctx.enabled("world")`)) {      // (the home start is features/world — off here; realestatehome.js runs it)
         await g(`ctx.onegame.home({ via: "test" })`);
         t.check("a new day starts at HER house's door (in Lakewood)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.town.id === "lakewood" && Math.hypot(__lulu3d.ctx.foot.pos.x - ${st0.door.x}, __lulu3d.ctx.foot.pos.z - ${st0.door.z}) < 4`, "her day starts at her house", 15000),
           await g(`JSON.stringify({ st: L3.state, town: ctx.town.id, pos: ctx.foot.pos && [+ctx.foot.pos.x.toFixed(1), +ctx.foot.pos.z.toFixed(1)] })`));
