@@ -21,6 +21,7 @@ import { registry, S } from "./registry.js";
 import { valueOf, today, listings, isListed } from "./market.js";
 import { finalize, log } from "./deal.js";
 import { pickPaged } from "./pager.js";
+import { Kit } from "../decor/props.js";
 import { claim as svClaim, release as svRelease } from "./server.js";
 import { COUNCIL } from "./data.js";
 
@@ -162,8 +163,9 @@ on("interior:enter", ({ id }) => {
 });
 function buildDesk(rt) {
     const B = banker(townId());
-    const M = c => rt.own(new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }));
-    const box = (w, h, d, c, x, y, z, ry = 0) => { const m = new THREE.Mesh(rt.own(new THREE.BoxGeometry(w, h, d)), M(c)); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = false; m.receiveShadow = true; rt.add(m); return m; };
+    // (every box in ONE vertex-coloured mesh — decor's Kit: the bank lobby has a draw-call budget, heist test)
+    const K = new Kit();
+    const box = (w, h, d, c, x, y, z, ry = 0) => K.box(w, h, d, c, x, y, z, ry ? { ry } : undefined);
     const { x, z } = DESK;
     box(1.7, 0.08, 0.8, "#6D4C41", x, 0.76, z);                     // the desk top
     box(1.6, 0.72, 0.06, "#5D4037", x, 0.37, z + 0.36);              // its front
@@ -172,6 +174,10 @@ function buildDesk(rt) {
     for (let k = 0; k < 9; k++) box(0.34, 0.05, 0.26, k % 2 ? "#FAFAFA" : "#F5F5F5", x + 0.45 + (k % 3) * 0.01, 0.83 + k * 0.05, z - 0.08, k * 0.07);
     box(0.08, 0.14, 0.08, "#263238", x - 0.55, 0.87, z - 0.1);
     box(0.1, 0.1, 0.1, "#B71C1C", x - 0.2, 0.85, z - 0.15);
+    box(0.04, 1.2, 0.04, "#455A64", x - 0.62, 1.4, z - 0.35); box(0.04, 1.2, 0.04, "#455A64", x + 0.62, 1.4, z - 0.35);
+    const desk = K.build("MortgageDesk");
+    desk.traverse(o => { if (o.isMesh) rt.own(o.geometry); });
+    rt.add(desk);
     // the sign on a stand: MORTGAGES
     const c = document.createElement("canvas"); c.width = 512; c.height = 128; const g = c.getContext("2d");
     g.fillStyle = "#004D40"; g.fillRect(0, 0, 512, 128); g.fillStyle = "#FFD54F"; g.font = "bold 54px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("🏦 MORTGAGES", 256, 50);
@@ -179,10 +185,16 @@ function buildDesk(rt) {
     const t = rt.own(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace;
     const sign = new THREE.Mesh(rt.own(new THREE.PlaneGeometry(1.3, 0.33)), rt.own(new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, side: THREE.DoubleSide })));
     sign.position.set(x, 1.95, z - 0.35); rt.add(sign);
-    box(0.04, 1.2, 0.04, "#455A64", x - 0.62, 1.4, z - 0.35); box(0.04, 1.2, 0.04, "#455A64", x + 0.62, 1.4, z - 0.35);
     rt.cols.push({ id: "mortgageDesk", x0: x - 0.9, x1: x + 0.9, z0: z - 0.45, z1: z + 0.42, on: true });
     // the banker, behind it
-    rt.person("banker", B.key, { x, z: z - 0.75, ry: 0 }, { name: B.name, colors: B.colors, pose: {}, collide: false });
+    // (the banker is one of the three people already queuing in the lobby, moved behind the desk — a person is ~16
+    //  draw calls and the lobby is at its budget; the bank keeps two in line)
+    const from = B.key === "npcMan" ? "line1" : "line2", q = rt.byId[from];
+    if (q) {
+        q.p.obj.position.set(x, 0, z - 0.75); q.p.obj.rotation.y = 0;
+        q.home = { x, z: z - 0.75, ry: 0 }; q.name = B.name; q.faceLulu = true; q.id = "banker";
+        rt.byId.banker = q;          // (rt.byId[from] stays: the bank's "chat with the line" still looks him up — he grumbles about the queue too)
+    } else rt.person("banker", B.key, { x, z: z - 0.75, ry: 0 }, { name: B.name, colors: B.colors, pose: {}, collide: false });
     rt.hot({ id: "mortgage", x, z: z + 1.0, r: 1.3, who: "banker", label: () => `🏦 ${B.name} — mortgages`, action: desk });
 }
 
