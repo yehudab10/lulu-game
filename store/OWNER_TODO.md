@@ -4,6 +4,9 @@ Everything an agent could do is done (the build setup, the update channel, the l
 the screenshots). These are the steps that need YOU (your logins, your phone, your decisions), in order.
 All the text to paste is in `STORE_LISTING.md`; the build details are in `IOS_BUILD.md`.
 
+> **Heads-up on the age rating:** Apple dropped "12+" in 2025 (it's now 4+, 9+, 13+, 16+, 18+). Answered honestly,
+> the game comes out **13+** — because of the bar / drinking jokes and the constant cartoon crashes. That's expected.
+
 ---
 
 ## First: two decisions (they change some answers you paste)
