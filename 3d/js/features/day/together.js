@@ -15,11 +15,11 @@ const roaming = () => { const p = P(); return !!(p && p.active && p.activity && 
 const nameOf = uid => { try { return P().displayName(uid); } catch (e) { return "your friend"; } };
 
 function why() {
-    if (!ctx.enabled("day")) return "Not on right now";
-    if (!roaming()) return "Only out in 🌍 Free Roam with friends";
-    if (T.key) return "Ima's list is already on";
+    if (!ctx.enabled("day")) return "This is off right now.";
+    if (!roaming()) return "You can only do this with friends.";
+    if (T.key) return "You're already doing Ima's list.";
     DAYX.ensureToday();
-    return DAYX.DAY.home ? "You were home for dinner already today — a new list tomorrow" : "";
+    return DAYX.DAY.home ? "You already had dinner at home today. There's a new list tomorrow." : "";
 }
 function start({ members, me, by, seed }) {
     T.key = String(seed || "x").slice(0, 8); T.home = false; T.endAt = 0;
@@ -29,11 +29,11 @@ function start({ members, me, by, seed }) {
         DAYX.S.group = { key: T.key, members: members.slice() };
         DAYX.S.active = true;
         emit("day:start", { list: DAYX.DAY.list.slice(), group: true });
-        H.banner(`<b>📝 Ima's list — with friends</b><small>${DAYX.DAY.list.map(id => DAYX.byId(id).icon).join(" ")} · whatever they do counts · then 🏠 home for dinner</small>`, 4200, { key: "day" });
+        H.banner(`<b>📝 Ima's list, with friends</b><small>Anything your friends do on the list counts. Then come home for dinner.</small>`, 4200, { key: "day" });
         return;
     }
     T.own = false; T.by = by; T.seen = "";
-    H.banner(`<b>📝 Helping with ${nameOf(by)}'s list</b><small>whatever you do on it counts · dinner's at her place (Ima's thank-you — the coins are hers)</small>`, 4600, { key: "day" });
+    H.banner(`<b>📝 You're helping with ${nameOf(by)}'s list</b><small>Anything you do on it counts. Dinner is at her house. The coins go to her.</small>`, 4600, { key: "day" });
 }
 function stop() {
     if (T.own) { DAYX.S.group = null; if (DAYX.S.active && !roaming()) DAYX.S.active = false; const p = P(); if (p && p.active) p.setX("dl", null); }
@@ -91,12 +91,12 @@ function helperTick() {
     const bits = String(dl[2]);
     for (const id of dl[1]) { const it = DAYX.byId(id); if (it && it.kind === "event") listenEv(it.ev); }
     if (T.seen && bits !== T.seen) {
-        dl[1].forEach((id, i) => { if (bits[i] === "1" && T.seen[i] !== "1") { const it = DAYX.byId(id); if (it) H.toast(`✅ ${it.icon} ${it.text.replace(/ \(.*\)$/, "")} — ${nameOf(T.by)}'s list`, "gold", { prio: 2 }); } });
+        dl[1].forEach((id, i) => { if (bits[i] === "1" && T.seen[i] !== "1") { const it = DAYX.byId(id); if (it) H.toast(`✅ Done for ${nameOf(T.by)}: ${it.text.replace(/ \(.*\)$/, "")}`, "gold", { prio: 2 }); } });
     }
     T.seen = bits;
     if (dl[3] === 1 && !T.home) {
         T.home = true; T.endAt = Date.now() + 8000;
-        H.banner(`🏠 <b>HOME FOR DINNER!</b><small>Ima: “Thank you for helping my Lulu! Sit, sit — there's PLENTY.” 🍲</small>`, 3800, { prio: 2 });
+        H.banner(`🏠 <b>HOME FOR DINNER!</b><small>Ima: “Thank you for helping my Lulu! Sit, sit, there's plenty.”</small>`, 3800, { prio: 2 });
         emit("day:helped", { by: T.by });
         emit("stat", { id: "dayHelped", n: 1 });
     }
@@ -105,7 +105,7 @@ function helperTick() {
     if (!def || !def.hud) { if (T.chip) { T.chip.remove(); T.chip = null; T.chipText = ""; } return; }
     const n = [...bits].filter(b => b === "1").length, next = dl[1].find((id, i) => bits[i] !== "1");
     const it = next && DAYX.byId(next);
-    const txt = `📝 ${nameOf(T.by)}'s list <span class="ok">${n}/${dl[1].length}</span><small>${it ? `${it.icon} ${it.text}` : "🏠 Home for dinner — at her place!"}</small>`;
+    const txt = `📝 ${nameOf(T.by)}'s list <span class="ok">${n}/${dl[1].length}</span><small>${it ? it.text : "Go to her house for dinner."}</small>`;
     if (!T.chip) { T.chip = document.createElement("div"); T.chip.className = "day-chip"; H.hudSlot("left").appendChild(T.chip); T.chipText = ""; }
     if (txt !== T.chipText) { T.chipText = txt; T.chip.innerHTML = txt; }
 }
@@ -121,7 +121,7 @@ on("party:status", e => { if (!(e && e.want) && T.key) stop(); });
 let reg = false;
 function register() {
     if (reg || !ctx.group || !ctx.group.invitable) return reg;
-    ctx.group.invitable({ id: "day.list", icon: "📝", title: "Ima's list together", blurb: "help with today's list — dinner at the end", max: 4, canStart: why, start });
+    ctx.group.invitable({ id: "day.list", icon: "📝", title: "Ima's list together", blurb: "Do today's list together, then come home for dinner.", max: 4, canStart: why, start });
     return (reg = true);
 }
 on("boot", register);

@@ -7,17 +7,17 @@ import { PAY } from "./index.js";
 
 const half = k => Math.floor(PAY[k].pot / 2);
 const defs = () => [
-    { id: "partners.dare", icon: "🎲", title: "Double dare", blurb: `break the same rule together — ${half("dare")} 💰 each`,
-      brief: n => `Run the SAME stop sign or speed trap as ${n}, a few seconds apart → DOUBLE DARE (${half("dare")} 💰 each, 3 a day)` },
-    { id: "partners.grab", icon: "🚗", title: "Flag & grab", blurb: "one flags a car down, the other jacks it",
-      brief: n => `One of you ✋ flags down a car, the other grabs it — then 🚗 hop in together (${half("grab")} 💰 each)` },
-    { id: "partners.ring", icon: "🔔", title: "Ring & sneak", blurb: "one sneaks into a house, one rings the bell",
-      brief: n => `One sneaks into a house; the other 🔔 rings the bell to cover — get out unseen (${half("ring")} 💰 each)` },
+    { id: "partners.dare", icon: "🎲", title: "Double dare", blurb: `Break the same rule together. You each get ${half("dare")} coins.`,
+      brief: n => `Run the same stop sign or speed trap as ${n}, a few seconds apart. You each get ${half("dare")} coins, up to 3 times a day.` },
+    { id: "partners.grab", icon: "🚗", title: "Flag & grab", blurb: "One of you stops a car, the other takes it.",
+      brief: n => `One of you waves down a car and the other takes it. Then get in together. You each get ${half("grab")} coins.` },
+    { id: "partners.ring", icon: "🔔", title: "Ring & sneak", blurb: "One of you sneaks into a house, the other rings the bell.",
+      brief: n => `One of you sneaks into a house. The other rings the bell so nobody sees. Get out without being seen and you each get ${half("ring")} coins.` },
 ];                                  // (built at boot: index.js imports this file, so PAY isn't ready while it loads)
 const why = () => {
-    if (!ctx.enabled("partners") || !ctx.law) return "Not on right now";
+    if (!ctx.enabled("partners") || !ctx.law) return "This is off right now.";
     const p = ctx.party, k = p && p.active && p.activity && p.activity.k;
-    return k === "roam" || k === "trip" ? "" : "Only out in 🌍 Free Roam with friends";
+    return k === "roam" || k === "trip" ? "" : "You can only do this with friends.";
 };
 function brief(def, { members, me }) {
     const p = ctx.party, others = members.filter(u => u !== me);

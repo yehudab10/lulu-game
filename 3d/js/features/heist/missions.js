@@ -7,9 +7,9 @@ import * as H from "../../hud.js";
 import { blocked } from "./job.js";
 
 const why = () => {
-    if (!ctx.enabled("heist")) return "Not on right now";
+    if (!ctx.enabled("heist")) return "This is off right now.";
     const p = ctx.party;
-    if (!(p && p.active && p.activity && p.activity.k === "roam")) return "Only out in 🌍 Free Roam with friends";
+    if (!(p && p.active && p.activity && p.activity.k === "roam")) return "You can only do this with friends.";
     return blocked() || "";
 };
 function brief({ me, by }) {
@@ -17,14 +17,14 @@ function brief({ me, by }) {
     try { n = ctx.party.displayName(by); } catch (e) { /* a name is a nicety */ }
     const town = ctx.town && ctx.town.active ? ctx.town.name || "" : "";
     const where = town ? `${town}'s bank` : "a bank in town";
-    const line = me === by ? `Meet your crew in ${where} — ✋ at the vault → 💰 Plan a job with the crew`
-        : `Meet ${n} in ${where} — ✋ at the vault → 💰 Join ${n}'s job`;
+    const line = me === by ? `Meet your friends in ${where}. Go to the vault and choose Plan a job with the crew.`
+        : `Meet ${n} in ${where}. Go to the vault and choose Join ${n}'s job.`;
     H.banner(`<b>💰 The bank job</b><small>${line}</small>`, 5600, { key: "heist" });
 }
 let reg = false;
 function register() {
     if (reg || !ctx.group || !ctx.group.invitable) return reg;
-    ctx.group.invitable({ id: "heist.bank", icon: "💰", title: "The bank job", blurb: "plan it at the vault — the take split", max: 4, canStart: why, start: brief });
+    ctx.group.invitable({ id: "heist.bank", icon: "💰", title: "The bank job", blurb: "Plan it at a bank's vault. You split the money.", max: 4, canStart: why, start: brief });
     return (reg = true);
 }
 if (!register()) on("boot", register);

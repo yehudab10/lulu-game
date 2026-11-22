@@ -13,9 +13,9 @@ import { addCoins } from "../../core/driving.js";
 const T = { crew: null, key: "", total: 0, clearAt: 0, driver: null, got: new Map(), was: "" };
 const PER_JOB_MAX = 5000;                            // a sanity cap on what one job's shares can add up to
 const JOB_DEF = {
-    cab: { icon: "🚕", title: "Lulu Cab for two", blurb: "one drives, one navigates — every fare split" },
-    delivery: { icon: "🔥", title: "Hot Delivery for two", blurb: "one drives, one holds the dish — the pay split" },
-    getaway: { icon: "💰", title: "The Getaway for two", blurb: "a driver + a lookout — the cut split" },
+    cab: { icon: "🚕", title: "Lulu Cab for two", blurb: "One of you drives, the other rides along. You split every fare." },
+    delivery: { icon: "🔥", title: "Hot Delivery for two", blurb: "One of you drives, the other holds the food. You split the pay." },
+    getaway: { icon: "💰", title: "The Getaway for two", blurb: "One of you drives, the other keeps watch. You split the money." },
 };
 
 /** The pay line of a job (cab.js / delivery.js / getaway.js): → what the DRIVER keeps (the full pay when solo). */
@@ -30,16 +30,16 @@ export function payCrew(job, pay) {
 }
 
 const why = id => {
-    if (!ctx.hustle || !ctx.enabled("hustle")) return "Side jobs aren't on right now";
-    if (ctx.hustle.job) return "Finish the job you're on first 💼";
-    if (ctx.state !== "playing" || (ctx.foot && ctx.foot.active)) return "Get behind the wheel first 🚗";
-    if (id === "getaway" && !(ctx.law && ctx.enabled("law"))) return "No cops, no getaway";
+    if (!ctx.hustle || !ctx.enabled("hustle")) return "Side jobs are off right now.";
+    if (ctx.hustle.job) return "Finish the job you're doing first.";
+    if (ctx.state !== "playing" || (ctx.foot && ctx.foot.active)) return "Get in your car first.";
+    if (id === "getaway" && !(ctx.law && ctx.enabled("law"))) return "Getaways are off right now.";
     return "";
 };
 function start(id, { members, me, by }) {
     if (me === by) {
         const job = ctx.hustle.start(id, { via: "group" });
-        if (!job) { H.toast("💼 Couldn't start the job right now", "", { prio: 2 }); return; }
+        if (!job) { H.toast("The job couldn't start. Try again in a moment.", "", { prio: 2 }); return; }
         job.crew = members.slice();
         T.crew = members.slice();
         T.key = job.crewKey = Math.random().toString(36).slice(2, 8);
@@ -50,7 +50,7 @@ function start(id, { members, me, by }) {
     T.driver = by;
     const P = ctx.party, name = (P && P.players.find(m => m.uid === by) || {}).name || "your friend";
     const r = ctx.openworld && ctx.openworld.ride ? ctx.openworld.ride(by) : "";
-    H.toast(r ? `${JOB_DEF[id].icon} You're the crew — ${r}` : `${JOB_DEF[id].icon} Riding with ${name} — your share of the pay comes to you`, "pink", { prio: 2 });
+    H.toast(r ? `${JOB_DEF[id].icon} You're helping ${name}. ${r}` : `${JOB_DEF[id].icon} You're riding with ${name}. You get half of the pay.`, "pink", { prio: 2 });
 }
 let reg = false;
 function register() {
@@ -77,10 +77,10 @@ setInterval(() => {
         if (add > 0) {
             T.got.set(hc[0], tot);
             addCoins(add, "hustle");
-            H.toast(`💼 +${add} 💰 — your share`, "gold", { prio: 2 });
+            H.toast(`💰 Your share: ${add} coins.`, "gold", { prio: 2 });
             emit("hustle:shareIn", { from: T.driver, add, total: tot });
         }
-    } else if (T.was && q && q.x) { T.was = ""; T.driver = null; H.toast("💼 Shift over — nice teamwork", "", { prio: 1 }); }
+    } else if (T.was && q && q.x) { T.was = ""; T.driver = null; H.toast("The job is over. Nice teamwork!", "", { prio: 1 }); }
 }, 500);
 on("party:status", e => { if (!(e && e.want)) clear(); });
 export const togetherDebug = () => ({ crew: T.crew, key: T.key, total: T.total, driver: T.driver, got: [...T.got] });

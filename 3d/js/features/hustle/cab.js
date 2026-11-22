@@ -304,7 +304,7 @@ function dropOff(job) {
     job.sums.fares += base; job.sums.tips += tip; job.sums.streak += bonus;
     job.paid++;
     job.names.push(c.fare.emoji);
-    H.toast(`🚕 +${mine} 💰${mine < pay ? ` (your half of ${pay})` : ""}${tip ? ` (tip ${tip})` : ""}${bonus ? ` 🔥×${job.streak}` : ""}`, "gold", { merge: false });
+    H.toast(`🚕 +${mine} 💰${mine < pay ? ` (half of ${pay})` : ""}${tip ? ` (tip ${tip})` : ""}${bonus ? ` 🔥×${job.streak}` : ""}`, "gold", { merge: false });
     SFX.kaching();
     const cat = onTime ? "arrive" : "lateArrive";
     const line = pick(c.fare.lines[cat] || c.fare.lines.arrive);
