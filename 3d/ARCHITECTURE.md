@@ -24,7 +24,7 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/features/underworld/                   😈 crooked cops, Velvel's garage, the Fixer's jobs + heat, road-ragers / gang cars / pickpockets
   js/features/seasons/                      🕎 the world follows the real Hebrew calendar: menorahs in the windows, the Purim parade, sukkahs, …
   js/features/onegame/                      🎮 one game, not a menu of modes: the 🧳 road trip / 🅿️ booth / Dina / Friday rush entered from the world, 🏠 home()
-  js/features/airport/                      ✈️ the JFK exit (stage 1: its own interchange, the kerb loop, parking, the terminal outside, the tower, the runway fence + joke, planes overhead; polish: chase routes, kerb collisions, kerb security, a lighter LOW; OFF by default until ci/exits2)
+  js/features/airport/                      ✈️ the JFK exit (stage 1: its own interchange, the kerb loop, parking, the terminal outside, the tower, the runway fence + joke, planes overhead; polish: chase routes, kerb collisions, kerb security, a lighter LOW; ON since ci/exits2; ?airport=0 turns it off)
   js/spatial.js                             positional 3D audio (A.spatial): pooled panner voices, listener on the camera
   js/features/feel/                         sound kinds + passing whooshes + muffled music on foot; damage on Lulu's car
   js/features/life/                         🍃 ambient life: footsteps by surface, puddles after rain, wind (leaves, flyers, leaf piles), the neighbourhood's sounds; pigeons, chimney smoke + steam, car-alarm lights, friends' footsteps
