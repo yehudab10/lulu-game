@@ -169,7 +169,7 @@ function crowdActor() {
     addActor({ foot: true, update: dt => { try { tickCrowd(dt); } catch (e) { console.error("[homes] crowd", e); } if (!CR.on) HS.actor = false; return CR.on; },
         dispose() { HS.actor = false; } });      // (cleared from outside — a new run: the next crowd adds it again)
 }
-on("town:leave", () => { stopCrowd(); HS.homes = []; HS.byId = new Map(); HS.visit = (HS.visit || 0) + 1; });
+on("town:leave", () => { shareScene(null); stopCrowd(); HS.homes = []; HS.byId = new Map(); HS.visit = (HS.visit || 0) + 1; });
 on("run:start", () => { RUN.couch.clear(); RUN.souvenir.clear(); RUN.cholent.clear(); RUN.coins = 0; RUN.hearts = 0; CR.burgled = null; });
 on("honk", () => { if (CR.on) crowdHonk(); });
 
@@ -383,8 +383,24 @@ function sceneNow(home) {
     let force = HS.force.scene || null;
     // a house real estate has LISTED: the family's still there, packing (it gives the door up once it sells — a claim)
     if (!force) { try { if (ctx.realestate && ctx.realestate.claims && ctx.realestate.claims(home.key) === "listed") force = "forSale"; } catch (e) { /* no real estate */ } }
-    return sceneFor(home, when(), force);
+    const w = when();
+    if (!force) { const f = friendScene(home); if (f) { force = f[1]; if (typeof f[2] === "number") w.hour = f[2] / 10; } }      // (their hour too: who's home)
+    return sceneFor(home, w, force);
 }
+/** 👯 A friend is inside this house right now: the scene THEY walked into (d.x.hs = [door id, scene id, hour×10] — a few bytes, only
+ *  while inside), so a friend who follows a minute later meets the same household doing the same thing. */
+function friendScene(home) {
+    try {
+        if (!ctx.party || !ctx.party.active || !ctx.party.members) return null;
+        for (const uid of ctx.party.members()) {
+            if (uid === ctx.party.uid) continue;
+            const p = ctx.party.peer(uid), a = p && p.x && p.x.hs;
+            if (Array.isArray(a) && a[0] === home.key && SCENES[a[1]] && ctx.party.fresh(p, 8000)) return a;
+        }
+    } catch (e) { /* no party */ }
+    return null;
+}
+function shareScene(v) { try { if (ctx.party && ctx.party.active && ctx.party.setX) ctx.party.setX("hs", v); } catch (e) { /* no party */ } }
 const GREET_BY_NAME = ["{who}! It's {who}! Come here, let me look at you!", "Oh, {who}! Our {who}! You're always welcome here.", "{who}! Perfect timing, as usual!"];
 /** The door menu's line: what she hears from the step + what they think of her. */
 function doorLine(home, sc, rec) {
@@ -407,6 +423,7 @@ function go(home, mode, via, scene = null, job = null) {
     if (mode === "kid" && !cast.some(k => k === "boy" || k === "girl")) cast = cast.concat(home.cast.filter(k => k === "boy" || k === "girl").slice(0, 1));
     if (job && job.type === "babysit") cast = home.cast.filter(k => !(KINDS[k] && KINDS[k].adult));      // (the parents stepped out)
     if (job && job.type === "glasses" && !cast.some(k => k === "bubbe" || k === "zeidy")) cast = cast.concat(home.cast.filter(k => k === "bubbe" || k === "zeidy").slice(0, 1));
+    if (!job) shareScene([home.key, sc.def.id, Math.round((sc.w ? sc.w.hour : 12) * 10)]);
     prepare({ home, mode, via, recognized, fam: rec || null, noCatch: !!HS.force.noCatch, scene: job ? { def: SCENES.ordinary, seed: sc.seed, w: sc.w } : sc, cast, job });
     HS.inside = home;
     // where she comes back out (foot's resume reads road coords; backOutside() fine-tunes it)
@@ -422,6 +439,7 @@ function go(home, mode, via, scene = null, job = null) {
 
 /** Back on the street: where she lands, and what the family does about it. */
 function backOutside() {
+    shareScene(null);
     const L = VISIT.last, home = HS.inside;
     HS.inside = null;
     if (!L || !home) return;
