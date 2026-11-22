@@ -11,7 +11,7 @@ module.exports = {
   name: "calls",
   // (960 × 540: Midwood in software WebGL is ~2 fps at 720p on a small runner — the checks here are about calls, not pixels)
   viewport: { width: 960, height: 540 },
-  query: "&enable=community,town,exits,atmos",
+  query: "&enable=community,town,exits,atmos&randomCalls=0",
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
     const g = t.game;
