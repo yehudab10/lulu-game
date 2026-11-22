@@ -168,6 +168,7 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   const HU = JSON.stringify(hostUid), GU = JSON.stringify(guestUid);
   // both into the bank's lobby
   for (const P of [Hp, A]) {
+    await P.L(`(window.__qa && (window.__qa.cutF = __lulu3d.ctx.frames + 3, window.__qa.last = null), true)`);   // (QA: the test's own warp to the door — a declared cut)
     await P.game(`(() => { const sp = ctx.town.spot("bank"); ctx.foot.debug.F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
     await P.frames(4);
     await P.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
