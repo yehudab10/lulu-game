@@ -149,12 +149,10 @@ async function body(t, guests) {
   await Hp.until(`(ctx.heist.robbery && ctx.heist.robbery.phase === "foiled" && (ctx.heist.robbery.t = 20), true) && !ctx.heist.robbery`, "the robbery tidies away", 60000);
   await A.until(`ctx.heist.debug.party().puppets.length === 0`, "guest: the friend's robbery is gone too", 40000);
   W.check(t, "watchdog (host)", await W.report(t));
-  // (QA, logged not failed while it's being traced — reported 2026-11-22: on the friend's screen a repeatable 6 m one-frame
-  //  step walking by the bank during the robbery, and a camera swoop in the friend's arrest scene)
-  { const r = await W.report(AW); W.log(r); if (r.issues.length) console.log("   KNOWN (guest watchdog, robbery):", JSON.stringify(r.issues.slice(0, 3))); await W.reset(AW); await W.reset(t); }
+  { const r = await W.report(AW); W.log(r); W.check(t, "watchdog (guest) — foiling the robbery", r); await W.reset(AW); await W.reset(t); }
   await crewJob(t, g, Hp, A, hostUid, guestUid);
   { const r = await W.report(t); W.log(r); W.check(t, "watchdog (host) — the crew job", r); }
-  { const r = await W.report(AW); W.log(r); if (r.issues.length) console.log("   KNOWN (guest watchdog, crew job):", JSON.stringify(r.issues.slice(0, 3))); }
+  { const r = await W.report(AW); W.log(r); W.check(t, "watchdog (guest) — the crew job", r); }
 }
 
 // ════ STAGE 3: THE BANK JOB WITH FRIENDS (heist/crew.js) ════
@@ -190,6 +188,9 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   t.check("guest: ✋ at the window = 🗣️ Distract the teller", /Distract the teller/.test(await A.game(HOT("crewTalk")) || ""));
   t.check("host: ✋ at the vault = 🔓 Crack the vault", /Crack the vault/.test(await g(HOT("vault"))));
   await t.shot("crew-inside");
+  // (both screens agree who the party host is BEFORE the alarm: waiting for that after it left the friend standing still
+  //  in the getaway for up to 2 minutes — long enough for a cop on foot to catch her, and then she got no share)
+  await agreeHost(t, Hp, A, hostUid);
   await A.game(`ctx.heist.debug.crew.done("talker")`);
   await g(`ctx.heist.debug.crew.done("vault")`);
   // the alarm: both out of the lobby, the getaway is on
@@ -198,7 +199,6 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   t.check("taking part spends each one's own heist (one a run)", await g(`ctx.heist.debug.J.done`) && await A.game(`ctx.heist.debug.J.done`));
   const c0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   // results: both shake the cops → the party host splits the take (both screens agreeing who that is first)
-  await agreeHost(t, Hp, A, hostUid);
   await A.game(`ctx.heist.debug.crew.result("ok")`);
   await g(`ctx.heist.debug.crew.result("ok")`);
   await Hp.until(`!ctx.heist.debug.crew.C.lead && ctx.heist.debug.crew.C.paid.size > 0`, "host: the take is settled", 60000);
