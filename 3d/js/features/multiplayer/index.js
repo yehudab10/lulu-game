@@ -24,7 +24,7 @@ import * as H from "../../hud.js";
 import { showTitle } from "../../core/screens.js";
 import * as N from "./net.js";
 import { MP, DI_PER_M, X_PER_M, X_MID } from "./net.js";
-import { updateGhosts, clearGhosts, ghostStats } from "./ghosts.js";
+import { updateGhosts, clearGhosts, ghostStats, ghostAt, tagOnScreen } from "./ghosts.js";
 import * as U from "./ui.js";
 import { tone } from "../parking/sfx.js";
 
@@ -245,6 +245,25 @@ export function setOnline(on) {
 }
 ctx.mp.setOnline = setOnline;
 ctx.mp.setFr = N.setFr;                 // (features/friends: ➕ a friend from 📍 Nearby)
+ctx.mp.relabel = N.relabel;             // (features/friends: a friend recognised in EVERYONE → 👯 + her name over her ghost)
+// Tap a NAME over a car (a ghost in EVERYONE) → 📍 Nearby's page for that driver (➕ ask to be friends — features/friends).
+// A tap = short + still, not on a button / the phone; nothing for a hold (touch steering) or a drag.
+ctx.mp.ghostAt = ghostAt;
+ctx.mp.tagOnScreen = tagOnScreen;
+const TAP = { x: 0, y: 0, t: 0, id: -1 };
+function tapOk(e) {
+    if (!MP.connected || MP.room !== "lobby" || !ctx.friends || !ctx.friends.ui) return false;
+    if (!(ctx.state === "playing" || ctx.state === "footRun") || ctx.dialogOpen || (ctx.phone && ctx.phone.isOpen)) return false;
+    const t = e.target;
+    return !(t && t.closest && t.closest("button, a, input, select, .btn, #lpPhone, .lp-phone, .toast, #banner"));
+}
+window.addEventListener("pointerdown", e => { TAP.x = e.clientX; TAP.y = e.clientY; TAP.t = performance.now(); TAP.id = e.pointerId; }, true);
+window.addEventListener("pointerup", e => {
+    if (e.pointerId !== TAP.id || performance.now() - TAP.t > 350 || Math.hypot(e.clientX - TAP.x, e.clientY - TAP.y) > 12 || !tapOk(e)) return;
+    const id = ghostAt(e.clientX, e.clientY), p = id && MP.peers[id];
+    if (!p || !ctx.phone || !ctx.phone.openPhone) return;
+    ctx.phone.openPhone("nearby", { driver: id, name: p.name });
+}, true);
 Object.defineProperty(ctx.mp, "myId", { get: () => (MP.connected ? MP.myId : null) });
 Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
 Object.defineProperty(ctx.mp, "online", { get: onlineOn });
@@ -265,7 +284,7 @@ on("mp:riders", () => U.uiDirty());
 
 // ── HUD + menus ──────────────────────────────────────────────────────────
 hook("hud", () => U.hudTick());
-// With the party feature present, Shared Road lives in its hub ("👯 Friends" → 🕹️ Classic 2D friends),
+// With the party feature present, Shared Road is "🕹️ Classic 2D friends" in the title's ⚙️ More drawer,
 // so the title has ONE multiplayer entry; without it, Shared Road keeps its own title button.
 addMenuItem("title", {
     id: "sharedroad", order: 60, cls: "purple",
@@ -273,6 +292,9 @@ addMenuItem("title", {
     visible: () => N.allowed() && !ctx.party,
     action: () => U.openSharedRoad("title"),
 });
+// …and its Classic 2D cross-play room sits in ⚙️ More, beside "Classic 2D" (the 👯 Friends screen stays one button).
+addMenuItem("title", { id: "mp2d", order: 98, group: "more", short: "2D friends", label: "🕹️ Classic 2D friends",
+    sub: "Play with friends on the old 2D game", visible: () => N.allowed() && !!ctx.party, action: () => U.openSharedRoad("title") });
 addMenuItem("pause", { id: "sharedroad", order: 40, label: () => MP.connected ? `🌐 Shared Road · ${N.riderCount()}` : "🌐 Shared Road",
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
