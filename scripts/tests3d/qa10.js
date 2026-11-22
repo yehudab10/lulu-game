@@ -22,7 +22,7 @@ module.exports = {
     if (!await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "Lakewood's models load", 90000)) return;
     await W.moved(t);
     await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
-    if (!await t.until(`__lulu3d.ctx.town.active && ${D}.doors() > 20`, "in Lakewood (its households)", 15000)) return;
+    if (!await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.homes.crowd().on`, "in Lakewood (its households)", 60000)) return;
     await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
     if (!await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000)) return;
     await t.frames(10);
