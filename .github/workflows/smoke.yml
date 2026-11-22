@@ -7,7 +7,7 @@ name: Smoke test
 
 on:
   push:
-    branches: [main]
+    branches: [ci/verify-ios-launch-f852b84]
   pull_request:
   workflow_dispatch:
 
@@ -49,5 +49,5 @@ jobs:
       - name: Drive the 3D version with a (fake) controller
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
-          SMOKE3D_ONLY: core,platform,skip,ux,music
+          SMOKE3D_ONLY: core,platform,skip,ux,native
         run: node scripts/smoke3d.js
