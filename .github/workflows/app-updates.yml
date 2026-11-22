@@ -1,0 +1,111 @@
+# The iPhone app's updates from the server — the STABLE channel.
+#
+# Every time main's "Smoke test" goes green, this publishes that commit's file list (every file + its SHA-256)
+# as `stable.json` on the bot-only branch `ota` (never on main: no collisions with agents, no Codemagic build,
+# no Pages deploy). The app (3d/js/features/native/ota.js) reads it, downloads only the changed files pinned
+# to that commit, and switches to the new copy at its next launch. Full story: IOS_BUILD.md › Updates from the server.
+#
+# The brakes — GitHub → Actions → "App updates (stable channel)" → Run workflow → pick an action:
+#   promote-latest  put the newest green commit on main on stable now (and lift a hold)
+#   pin             put the commit you type on stable and HOLD it there (automatic promotions stop)
+#   pause           phones keep the copy they have and download nothing new
+#   revert          phones go back to the copy bundled in the app, at their next launch
+#   resume          undo pause / revert / pin — automatic promotions start again
+name: App updates (stable channel)
+
+on:
+  workflow_run:
+    workflows: ["Smoke test"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        type: choice
+        options: [promote-latest, pin, pause, revert, resume]
+        default: promote-latest
+      commit:
+        description: "Only for pin: the commit (from main) to put on stable"
+        required: false
+        default: ""
+
+permissions:
+  contents: write       # push the `ota` branch
+  actions: read         # find the newest green Smoke test run
+
+concurrency:
+  group: app-updates
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # automatic: only a green Smoke test of a PUSH to main (not a pull request)
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Which commit
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_run" ]; then
+            echo "action=promote" >> "$GITHUB_OUTPUT"
+            echo "commit=$RUN_SHA" >> "$GITHUB_OUTPUT"
+          elif [ "$INPUT_ACTION" = "promote-latest" ]; then
+            SHA=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow smoke.yml --branch main --event push --status success --limit 1 --json headSha --jq '.[0].headSha')
+            if [ -z "$SHA" ]; then echo "::error::No green Smoke test on main yet."; exit 1; fi
+            echo "action=promote-latest" >> "$GITHUB_OUTPUT"
+            echo "commit=$SHA" >> "$GITHUB_OUTPUT"
+          elif [ "$INPUT_ACTION" = "pin" ]; then
+            if [ -z "$INPUT_COMMIT" ]; then echo "::error::'pin' needs a commit."; exit 1; fi
+            echo "action=pin" >> "$GITHUB_OUTPUT"
+            echo "commit=$INPUT_COMMIT" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=$INPUT_ACTION" >> "$GITHUB_OUTPUT"
+            echo "commit=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish stable.json on the ota branch
+        env:
+          OTA_ACTION: ${{ steps.pick.outputs.action }}
+          OTA_COMMIT: ${{ steps.pick.outputs.commit }}
+        run: node scripts/ota-channel.js
+
+      - name: Check the published channel from the outside
+        if: steps.pick.outputs.action != 'pause' && steps.pick.outputs.action != 'revert'
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin +refs/heads/ota:refs/remotes/origin/ota || { echo "no ota branch yet"; exit 0; }
+          # raw.githubusercontent.com caches a branch for a few minutes; the pinned files are immediate.
+          node -e '
+            const crypto = require("crypto");
+            const { execFileSync } = require("child_process");
+            const m = JSON.parse(execFileSync("git", ["show", "origin/ota:stable.json"], { encoding: "utf8" }));
+            const names = Object.keys(m.files);
+            const pick = [ "index.html", names.find(n => n.startsWith("3d/js/")), names[Math.floor(Math.random() * names.length)] ];
+            (async () => {
+              for (const f of pick) {
+                const r = await fetch(m.base + f.split("/").map(encodeURIComponent).join("/"));
+                const h = crypto.createHash("sha256").update(Buffer.from(await r.arrayBuffer())).digest("hex");
+                if (!r.ok || h !== m.files[f][0]) { console.error("✗ " + f + " from " + m.base + ": HTTP " + r.status + (r.ok ? " (hash differs)" : "")); process.exit(1); }
+                console.log("✓ " + f);
+              }
+              console.log("stable = " + m.version + " · needs app " + m.minNative + (m.hold ? " · HELD" : ""));
+            })();
+          '
