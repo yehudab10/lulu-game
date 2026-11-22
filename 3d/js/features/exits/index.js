@@ -51,7 +51,7 @@ import { LIFE, PEOPLE_MODELS, saved, spawnCast, despawnCast, tickLife, restSpot,
 export const REST = { first: 3900, every: 7300,
     // 🌍 ONE WORLD (ci/onemap): in a Cruise / 🌍 Free Roam the rest areas are two places on the lap — the same lap metre
     // (slid clear the same way every lap: the road repeats) and the same name every lap
-    lap: [5500, 14500] };
+    lap: [5700, 14200] };
 /** The next lap rest area at or past s: { s, slot } (its world s before any slide, its slot on the lap = its name). */
 function nextLapRest(s) {
     let best = null;
@@ -65,7 +65,10 @@ function planLap(s0, s1) {
         const r = nextLapRest(s);
         if (!r || r.s > s1) break;
         const key = Math.round(r.s);
-        if (!RS.lapTried.has(key) && !RS.list.some(R => Math.abs(R.s - r.s) < 2500)) { RS.lapTried.add(key); planRest(r.s, false, r.slot); }
+        // (a place on the lap goes at ITS lap metre, never slid: REST.lap is chosen clear of the lap's fixed places — the
+        //  towns' exits, JFK, the pull-ins, the storefront blocks — so the same rest area stands there every lap; a passing
+        //  road event that reserved the roadside first doesn't push it on — test `exits` › the lap)
+        if (!RS.lapTried.has(key) && !RS.list.some(R => Math.abs(R.s - r.s) < 2500)) { RS.lapTried.add(key); planRest(r.s, true, r.slot); }
         s = r.s + 1;
     }
 }
