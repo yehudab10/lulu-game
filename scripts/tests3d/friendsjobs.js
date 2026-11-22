@@ -65,6 +65,12 @@ async function body(t, pages) {
     const st = await A.L(`({ worst: +Math.max(...window.__steps).toFixed(2), moved: +window.__moved.toFixed(1), snaps: (__lulu3d.ctx.party.remoteCar(${BU}).trace || []).filter(x => x.snap).length })`);
     // (QA's watchdog allowance: 4 m a frame, or 60 m/s on a slow frame — worst = the biggest step ÷ that allowance)
     t.check("a friend's car shoved 15 m: it slides over on my screen (no frame over the jump allowance, no snap)", st.worst < 1 && st.moved > 10 && st.snaps === 0, JSON.stringify(st));
+    // a short RESPAWN hop (a new frame at the town line, an unstuck rescue): glides too, no poof
+    await A.L(`(() => { const L3 = __lulu3d, rc = L3.ctx.party.remoteCar(${BU}); rc.trace = []; window.__steps = []; window.__moved = 0; let last = [rc.x, rc.z], lt = performance.now(); const tick = () => { const r = L3.ctx.party.remoteCar(${BU}), w = performance.now(); if (r && r.shown) { const m = Math.hypot(r.x - last[0], r.z - last[1]); window.__steps.push(m / Math.max(4, 60 * (w - lt) / 1000)); last = [r.x, r.z]; window.__moved += m; } lt = w; if (window.__steps.length < 240) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return true; })()`);
+    await B.game(`(() => { const c = ctx.car, p = ctx.world.road.point(c.s + 10, c.d, {}); c.place(p.x, p.z, c.h); c.s += 10; c.vx = c.vz = 0; c.vF = 0; ctx.party.respawned(); return true; })()`);
+    await A.until(`window.__steps.length >= 240`, "A: watched B's respawn hop for 240 frames", 60000);
+    const st2 = await A.L(`({ worst: +Math.max(...window.__steps).toFixed(2), moved: +window.__moved.toFixed(1), snaps: (__lulu3d.ctx.party.remoteCar(${BU}).trace || []).filter(x => x.snap).length })`);
+    t.check("a friend's short respawn hop (10 m): it glides on my screen, no poof", st2.worst < 1 && st2.moved > 7 && st2.snaps === 0, JSON.stringify(st2));
   }
 
   // ── the list ──

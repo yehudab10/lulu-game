@@ -379,10 +379,10 @@ export function updateCars(dt, show, decorate, frameOf) {
 }
 
 // a jump bigger than this between snapshots is a real warp (a town cut, a teleport): snap with a poof
-const WARP_S = 60, WARP_D = 30;
+const WARP_S = 60, WARP_D = 30, HOP = 25;
 /** how fast an error is allowed to close (m/s): small ones as before, a big shove as a quick slide */
 const glideRate = e => Math.min(40, 8 + 2 * e);
-export const remoteTune = { WARP_S, WARP_D, glideRate };
+export const remoteTune = { WARP_S, WARP_D, HOP, glideRate };
 
 function step(rc, p, dt, road, cam) {
     const st = rc.st, o = rc.out, S = p.samples;
@@ -407,10 +407,13 @@ function step(rc, p, dt, road, cam) {
     // smooth corrections (see the header) / snap only on a real respawn or warp: a shove (a pratfall, a bump) that arrives
     // as a jump between snapshots is absorbed into the error and glides out — never a teleport (ci/friends, qafriends)
     const expS = st.rawS + st.vS * dt, expD = st.rawD + st.vD * dt;
+    let from = null;                 // a restart of the track (a respawn, a warp, a new frame at the town line, an unstuck rescue)
     if (!st.init || p.respawn || Math.abs(o.s - expS) > WARP_S || Math.abs(o.d - expD) > WARP_D) {
-        if (st.init) poof(rc);
+        // …where she was last drawn (a respawn hides the car a frame or two while its track refills): a short hop glides
+        // there in world space below; a stale or far one snaps behind a poof
+        if (st.init && st.lastAt != null && clock() - st.lastAt < 1500) from = [st.lastX, st.lastZ];
+        else { if (st.init) poof(rc); if (rc.trace) rc.trace.push({ T, snap: 1 }); }
         st.errS = st.errD = 0; st.init = true; p.respawn = false;
-        if (rc.trace) rc.trace.push({ T, snap: 1 });
     } else {
         st.errS -= o.s - expS; st.errD -= o.d - expD;
     }
@@ -426,10 +429,24 @@ function step(rc, p, dt, road, cam) {
     st.rawS = o.s; st.rawD = o.d; st.vS = o.vs; st.vD = o.vd;
     const s = Math.max(0, o.s + st.errS), d = o.d + st.errD;
     road.point(s, d, tmpP);
+    // a restart close by (≤ HOP m — the town line's new frame, a small rescue) glides there in world space like any other
+    // correction; a far one (a real warp) snaps behind a poof
+    if (from) {
+        const ox = from[0] - tmpP.x, oz = from[1] - tmpP.z;
+        if (Math.hypot(ox, oz) <= HOP) { st.wx = ox; st.wz = oz; }
+        else { st.wx = st.wz = 0; poof(rc); if (rc.trace) rc.trace.push({ T, snap: 1 }); }
+    }
+    const wMag = Math.hypot(st.wx || 0, st.wz || 0);
+    if (wMag > 1e-3) {
+        const cut = Math.min(wMag * (1 - k), glideRate(wMag) * dt), f = (wMag - cut) / wMag;
+        st.wx *= f; st.wz *= f;
+        tmpP.x += st.wx; tmpP.z += st.wz;
+    } else st.wx = st.wz = 0;
     const h = tmpP.h + o.yaw;
     const sp = Math.hypot(o.vs, o.vd);
     const prevSpeed = rc.speed;
     rc.s = s; rc.d = d; rc.x = tmpP.x; rc.z = tmpP.z; rc.h = h; rc.speed = o.vs;
+    st.lastX = tmpP.x; st.lastZ = tmpP.z; st.lastAt = clock();
     const fx = Math.sin(tmpP.h), fz = Math.cos(tmpP.h), rx = -Math.cos(tmpP.h), rz = Math.sin(tmpP.h);
     rc.vx = fx * o.vs + rx * o.vd; rc.vz = fz * o.vs + rz * o.vd;
     rc.v.root.position.set(tmpP.x, Math.max(0, o.y), tmpP.z);
