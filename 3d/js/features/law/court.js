@@ -194,9 +194,12 @@ async function trial(f, data) {
     const cl = data.charges && data.charges.length ? data.charges.slice() : ["BEING SUSPICIOUS"];
     const tier = data.lawyer || null;
     const strk = Math.min(S.convictions, 5);
-    // counsel at Lulu's side
-    if (tier) {
-        const lw = tier.free ? person("lawAbba", null, "npcMan") : person("lawLawyer", tier.colors || null, "npcMan");
+    // counsel at Lulu's side — WHO stands there can come from the town she's tried in (features/places `ctx.civic.counsel`:
+    // in Midwood it's always Abba, playing whatever lawyer she has — the SAME tier, factor and rules; only the voice changes)
+    const voice = ctx.civic && ctx.civic.counsel ? ctx.civic.counsel(tier, cl) : null;
+    st.voice = voice;
+    if (tier || voice) {
+        const lw = voice ? person(voice.key, null, "npcMan") : tier.free ? person("lawAbba", null, "npcMan") : person("lawLawyer", tier.colors || null, "npcMan");
         const [x, y, z, r] = POS.lawyer;
         lw.obj.position.set(x, y, z); lw.obj.rotation.y = r;
         C.set.add(lw.obj);
@@ -237,6 +240,8 @@ async function trial(f, data) {
         bang(2);
         await say(f, "judge", pick([`Co-defendants ${crewNames(co)} and Ms. Bruck. The ${co.length > 1 ? "lot" : "two"} of you AGAIN?! *sighs* Separate charges, separate verdicts. Let's get this over with.`,
             `${crewNames(co)} AND Ms. Bruck. Together. In MY courtroom. Of course. 🙄`, `Well, well. Partners in crime, are we? Each of you answers for your OWN sheet.`]));
+        // (Midwood: Abba represents the lot of them — features/places counsel; words only)
+        if (voice && voice.codefendants) await say(f, voice.speaker, voice.codefendants(crewNames(co)), { name: voice.name, emoji: voice.emoji });
     }
 
     const tierD = court.dramaTier, worst = worstCharge(cl), listStr = cl.join(", "), more = cl.length > 1;
@@ -255,11 +260,14 @@ async function trial(f, data) {
     } else if (tierD === 1) {
         await say(f, "bailiff", "*a low murmur ripples through the gallery* 🤫");
     }
+    if (voice && voice.afterProsecutor) await say(f, voice.speaker, voice.afterProsecutor(), { name: voice.name, emoji: voice.emoji });
     if (tier) {
-        const nm = tier.name.toUpperCase(), emo = tier.free ? "👨" : "🤵";
-        await say(f, tier.free ? "abba" : "lawyer", pick(tier.says), { name: nm, emoji: emo });
-        await say(f, tier.free ? "abba" : "lawyer", lawyerChargeArgument(tier, cl), { name: nm, emoji: emo });
-    }
+        const nm = voice ? voice.name : tier.name.toUpperCase(), emo = voice ? voice.emoji : tier.free ? "👨" : "🤵", who = voice ? voice.speaker : tier.free ? "abba" : "lawyer";
+        // (the same two draws as always — pick + the charge's argument — whoever voices them)
+        const said = pick(tier.says), arg = lawyerChargeArgument(tier, cl);
+        await say(f, who, voice ? voice.opening(said, tier) : said, { name: nm, emoji: emo });
+        await say(f, who, voice ? voice.argue(arg, tier) : arg, { name: nm, emoji: emo });
+    } else if (voice && voice.uninvited) await say(f, voice.speaker, voice.uninvited(), { name: voice.name, emoji: voice.emoji });
 
     // how do you plead?
     const pool = DEFENSE_POOL.slice(), opts = [];
@@ -309,6 +317,7 @@ async function trial(f, data) {
     }
     if (C.witness) { C.set.scene.remove(C.witness.obj); C.witness = null; }
 
+    if (voice && voice.beforeJury) await say(f, voice.speaker, voice.beforeJury(), { name: voice.name, emoji: voice.emoji });
     // the jury deliberates
     st.speaker = "jury";
     shotFor("jury");
@@ -334,6 +343,8 @@ async function trial(f, data) {
             if (Math.random() < 0.6) verdict = "dismissed";
             else { bribeFlop = true; verdict = "fine"; }
         }
+        if (ctx.TEST) courtLog.push({ factors: court.factors.map(x => `${x.t} ${x.a.toFixed(3)}`), lean: +court.lean.toFixed(4), mistrial: !!court.mistrial,
+            strikes: !!court.threeStrikes, plea: opt.label, outcomes: opt.outcomes, rolled: verdict });   // (tests: the jury's inputs + its roll, before FORCE)
         if (FORCE.verdict) { verdict = FORCE.verdict; bribeFlop = false; }
         if (verdict === "fine") fine = bribeFlop ? Math.max(8, Math.round(bountyFor(court.charges) * 0.3)) : bountyFor(court.charges);
         if (verdict !== "dismissed") bump("convictions", 1);
@@ -350,6 +361,7 @@ async function trial(f, data) {
     UI.caption(big);
     if (verdict === "dismissed") crowdUproar(3, true);
     await say(f, "judge", vt);
+    if (st.voice && st.voice.verdict) await say(f, st.voice.speaker, st.voice.verdict(verdict), { name: st.voice.name, emoji: st.voice.emoji });
     // consequence
     let paid = 0, couldnt = false;
     if (verdict === "fine") {
@@ -447,4 +459,15 @@ function animate(dt) {
     }
     C.shot.update(dt, 2.6);
     UI.updateBubbles(C.set.camera);
+}
+
+/** The courtroom set (built once its models are in) — features/places plays a SPECTATOR hearing on it (Shloime's case
+ *  in Lakewood): { set, judge, prosecutor, bailiff, clerk, me, jurors, crowd, shot, POS, SHOTS }. Don't use it while a
+ *  trial is on (lawCourt). */
+/** (tests) every trial's jury maths: the mood factors, the lean and the verdict the dice gave (before FORCE). */
+export const courtLog = [];
+export async function courtStage() {
+    await ensureModels(COURT_KEYS);
+    if (!C) build();
+    return Object.assign(C, { POS, SHOTS });
 }
