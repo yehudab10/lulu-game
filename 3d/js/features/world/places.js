@@ -16,7 +16,7 @@ import { ctx, on, emit, hook, registerState, setState, pick } from "../../core/c
 import { save3d, store, saveSoon } from "../../core/save.js";
 import { heal, addCoins, addScore } from "../../core/driving.js";
 import { models, ensureModels, cloneWithColors, findNodes } from "../../models.js";
-import { facingRoad, LAP } from "../../world.js";
+import { facingRoad, LAP, lapWorld } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
@@ -326,6 +326,9 @@ const FAMILY = {
 };
 function familyStops(mode) {
     if (!roadMode(mode) || !ctx.journey || !ctx.journey.stopS || !ctx.journey.stops) return [];
+    // (🌍 the one world's lap — a Cruise / Free Roam: the family stops are the Story Trip's road; hidden for now, so
+    //  no driveways out here — ci/onemap leaves them room, a later stage puts them on the map)
+    if (lapWorld()) return [];
     const list = ctx.journey.stops.map((st, i) => ({ id: st.id, s: ctx.journey.stopS(i) })).filter(x => FAMILY[x.id]);
     // a party's 🏡 Road Trip ENDS at Bubbe's (the group arrival): no driveways from there on
     if (mode === "party" && ctx.party && ctx.party.activity && ctx.party.activity.k === "trip") return list.filter(x => x.s < ctx.journey.stopS(0) - 200);

@@ -29,6 +29,8 @@ export const CHUNK = 200;         // metres per scenery chunk
 export const LAP = 16000, LAP_BLEND = 600;
 export const lapS = s => ((s % LAP) + LAP) % LAP;
 export const lapOf = s => Math.floor(s / LAP);
+/** Is this run on the one world's lap (a Cruise / a 🌍 Free Roam — not the Story Trip, whose stops are its own road)? */
+export const lapWorld = () => { const G = ctx.G; if (!G) return false; if (G.mode === "cruise") return true; const A = G.mode === "party" && ctx.party && ctx.party.active && ctx.party.activity; return !!A && A.k === "roam"; };
 /** The world s of lap metre `m` on the lap of `s` (the next one, if `m` is behind `s` there and `next`). */
 export const lapAt = (s, m, next = false) => { const b = lapOf(s) * LAP + m; return next && b < s ? b + LAP : b; };
 

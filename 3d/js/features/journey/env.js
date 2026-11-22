@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { ctx, on, hook, emit } from "../../core/ctx.js";
 import { registerModels, ensureModels, models, cloneWithColors, findNodes, instanced } from "../../models.js";
-import { registerScenery, ribbon, signTexture, facingRoad, worldMaterials, canvasTex, SHOULDER, STEP } from "../../world.js";
+import { registerScenery, ribbon, signTexture, facingRoad, worldMaterials, canvasTex, SHOULDER, STEP, lapWorld } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import { STOPS, N_STOPS, stopS, legStartS, GATE_BACK } from "./data.js";
 import { layoutMult, regionAt, boundaries } from "./state.js";
@@ -246,10 +246,12 @@ function updateHeadlights() {
 const reserves = [];
 let reserveMult = -1;
 export function syncReserves() {
-    const m = layoutMult();
-    if (m === reserveMult || !reserves.length) return;
-    reserveMult = m;
-    for (let i = 0; i < N_STOPS; i++) {
+    const m = layoutMult(), lap = lapWorld(), key = lap ? -2 : m;
+    if (key === reserveMult || !reserves.length) return;
+    reserveMult = key;
+    // (on the one world's lap the stops aren't built: their stretches free — the coast's ocean stays, it's scenery)
+    if (lap) { for (let i = 0; i < N_STOPS * 2; i++) Object.assign(reserves[i], { s0: 0, s1: 0 }); }
+    else for (let i = 0; i < N_STOPS; i++) {
         const S = stopS(i, m);
         Object.assign(reserves[i * 2], { s0: S - GATE_BACK - 30, s1: S + 55 });
         Object.assign(reserves[i * 2 + 1], { s0: S - GATE_BACK - 4, s1: S - GATE_BACK + 4 });
@@ -690,13 +692,13 @@ on("chunk:build", ({ chunk, world, rnd, s0, s1 }) => {
     const m = layoutMult();
     chunk.jMult = m;
     const road = world.road;
-    // stops: gates + properties
-    for (let i = 0; i < N_STOPS; i++) {
+    // stops: gates + properties (the Story Trip's road — not on the one world's lap: a Cruise / Free Roam, ci/onemap)
+    if (!lapWorld()) for (let i = 0; i < N_STOPS; i++) {
         const S = stopS(i, m), G = S - GATE_BACK;
         if (G >= s0 && G < s1) buildGate(i, G, chunk, world);
         if (S >= s0 && S < s1) { try { buildProperty(i, S, chunk, world); } catch (e) { console.error("[journey stop]", e); } }
     }
-    for (const sg of tripSigns()) if (sg.s >= s0 && sg.s < s1) chunk.sign(world, sg);
+    if (!lapWorld()) for (const sg of tripSigns()) if (sg.s >= s0 && sg.s < s1) chunk.sign(world, sg);
 
     const mid = (s0 + s1) / 2, reg = regionAt(mid, m).key;
     // the coast: wet sand, foam and the ocean on the right
