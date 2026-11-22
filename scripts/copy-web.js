@@ -27,6 +27,8 @@
 // is scripts/tests3d/native.js.
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+const { execFileSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
 const OUT = path.join(ROOT, "www");
@@ -208,7 +210,33 @@ function checkRefs() {
   return { problems, scanned };
 }
 
+// ── the bundle's own file list (www/ota-build.json) ────────────────────────
+// Every staged file with its SHA-256 + size, plus the commit it was built from and the native version it
+// needs. Two readers: the in-app updater (3d/js/features/native/ota.js — the BUNDLED copy's list is what the
+// phone already has, so an update downloads only files whose fingerprint isn't in it) and the stable-channel
+// publisher (scripts/ota-channel.js — it publishes exactly this list for a green commit). A www/ path is the
+// same path in the repo (www/3d/x ← 3d/x, www/x ← x), so a file can be fetched pinned to its commit.
+const OTA_FILE = "ota-build.json";
+function writeBuildList() {
+  const files = {};
+  let bytes = 0;
+  for (const f of walk(OUT).sort()) {
+    const rel = path.relative(OUT, f).split(path.sep).join("/");
+    if (rel === OTA_FILE) continue;
+    const buf = fs.readFileSync(f);
+    files[rel] = [crypto.createHash("sha256").update(buf).digest("hex"), buf.length];
+    bytes += buf.length;
+  }
+  let commit = process.env.GITHUB_SHA || process.env.CM_COMMIT || "";
+  try { commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || commit; } catch (e) { /* not a git checkout */ }
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const list = { schema: 1, commit, appVersion: pkg.version, minNative: (pkg.ota && pkg.ota.minNative) || pkg.version, bytes, files };
+  fs.writeFileSync(path.join(OUT, OTA_FILE), JSON.stringify(list));
+  return list;
+}
+
 const stats = stage();
+const built = writeBuildList();
 const { problems, scanned } = checkRefs();
 const mb = n => (n / 1048576).toFixed(1) + " MB";
 console.log(`copy-web: staged ${stats.files} files (${mb(stats.bytes)}) into www/ — 2.0 (3D) at www/3d/, classic 2D at www/classic.html`);
@@ -220,4 +248,5 @@ if (bad.length) {
   for (const p of bad) console.error("  ✗ " + p);
   process.exit(1);
 }
+console.log(`copy-web: wrote www/${OTA_FILE} (${Object.keys(built.files).length} files, commit ${(built.commit || "?").slice(0, 7)}, needs app ${built.minNative})`);
 console.log("copy-web: ✓ every referenced file is in www/");

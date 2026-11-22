@@ -117,6 +117,14 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
    knock-out, and one during a jail stay, is fine — but while an ad is up the game is fully PAUSED (game time, cutscene
    scripts, timers, traffic, music) and picks up exactly where it was; an ad never starts during a cutscene or a
    dialogue, never while driving, never in a party, never in Dina's mode.
+4c. **The iPhone app updates its web game over the air** (IOS_BUILD.md › Updates from the server): every commit
+   whose Smoke test is green reaches app players at their next launch (`.github/workflows/app-updates.yml` →
+   `stable.json` on the bot-only `ota` branch — never commit to `ota`, never merge it). So: anything `copy-web.js`
+   stages ships over the air; native things (a plugin, `capacitor.config.json`, Info.plist, `ios-config/`, ad SDK
+   / ids, the icon) need an App Store release. If web code starts NEEDING new native code, raise `package.json`
+   `"version"` AND `"ota"."minNative"` together in that commit (older apps then keep their last copy) and
+   feature-detect the plugin. Never raise `minNative` for a web-only change. Never set `server.url` in
+   `capacitor.config.json` (the save would be lost). Brakes: Actions → "App updates" → pause / revert / pin / resume.
 5. **Coin economy:** no repeatable free-coin sources (the owner already had to
    kill tip/busk/pet farming). Rewards are capped or once-per-run.
 6. **Party mode** (🎉 multiplayer): everything a solo drive has should work in a

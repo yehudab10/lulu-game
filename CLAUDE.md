@@ -19,7 +19,9 @@ The original **2D canvas game is legacy**: its page is now **`classic.html`**
 as `www/index.html`, the 3D game as `www/3d/` (no blender/docs/.md) and the
 classic game beside it as `www/classic.html`, then fails loudly if anything the
 3D game references is missing. The app's AdMob/ATT + Taptic haptics live in
-`3d/js/features/native/` (see IOS_BUILD.md; test `scripts/tests3d/native.js`).
+`3d/js/features/native/` (see IOS_BUILD.md; test `scripts/tests3d/native.js`). Since 2.0 the app **updates
+its web game over the air** from the stable channel (every green commit; `native/ota.js` +
+`.github/workflows/app-updates.yml`; the over-the-air vs App Store rule is AGENTS.md golden rule 4c).
 The coin wallet/cars/etc. stay shared through the save (same
 `capacitor://localhost` origin as the old classic app).
 
