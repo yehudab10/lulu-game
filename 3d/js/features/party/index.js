@@ -370,7 +370,7 @@ function openJoin(code = "", msg = "", msgCls = "") {
 // title entry (the parallel UX work groups title items; harmless if ignored)
 addMenuItem("title", {
     id: "party", group: "play", order: 60, cls: "purple",
-    label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} out now</small>` : ""}`,
+    label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} online</small>` : ""}`,
     visible: () => !ctx.TEST || ctx.enabled("party") || ctx.enabled("multiplayer"),
     action: openHub,
 });

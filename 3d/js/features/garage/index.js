@@ -29,7 +29,7 @@ import { shopDebug } from "./shop.js";
 addMenuItem("title", { id: "shop", order: 30, group: "garage", cls: "gx-gold", short: "Where to shop", label: "🛍️ Where to shop", sub: nextRideHtml,
     action: () => (ctx.shops ? ctx.shops.guide(() => showTitle(true)) : setState("shop", { tab: "items" })) });
 addMenuItem("title", {
-    id: "distracted", order: 72, group: "garage", cls: "purple", sub: "phone in hand: 2× score, reversed steering",
+    id: "distracted", order: 72, group: "garage", cls: "purple", sub: "Double score, but the steering is flipped",
     visible: () => inv.distractedUnlocked,
     label: () => `📱 Distracted: ${distracted() ? "ON" : "OFF"}`,
     action: btn => { setDistracted(!distracted()); S.sfxPhone(); if (btn) btn.innerHTML = `📱 Distracted: ${distracted() ? "ON" : "OFF"}`; },
@@ -38,10 +38,10 @@ addMenuItem("title", {
 function nextRideHtml() {
     syncInv();
     const next = SKIN_KEYS.filter(k => !inv.ownedSkins.includes(k)).sort((a, b) => SKIN_SHOP[a].price - SKIN_SHOP[b].price)[0];
-    if (!next) return "cars · items · bling — out in the world";
+    if (!next) return "All the shops are in town now";
     const sk = SKINS[next], price = SKIN_SHOP[next].price, have = wallet.coins;
     const f = Math.max(0, Math.min(1, have / price));
-    return `<span class="gx-next"><span>next ride: <b>${sk.name}</b> · ${f >= 1 ? `💰 ${price.toLocaleString()} — it's waiting at Uncle Moishe's!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
+    return `<span class="gx-next"><span>Next car: <b>${sk.name}</b> · ${f >= 1 ? `you can buy it at Uncle Moishe's!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
         <span class="gx-nbar"><i style="width:${(f * 100).toFixed(0)}%;background:linear-gradient(90deg, ${sk.dark}, ${sk.body})"></i></span></span>`;
 }
 
