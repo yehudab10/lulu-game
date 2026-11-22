@@ -261,6 +261,30 @@ export function updateGhosts(dt, me, show) {
     updateSelf(dt, show);
 }
 
+/** Where a shown ghost's name tag is on screen (client px) + its half size, or null. */
+export function tagOnScreen(id) {
+    const g = ghosts[id], cam = ctx.camera, cv = ctx.renderer && ctx.renderer.domElement;
+    if (!g || !g.shown || !g.obj.visible || !g.tag || !cam || !cv) return null;
+    const R = cv.getBoundingClientRect();
+    g.tag.getWorldPosition(v);
+    const dist = v.distanceTo(cam.position);
+    v.project(cam);
+    if (v.z > 1 || v.z < -1 || dist < 0.5) return null;
+    const ppu = R.height / (2 * dist * Math.tan((cam.fov || 60) * Math.PI / 360));
+    return { x: R.left + (v.x + 1) / 2 * R.width, y: R.top + (1 - v.y) / 2 * R.height, hw: Math.max(28, g.tag.scale.x * 0.4 * ppu), hh: Math.max(14, g.tag.scale.y * 0.5 * ppu + 8) };
+}
+/** The ghost whose name tag is under a tap (client px) → its peer id, or null. */
+export function ghostAt(cx, cy) {
+    let best = null, bd = Infinity;
+    for (const id in ghosts) {
+        const s = tagOnScreen(id);
+        if (!s) continue;
+        const dx = Math.abs(cx - s.x), dy = Math.abs(cy - s.y);
+        if (dx <= s.hw && dy <= s.hh && dx + dy < bd) { bd = dx + dy; best = id; }
+    }
+    return best;
+}
+
 export function clearGhosts() {
     for (const id of Object.keys(ghosts)) { if (ghosts[id]) disposeGhost(ghosts[id]); delete ghosts[id]; }
 }
