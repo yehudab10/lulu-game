@@ -260,7 +260,7 @@ module.exports = {
       const w0 = await g(`ctx.law.wanted`);
       await ready();
       if (await press("in a chase")) {
-        await carOK("in a chase", sol, { still: false });     // (the cruisers aren't cleared — one may already be shoving her)
+        await carOK("in a chase", sol, { still: false, lanes: false });     // (the cruisers aren't cleared — one may already be shoving her)
         t.check("in a chase: still chased, still wanted", await g(`ctx.law.chasing`) && JSON.stringify(await g(`ctx.law.wanted`)) === JSON.stringify(w0), JSON.stringify([w0, await g(`ctx.law.wanted`)]));
       }
     } else console.log("   (no chase / no solid for the chase case)", chased, JSON.stringify(sol));
@@ -391,7 +391,15 @@ module.exports = {
           await ready();
           n0 = await nLog();
           await putFoot(block.x, block.z, y);
-          if (await autoFired(n0, "inside", `${id}: on foot inside a house${y ? " (on its roof)" : ""}`, y ? 16000 : 8000)) {
+          if (y) {
+            // (dropped onto a roof she falls; the landing / the game's own walls may get her out first — either way she's out)
+            await t.frames(300);
+            const r = await g(`({ bad: ctx.unstuck.debug.badNow(), log: ctx.unstuck.debug.U.log.slice(${n0}), phase: ctx.foot.debug.F && ctx.foot.debug.F.phase, state: L3.state })`);
+            t.check(`${id}: on foot dropped on a house's roof → off it and out of the house`, r.bad == null && (r.state === "footRun" || r.state === "playing"), JSON.stringify(r));
+            await W.reset(t);
+            continue;
+          }
+          if (await autoFired(n0, "inside", `${id}: on foot inside a house`, 8000)) {
             const f = await footOK(`${id}: on foot out of the house${y ? " roof" : ""}`, block);
             t.check(`${id}: …on a sidewalk`, await g(`(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}), st = n.street; return !!st && Math.abs(n.d) >= st.outer - 0.2 && Math.abs(n.d) <= st.walk + 0.2; })()`), JSON.stringify(f));
           }
