@@ -330,12 +330,12 @@ const anyFadeUp = () => FADES.some(id => fadeUp(document.getElementById(id)));
 
 // ── the rescue ─────────────────────────────────────────────────────────────
 const say = (line, auto) => H.toast(line, "", { prio: auto ? 1 : 2, key: "unstuck" });
-function done(how, auto, dist = 0) {
+function done(how, auto, dist = 0, at = null) {
     U.n++;
     if (auto) U.autoLast = ctx.time; else U.last = ctx.time;
     // (an automatic rescue that didn't move her means the check was wrong about this place: back off, never loop)
     if (auto && auto !== "nan" && dist < 1 && how !== "hop" && how !== "room" && how !== "door") U.autoLast = ctx.time + 30;
-    U.log.push({ how, auto: auto || null, dist: +dist.toFixed(1), state: ctx.state, t: +ctx.time.toFixed(2) });
+    U.log.push({ how, auto: auto || null, dist: +dist.toFixed(1), state: ctx.state, t: +ctx.time.toFixed(2), d: at && fin(at.d) ? +at.d.toFixed(2) : null });
     if (U.log.length > 30) U.log.shift();
     shield();
     if (ctx.party && ctx.party.respawned) { try { ctx.party.respawned(); } catch (e) { /* not in a party */ } }
@@ -396,7 +396,7 @@ function carRescue(auto, quietDone = false) {
     const go = () => placeCar(sp);
     if (ctx.dissolve) ctx.dissolve(go); else go();
     say(auto ? "🆘 back on the road" : "🆘 Back on the road", auto);
-    done("car", auto, fin(from.x) ? Math.hypot(sp.x - from.x, sp.z - from.z) : 0);
+    done("car", auto, fin(from.x) ? Math.hypot(sp.x - from.x, sp.z - from.z) : 0, sp);
     return quietDone ? "scene" : "car";
 }
 function footRescue(opts) {
@@ -428,7 +428,7 @@ function footRescue(opts) {
     };
     const kerb = ctx.dissolve ? ctx.dissolve(go) : go();
     say(kerb ? (auto ? "🆘 back on your feet — the car's here too" : "🆘 Back on your feet — 🚗 your car's right here") : (auto ? "🆘 back on your feet" : "🆘 Back on your feet"), auto);
-    done(kerb ? "foot+car" : "foot", auto, sp && fin(from.x) ? Math.hypot(sp.x - from.x, sp.z - from.z) : 0);
+    done(kerb ? "foot+car" : "foot", auto, sp && fin(from.x) ? Math.hypot(sp.x - from.x, sp.z - from.z) : 0, sp);
     return "foot";
 }
 function roomRescue(auto) {

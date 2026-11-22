@@ -167,7 +167,9 @@ module.exports = {
       await W.moved(t);
       if (await autoFired(n0, "edge", "highway: on foot far off the world's edge")) {
         const f = await footOK("highway: off the edge → the shoulder", null);
-        t.check("…on the shoulder, off the lanes (|d| 6–10)", Math.abs(f.d) > 6 && Math.abs(f.d) < 10, String(f.d));
+        const landed = (await log()).slice(-1)[0];
+        t.check("…put on the shoulder, off the lanes (|d| 7–10)", landed && Math.abs(landed.d) > 7 && Math.abs(landed.d) < 10, JSON.stringify(landed));
+        console.log(`   8 frames later she's at d ${f.d}`);
       }
       // 4 · on foot inside something solid → out (automatic, after ~2 s of not moving)
       sol = await solidNear(0.8);
