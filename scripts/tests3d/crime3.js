@@ -86,7 +86,7 @@ module.exports = {
     // ════ 🏷️ the mattress tags ════
     await step("tags", async () => {
       await footAt(...Object.values(await g(`(() => { const p = ctx.car.pos; return { x: p.x, z: p.z }; })()`)));
-      t.check("the Fixer's tip: 4 mattresses on a kerb nearby", await g(`${S3}.maybeTip(true)`) && (await g(`${S3}.TAGS.list.length`)) === 4);
+      t.check("the Fixer's tip: 4 mattresses on a kerb nearby", await g(`(${S3}.clearTags(), ${S3}.maybeTip(true))`) && (await g(`${S3}.TAGS.list.length`)) === 4);
       t.check("…in his own 💬 thread", await g(`!!document.querySelector("body") && true`));
       const c0 = await coins();
       for (let i = 0; i < 4; i++) {
