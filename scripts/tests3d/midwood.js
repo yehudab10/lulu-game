@@ -90,6 +90,9 @@ module.exports = {
       const ev = (await evs()).slice(n0).find(e => e.startsWith("town:enter")) || "";
       t.check("…quietly: town:enter says quiet + home, no visit counted", /"quiet":true/.test(ev) && /"home":true/.test(ev) && await t.L(`window.__visits`) === 0, ev);
       const sp2 = await g(`ctx.town.spotOf("midwood", "luluHome", ${H.exitS})`);
+      // the owner: "Lulu's house should specifically be on East 34th St between J and K" (in Midwood now: its plan is the current one)
+      const JK = await g(`(() => { const P = ${D}.PL; return [P.byName["Avenue K"].c, P.byName["Avenue J"].c]; })()`);
+      t.check("…on East 34th St, between Avenue K and Avenue J (the owner's address)", sp2 && sp2.street === "E 34th St" && sp2.lz > Math.min(...JK) && sp2.lz < Math.max(...JK), JSON.stringify({ street: sp2 && sp2.street, lz: sp2 && sp2.lz, JK }));
       t.check("…and the lot's spot is the same once the town stands", sp2 && sp2.built && Math.hypot(sp2.door.x - sp.door.x, sp2.door.z - sp.door.z) < 0.01, JSON.stringify([sp.door, sp2 && sp2.door]));
       // a second warp while in town (to the same place): she leaves the town she's in without a cut, then is put down again
       t.check("warp again from inside the town works", await g(`ctx.town.warp({ town: "midwood", at: { x: ${sp.drive.x}, z: ${sp.drive.z}, h: ${sp.drive.h} }, quiet: true }) && ctx.town.active`));
@@ -130,10 +133,10 @@ module.exports = {
       // ── 3. the plan: real streets, a real diagonal ───────────────────────
       const P = await g(`(() => { const P = ${D}.PL; return { names: P.STREETS.map(s => s.name), kh: P.byName["Kings Hwy"].axis, khH: P.byName["Kings Hwy"].h, nodes: P.NODES.length, quads: P.BLOCKS.filter(b => b.quad).length, blocks: P.BLOCKS.length,
         oneway: P.STREETS.filter(s => s.oneway).map(s => s.name + ":" + s.oneway), op: [P.byName["Ocean Pkwy"].outer, !!P.byName["Ocean Pkwy"].boulevard], strips: P.STRIPS.length, occ: P.OCCLUDERS.length }; })()`);
-      for (const n of ["Ocean Pkwy", "E 8th St", "Coney Island Ave", "E 15th St", "E 16th St", "Ocean Ave", "Avenue J", "Avenue K", "Avenue L", "Avenue M", "Kings Hwy"]) t.check(`street: ${n}`, P.names.includes(n));
+      for (const n of ["Ocean Pkwy", "E 8th St", "Coney Island Ave", "E 15th St", "E 34th St", "Ocean Ave", "Avenue J", "Avenue K", "Avenue L", "Avenue M", "Kings Hwy"]) t.check(`street: ${n}`, P.names.includes(n));
       t.check("Kings Hwy is a real diagonal (not on the grid)", P.kh === "diag" && Math.abs(P.khH - Math.PI / 2) > 0.1, `${P.kh} h=${P.khH}`);
       t.check("4-sided blocks between Kings Hwy and Avenue M", P.quads === 5, `${P.quads} of ${P.blocks}`);
-      t.check("one-way East streets (E 8th N, E 15th N, E 16th S)", P.oneway.join(",") === "E 8th St:1,E 15th St:1,E 16th St:-1", P.oneway.join(","));
+      t.check("one-way East streets (E 8th N, E 15th N, E 34th S)", P.oneway.join(",") === "E 8th St:1,E 15th St:1,E 34th St:-1", P.oneway.join(","));
       t.check("Ocean Pkwy is a boulevard (malls + service roads)", P.op[1] && P.op[0] > 15, String(P.op));
       t.check("the town's edges have frontage strips + occluders", P.strips >= 5 && P.occ > 20, `${P.strips} strips, ${P.occ} occluders`);
       t.check("the B/Q: an embankment with bridges, stations and a train", await g(`(() => { const T = ${D}.S.T; return T.rail && T.rail.gaps.length === 5 && T.rail.stations.length === 3 && T.trains.length >= 1; })()`), String(await g(`(() => { const T = ${D}.S.T; return T.rail ? [T.rail.gaps.length, T.rail.stations.length, T.trains.length] : "none"; })()`)));
@@ -160,9 +163,9 @@ module.exports = {
       await t.frames(120);
       const wrong = await g(`(() => { const P = ${D}.PL; return ${D}.C.cars.filter(c => { const T = c.data.town; if (!T || T.hazard || T.mode !== "drive") return false; const st = P.STREETS[T.street]; return st.oneway && T.dir !== st.oneway; }).length; })()`);
       t.check("no town driver goes the wrong way down a one-way", wrong === 0, `${wrong} wrong-way`);
-      await g(`(ctx.law.hold(60), ${D}.place("E 16th St", -40, -1.75, 10, 1))`);      // E 16th runs SOUTH: she heads north
-      await route([["E 16th St", 0, -1.75], ["E 16th St", 30, -1.75]], 10, 3);
-      t.check("wrong way down E 16th: the block notices (town:oneway)", await t.until(`window.__ev.some(e => e.startsWith("town:oneway"))`, "town:oneway", 15000));
+      await g(`(ctx.law.hold(60), ${D}.place("E 34th St", -40, -1.75, 10, 1))`);      // E 34th runs SOUTH: she heads north
+      await route([["E 34th St", 0, -1.75], ["E 34th St", 30, -1.75]], 10, 3);
+      t.check("wrong way down E 34th: the block notices (town:oneway)", await t.until(`window.__ev.some(e => e.startsWith("town:oneway"))`, "town:oneway", 15000));
       await g(`(window.__route = null, ctx.law.clearHeat ? ctx.law.clearHeat("test") : null, true)`);
     });
 
@@ -265,7 +268,7 @@ module.exports = {
         ["avenue-m-underpass", `${D}.place("Avenue M", 12, 1.75, 0, 1)`, 20],
         ["kings-hwy-jam", `${D}.place("Kings Hwy", ${khA(-150)}, 1.75, 0, 1)`, 20],
         ["alternate-side", `${D}.place("E 8th St", 80, 1.75, 0, 1)`, 20],
-        ["college", `${D}.place("E 16th St", 212, 1.75, 0, 1)`, 25],
+        ["college", `${D}.place("E 34th St", 212, 1.75, 0, 1)`, 25],
         ["coney-island-ave", `${D}.place("Coney Island Ave", 0, 5.25, 0, 1)`, 20],
         ["ocean-ave", `${D}.place("Ocean Ave", 60, -1.75, 0, -1)`, 20],
       ];

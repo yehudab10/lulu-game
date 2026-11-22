@@ -767,7 +767,7 @@ hook("runStart", G => {
 }, 20);
 on("title", () => { if (S.active) leaveTown("reset"); dropAllBuilt(true); S.trans = null; S.commit = null; setFade(0); clearExits(); cue(null); });
 // (on the title — or any scene where nothing drives — a standing town is still culled for the camera: the title shot looks
-//  down E 16th St at Lulu's house in Midwood)
+//  down E 34th St at Lulu's house in Midwood)
 // (no hook runs on the title, so the town keeps a light idle loop of its own — it does nothing while she drives / walks)
 function idle() {
     requestAnimationFrame(idle);
