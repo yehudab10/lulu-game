@@ -1424,7 +1424,11 @@ socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. **`ctx.gr
 friends" as a GROUP you're in — today it IS the party (`active`, `roaming` = in 🌍 Free Roam, `members` [{ uid, name, me,
 friend }], `size`, `leave()`, `invite()`, `isFriend(uid)`; event `group:status`). **Read `ctx.group.active` instead of
 `ctx.party.active`** when you mean "with friends" — the party can then dissolve into the world (§7 › Friends STAGE 2)
-without touching your feature again. Test: `scripts/tests3d/friends.js` (add from Nearby, no
+without touching your feature again. **Step 2 (forming / leaving):** joining a friend (▶ Join) or 📤 inviting forms the
+group; 👯 › **🚪 Leave the group** is one tap and she carries on ALONE FROM HOME (`ctx.group.leave()` → `ctx.party.leave(false)`
++ `ctx.onegame.home({ via: "group" })`, not the title screen; friends keep playing; the list stays). Pulling into a town none
+of her friends are in (≥ 12 s, once per town, ~9 s) shows ONE quiet chip "🚪 Your friends are in Midwood — leave the group?"
+(`ctx.group.away`, the friends chip; a tap opens 👯 — never automatic). Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).

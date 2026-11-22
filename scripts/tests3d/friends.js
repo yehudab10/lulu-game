@@ -149,9 +149,15 @@ async function body(t, pages) {
   const inParty = await A.L(`(document.getElementById("lpApp") || {}).textContent || ""`);
   t.check("…which shows B as \"with you\"", /with you/.test(inParty), inParty.slice(0, 200));
   await A.game(`(ctx.phone.closePhone(), true)`);
-  await A.game(`(ctx.party.leave(), true)`);
+  const aw = await A.L(`import("./js/features/friends/group.js").then(m => [m.awayFrom("lakewood", [{ zone: "midwood" }], z => z === "midwood" ? "Midwood" : z), m.awayFrom("lakewood", [{ zone: "lakewood" }]), m.awayFrom("", [{ zone: "midwood" }])])`);
+  t.check("\"leave the group?\" only when she's in a town none of her friends are in", /friends are in Midwood — leave the group/.test(aw[0]) && aw[1] === "" && aw[2] === "", JSON.stringify(aw));
+  // 🚪 Leave the group (one tap in 👯): carry on alone from home — not the title screen
+  await A.game(`(ctx.phone.openPhone("owparty"), true)`);
+  await A.frames(4);
+  await A.L(`document.getElementById("owLeave").click()`);
   await B.game(`(ctx.party.leave(), true)`);
-  await A.until(`!ctx.party.active && ctx.state === "title"`, "A: left the party");
+  await A.until(`!ctx.party.active && (ctx.state === "footRun" || ctx.state === "playing") && ctx.G.mode === "cruise"`, "A: left the group → home, still playing", 120000);
+  t.check("🚪 Leave the group: carries on alone from home (not the title screen)", await A.game(`!ctx.party.active && ctx.state !== "title"`));
   t.check("ctx.group: alone again after leaving", await A.game(`!ctx.group.active && ctx.group.size === 0 && ctx.group.members.length === 0`));
   await B.until(`!ctx.party.active && ctx.state === "title"`, "B: left the party");
   await drive(A, 400, 1.75);

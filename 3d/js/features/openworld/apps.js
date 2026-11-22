@@ -99,7 +99,7 @@ function partyHome(el, api) {
     if (ctx.friends && ctx.friends.ui) html += row("owFL", "📇", "My friends list", "friends you keep — who's playing, join them, add by code");
     html += `<div class="ow-sec">The party</div>`;
     html += row("owInvite", "📤", "Invite friends", `send the link — they pop up right next to you · code ${esc(ctx.party.code)}`);
-    html += row("owLeave", "🚪", "Leave the party", "back to the home screen — your friends keep playing");
+    html += row("owLeave", "🚪", "Leave the group", "carry on alone from home — your friends keep playing, and stay on your 👯 list");
     if (ctx.mp && ctx.mp.setOnline) html += row("owOnline", "🌐", ctx.mp.online ? "Hide other drivers" : "Show other drivers", ctx.mp.online ? "strangers out in the world are ghosts · just your friends instead" : "see the other drivers out in the world too");
     html += `<p class="lp-fine">Start one here, or walk up to the 🕹️ arcade / 📋 notice board in town — friends opt in, nobody gets dragged along. Honk ${glyph("honk")} to wave at a friend.</p>`;
     el.innerHTML = html;
@@ -108,7 +108,7 @@ function partyHome(el, api) {
     on(el, "#owEnd", () => { E.endGameNow(); api.close(); });
     on(el, "#owJoin", () => { E.optIn(); api.close(); });
     on(el, "#owInvite", async () => { const msg = ctx.party.invite ? await ctx.party.invite() : ""; if (msg) api.toast(msg); });
-    on(el, "#owLeave", () => { api.close(); ctx.party.leave(); });
+    on(el, "#owLeave", () => { api.close(); if (ctx.group) ctx.group.leave(); else ctx.party.leave(); });
     on(el, "#owFL", () => api.open("owparty", { fl: {} }));
     on(el, "#owGoNow", () => { const g2 = E.getG(); if (g2) E.send("owgo", g2.n); api.close(); });
     on(el, "#owCallOff", () => { const g2 = E.getG(); if (g2) E.send("owx", g2.n); api.close(); });

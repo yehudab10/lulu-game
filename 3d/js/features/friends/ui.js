@@ -204,6 +204,7 @@ function chipTick() {
     let html = "", tap = null;
     if (asks.length) { const f = ST.friend(asks[0].f); if (f) { html = `🙋 ${esc(ST.labelOf(f))} wants to join you · 📱 👯`; tap = "join"; } }
     else if (pAsk) { const p = ctx.party && ctx.party.players.find(x => x.uid === pAsk.peer); html = `🤝 ${esc(p ? p.name : "A friend")} wants to be friends · 📱 👯`; tap = "party"; }
+    else if (ctx.group && ctx.group.away) { html = esc(ctx.group.away); tap = "party"; }      // (stage 2: friends went another way)
     if (H.popupsBlocked() || (ctx.phone && ctx.phone.isOpen)) html = "";
     if (html === chipKey) return;
     chipKey = html;
