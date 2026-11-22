@@ -1600,7 +1600,12 @@ dinner → the helpers get Ima's thank-you, no coins; in a group the solo home b
 🎲 / 🚗 / 🔔 **the crimes for two** (`features/partners/missions.js`) and 💰 **the bank job** (`features/heist/missions.js`)
 as invitations + one shared briefing (who does what, where to meet) — they still happen by doing them, their own
 triggers unchanged. The road-trip leg waits (the Story Trip is hidden, roadmap 21); ci/crime's solo crimes stay solo in a
-party (a race / duet version isn't cheap: each is built around one player's cops + court). Test: `scripts/tests3d/friendsjobs.js`. Test: `scripts/tests3d/friends.js` (add from Nearby, no
+party (a race / duet version isn't cheap: each is built around one player's cops + court). Test: `scripts/tests3d/friendsjobs.js`.
+**Friends among the ghosts (2026-11-22):** the sealed knock + its answer carry `m` = which ghost the sender is in EVERYONE
+(her relay connection id there) → `ctx.friends.byMp(id)` → multiplayer's `labelFor` shows 👯 + the friend's name
+(`ctx.mp.relabel()` on `friends:presence`); coming online re-knocks (≤ 1 a minute). **Tap a name over a car**
+(`ctx.mp.ghostAt(x, y)` / `tagOnScreen(id)` in multiplayer/ghosts.js; a short still tap, not on a button) → 📍 Nearby's
+driver page (➕). Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).
