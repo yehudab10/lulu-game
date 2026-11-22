@@ -298,6 +298,29 @@ function allowState(ws) {
   return true;
 }
 
+// --- 🏘️ the world-wide property registry (homes.mjs — the SAME code the worker runs) --------------------------
+// A dev / test relay only: POST /homes/_clock {offset} moves THIS process's clock (the 14-day rule in a test); the
+// production worker has no such endpoint.
+let homesP = null;
+const homesClock = { offset: 0 };
+function homesReg() {
+  if (!homesP) homesP = import("./homes.mjs").then((m) => m.createHomes(m.memoryStore(), { clock: () => Date.now() + homesClock.offset, config: { claimGapMs: 300, sweepGapMs: 0 } }));
+  return homesP;
+}
+function handleHomes(req, res, pathname) {
+  if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
+  const done = (st, obj) => sendBoard(res, st, obj);
+  const q = new URL(req.url, "http://x").searchParams;
+  const run = (body) => {
+    if (pathname === "/homes/_clock" && req.method === "POST") { homesClock.offset = Number(body && body.offset) || 0; done(200, { ok: true, offset: homesClock.offset }); return; }
+    homesReg().then((H) => H.handle(pathname, req.method, body, boardClientIp(req))).then((r) => done(r.status, r.body)).catch((e) => done(500, { error: String(e && e.message) }));
+  };
+  if (req.method === "GET") { run({ town: q.get("town") }); return; }
+  let raw = "";
+  req.on("data", (c) => { raw += c; if (raw.length > MAX_FRAME_BYTES) req.destroy(); });
+  req.on("end", () => { let body = null; try { body = JSON.parse(raw); } catch (_) { body = null; } run(body && typeof body === "object" ? body : null); });
+}
+
 // --- server ----------------------------------------------------------------
 
 const server = http.createServer((req, res) => {
@@ -313,6 +336,7 @@ const server = http.createServer((req, res) => {
     sendBoard(res, 404, { error: "not found" });
     return;
   }
+  if (pathname.startsWith("/homes/")) { handleHomes(req, res, pathname); return; }
   res.writeHead(426);
   res.end("expected websocket upgrade");
 });
