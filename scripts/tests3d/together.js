@@ -7,7 +7,7 @@
 //   STRANGERS  a stranger ghost (the EVERYONE room) is never pointed at, never on the map
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const path = require("path");
-const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
+const { startRelay, guestPage, hostPage, setWallCap, waitOn } = require("../lib/party3d.js");
 let relay = null;
 const PORT = 26000 + (process.pid % 20000);
 const Q0 = `&enable=party,foot,town,atmos,openworld,homes&mpurl=${encodeURIComponent(`ws://127.0.0.1:${PORT}`)}`;
@@ -329,8 +329,14 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
   await Hp.until(`ctx.town.active`, "host in town", 30000);
   await A.until(`ctx.openworld.zone === "lakewood" && ctx.openworld.riding === ${HU}`, "the passenger comes along into town, still riding", 60000);
+  await A.until(`ctx.town.active && ctx.openworld.riding === ${HU}`, "the passenger's own town is up", 40000);
+  await A.frames(10);
   await A.game(`ctx.openworld.hopOut({ moving: false })`);
   // ── the town's courthouse lobby (features/places): open in Free Roam, and a shared room ──
+  if (!await waitOn(A.page, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, 20000)) {
+    // (a very slow page can still be settling into town: if she's still in the seat, ask once more)
+    await A.game(`(ctx.openworld.riding && ctx.openworld.hopOut({ moving: false }), true)`);
+  }
   await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "guest on foot in town", 40000);
   await g(`ctx.foot.start("parked")`);
   await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "host on foot in town", 40000);
@@ -346,6 +352,20 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   await Hp.until(`ctx.together.debug.room().room === "courthouse" && ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "the courthouse lobby: the host sees the guest", 60000);
   await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "the courthouse lobby: the guest sees the host", 60000);
   await t.shot("court-together");
+  // ── THE PIZZA SHOP (ci/shops stage 4): a walk-in shop is a shared room too — friends inside see each other ──
+  for (const P of [A, Hp]) { await P.game(`(window.__interiors && window.__interiors.room ? window.__interiors.room.leave() : 0, true)`); await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: out of the courthouse`, 40000); }
+  for (const P of [Hp, A]) {
+    await P.frames(30);
+    await P.game(`(() => { const sp = ctx.town.spot("pizza"); ctx.foot.debug.F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
+    await P.frames(4);
+    const lb = await P.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
+    t.check(`${P.label}: 🍕 GO INTO the pizza shop works with friends (Free Roam)`, /PIZZA/.test(lb), lb);
+    await P.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
+    await P.until(`ctx.state === "interior" && ctx.stateData && ctx.stateData.id === "shopsPizza"`, `${P.label}: into the pizza shop`, 60000);
+  }
+  await Hp.until(`ctx.together.debug.room().room === "shopsPizza" && ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "the pizza shop: the host sees the guest", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "the pizza shop: the guest sees the host", 60000);
+  await t.shot("pizza-together");
   // ── THE BANK (ci/bankfriends stage 1): open in Free Roam, one lobby for the friends, the solo job stays solo ──
   for (const P of [A, Hp]) { await P.game(`(window.__interiors && window.__interiors.room ? window.__interiors.room.leave() : 0, true)`); await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: out of the courthouse`, 40000); }
   for (const P of [Hp, A]) {

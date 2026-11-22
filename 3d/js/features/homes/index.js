@@ -38,8 +38,8 @@ import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CF
 registerModels(Object.assign({ homesKit: "homes_kit", homesItems: "homes_items", homesStreet: "homes_street", homesMail: "homes_mail", homesDelivery: "homes_delivery" }, PEOPLE_MODELS));
 
 /** Persistent: every family Lulu has met (≤ 60), her souvenirs. */
-const S = store("homes", { fam: {}, souvenirs: [] });
-const HS = { homes: [], town: null, actor: false, scene: null, force: {}, log: [] };
+const S = store("homes", { fam: {}, souvenirs: [], moved: {}, mig: {} });
+const HS = { homes: [], byId: new Map(), town: null, actor: false, scene: null, force: {}, log: [] };
 
 // ── the doors of a town ──────────────────────────────────────────────────
 // door positions in each model's frame (three.js: x = model +X, z = out the front), from the Blender builders
@@ -51,9 +51,10 @@ const DOORS = {
 };
 function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function rngOf(seed) { let s = seed >>> 0 || 1; return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }
-/** A door's family: a pure function of town + house + door (the same people every run). */
-function family(town, i, j) {
-    const seed = hash(`${town}:${i}:${j}`), R = rngOf(seed);
+/** A door's family: a pure function of the door's STABLE id (town + where it stands — the same people every run, and
+ *  the same people when a landmark replaces a house down the street). */
+function family(id) {
+    const seed = hash(id), R = rngOf(seed);
     const name = SURNAMES[Math.floor(R() * SURNAMES.length)];
     const cast = [];
     const a = R();
@@ -68,27 +69,71 @@ function family(town, i, j) {
 }
 const pick2 = (a, R) => a[Math.floor(R() * a.length)];
 
+/** The STABLE id of a front door: the town + the door's position in the town's own (local) frame, to the metre —
+ *  "midwood:-212:131". The same scheme as features/realestate (market.js houseId / ctx.realestate.keyOf), so a house
+ *  is one id for both. (Not the index in ctx.town.homes: that shifts when another feature puts a landmark on a lot.) */
+export function doorId(town, x, z) {
+    const P = ctx.town && ctx.town.plan;
+    const L = P && P.local ? P.local(x, z, {}) : { x, z };
+    return `${town}:${Math.round(L.x)}:${Math.round(L.z)}`;
+}
 function buildDoors() {
     HS.homes = [];
+    HS.byId = new Map();
     const t = ctx.town, def = t && t.def;
     if (!def) return;
     HS.town = def.id;
     const list = t.homes || [];
+    const mig = !(S.mig && S.mig[def.id]);
     list.forEach((h, i) => {
         const D = DOORS[h.key];
         if (!D) return;
         const mx = -h.ux, mz = -h.uz;            // the model's +X in the world is −u
         D.d.forEach(([lx, lz], j) => {
             const door = { x: h.x + mx * lx + h.nx * lz, z: h.z + mz * lx + h.nz * lz };
+            const id = doorId(def.id, door.x, door.z);
+            if (HS.byId.has(id)) return;
             const t2 = (door.x - h.lotX) * h.ux + (door.z - h.lotZ) * h.uz;
             const lot = { x: h.lotX + h.ux * t2, z: h.lotZ + h.uz * t2 };
             const ap = { x: lot.x + h.nx * 0.7, z: lot.z + h.nz * 0.7 };
-            const fam = family(def.id, i, j);
-            HS.homes.push(Object.assign({ i: HS.homes.length, house: i, j, key: `${def.id}:${i}:${j}`, model: h.key, door, lot, ap, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz,
-                w: D.d.length > 1 ? 5.2 : h.w, lightY: D.light, town: def.id }, fam));
+            // (saves from before stable ids: the family was keyed by its index — move it over once)
+            const old = `${def.id}:${i}:${j}`;
+            if (mig && S.fam[old] && !S.fam[id]) { S.fam[id] = S.fam[old]; delete S.fam[old]; }
+            const fam = family(id);
+            if (S.fam[id] && S.fam[id].name && S.fam[id].name !== fam.name) {       // (a family she already knows keeps its name)
+                const was = fam.name; fam.name = S.fam[id].name;
+                for (const k of Object.keys(fam.names)) fam.names[k] = fam.names[k].replace(was, fam.name);
+            }
+            const home = Object.assign({ i: HS.homes.length, house: i, j, key: id, id, model: h.key, door, lot, ap, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz,
+                w: D.d.length > 1 ? 5.2 : h.w, lightY: D.light, town: def.id }, fam);
+            HS.homes.push(home); HS.byId.set(id, home);
         });
     });
+    if (mig) { (S.mig = S.mig || {})[def.id] = 1; saveSoon(); }
 }
+
+// ── who lives here? (features/realestate · ci/hometown · ci/crime) ───────
+// A door belongs to its household unless something else has claimed it. Claimers are functions (id, home) → a status
+// string or null; the first non-null wins. Any status means homes GIVES UP that door: no family inside, no porch scene,
+// nobody answers a knock, no break-in, no ✋ from homes (the claimer brings its own). Statuses real estate uses:
+//   "mine" (Lulu owns it) · "listed" / "packing" (for sale, the family packing up) · "empty" · "rented" · "friend" —
+// plus homes' own: "lulu" (her family's house, ci/hometown) and "moved" (a family moved out: ctx.homes.moveOut).
+const CLAIM = { fns: [] };
+function claimOf(h) {
+    if (!h) return null;
+    if (S.moved && S.moved[h.key]) return "moved";
+    if (isLulus(h)) return "lulu";
+    for (const f of CLAIM.fns) { try { const v = f(h.key, h); if (v) return String(v); } catch (e) { /* a claimer's bug never breaks a door */ } }
+    return null;
+}
+function isLulus(h) {
+    try { if (ctx.home && typeof ctx.home.isFamily === "function") return !!ctx.home.isFamily(h.door.x, h.door.z); } catch (e) { /* */ }
+    const sp = ctx.town && ctx.town.spot ? (ctx.town.spot("home") || ctx.town.spot("luluHome")) : null;
+    return !!(sp && Math.hypot(sp.x - h.door.x, sp.z - h.door.z) < 6);
+}
+const lived = h => !claimOf(h);
+/** The crowd + its porch scenes only at doors a family lives behind (re-run when a claim changes). */
+function crowdHomes() { return HS.homes.filter(lived); }
 
 // ── town in / out ────────────────────────────────────────────────────────
 on("town:enter", () => {
@@ -98,7 +143,7 @@ on("town:enter", () => {
     const id = HS.town, visit = (HS.visit = (HS.visit || 0) + 1);
     ensureModels(CROWD_MODELS).then(() => {
         if (!ctx.town || !ctx.town.active || ctx.town.id !== id || HS.visit !== visit) return;
-        startCrowd(null, ctx.town.def, HS.homes, { drives: ctx.town.drives || [] });
+        startCrowd(null, ctx.town.def, crowdHomes(), { drives: ctx.town.drives || [] });
         crowdActor();
     }).catch(e => console.warn("[homes] crowd models", e));
 });
@@ -109,7 +154,7 @@ function crowdActor() {
     addActor({ foot: true, update: dt => { try { tickCrowd(dt); } catch (e) { console.error("[homes] crowd", e); } if (!CR.on) HS.actor = false; return CR.on; },
         dispose() { HS.actor = false; } });      // (cleared from outside — a new run: the next crowd adds it again)
 }
-on("town:leave", () => { stopCrowd(); HS.homes = []; HS.visit = (HS.visit || 0) + 1; });
+on("town:leave", () => { stopCrowd(); HS.homes = []; HS.byId = new Map(); HS.visit = (HS.visit || 0) + 1; });
 on("run:start", () => { RUN.couch.clear(); RUN.souvenir.clear(); RUN.cholent.clear(); RUN.coins = 0; CR.burgled = null; });
 on("honk", () => { if (CR.on) crowdHonk(); });
 
@@ -123,6 +168,7 @@ const doorSpot = {
         const f = ctx.foot.pos;
         let bd = 2.6;
         for (const h of HS.homes) { const d = Math.hypot(h.ap.x - f.x, h.ap.z - f.z); if (d < bd) { bd = d; nearHome = h; } }
+        if (nearHome && !lived(nearHome)) nearHome = null;      // (real estate / her own house: their ✋, not ours)
         if (nearHome && ctx.interiors && ctx.interiors.home && ctx.interiors.home.warm) ctx.interiors.home.warm();     // (at a door: its inside loads now)
         return nearHome ? { x: nearHome.ap.x, z: nearHome.ap.z } : null;
     },
@@ -343,12 +389,31 @@ ctx.homes = {
     get inside() { return !!VISIT.cur; },
     /** The house she's in: { name, key, mode } | null. */
     get house() { const c = VISIT.cur; return c ? { name: c.home.name, key: c.home.key, mode: c.mode } : null; },
-    /** This town's front doors: [{ i, key, name, cast, ap: {x, z} (where to stand), door, model }]. */
-    homes: () => HS.homes.map(h => ({ i: h.i, key: h.key, name: h.name, cast: h.cast.slice(), ap: Object.assign({}, h.ap), door: Object.assign({}, h.door), model: h.model })),
+    /** This town's front doors: [{ i, key (= id, stable: town + position), name, cast, ap: {x, z} (where to stand), door, model,
+     *  status: null (a family lives here) | a claim ("mine", "listed", "moved", "lulu"…) }]. */
+    homes: () => HS.homes.map(h => ({ i: h.i, key: h.key, id: h.key, name: h.name, cast: h.cast.slice(), ap: Object.assign({}, h.ap), door: Object.assign({}, h.door), model: h.model, status: claimOf(h) })),
+    // ── who lives here? (features/realestate, ci/hometown, ci/crime) ──
+    /** The stable id of the door at world x/z in the town she's in (the same as ctx.realestate.keyOf). */
+    idAt: (x, z) => (ctx.town && ctx.town.def ? doorId(ctx.town.def.id, x, z) : null),
+    /** Who lives behind door `id` (the town she's in): { id, name, family: "the Goldbergs", cast, names, ap, door, status }
+     *  — status null = the household is home; otherwise the door is claimed (see claim()) and nobody of ours lives there. */
+    household(id) { const h = HS.byId.get(id); return h ? { id: h.key, name: h.name, family: `the ${plural(h.name)}`, cast: h.cast.slice(), names: Object.assign({}, h.names), ap: Object.assign({}, h.ap), door: Object.assign({}, h.door), status: claimOf(h) } : null; },
+    /** The household of the nearest door within r metres of x/z (porch thieves, deliveries…) | null. */
+    householdAt(x, z, r = 6) { let b = null, bd = r; for (const h of HS.homes) { const d = Math.hypot(h.ap.x - x, h.ap.z - z); if (d < bd) { bd = d; b = h; } } return b ? ctx.homes.household(b.key) : null; },
+    /** Does a family live behind door `id` right now? (false: claimed / moved out / not a door of this town) */
+    livedIn: id => { const h = HS.byId.get(id); return !!h && lived(h); },
+    /** Mark doors as someone else's: fn(id, home) → null (the family's) | a status string ("mine", "listed", "packing",
+     *  "empty", "rented", "friend"…). Homes gives those doors up entirely. Returns an unregister function. */
+    claim(fn) { if (typeof fn !== "function") return () => { }; CLAIM.fns.push(fn); return () => { const k = CLAIM.fns.indexOf(fn); if (k >= 0) CLAIM.fns.splice(k, 1); }; },
+    /** A claim changed (a house bought / sold / listed): the porch scenes follow on the next town visit, the ✋ at once. */
+    refresh() { if (CR.on && ctx.town && ctx.town.active) { stopCrowd(); startCrowd(null, ctx.town.def, crowdHomes(), { drives: ctx.town.drives || [] }); crowdActor(); } return true; },
+    /** The family moves out of door `id` for good (real estate bought them out) — saved; moveIn(id) undoes it. */
+    moveOut(id, why = "sold") { if (!id) return false; (S.moved = S.moved || {})[id] = { at: Date.now(), why }; delete S.fam[id]; saveSoon(); emit("homes:moved", { id, out: true, why }); return true; },
+    moveIn(id) { if (!id || !S.moved || !S.moved[id]) return false; delete S.moved[id]; saveSoon(); emit("homes:moved", { id, out: false }); return true; },
     /** Straight in (on foot in town): mode "sneak" | "guest" | "kid", via "door" | "window". */
-    enter(i, mode = "sneak", via = "door") { const h = HS.homes[i]; if (!h || !ctx.foot || !ctx.foot.active) return false; const sc = doorstep(h); if (!sc) return false; sc.go = { home: h, mode, via }; return true; },
+    enter(i, mode = "sneak", via = "door") { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; if (!h || !lived(h) || !ctx.foot || !ctx.foot.active) return false; const sc = doorstep(h); if (!sc) return false; sc.go = { home: h, mode, via }; return true; },
     /** Knock at door i (the doorstep scene). */
-    knock(i) { const h = HS.homes[i]; if (!h) return false; const sc = doorstep(h); if (!sc) return false; knock(h, sc).catch(e => console.error(e)); return true; },
+    knock(i) { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; if (!h || !lived(h)) return false; const sc = doorstep(h); if (!sc) return false; knock(h, sc).catch(e => console.error(e)); return true; },
     /** 🔔 The doorbell rang (a friend covering for her — features/partners): everyone inside comes to the door for `sec`. → n */
     distract(sec = 12, line) { return VISIT.cur ? distract(currentRoom(), sec, line) : 0; },
     /** What a family remembers about her: { visits, seen, burgled, guest, items } | null. */
@@ -361,9 +426,12 @@ ctx.homes = {
         /** Put Lulu right in front of a resident (tests). */
         near(kind, dist = 1.0) { const c = VISIT.cur; const r = c && c.V.res.find(q => q.kind === kind); if (!r) return false; const o = r.p.obj; c.rt.lulu.obj.position.set(o.position.x + Math.sin(o.rotation.y) * dist, 0, o.position.z + Math.cos(o.rotation.y) * dist); return true; },
         report: (i, charges) => reportCall(HS.homes[i], charges || [CHARGE]),
-        startCrowd: () => { if (!(ctx.town && ctx.town.active)) return false; const r = startCrowd(null, ctx.town.def, HS.homes, { drives: ctx.town.drives || [] }); crowdActor(); return r; },
+        startCrowd: () => { if (!(ctx.town && ctx.town.active)) return false; const r = startCrowd(null, ctx.town.def, crowdHomes(), { drives: ctx.town.drives || [] }); crowdActor(); return r; },
         stopCrowd,
-        doors: () => HS.homes.length,
+        doors: () => HS.homes.length, claimOf: i => claimOf(typeof i === "string" ? HS.byId.get(i) : HS.homes[i]), CLAIM,
+        /** Rebuild the door list from ctx.town.homes (tests: a landmark replaced a house). */
+        rebuild: () => { buildDoors(); return HS.homes.length; },
+        spot: () => { const p = doorSpot.pos(); return p ? { x: p.x, z: p.z, key: nearHome && nearHome.key } : null; },
     },
 };
 export { HS };
