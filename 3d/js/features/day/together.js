@@ -81,7 +81,7 @@ function help(match) {
 on("world:visit", e => help(it => (it.kind === "place" && e && e.id === it.place ? 1 : 0)));
 on("hustle:end", e => help(it => (it.kind === "job" && e && e.result === "pass" ? 1 : 0)));
 on("stat", e => help(it => (it.kind === "stat" && e && it.stat === e.id ? e.n || 1 : 0)));
-// (kind "event": listened for once it's on her list — other features add these at boot, e.g. shops' "say hi to Moishe")
+// (kind "event": listened for once it's on her list — other features add these at boot, e.g. shops' "say hi to Refael")
 const EVS = new Set();
 function listenEv(ev) { if (!ev || EVS.has(ev)) return; EVS.add(ev); on(ev, () => help(it => (it.kind === "event" && it.ev === ev ? 1 : 0))); }
 

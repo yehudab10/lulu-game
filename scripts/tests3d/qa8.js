@@ -1,5 +1,5 @@
 // 🐞 QA sweep, part 8 — THE SHOPS (ci/shops), with the watchdog (scripts/lib/qawatch.js) on: a test drive at Uncle
-// Moishe's interrupted at odd moments — paused on its last second (the clock must stop under the pause menu), 🆘 mid-drive
+// Refael's interrupted at odd moments — paused on its last second (the clock must stop under the pause menu), 🆘 mid-drive
 // (still a test drive), knocked out in it (the car goes back, she's on her feet), time running out far down the street
 // (back at the lot, no jump), climbing out mid-drive; a monkey run in the pizza room; the "Where to shop" mark re-aims at
 // an exit once she's out of town.
