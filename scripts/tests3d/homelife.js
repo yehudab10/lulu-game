@@ -35,7 +35,9 @@ module.exports = {
     const choose = async re => { for (let k = 0; k < 12; k++) { await t.frames(6); const was = await g(`ctx.dialogOpen`); if (!was) return true; await t.click(re); await t.frames(4); if (!await t.L(`[...document.querySelectorAll("#dialog button")].some(b => ${re}.test(b.textContent))`)) return true; } return false; };
     const toDoor = async key => {
       await onFoot();
-      await g(`(() => { if (window.__qa) { window.__qa.cutF = ctx.frames + 4; window.__qa.last = null; } const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f); if (ctx.cam && ctx.cam.snap) ctx.cam.snap(); return true; })()`);
+      await g(`(() => { if (window.__qa) { window.__qa.cutF = ctx.frames + 4; window.__qa.last = null; } const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f);
+        // (walked up to it: facing the door, the camera behind her on the street side)
+        const yaw = Math.atan2(h.door.x - h.ap.x, h.door.z - h.ap.z); ctx.foot.obj.rotation.y = yaw; if (ctx.cam && ctx.cam.free) ctx.cam.free.yaw = yaw; if (ctx.cam && ctx.cam.snap) ctx.cam.snap(); return true; })()`);
       await t.frames(3);
     };
 
@@ -174,7 +176,7 @@ module.exports = {
         await choose(/Fifty-six/);
         await t.until(`(ctx => { const c = ctx.homes.debug.VISIT.cur; return c && c.V.caughtBy && c.V.caughtBy.length; })(__lulu3d.ctx)`, "…answered", 15000);
         const r = await g(`(() => { const V = ctx.homes.debug.VISIT.cur.V; const b = V.res.find(q => q.kind === "boy"); return { by: V.caughtBy, alarm: V.alarm, friendly: b.friendly }; })()`);
-        t.check("a kid at homework catches her → 7 × 8 → a friend (no alarm)", r.friendly && !r.alarm && r.by[0].how === "homework", JSON.stringify(r));
+        t.check("a kid at homework catches her → 7 × 8 → \"Mommy, a TUTOR!\" (a guest, no alarm)", r.friendly && !r.alarm && r.by[0].how === "homework" && await g(`${D}.room().mode === "guest"`), JSON.stringify(r));
         await leave();
       }
       // the Shabbos table: spotted → a guest; nobody phones on Shabbos

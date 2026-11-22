@@ -226,7 +226,11 @@ export const CATCH = {
         if (rt.disposed) return true;
         if (i === 2 || i < 0) { rt.bubble("MOMMYYY! The ROBBER doesn't know MATH!", r.p.obj, 2.6); return false; }
         r.friendly = true; r.meter = 0; r.state = "routine";
-        rt.bubble(i === 0 ? "YES! ...wait, are you SURE? ...writing it down. You're a GENIUS." : "Fifty-FOUR?! HAHA! Even I know that's wrong! ...okay you can stay, you're FUNNY.", r.p.obj, 3);
+        rt.bubble(i === 0 ? "YES! ...wait, are you SURE? ...writing it down. MOMMY! I got a TUTOR!" : "Fifty-FOUR?! HAHA! Even I know that's wrong! ...MOMMY, the tutor is FUNNY!", r.p.obj, 3);
+        // the grown-up at the desk is won over too: a tutor! (a guest visit now)
+        const helper = rt.data.V.res.find(q => q.K.adult && !q.K.crowd && q !== r);
+        toGuest(rt, "tutor");
+        if (helper) rt.timers.push({ once: true, t: 1.6, gate: false, fn: () => { if (!rt.disposed) rt.bubble(pick(["A TUTOR? Finally! Sit, sit — do you do fractions? Have a cookie.", "Oh thank G-d, a tutor. Take the chair. Take the KID."]), helper.p.obj, 3); } });
         return true;
     },
     async cleaning(rt, r) {
