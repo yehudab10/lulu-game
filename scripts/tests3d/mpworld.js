@@ -206,7 +206,7 @@ async function body(t, pages, riders) {
   await A.frames(5);
   await t.click(/Friends/);
   const hub = await t.L(`[...document.querySelectorAll("#screenCard button")].map(b => b.id)`);
-  t.check("👯 Friends hub: invite · code · party games · play online · 2D (in that order)", ["pt_roam", "pt_join", "pt_host", "pt_online", "pt_open"].every((id, i, a) => hub.indexOf(id) >= 0 && (i === 0 || hub.indexOf(id) > hub.indexOf(a[i - 1]))), hub.join(","));
+  t.check("👯 Friends hub: invite · code · play online · 2D (in that order — no lobby button)", ["pt_roam", "pt_join", "pt_online", "pt_open"].every((id, i, a) => hub.indexOf(id) >= 0 && (i === 0 || hub.indexOf(id) > hub.indexOf(a[i - 1]))), hub.join(","));
   t.check("hub says who's around (EVERYONE)", await t.L(`/other driver|nobody else|show up/.test((document.querySelector(".pt-around") || {}).textContent || "")`));
   await t.shot("hub");
   await t.L(`document.getElementById("pt_roam").click()`);

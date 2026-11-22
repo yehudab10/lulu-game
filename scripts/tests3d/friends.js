@@ -149,9 +149,47 @@ async function body(t, pages) {
   const inParty = await A.L(`(document.getElementById("lpApp") || {}).textContent || ""`);
   t.check("…which shows B as \"with you\"", /with you/.test(inParty), inParty.slice(0, 200));
   await A.game(`(ctx.phone.closePhone(), true)`);
-  await A.game(`(ctx.party.leave(), true)`);
+  const aw = await A.L(`import("./js/features/friends/group.js").then(m => [m.awayFrom("lakewood", [{ zone: "midwood" }], z => z === "midwood" ? "Midwood" : z), m.awayFrom("lakewood", [{ zone: "lakewood" }]), m.awayFrom("", [{ zone: "midwood" }])])`);
+  t.check("\"leave the group?\" only when she's in a town none of her friends are in", /friends are in Midwood — leave the group/.test(aw[0]) && aw[1] === "" && aw[2] === "", JSON.stringify(aw));
+  // 🏁 the old lobby games as a vote from 🌍 Free Roam: A asks, B gets ONE chip, it starts only when everyone's in
+  await A.game(`(ctx.phone.isOpen && ctx.phone.closePhone(), true)`);
+  const why = await A.game(`ctx.group.vote.propose("race")`);
+  t.check("👯 › Games: A asks for a 🏁 race (everyone)", why === "", why);
+  if (await B.until(`(ctx.group.vote.current() || {}).k === "race"`, "B: the race vote arrives", 30000)) {
+    await B.frames(6);
+    const vchip = await B.L(`(() => { const c = document.getElementById("frChip"); return c && c.offsetParent !== null ? c.textContent : ""; })()`);
+    t.check("B: ONE quiet chip — Kugel Kid wants a race (1/2 in)", /wants a race — 1\/2 in/.test(vchip), vchip);
+    t.check("…and nothing has started yet (still 🌍 Free Roam on both)", await A.game(`ctx.party.activity.k === "roam"`) && await B.game(`ctx.party.activity.k === "roam"`));
+    await B.game(`ctx.group.vote.yes()`);
+    const go = await A.until(`ctx.party.activity.k === "race" && ctx.party.activity.fromRoam === 1`, "A: everyone said yes → the race starts", 60000) && await B.until(`ctx.party.activity.k === "race"`, "B: the race starts", 60000);
+    t.check("everyone in → the race starts for both (and remembers it came from Free Roam)", go);
+    await B.game(`ctx.party.hostStart("roam")`);
+    t.check("…and back to 🌍 Free Roam after (no lobby)", await A.until(`ctx.party.activity.k === "roam"`, "A: back in Free Roam", 60000) && await B.until(`ctx.party.activity.k === "roam"`, "B: back in Free Roam", 60000));
+    await A.until(`ctx.state === "playing" || ctx.state === "footRun"`, "A: roaming again", 60000);
+  }
+  // 🤝 missions together (the API features adopt): a test mission on both screens; A offers, B joins, A goes → both start
+  const REG = `(window.__ms = [], ctx.group.invitable({ id: "test.pair", icon: "🧪", title: "Test pair job", blurb: "two of us", max: 4, start: o => window.__ms.push(o) }))`;
+  await A.game(REG); await B.game(REG);
+  const off = await A.game(`ctx.group.offer("test.pair")`);
+  t.check("missions: A offers a mission from 👯", off === "", off);
+  if (await B.until(`(ctx.group.offerNow() || {}).id === "test.pair"`, "B: the offer arrives", 30000)) {
+    await B.frames(6);
+    const mchip = await B.L(`(() => { const c = document.getElementById("frChip"); return c && c.offsetParent !== null ? c.textContent : ""; })()`);
+    t.check("B: ONE quiet chip — Kugel Kid: Test pair job — join?", /Test pair job — join\?/.test(mchip), mchip);
+    await B.game(`ctx.group.joinOffer()`);
+    await A.until(`(ctx.group.offerNow() || {}).ins && ctx.group.offerNow().ins.length === 2`, "A: B is in", 30000);
+    await A.game(`ctx.group.goNow()`);
+    const both = await A.until(`window.__ms.length === 1`, "A: the mission starts", 30000) && await B.until(`window.__ms.length === 1`, "B: the mission starts", 30000);
+    const ma = await A.game(`window.__ms[0]`), mb = await B.game(`window.__ms[0]`);
+    t.check("▶ go now → start() runs on BOTH screens with the same members + seed", both && ma.members.length === 2 && ma.seed === mb.seed && ma.members.join() === mb.members.join() && !!ma.by && ma.by === mb.by, JSON.stringify([ma, mb]));
+  }
+  // 🚪 Leave the group (one tap in 👯): carry on alone from home — not the title screen
+  await A.game(`(ctx.phone.openPhone("owparty"), true)`);
+  await A.frames(4);
+  await A.L(`document.getElementById("owLeave").click()`);
   await B.game(`(ctx.party.leave(), true)`);
-  await A.until(`!ctx.party.active && ctx.state === "title"`, "A: left the party");
+  await A.until(`!ctx.party.active && (ctx.state === "footRun" || ctx.state === "playing") && ctx.G.mode === "cruise"`, "A: left the group → home, still playing", 120000);
+  t.check("🚪 Leave the group: carries on alone from home (not the title screen)", await A.game(`!ctx.party.active && ctx.state !== "title"`));
   t.check("ctx.group: alone again after leaving", await A.game(`!ctx.group.active && ctx.group.size === 0 && ctx.group.members.length === 0`));
   await B.until(`!ctx.party.active && ctx.state === "title"`, "B: left the party");
   await drive(A, 400, 1.75);
