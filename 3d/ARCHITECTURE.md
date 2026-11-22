@@ -24,7 +24,8 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/features/underworld/                   😈 crooked cops, Velvel's garage, the Fixer's jobs + heat, road-ragers / gang cars / pickpockets
   js/features/seasons/                      🕎 the world follows the real Hebrew calendar: menorahs in the windows, the Purim parade, sukkahs, …
   js/features/onegame/                      🎮 one game, not a menu of modes: the 🧳 road trip / 🅿️ booth / Dina / Friday rush entered from the world, 🏠 home()
-  js/features/airport/                      ✈️ the JFK exit (stage 1: its own interchange, the kerb loop, parking, the terminal outside, the tower, the runway fence + joke, planes overhead; polish: chase routes, kerb collisions, kerb security, a lighter LOW; OFF by default until ci/exits2)
+  js/features/airport/                      ✈️ the JFK exit (stage 1: its own interchange, the kerb loop, parking, the terminal outside, the tower, the runway fence + joke, planes overhead; polish: chase routes, kerb collisions, kerb security, a lighter LOW; ON since ci/exits2; ?airport=0 turns it off)
+  js/features/cityhall/                     🏛️ city hall in each town (take-a-number, Permits · Taxes · Complaints, the mayor's office), the mayors + their ribbon cuttings
   js/spatial.js                             positional 3D audio (A.spatial): pooled panner voices, listener on the camera
   js/features/feel/                         sound kinds + passing whooshes + muffled music on foot; damage on Lulu's car
   js/features/life/                         🍃 ambient life: footsteps by surface, puddles after rain, wind (leaves, flyers, leaf piles), the neighbourhood's sounds; pigeons, chimney smoke + steam, car-alarm lights, friends' footsteps
@@ -668,6 +669,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | realestate 🏘️ | **personal homes, shared ownership** (🌍 Free Roam only) | Every home's address / price / today's listing is a pure function of the town data + the device's date. In a party the market, the office, the bank's mortgage desk, viewings and buying work only in 🌍 Free Roam (`locked()`: a lobby activity / a race keeps it shut). Each player publishes the homes they own IN THE TOWN THEY'RE IN as `d.x.re` (`["l178,240,<minute bought>", …]`, ≤ 10) — `party.js` turns friends' lists into a registry SOURCE: a friend's home is never listed and can't be claimed, gets a mailbox in that friend's colour, and ✋ at its door says whose it is / 👯 JOIN <name> INSIDE when they're in (features/together `SHARED.realestateHouse` — the room's instance is the house id; a viewing stays personal). Visitors look, nobody redecorates in a party (like decor), no coins move. A double booking (two friends signed one home at once): the earlier purchase keeps it, the other gets every coin back + a text. Mortgage payments, rent and tenants are each player's own. Strangers never publish / see any of it. Test: `realestatefriends` (two pages). |
 | airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
 | airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
+| cityhall 🏛️ | **shared room**, personal ribbon cuttings | `cityhall` is in `together/rooms.js` SHARED (set from `features/cityhall`, the town tells two copies apart): friends in a party's 🌍 Free Roam who walk into the same town's city hall see each other; each screen runs its OWN clerks / secretary / mayor (which window is "back in 5 minutes" follows each device's clock). The mayor's ribbon cuttings out in town are local + cosmetic (each screen its own, nothing pays). Off in a lobby activity and in Dina's mode (the door's `canWalkIn`). |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -1363,6 +1365,35 @@ candy man declines, a bare table), `yk` (everyone in white, parochet white, nobo
 (n + the helper lit). **Rules**: the jokes are about people; nothing holy is interactive; no coins change hands (the candy man's
 lollipop — `SAVE.lastPop` day key, ONE a real day, nothing but a smile; tested: coins, hearts, score unchanged); lines are in
 `shul/data.js`. Tests `scripts/tests3d/shul.js`.
+
+**City hall (cityhall, ci/cityhall — roadmap 17: "a town that governs (badly)"):** 🏛️ the owner: "Taxes. Banks. Annoying
+government regulation. Mayor. Protests… more corruption. More immersion." `features/cityhall/`, landed in stages.
+**Stage 1 — the building + the mayors.** The building is TOWN DATA: `uses.cityhall` = `cityhallUse(town, { with })`
+(`place.js`, like shops' `dealerUse`) — Lakewood City Hall on Minivan Way (block 3,2 n, next door to the precinct + court),
+Midwood Borough Hall on Avenue K (block 2,2 s, across from them), a plain house either side; the face's old houses are
+gone (realestate's `migrate` / `compensate` handle any home that was bought there). The model `cityhall_hall` is CODE-BUILT
+(`models.js`, registered into `models` when the town file imports `place.js`; merged by kit.js like any Blender model:
+~0 draw calls, ~1.5k triangles, tints by material name Walls / Trim / Roof / Accent): a columned portico + pediment
+(the town's atlas sign on the frieze), steps, a clock tower stuck at ten to five with a little dome, two flagpoles,
+benches, planters and the mayor's statue of himself. `T.spots.cityhall` is the door; 📍 Nearby lists it (openworld
+`SPOT_NAMES`); heist/bank.js `TOWN_INTERIORS` keeps the room in town. **Walking in** (`index.js`, the Places pattern):
+✋ 🏛️ ENTER CITY HALL at the door (warmed from 24 m → a soft cut), not in a chase / a party outside Free Roam / a robbery;
+out by the same door. **The room** (`lobby.js`, interiors engine `cityhall` on `homesKit` + boxes, `rooms.js`): three
+dollhouse rooms — the MAYOR'S OFFICE (desk between two flags, his self-portrait, the giant scissors; the mayor himself
+unless `mayorIn()` is false: out cutting a ribbon, or lunch 12–13), the LOBBY (the take-a-number machine: her number
+`S.ticket` goes up, NOW SERVING stays 37 — now and then it flicks to 38 and straight back; two benches of people waiting
+since Chanukah; the notice board; the mayor's poster; his secretary), the WINDOWS (PERMITS · TAXES · COMPLAINTS — one is
+always BACK IN 5 MINUTES: `closedWindow()` = the hour mod 3). Later stages hang a window's real business on
+`ctx.cityhall.windows[id] = async (rt, who, clerkName) → handled`. **The mayors** (fictional; no party, no real-world
+politics): Lakewood's Mayor Fishel Kugelman (ribbon-cutter-in-chief), Midwood's Mayor Hershel Pickleman (nobody else ran)
+— lines in `data.js` `MAYOR`. **Ribbon cuttings** (`ribbon.js`): on foot in a town, now and then (≤ 2 a run, gap
+150–260 s, `ctx.enabled("cityhall")`), 22–40 m up her sidewalk: two posts + a red ribbon, the absurd thing (a pothole, a
+bench, a speed bump, a meter / a trash can, a hydrant, a crosswalk, a bike rack — one baked mesh), the mayor with giant
+scissors + three onlookers; his speech → *SNIP* → polite clapping; ✋ before the snip: 🎀 hold the ribbon / 📸 a photo /
+walk on. Bubbles only (the pop-up budget), nothing pays. Events `cityhall:enter` {town}, `cityhall:mayor` {town, ask},
+`cityhall:complaint` {about}, `cityhall:ribbon` {phase, what, town, held}; stats `cityhallVisits`, `cityhallTickets`,
+`cityhallComplaints`, `cityhallSelfies`, `cityhallRibbonsHeld`, `cityhallRibbonPhotos`. Save `store("cityhall")` (3D only).
+`ctx.cityhall` = `{ spot, enter, mayorIn, closedWindow, here, mayor(town), ribbon, windows, debug }`. Test `cityhall`.
 
 **Shops (shops, ci/shops): the shop moved into the world** (the owner, 2026-11-20: "the shop button … seems pretty hidden
 for the average person … move the shop to places in game"). `features/shops/`: the places you buy things at, one buying
