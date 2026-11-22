@@ -42,6 +42,9 @@ export const group = {
     isFriend(uid) { const f = fidOf(uid); return !!(f && friend(f)); },
 };
 ctx.group = group;
+// step 4: the lobby games as invitations (vote.js) — ctx.group.vote = { propose(k) → "" | why, yes(), callOff(), current(), LOBBY }
+import * as VOTE from "./vote.js";
+group.vote = { propose: k => VOTE.propose(k), yes: () => VOTE.voteYes(), callOff: () => VOTE.callOff(), current: () => VOTE.current(), LOBBY: VOTE.LOBBY };
 
 // ── step 2: "your friends went another way" ───────────────────────────────
 /** Pure: my town zone + where my friends are → the chip's line ("" = nothing to say). */

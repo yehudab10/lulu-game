@@ -118,6 +118,8 @@ ctx.party = {
      *  pose?() → {s, d, h} (publish my pose in another frame), planFirst (the world is planned before the billboards),
      *  ownTraffic?() → true while the activity runs its own traffic (no seeded highway cars) }. */
     addActivity(k, def) { if (!k || !def || ACTS[k]) return false; ACTS[k] = def; ORDER.push(k); return true; },
+    /** Host: start activity k for everyone now (extra fields ride in the activity, e.g. { fromRoam: 1 }). */
+    hostStart: (k, extra) => hostStart(k, extra),
     sendEvent: (k, ...a) => NET.sendEvent(k, ...a),
     broadcast: (k, ...a) => NET.broadcast(k, ...a),
     onHostEvent: fn => NET.onHostEvent(fn),
@@ -363,10 +365,11 @@ addMenuItem("pause", { id: "partyLobby", order: 86, cls: "", label: "🏠 Everyo
 addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Leave the party", visible: () => N.want, action: () => leave() });
 
 // ── host actions ─────────────────────────────────────────────────────────
-function hostStart(k = P.pick) {
+function hostStart(k = P.pick, extra = null) {
     if (!N.isHost || !ACTS[k]) return false;
     const A = N.A, ps = NET.members(), t0 = Math.round(clock() + (ACTS[k].noGrid ? 300 : 5200)), id = (A.id | 0) + 1;
     const next = { k, id, ph: "go", t0, seed: (Math.random() * 4294967295) >>> 0, ps, pick: k, fin: {}, arr: {} };
+    if (extra && typeof extra === "object") Object.assign(next, extra);       // (features/friends' votes: { fromRoam: 1 })
     if (k === "dash") Object.assign(next, { dur: DASH_MS, got: {} });
     if (ACTS[k].init) Object.assign(next, ACTS[k].init(next) || {});
     if (k === "tag") Object.assign(next, { dur: TAG_MS, cop: ps[id % ps.length], n: 0, since: t0, ct: {}, guard: t0 + 3000 });
@@ -1349,9 +1352,11 @@ function renderResults(force) {
     const btns = [];
     if (A.k === "trip" && ctx.play && ctx.play.openPhoto) btns.push({ id: "pt_photo", cls: N.isHost ? "pink" : "pt-big pink", label: `📸 Group photo`, action: () => ctx.play.openPhoto("pause") });
     if (N.isHost) {
-        if (A.k !== "trip") btns.unshift({ id: "pt_again", cls: "pt-big", label: `🔁 ${A.k === "race" ? "Rematch" : "Play again"} ${glyph("confirm")}`, action: () => hostStart(A.k) });
-        else btns.unshift({ id: "pt_again", cls: "pt-big", label: `🏁 Race next ${glyph("confirm")}`, action: () => { P.pick = "race"; hostStart("race"); } });
-        btns.push({ id: "pt_lobby", cls: "purple", label: "🏠 Back to the lobby", action: hostToLobby });
+        const fr = A.fromRoam && ACTS.roam ? { fromRoam: 1 } : null;     // (a game the group voted for from 🌍 Free Roam: no lobby after)
+        if (A.k !== "trip") btns.unshift({ id: "pt_again", cls: "pt-big", label: `🔁 ${A.k === "race" ? "Rematch" : "Play again"} ${glyph("confirm")}`, action: () => hostStart(A.k, fr) });
+        else btns.unshift({ id: "pt_again", cls: "pt-big", label: `🏁 Race next ${glyph("confirm")}`, action: () => { P.pick = "race"; hostStart("race", fr); } });
+        if (fr) btns.push({ id: "pt_roamback", cls: "purple", label: "🌍 Back to Free Roam", action: () => hostStart("roam") });
+        else btns.push({ id: "pt_lobby", cls: "purple", label: "🏠 Back to the lobby", action: hostToLobby });
     }
     btns.push({ id: "pt_leave2", cls: "alt", label: "🚪 Leave party", action: () => leave() });
     H.showScreen(html, btns, { onBack: () => { }, focus: btns[0].id, cls: "pt-card pt-lobby" });

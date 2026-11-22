@@ -151,6 +151,22 @@ async function body(t, pages) {
   await A.game(`(ctx.phone.closePhone(), true)`);
   const aw = await A.L(`import("./js/features/friends/group.js").then(m => [m.awayFrom("lakewood", [{ zone: "midwood" }], z => z === "midwood" ? "Midwood" : z), m.awayFrom("lakewood", [{ zone: "lakewood" }]), m.awayFrom("", [{ zone: "midwood" }])])`);
   t.check("\"leave the group?\" only when she's in a town none of her friends are in", /friends are in Midwood — leave the group/.test(aw[0]) && aw[1] === "" && aw[2] === "", JSON.stringify(aw));
+  // 🏁 the old lobby games as a vote from 🌍 Free Roam: A asks, B gets ONE chip, it starts only when everyone's in
+  await A.game(`(ctx.phone.isOpen && ctx.phone.closePhone(), true)`);
+  const why = await A.game(`ctx.group.vote.propose("race")`);
+  t.check("👯 › Games: A asks for a 🏁 race (everyone)", why === "", why);
+  if (await B.until(`(ctx.group.vote.current() || {}).k === "race"`, "B: the race vote arrives", 30000)) {
+    await B.frames(6);
+    const vchip = await B.L(`(() => { const c = document.getElementById("frChip"); return c && c.offsetParent !== null ? c.textContent : ""; })()`);
+    t.check("B: ONE quiet chip — Kugel Kid wants a race (1/2 in)", /wants a race — 1\/2 in/.test(vchip), vchip);
+    t.check("…and nothing has started yet (still 🌍 Free Roam on both)", await A.game(`ctx.party.activity.k === "roam"`) && await B.game(`ctx.party.activity.k === "roam"`));
+    await B.game(`ctx.group.vote.yes()`);
+    const go = await A.until(`ctx.party.activity.k === "race" && ctx.party.activity.fromRoam === 1`, "A: everyone said yes → the race starts", 60000) && await B.until(`ctx.party.activity.k === "race"`, "B: the race starts", 60000);
+    t.check("everyone in → the race starts for both (and remembers it came from Free Roam)", go);
+    await B.game(`ctx.party.hostStart("roam")`);
+    t.check("…and back to 🌍 Free Roam after (no lobby)", await A.until(`ctx.party.activity.k === "roam"`, "A: back in Free Roam", 60000) && await B.until(`ctx.party.activity.k === "roam"`, "B: back in Free Roam", 60000));
+    await A.until(`ctx.state === "playing" || ctx.state === "footRun"`, "A: roaming again", 60000);
+  }
   // 🚪 Leave the group (one tap in 👯): carry on alone from home — not the title screen
   await A.game(`(ctx.phone.openPhone("owparty"), true)`);
   await A.frames(4);

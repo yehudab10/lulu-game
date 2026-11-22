@@ -1428,7 +1428,13 @@ without touching your feature again. **Step 2 (forming / leaving):** joining a f
 group; 👯 › **🚪 Leave the group** is one tap and she carries on ALONE FROM HOME (`ctx.group.leave()` → `ctx.party.leave(false)`
 + `ctx.onegame.home({ via: "group" })`, not the title screen; friends keep playing; the list stays). Pulling into a town none
 of her friends are in (≥ 12 s, once per town, ~9 s) shows ONE quiet chip "🚪 Your friends are in Midwood — leave the group?"
-(`ctx.group.away`, the friends chip; a tap opens 👯 — never automatic). Test: `scripts/tests3d/friends.js` (add from Nearby, no
+(`ctx.group.away`, the friends chip; a tap opens 👯 — never automatic). **Step 4 (the lobby games as invitations, `vote.js`):** in 🌍 Free Roam 👯 › Games
+also lists 🏁 Race · 🏡 Road trip · 🕎 Dreidel dash · 🚓 Cop tag "(everyone)": anyone asks (`ctx.group.vote.propose(k)`),
+everyone who hasn't answered gets ONE quiet chip ("🏁 Kugel Kid wants a race — 1/3 in · 📱 👯") + a ✅ I'm in row, and the
+HOST starts it (`ctx.party.hostStart(k, { fromRoam: 1 })`) only when EVERY member said yes within 40 s (a party shares one
+activity — a maybe never pulls anyone in); the asker can ✖ call it off. Votes are reliable host events (`gvp` / `gvy` /
+`gvx`), the tally is the host's snapshot extra `x.gv` = [n, key, byUid, yesUids, untilClock]. A voted game's results offer
+🔁 again (still from Free Roam) and **🌍 Back to Free Roam** instead of the lobby (`pt_roamback`). Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).

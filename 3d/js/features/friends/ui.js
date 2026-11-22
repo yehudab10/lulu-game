@@ -8,6 +8,7 @@ import * as H from "../../hud.js";
 import * as ST from "./store.js";
 import * as HS from "./handshake.js";
 import * as BL from "./bell.js";
+import * as VOTE from "./vote.js";
 
 let X = null;                                   // index.js's code / join helpers
 const V = { api: null, app: "friends", arg: null, lastCheck: -1e9, wait: "" };
@@ -197,6 +198,25 @@ export function wirePartyRow(el, api) {
     onc(el, "[data-fpy]", async b => { await HS.accept("party", b.dataset.fpy); api.refresh(); });
 }
 
+// ── 👯 › Games: the old lobby games as a vote (everyone says yes) ─────────
+export function voteRows() {
+    const v = VOTE.current();
+    if (v) {
+        const G = VOTE.LOBBY[v.k], who = ctx.party.players.find(m => m.uid === v.by);
+        let h = `<div class="lp-card"><span class="lp-av">${G.emoji}</span><span class="lp-tx"><b>${esc(G.name)}? ${v.yes.length} of ${v.need} in</b><small>${esc(who ? who.name : "A friend")} asked · starts when everyone's in · ${v.left} s</small></span></div>`;
+        if (!v.iAmIn) h += row("grYes", "✅", `I'm in`, `${esc(G.name)} with everyone — back to Free Roam after`);
+        if (v.mine) h += row("grOff", "✖", "Call it off", "nobody minds");
+        return h;
+    }
+    return Object.entries(VOTE.LOBBY).map(([k, G]) => row("grV_" + k, G.emoji, esc(G.name) + " (everyone)", esc(G.blurb) + " · starts when every friend says yes", "Ask", ` data-gv="${k}"`)).join("");
+}
+export function wireVote(el, api) {
+    onc(el, "[data-gv]", b => { const why = VOTE.propose(b.dataset.gv); if (why) api.toast(why); else api.refresh(); });
+    onc(el, "#grYes", () => { VOTE.voteYes(); api.refresh(); });
+    onc(el, "#grOff", () => { VOTE.callOff(); api.refresh(); });
+}
+on("group:vote", () => refresh());
+
 // ── the one quiet chip: a friend waiting to join me (or, in a party, asking to be friends) ──
 let chipEl = null, chipKey = "";
 function chipTick() {
@@ -204,6 +224,7 @@ function chipTick() {
     let html = "", tap = null;
     if (asks.length) { const f = ST.friend(asks[0].f); if (f) { html = `🙋 ${esc(ST.labelOf(f))} wants to join you · 📱 👯`; tap = "join"; } }
     else if (pAsk) { const p = ctx.party && ctx.party.players.find(x => x.uid === pAsk.peer); html = `🤝 ${esc(p ? p.name : "A friend")} wants to be friends · 📱 👯`; tap = "party"; }
+    else if (VOTE.chipLine()) { html = esc(VOTE.chipLine()); tap = "party"; }               // (stage 2: a lobby game vote)
     else if (ctx.group && ctx.group.away) { html = esc(ctx.group.away); tap = "party"; }      // (stage 2: friends went another way)
     if (H.popupsBlocked() || (ctx.phone && ctx.phone.isOpen)) html = "";
     if (html === chipKey) return;
