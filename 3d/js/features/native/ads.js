@@ -267,7 +267,7 @@ function koRewardOK() {
 }
 addMenuItem("pause", {
     id: "adReward", order: 6, group: "main",
-    label: () => `📺 WATCH → +${ADMOB.rewardCoins} 💰 <small>(after a knock-out)</small>`,
+    label: () => `📺 Watch an ad for +${ADMOB.rewardCoins} coins`,
     visible: () => koRewardOK(),
     action: () => {
         if (!koRewardOK()) return;
@@ -314,7 +314,7 @@ function addRewardButton() {
     const b = document.createElement("button");
     b.className = "btn alt";
     b.id = "adReward";
-    b.innerHTML = `📺 WATCH → +${ADMOB.rewardCoins} 💰`;
+    b.innerHTML = `📺 Watch an ad for +${ADMOB.rewardCoins} coins`;
     b.addEventListener("click", () => {
         A.sfxSelect();
         if (!rewardedAvailable()) { b.remove(); H.refreshFocus(true); return; }

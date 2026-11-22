@@ -376,10 +376,10 @@ addMenuItem("title", {
 });
 addMenuItem("pause", { id: "partyLobby", order: 86, cls: "",
     // (a game the group voted for from 🌍 Free Roam goes back to Free Roam — features/friends stage 2; an old-style lobby party → the lobby)
-    label: () => (N.A.fromRoam && ACTS.roam ? "🌍 Everyone back to Free Roam" : "🏠 Everyone back to the lobby"),
+    label: () => (N.A.fromRoam && ACTS.roam ? "🌍 End the game for everyone" : "🏠 Everyone back to the lobby"),
     visible: () => N.want && N.isHost && N.A.k !== "lobby" && N.A.k !== "roam",
     action: () => { resume(); if (N.A.fromRoam && ACTS.roam) hostStart("roam"); else hostToLobby(); } });
-addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Leave the party", visible: () => N.want, action: () => leave() });
+addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Stop playing with friends", visible: () => N.want, action: () => leave() });
 
 // ── host actions ─────────────────────────────────────────────────────────
 function hostStart(k = P.pick, extra = null) {
