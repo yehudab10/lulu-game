@@ -845,9 +845,9 @@ and Lakewood shouldn't share the same exit"): the route is data — `towns/index
 (`index.js` › `planRoute`) slides each nominal metre to the first clear one (`exitFitS`: fixed data only — rest areas, a
 bridge, the last exit — never what happens to be on the road), so the exits are the SAME metres on every run and on every
 friend's screen. **A new place gets its own interchange by adding a `ROUTE` stop** (a `towns/<id>.js` def with `attach`).
-`ctx.town.home` = `{ town: "midwood", exitS }` — the route's first exit, where Lulu lives: block 4,1's west face is an
+`ctx.town.home` = `{ town: "midwood", exitS }` — the route's first exit, where Lulu lives: block 4,2's west face (E 34th St between Avenues K and J — the owner's address) is an
 EMPTY LOT (`uses.luluHome`: `{ lot: true, among, dims }` — the face's houses fill round it; its ring of colliders is open
-over the frontage) whose spot (`door`, `drive` nose-out, `kerb`) is pure data: `ctx.town.spotOf("midwood", "luluHome", exitS)`
+over the frontage) whose spot (`door`, `drive` nose-out, `kerb`, `street` — its address) is pure data: `ctx.town.spotOf("midwood", "luluHome", exitS)`
 answers before the town is built and the same after. `ctx.town.addCollider(c, {town, exitS})` (her house's walls),
 `ctx.town.wayOut()` (where the streets hand over to the cross road), `ctx.town.warp({ town, exitS?, at: {x, z, h}, quiet, home })`
 (leave the town she's in with no cut of its own, then a QUIET enter: no welcome sign, no lines, no visit counted;

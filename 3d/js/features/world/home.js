@@ -233,7 +233,7 @@ function buildStreet() {
 }
 
 /** THE TOWN SITE: the family house on its lot in Midwood (features/town: `uses.luluHome`, an empty lot the town
- *  engine reserves — a house among houses on E 16th St). `spot`: the lot in world coords { x, z, nx, nz, ux, uz,
+ *  engine reserves — a house among houses on E 34th St, Avenue K → J). `spot`: the lot in world coords { x, z, nx, nz, ux, uz,
  *  door, drive: { x, z, h }, w, d }. The house goes where its parked car sits just behind the kerb end of the drive. */
 function buildTownHome(spot, town) {
     const g = new THREE.Group();
@@ -705,7 +705,7 @@ export function onTitle(from) {
     const dist = Math.hypot(car.pos.x - P.x, car.pos.z - P.z);
     if (from === "loading" || !from) { placeParked(); return; }
     if (dist < 1.5 && home.phase === "parked") { car.showDriver(false); return; }
-    if (from === "worldDepart" || home.site !== "highway") { placeParked(); home.camSnap = true; return; }      // (in town: TODO a drive up E 16th)
+    if (from === "worldDepart" || home.site !== "highway") { placeParked(); home.camSnap = true; return; }      // (in town: TODO a drive up her street)
     home.camSnap = true;          // she was somewhere else: cut to the street, then watch her drive up
     startArrival();
 }

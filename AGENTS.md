@@ -245,7 +245,7 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 | Midwood | Avenue J, block 0,2 (north face) | Yanky's makolet among the Ave J stores | `ci/shops` (landed) |
 | Midwood | Coney Island Ave kerb by the car service (block 2,1) | Shmerel's van (a kerb spot) | `ci/shops` (landed) |
 | both | the existing pizza shop / Midwood's bakery | walk-in rooms behind the same doors (no new building) | `ci/shops` (landed) |
-| Midwood | E 16th St west side, Avenue L → K (block 4,1 face w) | Lulu's house (empty lot `luluHome`, 14 × 24 m) | `ci/hometown` (lot: `ci/exits2`) |
+| Midwood | E 34th St (was E 16th St; the owner's address), Avenue K → J (block 4,2 face w) | Lulu's house (empty lot `luluHome`, 14 × 24 m) | `ci/hometown` (lot: `ci/exits2`) |
 
 
 ## 7. Backlog / known rough edges (good next tasks)
