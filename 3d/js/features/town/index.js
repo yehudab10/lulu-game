@@ -1059,6 +1059,18 @@ ctx.town = {
         }
         return null;
     },
+    /**
+     * 🌍 ONE WORLD (ci/onemap stage 2): a place's fixed ADDRESS — the same on every lap, every run, every friend's screen
+     * (never an exit metre or a lap number). addressOf(spotName) → "midwood:luluHome"; addressOf(x, z) (world, in the
+     * town she's in) → "lakewood:<lx>:<lz>" — the town's local metres, rounded: the key features/homes (doorId) and
+     * features/realestate already use for a house. On the highway: "hw:<place>" (see ARCHITECTURE › One world).
+     */
+    addressOf(a, z) {
+        if (typeof a === "string") { const d = S.active ? S.def : null; return d ? `${d.base ? d.base.id : d.id}:${a}` : null; }
+        if (!S.active || !S.def) return null;
+        const L = toLocal(a, z, {});
+        return `${S.def.base ? S.def.base.id : S.def.id}:${Math.round(L.x)}:${Math.round(L.z)}`;
+    },
     /** HOME (ci/hometown): `{ town: "midwood", exitS }` — Midwood's own interchange, the route's first exit, at a fixed metre. */
     get home() { const h = home(); return h ? Object.assign({}, h) : null; },
     /** A named spot of the town standing at exitS, in WORLD coords, whether or not it's built yet: an empty lot's spot

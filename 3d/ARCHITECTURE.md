@@ -854,7 +854,13 @@ rest area 5700 · JFK 8800 (`airport/plan.js` › `AIR.every = LAP`) · Lakewood
 `LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · Gas 'n' Go 1300 / 6900 +
 the Lookout 2400 / 8200 (`world/places.js`) · the roadside storefront blocks (`foot/street.js`: the first lap's, repeated).
 The Story Trip's family stops (Bubbe's, the beach…) are its own road: not built on the lap (Story is hidden for now).
-Test `exits` › "lap". Next stages: places keyed by a fixed ADDRESS, one 📱 map + real distances, hooks.
+Test `exits` › "lap". **ADDRESSES (stage 2):** a place's identity is a fixed string — the same every lap, every run, every
+friend's screen; NEVER an exit metre or a lap number (those only say where on the road the one place stands this lap).
+In a town: `"<town>:<lx>:<lz>"` (the town's local metres, rounded — `ctx.town.addressOf(x, z)`; the key `homes` › `doorId`
+and `realestate` already use for a house; shared rooms' `inst` too) or `"<town>:<spot>"` for a named spot
+(`ctx.town.addressOf("luluHome")` → `"midwood:luluHome"`). On the highway: `"hw:rest:<slot>"` (a rest area's `R.address`),
+`"hw:exit:<town>"`, `"hw:jfk"`, `"hw:gas:<n>"` / `"hw:lookout:<n>"` (n = its index on the lap). Next stages: one 📱 map +
+real distances, hooks.
 
 **Towns (town):** a Cruise run has an INTERCHANGE every few km, and **each town has its OWN** (owner 2026-11-20: "Brooklyn
 and Lakewood shouldn't share the same exit"): the route is data — `towns/index.js` › `ROUTE` = `{ period, stops: [{town, at}] }`

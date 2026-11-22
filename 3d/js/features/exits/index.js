@@ -121,7 +121,7 @@ export function planRest(s, force = false, nameK = null) {
     if (!force) { let k = 0; while (k < 80 && !clearAt(s)) { s += 250; k++; } if (k >= 80) return null; }
     if (RS.list.some(R => Math.abs(R.s - s) < 600)) return null;
     const k = nameK != null ? nameK : RS.k++, rnd = mulberry(Math.round(s) * 31 + 7);
-    const R = { s, k, name: L.NAMES[k % L.NAMES.length], res: [], signs: [], alive: true, colliders: LY.colliderList(), cars: [], visited: false };
+    const R = { s, k, address: lapWorld() && nameK != null ? `hw:rest:${nameK}` : null, name: L.NAMES[k % L.NAMES.length], res: [], signs: [], alive: true, colliders: LY.colliderList(), cars: [], visited: false };
     const reserve = (a, b, side, d0, d1) => { w.reserve(a, b, side, d0, d1); R.res.push(w.reserved[w.reserved.length - 1]); };
     reserve(s + LY.TAPER0 - 30, s + LY.ACC1 + 30, 1, 7.2, 74);
     const sign = (u, def) => {
