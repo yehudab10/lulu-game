@@ -133,6 +133,23 @@ module.exports = {
       t.check("Lakewood has Uncle Moishe's + 7 cars on the lot", spots.includes("dealer") && spots.filter(k => k.startsWith("lot_")).length === 7, spots.join(","));
       await view("dealer", "lot-lakewood", 10, 7, 20);
       t.check("the mark is over Uncle Moishe's door in town", await g(`(() => { const tg = ctx.shops.debug.guide.target(), sp = ctx.town.spot("dealer"); return !!(tg && tg.x != null && Math.hypot(tg.x - sp.x, tg.z - sp.z) < 1); })()`));
+      // the ✋ is up wherever she'd naturally stand — not only on the one spot in front of a price board (the owner
+      // walked up to the cars and to the man himself and found nothing to press)
+      const labelAt = async (name, du, dn) => {
+        await W.pause(t, false);
+        await g(`(() => { const sp = ctx.town.spot(${JSON.stringify(name)}); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${dn} + sp.ux * ${du}, 0.05, sp.z + sp.nz * ${dn} + sp.uz * ${du}); F.phase = "walk"; return true; })()`);
+        await t.frames(8);
+        return label();
+      };
+      await onFootAt("lot_purple");
+      const reach = { kerb: await labelAt("lot_purple", 1.2, 2.8), midWalk: await labelAt("lot_purple", -1.2, 1.5), onLot: await labelAt("lot_purple", 0.4, -4), nextCar: await labelAt("lot_orange", 0, -3) };
+      t.check("✋ at a car from the kerb, the middle of the sidewalk and standing on the lot beside it", /ROYAL PURPLE/.test(reach.kerb) && /ROYAL PURPLE/.test(reach.midWalk) && /ROYAL PURPLE/.test(reach.onLot), JSON.stringify(reach));
+      t.check("…and each bay is its own car's (the next one along)", /SUNSET GLOW/.test(reach.nextCar), reach.nextCar);
+      const man = await g(`(() => { const o = ctx.scene.getObjectByName("UncleMoishe"), sp = ctx.town.spot("dealer"); return o ? [(o.position.x - sp.x) * sp.ux + (o.position.z - sp.z) * sp.uz, (o.position.x - sp.x) * sp.nx + (o.position.z - sp.z) * sp.nz] : null; })()`);
+      const byMan = man ? await labelAt("dealer", man[0], man[1] + 1.1) : "";
+      t.check("✋ standing in front of the dealer himself (not only at his door)", /BROWSE/.test(byMan), JSON.stringify({ man, byMan }));
+      await labelAt("lot_purple", 0.4, -4); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`); await t.frames(20); await t.shot("lot-standing-on-it");
+      await onFootAt("lot_purple");      // (back on the sidewalk; the watchdog looks again from here)
       // the card
       t.check("✋ opens the car card", await look("purple"));
       await t.frames(4);
