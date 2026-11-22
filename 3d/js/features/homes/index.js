@@ -172,6 +172,17 @@ function crowdActor() {
 on("town:leave", () => { shareScene(null); stopCrowd(); HS.homes = []; HS.byId = new Map(); HS.visit = (HS.visit || 0) + 1; });
 on("run:start", () => { RUN.couch.clear(); RUN.souvenir.clear(); RUN.cholent.clear(); RUN.coins = 0; RUN.hearts = 0; CR.burgled = null; });
 on("honk", () => { if (CR.on) crowdHonk(); });
+// 📦 features/crime's porch pirate: the family remembers how it went (she got it back · she kept it · it's gone)
+on("crime:porch", e => {
+    if (!e || !e.id || !["back", "kept", "gone"].includes(e.phase)) return;
+    const h = HS.byId.get(e.id);
+    const rec = h ? rec0(h) : S.fam[e.id];
+    if (!rec) return;
+    rec.pkg = e.phase;
+    if (e.phase === "back") rec.favours = (rec.favours | 0) + 1;
+    if (e.phase === "kept") rec.kept = (rec.kept | 0) + 1;
+    saveSoon();
+});
 
 // ── the front doors: a ✋ spot on foot ───────────────────────────────────
 let nearHome = null;
@@ -357,6 +368,8 @@ async function knock(home, sc) {
     let lines = outcome === "scene" ? pick(sd.door.lines) : pick(KNOCK[outcome] || KNOCK.kvetch);
     // a family that likes her says her NAME
     if (kind && byName(rec, home) && outcome !== "again_bad" && outcome !== "sleepy") lines = [pick(GREET_BY_NAME).replace("{who}", "Lulu")].concat(lines);
+    // …and the package (features/crime's porch pirate) — said once
+    if (kind && rec && rec.pkg && outcome !== "sleepy") { lines = [PKG_LINE[rec.pkg]].concat(lines); rec.pkg = null; saveSoon(); }
     const who = kind ? (home.names[kind] || `The ${plural(home.name)}`) : "🏠";
     emit("homes:knock", { key: home.key, outcome, who: kind, scene: sd.id });
     if (outcome.startsWith("again")) emit("homes:recognized", { key: home.key, how: "knock", good: outcome === "again_good" });
@@ -404,6 +417,9 @@ function friendScene(home) {
     return null;
 }
 function shareScene(v) { try { if (ctx.party && ctx.party.active && ctx.party.setX) ctx.party.setX("hs", v); } catch (e) { /* no party */ } }
+const PKG_LINE = { back: "YOU! You got my package back from that GONIF! A hero! In MY doorway!",
+    gone: "Did you SEE who took my package?! ...you didn't? Nobody EVER sees anything on this street.",
+    kept: "...I KNOW it was you. The package. I have a doorbell camera. ...it's broken. But I KNOW." };
 const GREET_BY_NAME = ["{who}! It's {who}! Come here, let me look at you!", "Oh, {who}! Our {who}! You're always welcome here.", "{who}! Perfect timing, as usual!"];
 /** The door menu's line: what she hears from the step + what they think of her. */
 function doorLine(home, sc, rec) {

@@ -242,6 +242,15 @@ module.exports = {
       t.check("all homes jobs: at most 40 coins a real day", await g(`${D}.deliver(${JSON.stringify(b)})`) === 4);
       t.check("a family she's done favours for greets her BY NAME from the porch (and waves her in)", /Lulu/.test(await g(`(${D}.VISITS.porchSaid.clear(), ${D}.porch(${JSON.stringify(b)}))`) || ""));
     });
+    await step("porch pirate", async () => {
+      if (!await g(`ctx.town.active`)) return;
+      const k = await g(`${D}.HS.homes.filter(h => ctx.homes.livedIn(h.key))[11].key`);
+      const f0 = await g(`(ctx.homes.family(${JSON.stringify(k)}) || {}).favours | 0`);
+      await t.L(`import("./js/core/ctx.js").then(m => m.emit("crime:porch", { id: ${JSON.stringify(k)}, fam: "x", phase: "back" }))`);
+      await t.frames(2);
+      const f = await g(`ctx.homes.family(${JSON.stringify(k)})`);
+      t.check("📦 she got a family's package back (features/crime): a favour remembered, said at the door next time", f && (f.favours | 0) === f0 + 1 && f.pkg === "back", JSON.stringify(f));
+    });
     await step("wave-in", async () => {
       if (!await g(`ctx.town.active`)) return;
       const b = await g(`Object.keys(${D}.S.fam).find(k => ctx.homes.livedIn(k) && (${D}.S.fam[k].favours | 0) >= 2)`);

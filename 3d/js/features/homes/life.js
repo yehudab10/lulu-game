@@ -52,7 +52,7 @@ export function identity(home) {
 /** A family's warmth toward Lulu from its saved record: + guest visits, favours, gifts; − break-ins, reports. */
 export function warmth(rec) {
     if (!rec) return 0;
-    return (rec.guest | 0) * 1 + (rec.favours | 0) * 1.5 + (rec.gifts | 0) * 0.5 - (rec.burgled | 0) * 2 - (rec.reported | 0);
+    return (rec.guest | 0) * 1 + (rec.favours | 0) * 1.5 + (rec.gifts | 0) * 0.5 - (rec.burgled | 0) * 2 - (rec.reported | 0) - (rec.kept | 0) * 1.5;
 }
 export function opinion(rec, home = null) {
     const nb = !!(home && home.neighbour);
