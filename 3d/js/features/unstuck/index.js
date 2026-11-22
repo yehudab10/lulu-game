@@ -100,11 +100,13 @@ function townStreet(x, z, hint) {
  */
 function hwNearest(x, z, hint) {
     const hw = ctx.world.highway || ctx.world.road, n = hw.nearest(x, z, fin(hint) ? hint : 0, {});
-    if (Math.abs(n.d) < 50 || !hw.x || !hw.x.length) return n;
+    // (a wrong hint can give a sane-looking d with a garbage s: check the answer by going back to a world point)
+    const ok = m => { const p = hw.point(m.s, m.d, _p); return fin(p.x) && Math.hypot(p.x - x, p.z - z) < 4; };
+    if ((Math.abs(n.d) < 50 && ok(n)) || !hw.x || !hw.x.length) return n;
     let best = 1e18, bi = 0;
     for (let i = 0; i < hw.x.length; i += 10) { const dx = x - hw.x[i], dz = z - hw.z[i], e = dx * dx + dz * dz; if (e < best) { best = e; bi = i; } }
     const m = hw.nearest(x, z, bi * STEP, {});
-    return Math.abs(m.d) < Math.abs(n.d) ? m : n;
+    return ok(m) || !ok(n) ? m : n;
 }
 /** Which way the paved road at (x, z) runs (an airport loop, a lot's aisle): of 24 directions the longest paved run,
  *  the one nearest h0 of each opposite pair. */
@@ -366,7 +368,7 @@ function forceable() {
 /** Never a long trip: an automatic rescue further than (her distance from the road + 100 m) means a check or a lookup
  *  went wrong — it backs off for 30 s instead (a press: + 200 m). */
 function tooFar(sp, auto) {
-    const lim = (sp.off || 0) + (auto ? 100 : 200);
+    const lim = Math.min((sp.off || 0) + (auto ? 100 : 200), auto ? 400 : 600);
     if (!(sp.dist > lim)) return false;
     console.warn("[unstuck] refused a far rescue", Math.round(sp.dist), "m (limit", Math.round(lim), ")");
     if (auto) U.autoLast = ctx.time + 30;
