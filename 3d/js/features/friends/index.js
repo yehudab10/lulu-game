@@ -112,6 +112,19 @@ export async function join(fid, onWait) {
 setInterval(() => { if (cryptoOk()) HS.tick(); }, 250);
 setInterval(() => { if (!cryptoOk()) return; BL.tickBell(); if (C.mine && Date.now() > C.until) closeCode(); }, 1000);
 on("party:status", e => { if (!(e && e.want)) HS.dropChannel("party"); });
+// a friend recognised in EVERYONE: knocks carry which ghost each of us is (sealed) → relabel the ghosts
+on("friends:presence", () => { if (ctx.mp && ctx.mp.relabel) ctx.mp.relabel(); });
+// I just came into the EVERYONE room (a new ghost id): tell my friends which one is me (a knock round; ≤ 1 a minute)
+let lastLobbyCheck = 0, lastLobbyId = "";
+on("mp:status", e => {
+    if (!(e && e.connected) || !cryptoOk() || !ST.S.list.length || ST.S.hidden) return;
+    setTimeout(() => {
+        const M = ctx.mp;
+        if (!M || !M.connected || M.room !== "lobby" || M.myId === lastLobbyId || Date.now() - lastLobbyCheck < 60000) return;
+        lastLobbyId = M.myId; lastLobbyCheck = Date.now();
+        BL.checkAll();
+    }, ctx.TEST ? 300 : 2000);
+});
 on("friends:made", e => {
     if (!e) return;
     const msg = e.result === "full" ? `👯 Your friends list is full (${ST.CAP})` : e.result === "added" ? `🤝 You and ${ST.labelOf({ n: e.n, f: e.f })} are friends!` : e.result === "updated" ? `🤝 ${ST.labelOf({ n: e.n, f: e.f })} — still friends` : "";
@@ -149,6 +162,8 @@ ctx.friends = {
     block: (fid, name) => { ST.block(fid, name); BL.seen.delete(fid); UI.refresh(); },
     unblock: fid => { ST.unblock(fid); UI.refresh(); },
     check: () => BL.checkAll(),
+    /** A ghost in EVERYONE → her friend label if she's my friend (she told me, sealed), else null. */
+    byMp: id => BL.byMp(id),
     joinFriend: (fid, onWait) => join(fid, onWait),
     joinAsks: () => BL.joinAsks(),
     answerJoin: (fid, yes) => BL.answerJoin(fid, yes),

@@ -61,6 +61,6 @@ export function openLog(from = "title") {
 
 addMenuItem("title", {
     id: "hustleJobs", order: 57, group: "book", short: "Jobs", label: "💼 Side Jobs",
-    sub: () => LOG.jobs ? `${LOG.passed} done · ${LOG.earned.toLocaleString()} 💰 earned` : "cab fares, getaways, hot deliveries",
+    sub: () => LOG.jobs ? `${LOG.passed} done, ${LOG.earned.toLocaleString()} coins earned` : "Cab rides, getaways and deliveries",
     action: () => openLog("title"),
 });

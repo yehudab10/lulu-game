@@ -223,7 +223,7 @@ module.exports = {
     // ── Lakewood: Main St ──
     if (want("town")) await step("town", async () => {
       await g(`(window.__perfDrive = 0, true)`);
-      await t.until(`__lulu3d.ctx.town.debug.S.loaded`, "town models loaded", 120000);
+      await t.until(`(__lulu3d.ctx.town.load("lakewood"), __lulu3d.ctx.town.loaded("lakewood"))`, "town models loaded", 120000);   // (ask for Lakewood by name: the FIRST exit is Midwood's now, and nothing here drives near either)
       await toPlaying();
       await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
       if (!await t.until(`__lulu3d.ctx.town.active`, "into Lakewood", 10000)) return;

@@ -325,22 +325,13 @@ function teardown() {
 }
 
 // ── the hub (from the title) ─────────────────────────────────────────────
-/** Who's around, in one line (the EVERYONE layer: strangers out in the world right now). */
-function aroundLine() {
-    const M = ctx.mp;
-    if (!M) return "";
-    if (!M.online) return "🌐 Play online is <b>off</b> — just you out there";
-    if (M.connected && M.room === "lobby") { const n = Math.max(0, M.riders - 1); return n ? `🌐 <b>${n}</b> other driver${n === 1 ? "" : "s"} out in the world right now` : "🌐 Online — nobody else out on the road right now"; }
-    return "🌐 Online — other drivers show up when you're out in the world";
-}
+// Kept slim on purpose (owner, 2026-11-22: "it's literally just supposed to be a play button"): friends playing now →
+// ▶ Join; otherwise ONE big "Play with a friend"; a small "Join with a code"; Back. ⚙️ Settings has Play online; the More
+// drawer has Classic 2D friends (features/multiplayer). Wording rules: 3d/docs/words.md.
 function openHub() {
     const can = NET.allowed();
-    const around = aroundLine();
-    const html = `<h2>👯 Friends</h2>
-        <p class="pt-sub">${can ? "Play together in the same world — up to 8 friends. Everyone else out there is a ghost; friends are real cars with their names." : "Playing with friends needs an internet connection."}</p>${around ? `<p class="pt-sub pt-around">${around}</p>` : ""}`;
     const buttons = [];
-    // 👯 your friends list first (features/friends): who's playing right now → ▶ Join in one tap (ci/friends stage 2,
-    // step 5: 👯 is just "Friends" — no lobby to host; the old lobby games are votes inside 🌍 Free Roam)
+    // 👯 your friends list first (features/friends): who's playing right now → ▶ Join in one tap
     const F = ctx.friends;
     if (can && F && F.live) {
         if (!HUB.checked) { HUB.checked = true; Promise.resolve(F.check()).then(() => { if (HUB.open && ctx.state === "title") openHub(); }); }
@@ -348,25 +339,27 @@ function openHub() {
         for (const f of on) buttons.push({ id: "pt_fj_" + f.f, cls: "pt-big", label: `<span>▶ Join ${U.esc(f.label)}</span><small>${U.esc(f.presence.w || "playing")}</small>`, action: () => hubJoin(f.f) });
     }
     if (can) {
-        buttons.push({ id: "pt_roam", cls: on0(buttons) ? "pt-big" : "purple", label: `<span>📤 Invite friends ${glyph("confirm")}</span><small>you head out · send the link · they pop up right next to you</small>`, action: hostRoam });
-        buttons.push({ id: "pt_join", cls: "purple", label: `<span>🔑 Join with a code</span><small>type your friend's 4 letters</small>`, action: () => openJoin() });
+        buttons.push({ id: "pt_roam", cls: on0(buttons) ? "pt-big" : "purple", label: `<span>📤 Play with a friend ${glyph("confirm")}</span><small>Send a link. They'll show up next to you.</small>`, action: hostRoam });
+        buttons.push({ id: "pt_join", cls: "alt", label: `<span>🔑 Join with a code</span>`, action: () => openJoin() });
     }
-    if (ctx.mp && ctx.mp.setOnline) buttons.push({ id: "pt_online", cls: "alt", label: `<span>🌐 Play online: ${ctx.mp.online ? "ON" : "OFF"}</span><small>${ctx.mp.online ? "other drivers show up as ghosts · tap to go solo" : "just you · tap to see other drivers"}</small>`, action: () => { ctx.mp.setOnline(!ctx.mp.online); openHub(); } });
-    // Classic 2D cross-play (a Shared Road code room + your rider name) — small, last
-    if (ctx.mp) buttons.push({ id: "pt_open", cls: "alt", label: `<span>🕹️ Classic 2D friends</span><small>a room code that works with the 2D game · your rider name</small>`, action: () => ctx.mp.open("party") });
     buttons.push({ id: "pt_back", cls: "alt", label: `<span>Back ${glyph("back")}</span>`, action: () => showTitle(true) });
     const fl = can && F && F.live ? F.list : [];
-    const note = fl.length ? `<p class="pt-sub">👯 ${fl.length} friend${fl.length === 1 ? "" : "s"} · ${fl.filter(f => f.presence && f.presence.on).length} playing now${HUB.checked && F.list.some(f => !f.presence) ? " · checking…" : ""} — add or manage them in 📱 👯 out in the world</p>`
-        : can && F && F.live ? `<p class="pt-sub">👯 No friends on your list yet — out in the world: 📍 Nearby › a driver › ➕, or 📱 👯 › ➕ Add by code</p>` : "";
+    const playing = fl.filter(f => f.presence && f.presence.on).length;
+    const line = !can ? "Playing with friends needs an internet connection."
+        : !(F && F.live) ? ""
+        : !fl.length ? "Friends you add show up here."
+        : playing ? "" : HUB.checked && fl.some(f => !f.presence) ? "Checking who's playing…"
+        : fl.length === 1 ? "Your friend isn't playing right now." : `None of your ${fl.length} friends are playing right now.`;
+    const html = `<h2>👯 Friends</h2>${line ? `<p class="pt-sub">${line}</p>` : ""}`;
     HUB.open = true;
-    H.showScreen(html + note, buttons, { onBack: () => { HUB.open = false; HUB.checked = false; showTitle(true); }, focus: buttons[0].id, cls: "pt-card pt-hub" });
+    H.showScreen(html, buttons, { onBack: () => { HUB.open = false; HUB.checked = false; showTitle(true); }, focus: buttons[0].id, cls: "pt-card pt-hub" });
 }
 const HUB = { open: false, checked: false };
 on("state", () => { if (ctx.state !== "title") { HUB.open = false; HUB.checked = false; } });
 const on0 = btns => !btns.some(b => /^pt_fj_/.test(b.id));
 async function hubJoin(fid) {
     H.showScreen(`<h2>👯 Friends</h2><p class="pt-sub">⏳ Knocking…</p>`, [{ id: "pt_back", cls: "alt", label: `Back ${glyph("back")}`, action: openHub }], { onBack: openHub, cls: "pt-card pt-hub" });
-    const msg = await ctx.friends.joinFriend(fid, () => H.showScreen(`<h2>👯 Friends</h2><p class="pt-sub">⏳ Asking — they say yes on their screen…</p>`, [{ id: "pt_back", cls: "alt", label: `Back ${glyph("back")}`, action: openHub }], { onBack: openHub, cls: "pt-card pt-hub" }));
+    const msg = await ctx.friends.joinFriend(fid, () => H.showScreen(`<h2>👯 Friends</h2><p class="pt-sub">⏳ Waiting for them to say yes…</p>`, [{ id: "pt_back", cls: "alt", label: `Back ${glyph("back")}`, action: openHub }], { onBack: openHub, cls: "pt-card pt-hub" }));
     if (/^🚀/.test(msg)) { HUB.open = false; H.toast(msg, "pink", { prio: 2 }); return; }
     if (ctx.state === "title") { openHub(); if (msg) H.toast(msg, "", { prio: 2 }); }
 }
@@ -377,7 +370,7 @@ function openJoin(code = "", msg = "", msgCls = "") {
 // title entry (the parallel UX work groups title items; harmless if ignored)
 addMenuItem("title", {
     id: "party", group: "play", order: 60, cls: "purple",
-    label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} out now</small>` : ""}`,
+    label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} online</small>` : ""}`,
     visible: () => !ctx.TEST || ctx.enabled("party") || ctx.enabled("multiplayer"),
     action: openHub,
 });

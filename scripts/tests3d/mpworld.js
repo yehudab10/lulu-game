@@ -7,7 +7,7 @@
 //   TOWN      a 3D rider in a town shows at the same spot of that town; someone on the highway doesn't
 //   OFF       ⚙️ Settings › Play online OFF disconnects (and stays off); ON again reconnects out in the world;
 //             Dina's mode takes you offline, back in the world you're online again
-//   FRIENDS   the 👯 Friends hub (📤 invite · 🔑 code · 🎮 party games · 🌐 play online · 🕹️ 2D); A invites → straight
+//   FRIENDS   the 👯 Friends hub (📤 Play with a friend · 🔑 Join with a code?); A invites → straight
 //             into 🌍 Free Roam, STILL online (a stranger still shows as a ghost); B joins with the code → lands next to
 //             A as a FRIEND: a real car with B's name, and no second ghost of B; the phone's 👯 app → Go solo
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
@@ -206,8 +206,7 @@ async function body(t, pages, riders) {
   await A.frames(5);
   await t.click(/Friends/);
   const hub = await t.L(`[...document.querySelectorAll("#screenCard button")].map(b => b.id)`);
-  t.check("👯 Friends hub: invite · code · play online · 2D (in that order — no lobby button)", ["pt_roam", "pt_join", "pt_online", "pt_open"].every((id, i, a) => hub.indexOf(id) >= 0 && (i === 0 || hub.indexOf(id) > hub.indexOf(a[i - 1]))), hub.join(","));
-  t.check("hub says who's around (EVERYONE)", await t.L(`/other driver|nobody else|show up/.test((document.querySelector(".pt-around") || {}).textContent || "")`));
+  t.check("👯 Friends hub: Play with a friend, then Join with a code (no Play online / 2D buttons — ⚙️ Settings + ⚙️ More)", hub.indexOf("pt_roam") >= 0 && hub.indexOf("pt_join") > hub.indexOf("pt_roam") && !hub.includes("pt_online") && !hub.includes("pt_open"), hub.join(","));
   await t.shot("hub");
   await t.L(`document.getElementById("pt_roam").click()`);
   if (!await A.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "A: 📤 Invite → Free Roam", 120000)) return;

@@ -31,6 +31,7 @@ import { updateOwnSeat, clearOwnSeat } from "./rider.js";
 import { cabHold } from "./cab.js";
 import "./getaway.js";
 import "./delivery.js";
+import { togetherDebug } from "./together.js";   // 👯 side jobs for two (missions together)
 import { LOG, openLog } from "./log.js";
 import { jobHud, tickerGone } from "./ui.js";
 import { rand } from "./util.js";
@@ -104,5 +105,5 @@ ctx.hustle = {
     log: LOG,
     openLog,
     /** Tests / debug: internals. */
-    _dbg: { J, M, beacons, get pending() { return J.pending; }, get hist() { return J.hist.slice(); }, party: partyDebug },
+    _dbg: { together: togetherDebug, J, M, beacons, get pending() { return J.pending; }, get hist() { return J.hist.slice(); }, party: partyDebug },
 };
