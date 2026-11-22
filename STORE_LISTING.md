@@ -59,7 +59,7 @@ FRIENDS
 • Online play is safe by design: preset emoji reactions only, no typing, generated names, strangers can't touch you, and you can remove or block a friend any time. One switch turns online play off.
 
 YOUR STUFF
-• Earn coins, buy cars at Uncle Moishe's Pre-Loved Cars, add horns and decorations
+• Earn coins, buy cars at Uncle Refael's Pre-Loved Cars, add horns and decorations
 • Decorate Lulu's house and her room
 • Buy homes in town with a mortgage from the bank (and watch out for the city's funny rules)
 • Your coins, cars and progress from earlier versions carry over
@@ -89,7 +89,7 @@ Lulu's Road Trip 2.0 — the whole game rebuilt as a 3D world.
 • Start at home in Midwood and go anywhere: the highway, Lakewood, the airport, rest areas
 • Walk into houses, shops, the pizza place, the shul, the courthouse and the hospital
 • Friends: add each other and play in the same world
-• Buy cars at Uncle Moishe's, decorate Lulu's house
+• Buy cars at Uncle Refael's, decorate Lulu's house
 • Game controller support, portrait and landscape, iPad
 • Your coins, cars and progress carry over
 • The game now gets new things and fixes without waiting for an App Store update

@@ -94,7 +94,7 @@ export default {
             ] },
         hospital: { key: "places_hospital", fallback: "town_mw_store", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
             tints: { Walls: "#B5653F", Trim: "#F2EEE6", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#0D47A1", signFg: ["#FFFFFF", "#BBDEFB"] },
-        // features/shops: Uncle Moishe's Brooklyn branch on Coney Island Ave (car dealers' row) — shops/lot.js
+        // features/shops: Uncle Refael's Brooklyn branch on Coney Island Ave (car dealers' row) — shops/lot.js
         // features/shops: Yanky's 24-Hour Makolet on Avenue J, among the storefronts
         makolet: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.makolet, spot: "makolet",
             tints: { Walls: "#9C4A3C", Awning: "#2E7D32" }, signSize: [8.4, 0.9, 62], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
@@ -139,7 +139,7 @@ export default {
         { street: "Avenue J", from: CIA, to: E15, side: 1 },
         // (features/places: POLICE ONLY in front of the precinct + court, AMBULANCE ONLY at Midwood General)
         { street: "Avenue K", from: CIA + 10, to: E15 - 10 }, { street: "Avenue L", from: E8 + 14, to: CIA - 14 },
-        // (features/shops: the kerb in front of Uncle Moishe's Brooklyn lot)
+        // (features/shops: the kerb in front of Uncle Refael's Brooklyn lot)
         { street: "Coney Island Ave", from: AM + 10, to: AL - 10 },
         // (features/shops: Shmerel's van at the kerb outside the car service)
         { street: "Coney Island Ave", from: AL + 8, to: AK - 8 },

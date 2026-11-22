@@ -1,4 +1,4 @@
-// features/shops/bling.js — ✨ MOISHE'S BLING BAY: horns + car decorations, at the dealership (the showroom's other
+// features/shops/bling.js — ✨ REFAEL'S BLING BAY: horns + car decorations, at the dealership (the showroom's other
 // door, a pink neon star over it). ✋ there → Yossi pulls a copy of HER car (her paint, what's bolted on now) up to the
 // kerb out front and the card opens: every horn (focus = hear it) and every decoration (focus = fitted onto the car in
 // front of her — garage/decor.js, the same pieces the old showroom used). Free on what she owns (put it on / take a
@@ -134,7 +134,7 @@ export function openBling() {
     });
     if (!ok) return false;
     showDisplay(inv.decor);
-    openCard({ title: "✨ Moishe's Bling Bay", tiles: tiles(), focus: "horn:" + inv.horn, onFocus: preview, onClose: () => dropDisplay(),
+    openCard({ title: "✨ Refael's Bling Bay", tiles: tiles(), focus: "horn:" + inv.horn, onFocus: preview, onClose: () => dropDisplay(),
         head: () => `Yossi pulled your car round. Horns: focus to hear · decorations: focus to try on.` });
     emit("stat", { id: "shopsVisits", n: 1 });
     emit("shops:open", { place: "bling", town: ctx.town.id });
@@ -148,7 +148,7 @@ const spot = {
         const b = baySpot(), p = ctx.foot.pos;
         return b && (b.x - p.x) ** 2 + (b.z - p.z) ** 2 < 30 * 30 ? { x: b.x, z: b.z } : null;
     },
-    label: () => "✨ MOISHE'S BLING BAY — HORNS & DECOR",
+    label: () => "✨ REFAEL'S BLING BAY — HORNS & DECOR",
     act: () => openBling(),
 };
 on("boot", () => { if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(spot); });

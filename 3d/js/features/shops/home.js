@@ -2,7 +2,7 @@
 // happens in her driveway, not in a menu. On foot by the garage door (a run starts at home: the car's in the
 // driveway, nose out): ✋ 🔑 MY CARS → a card with every car — hers to pick (free: the car in the driveway is repainted
 // on the spot, the shared save's selectedSkin follows, like the title's old 🚗 Car switch), the ones she doesn't own
-// shown dimmed with where to get them (Uncle Moishe's lot). Never sells anything here.
+// shown dimmed with where to get them (Uncle Refael's lot). Never sells anything here.
 import * as THREE from "three";
 import { ctx, on } from "../../core/ctx.js";
 import { SKINS } from "../../car.js";
@@ -78,9 +78,9 @@ export function openGarage() {
             id: k, name: SKINS[k].name, dot: SKINS[k].body,
             state: () => (owns("car", k) ? (ctx.car.skinKey === k ? "placed" : "owned") : "na"),
             tag: () => (owns("car", k) ? (ctx.car.skinKey === k ? "✓ In the driveway" : "Yours") : `🚗 ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰`),
-            desc: () => (owns("car", k) ? `<i>${SKIN_SHOP[k].flavor}</i>` : `At <b>Uncle Moishe's Pre-Loved Cars</b> — Lakewood (Route 9) or Midwood (Coney Island Ave).`),
+            desc: () => (owns("car", k) ? `<i>${SKIN_SHOP[k].flavor}</i>` : `At <b>Uncle Refael's Pre-Loved Cars</b> — Lakewood (Route 9) or Midwood (Coney Island Ave).`),
             act: () => {
-                if (!owns("car", k)) { cardSay(`Not yours (yet!) — <b>Uncle Moishe's</b> lot has it: ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰.`); return; }
+                if (!owns("car", k)) { cardSay(`Not yours (yet!) — <b>Uncle Refael's</b> lot has it: ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰.`); return; }
                 if (ctx.car.skinKey === k) return;
                 equipSkin(k);
                 if (ctx.foot.repaintCar) ctx.foot.repaintCar();

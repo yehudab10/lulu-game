@@ -12,7 +12,7 @@ Folders: `iphone-6.9/` (1320×2868 · 2868×1320), `iphone-6.5/` (1242×2688 · 
 | 1 | `01-home-*.jpg` | Start at home — the whole world is yours |
 | 2 | `02-highway-*.jpg` | Hit the highway in Lulu's pink convertible |
 | 3 | `03-town-*.jpg` | Walk the streets of Midwood |
-| 4 | `04-car-lot-*.jpg` | Pick your next ride at Uncle Moishe's |
+| 4 | `04-car-lot-*.jpg` | Pick your next ride at Uncle Refael's |
 | 5 | `05-friends-*.jpg` | Play with friends in the same world |
 | 6 | `06-house-*.jpg` | Hang out at home with Ima and Dina |
 | 7 | `07-courtroom-*.jpg` | Have your day in court |

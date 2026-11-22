@@ -1,10 +1,10 @@
-// features/shops/dealer.js — 🚗 UNCLE MOISHE'S PRE-LOVED CARS: the cars stand on a lot in each town (town data
-// `uses.dealer`, shops/lot.js), price boards out front, Uncle Moishe at the showroom door. On foot on the sidewalk:
+// features/shops/dealer.js — 🚗 UNCLE REFAEL'S PRE-LOVED CARS: the cars stand on a lot in each town (town data
+// `uses.dealer`, shops/lot.js), price boards out front, Uncle Refael at the showroom door. On foot on the sidewalk:
 //   ✋ at a car        → the car card: every car on the lot as a tile (D-pad walks the camera down the row), the
 //                        focused one's stats bars + flavour line + price; buy = ask, then buy (shops/card.js);
 //                        🔑 TEST DRIVE (solo): a soft cut and she's in it at the kerb — 60 s, bring it back;
 //                        🔑 DRIVE IT HOME (a car she owns): she drives off in it (her old car goes home).
-//   ✋ at the door     → Moishe's hello + the card on the cheapest car she doesn't own.
+//   ✋ at the door     → Refael's hello + the card on the cheapest car she doesn't own.
 // The focused car is lifted out of the town's merge (its `tag`) and the REAL model stands there while she looks.
 // Buying writes the shared save exactly like the old Shop (garage/buy.js): ownedSkins + selectedSkin, so a new car is
 // her ride at once — she drives it off the lot (her old one waits in her garage at home).
@@ -21,7 +21,7 @@ import { kerbAt } from "../places/out.js";
 import { beacon, hideBeacon } from "../openworld/marks.js";
 import { openCard, cardTick, cardOpen, closeCard, cardSay, cardFocus } from "./card.js";
 import { LOT } from "./lot.js";
-import { MOISHE, PASS_DEALER } from "./data.js";
+import { REFAEL, PASS_DEALER } from "./data.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = n => Math.round(n).toLocaleString("en-US");
@@ -72,46 +72,46 @@ function lotSpot(k) {
 }
 const doorSpot = {
     // (the door AND the man: he stands 2.2 m along from it, and walking up to HIM is what anyone does first)
-    r: 2.4, short: "MOISHE",
+    r: 2.4, short: "REFAEL",
     pos() {
         if (!canShop() || D.busy) return null;
         const sp = spot("dealer");
         return sp && near(sp, 30) ? reach(sp, -3.2, 1.2, -1.2, 2.6) : null;
     },
-    label: () => "🚗 UNCLE MOISHE'S — BROWSE",
+    label: () => "🚗 UNCLE REFAEL'S — BROWSE",
     act() {
         syncInv();
         const k = LOT.filter(x => !inv.ownedSkins.includes(x)).sort((a, b) => SKIN_SHOP[a].price - SKIN_SHOP[b].price)[0] || LOT[0];
-        if (D.moishe) moisheSay(pick(MOISHE.hello), 3.2);
+        if (D.refael) refaelSay(pick(REFAEL.hello), 3.2);
         return openLot(k);
     },
 };
 
-// ── Uncle Moishe (spawned when she's near the lot; gone when she's not) ──
-const D = { moishe: null, lifted: null, script: false, busy: false, said: false, t: 0, cam: null };
-function moisheSay(text, sec = 2.8) { if (D.moishe && ctx.foot && ctx.foot.say) ctx.foot.say(D.moishe.obj, text, sec); }
-function moisheTick(dt) {
+// ── Uncle Refael (spawned when she's near the lot; gone when she's not) ──
+const D = { refael: null, lifted: null, script: false, busy: false, said: false, t: 0, cam: null };
+function refaelSay(text, sec = 2.8) { if (D.refael && ctx.foot && ctx.foot.say) ctx.foot.say(D.refael.obj, text, sec); }
+function refaelTick(dt) {
     const sp = inTown() ? spot("dealer") : null;
     const p = (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
     // (only while she's on foot nearby: a person is ~15 draw calls — the town's budget is measured driving through)
     const want = !!(sp && p && ctx.foot && ctx.foot.active && (ctx.state === "footRun" || cardOpen()) && (sp.x - p.x) ** 2 + (sp.z - p.z) ** 2 < 45 * 45);
-    if (!want) { dropMoishe(); return; }
-    if (!D.moishe) {
+    if (!want) { dropRefael(); return; }
+    if (!D.refael) {
         if (!models.npcMan) { ensureModels(["npcMan"]).catch(() => {}); return; }
-        D.moishe = spawnPerson("npcMan", { colors: MOISHE.colors });
-        D.moishe.obj.name = "UncleMoishe";
-        ctx.scene.add(D.moishe.obj);
+        D.refael = spawnPerson("npcMan", { colors: REFAEL.colors });
+        D.refael.obj.name = "UncleRefael";
+        ctx.scene.add(D.refael.obj);
         // (beside the door, on the lot side, facing the street)
-        D.moishe.obj.position.set(sp.x - sp.nx * 0.6 - sp.ux * 2.2, 0, sp.z - sp.nz * 0.6 - sp.uz * 2.2);
-        D.moishe.obj.rotation.y = Math.atan2(sp.nx, sp.nz);
+        D.refael.obj.position.set(sp.x - sp.nx * 0.6 - sp.ux * 2.2, 0, sp.z - sp.nz * 0.6 - sp.uz * 2.2);
+        D.refael.obj.rotation.y = Math.atan2(sp.nx, sp.nz);
     }
-    const m = D.moishe, fp = ctx.foot && ctx.foot.active ? ctx.foot.pos : null;
+    const m = D.refael, fp = ctx.foot && ctx.foot.active ? ctx.foot.pos : null;
     const close = fp && (fp.x - m.obj.position.x) ** 2 + (fp.z - m.obj.position.z) ** 2 < 14 * 14;
     if (close) m.face(fp.x, fp.z, dt, 4);
     m.update(dt, { wave: close && !D.said, talk: cardOpen() });
     if (close && !D.said && ctx.state === "footRun") {
         D.said = true;
-        moisheSay(pick(MOISHE.hello), 3.4);
+        refaelSay(pick(REFAEL.hello), 3.4);
     }
     // Lulu walking past, once a visit
     if (!D.passed && fp && sp && near(sp, 18) && !cardOpen()) {
@@ -119,10 +119,10 @@ function moisheTick(dt) {
         if (ctx.foot.obj && Math.random() < 0.6) setTimeout(() => { if (ctx.foot && ctx.foot.obj && !D.said) ctx.foot.say(ctx.foot.obj, pick(PASS_DEALER), 2.6); }, 900);
     }
 }
-function dropMoishe() {
-    if (!D.moishe) return;
-    ctx.scene.remove(D.moishe.obj);
-    D.moishe = null;
+function dropRefael() {
+    if (!D.refael) return;
+    ctx.scene.remove(D.refael.obj);
+    D.refael = null;
 }
 
 // ── the real car on the lot (the focused one) ────────────────────────────
@@ -164,7 +164,7 @@ function tiles() {
         id: k, name: SKINS[k].name, dot: SKINS[k].body, price: SKIN_SHOP[k].price,
         state: () => (owns("car", k) ? (inv.selectedSkin === k ? "placed" : "owned") : "buy"),
         tag: () => (owns("car", k) ? (inv.selectedSkin === k ? "✓ Driving it" : "Yours") : ""),
-        desc: () => owns("car", k) ? pick(MOISHE.owned) : "",
+        desc: () => owns("car", k) ? pick(REFAEL.owned) : "",
         act: () => { if (owns("car", k) && inv.selectedSkin !== k) cardSay(`Yours! ✋ <b>🔑 Drive it off the lot</b> — or swap any time in your garage at home.`); },
         buy: () => buyHere(k),
     }));
@@ -172,12 +172,12 @@ function tiles() {
 function buyHere(k) {
     const r = buyCar(k, { equip: false });
     if (!r.ok) {
-        if (r.why === "poor") moisheSay(pick(MOISHE.poor));
+        if (r.why === "poor") refaelSay(pick(REFAEL.poor));
         return r;
     }
     const sk = SKINS[k];
-    H.toast(`🎉 ${sk.name} is yours! Uncle Moishe hands you the keys 🔑`, "gold", { prio: 3, key: "shopsBuy" });
-    moisheSay(pick(MOISHE.bought), 3.4);
+    H.toast(`🎉 ${sk.name} is yours! Uncle Refael tosses you the keys 🔑`, "gold", { prio: 3, key: "shopsBuy" });
+    refaelSay(pick(REFAEL.bought), 3.4);
     emit("shops:car", { id: k, how: "bought" });
     // (a brand-new car is her ride now — like the old Shop: she drives it off the lot; the old one goes home)
     setTimeout(() => { if (cardOpen()) { closeCard(true); endScript(); } driveOff(k, "bought"); }, 650);
@@ -203,7 +203,7 @@ export function openLot(k) {
     if (!ok) return false;
     D.script = true;
     openCard({
-        title: "🚗 Uncle Moishe's Pre-Loved Cars",
+        title: "🚗 Uncle Refael's Pre-Loved Cars",
         head: id => statsHtml(id || k),
         tiles: tiles(),
         focus: k,
@@ -273,7 +273,7 @@ const TD = { on: false, k: null, orig: null, t: 0, chip: null, gone: null, endin
 export function startTest(k) {
     if (!canTestFrom() || !spot("lot_" + k)) return false;
     Object.assign(TD, { on: true, k, orig: ctx.car.skinKey, t: 0, ending: false, town: ctx.town.id });
-    moisheSay(pick(MOISHE.testStart), 3);
+    refaelSay(pick(REFAEL.testStart), 3);
     if (!seatAtKerb(k, "testDrive")) { TD.on = false; return false; }
     hideLot(k, true);
     emit("stat", { id: "shopsTestDrives", n: 1 });
@@ -295,7 +295,7 @@ function testTick(dt) {
     const sp = inTown() ? spot("lot_" + TD.k) : null;
     const kb = sp ? kerbAt(sp, 0) : null;
     if (kb) beacon("shopsTest", kb.x, kb.z, "#FF4F9A", 2.4, 16); else hideBeacon("shopsTest");
-    chip(`🔑 Test drive · <span class="ok">${Math.ceil(left)} s</span><small>bring the ${SKINS[TD.k].name} back to Uncle Moishe's</small>`);
+    chip(`🔑 Test drive · <span class="ok">${Math.ceil(left)} s</span><small>bring the ${SKINS[TD.k].name} back to Uncle Refael's</small>`);
     if (!inTown()) { endTest("left"); return; }
     if (st === "footRun") { endTest("out"); return; }
     if (st !== "playing") return;
@@ -321,7 +321,7 @@ export function endTest(why = "back") {
         // (she drove it out of town: Yossi swaps them back at the next light — her own car, right where she is)
         const sw = () => { restore(); };
         if (ctx.dissolve && !ctx.skipping) ctx.dissolve(sw); else sw();
-        H.toast("📱 Uncle Moishe: “Yossi swapped them back at the light. Come visit!” 🔑", "", { prio: 2, key: "shopsTest" });
+        H.toast("📱 Uncle Refael: “Yossi swapped them back at the light. Next time, come back.” 🔑", "", { prio: 2, key: "shopsTest" });
         finish();
         return true;
     }
@@ -336,7 +336,7 @@ export function endTest(why = "back") {
         const face = Math.atan2(-sp.nx, -sp.nz);
         ctx.foot.start("droveOff", { at: { x: sp.x - sp.nx * 0.4, z: sp.z - sp.nz * 0.4 }, face, noIntro: true, drivable: true, line: "" });
         D.said = true;
-        setTimeout(() => moisheSay(pick(MOISHE.testBack), 3.4), 500);
+        setTimeout(() => refaelSay(pick(REFAEL.testBack), 3.4), 500);
     };
     try { if (ctx.dissolve && !ctx.skipping) ctx.dissolve(swap); else swap(); } catch (e) { console.error("[shops] test end", e); restore(); }
     finish();
@@ -350,7 +350,7 @@ on("boot", () => {
     for (const k of LOT) ctx.foot.addSpot(lotSpot(k));
 });
 hook("hud", dt => {
-    try { moisheTick(dt); testTick(dt); } catch (e) { console.error("[shops] dealer", e); }
+    try { refaelTick(dt); testTick(dt); } catch (e) { console.error("[shops] dealer", e); }
 });
 // (a scene that isn't driving / walking takes over mid test drive — an arrest, the ER, a knock-out: the car goes back)
 on("state", ({ to }) => {
@@ -358,8 +358,8 @@ on("state", ({ to }) => {
 });
 on("wreck", () => { if (TD.on) endTest("abort"); });
 on("run:start", () => { if (TD.on) endTest("abort"); TD.gone = null; });
-on("title", () => { if (TD.on) endTest("abort"); dropMoishe(); drop(); TD.gone = null; });
+on("title", () => { if (TD.on) endTest("abort"); dropRefael(); drop(); TD.gone = null; });
 on("town:enter", () => { D.said = false; D.passed = false; TD.gone = null; });
-on("town:leave", () => { dropMoishe(); drop(); D.said = false; D.passed = false; });
+on("town:leave", () => { dropRefael(); drop(); D.said = false; D.passed = false; });
 
 export const dealerDebug = { D, TD, TEST, openLot, startTest, endTest, canShop, canTest: canTestFrom, lift, drop };

@@ -219,7 +219,7 @@ module.exports = {
     await g(`L3.setState("gameover", {})`);
     await t.frames(6);
     t.check("game over #1: no interstitial yet", !(await log()).includes("admob:showInterstitial"));
-    t.check("game over #1: the 📺 WATCH button is offered", await t.L(`!!document.getElementById("adReward") && /WATCH/.test(document.getElementById("adReward").textContent)`));
+    t.check("game over #1: the 📺 WATCH button is offered", await t.L(`!!document.getElementById("adReward") && /Watch an ad/.test(document.getElementById("adReward").textContent)`));
     await t.shot("gameover-rewarded");
     const w0 = await wallet2d();
     // the controller reaches it: D-pad ↓ from "Try again", ✕/A presses it
