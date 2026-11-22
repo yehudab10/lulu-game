@@ -94,6 +94,7 @@ async function body(t, guests) {
   // the guest runs up and TACKLES him (the ✋ spot on her screen → the host checks she's really there)
   await A.game(`(() => { const p = ctx.heist.debug.party(); return true; })()`);
   const rob = await g(`(() => { const o = ctx.heist.robbery.robber.obj.position; return { x: o.x, z: o.z }; })()`);
+  await W.moved(AW);                // (the test walks her up to him in one go: a declared cut for the watchdog)
   await A.game(`(ctx.foot.debug.F.pos.set(${rob.x} + 1.2, 0.05, ${rob.z} + 0.6), true)`);
   await A.frames(6);
   // (the host checks the claim against where IT sees her: let her walk reach the host's screen first)
