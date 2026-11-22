@@ -836,14 +836,26 @@ is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music wh
 states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
 leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.
 
-**Towns (town):** a Cruise run has an INTERCHANGE every few km (`towns/<id>.js` › `highway: {first, every, no, label}`) and
-every one offers every town in `towns/index.js` › `INTERCHANGE` (its own sign copy; `{no}`/`{label}` fill per town). The
+**Towns (town):** a Cruise run has an INTERCHANGE every few km, and **each town has its OWN** (owner 2026-11-20: "Brooklyn
+and Lakewood shouldn't share the same exit"): the route is data — `towns/index.js` › `ROUTE` = `{ period, stops: [{town, at}] }`
+(Midwood @ 3600, Lakewood @ 7600, every 8 km), `routeAt(k)` → the k-th stop `{town, s}`, `routeFrom(s)`. The planner
+(`index.js` › `planRoute`) slides each nominal metre to the first clear one (`exitFitS`: fixed data only — rest areas, a
+bridge, the last exit — never what happens to be on the road), so the exits are the SAME metres on every run and on every
+friend's screen. **A new place gets its own interchange by adding a `ROUTE` stop** (a `towns/<id>.js` def with `attach`).
+`ctx.town.home` = `{ town: "midwood", exitS }` — the route's first exit, where Lulu lives: block 4,1's west face is an
+EMPTY LOT (`uses.luluHome`: `{ lot: true, among, dims }` — the face's houses fill round it; its ring of colliders is open
+over the frontage) whose spot (`door`, `drive` nose-out, `kerb`) is pure data: `ctx.town.spotOf("midwood", "luluHome", exitS)`
+answers before the town is built and the same after. `ctx.town.addCollider(c, {town, exitS})` (her house's walls),
+`ctx.town.wayOut()` (where the streets hand over to the cross road), `ctx.town.warp({ town, exitS?, at: {x, z, h}, quiet, home })`
+(leave the town she's in with no cut of its own, then a QUIET enter: no welcome sign, no lines, no visit counted;
+`town:enter` carries `quiet` / `home`). On the title the home town prebuilds in slices (its own rAF loop). The interchange
+signs name the one town (`towns/index.js` › `INTERCHANGE` sign copy; `{no}`/`{label}` fill per town). The
 layout is data in `exit.js` (u = s − exit.s): advance signs (1 MI, ½ MI with exit-number TABS — `sign.tab`, a last-chance
 board), a 55 m taper (u −230) into a parallel deceleration lane with EXIT ONLY + a lane-drop arrow painted in it, the
 `exits_gantry` at −110 (its EXIT ONLY board has the exit tab and the yellow EXIT ONLY strip; ↑ THRU TRAFFIC over the through
 lanes), a dashed line that keeps the right lane straight, the gore nose at −60 (a painted gore, then grass with a crash cushion
-and the gore sign), a RAMP 25 MPH advisory, ONE ramp that S-curves out and splits at u = 0 (the inner branch `rampD` →
-towns[0] = Lakewood, the outer `outerD` → Midwood), guardrails with flared end terminals, and each branch ends at a STOP line
+and the gore sign), a RAMP 25 MPH advisory, ONE ramp that S-curves out (one town's exit uses the inner branch `rampD`, u 172.2; the old two-town split — outer
+`outerD` → Midwood — is still in the engine: `debug.exitAhead(d, "both")`), guardrails with flared end terminals, and each branch ends at a STOP line
 (u 168 / 118) at a T-junction with a two-lane local cross road (`crossRoads(e)`): a green guide board across the T
 (`SIGNS.tee`), a gas station (canopy + price pylon, `SIGNS.gas`), "Welcome to …" (`SIGNS.welcome`) and the first houses along
 the road into town. The inner cross road's near end turns into the ON-RAMP back (u 181 → 300, a merge gore, an accel lane to
@@ -875,10 +887,19 @@ step's plan swapped in by `withPlan`), culls the standing ones, drops them 600 m
 on the approach (or inside a footprint): `enterTown({entry, drove})` swaps the road model with her position, heading and
 speed untouched — the district keeps the highway drawn, the highway's plain traffic carries on down it as puppets
 (`data.hwPuppet`: its own s, which the TownRoad answers with the highway, gone 520 m off), the town's drivers start where the
-camera can't see them pop in (`randomSpot(…, unseen)`). She's OUT 2 m short of the line (or 20 m outside the footprint and
+camera can't see them pop in (`randomSpot(…, unseen)`) — plus the ones she already saw: while she's within 520 m of a
+standing town (outside it) `ambient.js` drives a few light minivans (the parked cars' LOD model baked to one vertex-coloured
+geometry, ONE instanced draw call per town, no shadows) up and down the streets nearest the join, so it isn't frozen from the
+ramp, and on the way in `convertAmbient` makes each one a real driver right where it is (counted against `def.traffic`;
+off in a 🎉 party). A cruiser on her tail (`data.law`) isn't a puppet and isn't removed: law steers its units off whatever
+road is under them, so it follows her in (round the corners — `copRoute`) and back out (its s re-found from the highway).
+She's OUT 2 m short of the line (or 20 m outside the footprint and
 25 m off the approach): `leaveTown("highway", {drove})` hands her to the highway's road where she stands (car.s and foot's
 F.s re-found from the exit — a town s as a hint would send the highway's search 500 km down the road); the town stays
-standing. On foot it's the same line (an always-on foot actor). Not attached: `ctx.town.enter()` with no exitS (tests /
+standing. On foot it's the same line (an always-on foot actor). Leaving any other way while she WALKS in a town (a scene
+state the town can't host, a reset, a party hand-back) never strands her: in a town standing by the road she stays exactly
+where she is (only the road under her is the highway's again); otherwise she's put beside her car on the highway side
+(`besideCar`), and her parked car (foot's stub) goes with it. Not attached: `ctx.town.enter()` with no exitS (tests /
 debug) builds the stand-alone town at its own far `origin`, and a branch whose town isn't built yet (a slow download) still
 fades in at the STOP sign. `ctx.town.attached` · `ctx.town.standing` ([{town, exitS, k, ready, at, steps, ms, worst, p95,
 p99}]) · events `town:built` {town, exitS, ms, steps, worst}, `town:enter` / `town:leave` carry `attached` / `drove`.

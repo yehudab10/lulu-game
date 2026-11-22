@@ -60,7 +60,7 @@ export default {
         "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "dealer", n: "hospital" } }, "2,0": { faces: { s: "avem", w: "cia" } },
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
         "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
-        "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
+        "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts", w: "luluHome" } },
         "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia" } },
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts" } },
         "0,Kings Hwy": { faces: { s: "kh", w: "pkwy", n: "avem" } }, "1,Kings Hwy": { faces: { s: "kh", n: "avem", e: "cia" } },
@@ -70,6 +70,11 @@ export default {
     // landmark uses modelled by other features (build.js › layoutFace): the bank on Avenue J (features/heist) —
     // the same model as Lakewood's, in Brooklyn limestone + a green roof, between two storefronts
     uses: {
+        // 🏠 LULU'S HOUSE (ci/hometown, roadmap 14): an EMPTY 14 × 24 m lot among ordinary Midwood houses on E 16th St (west
+        // side, Avenue L → K). The town builds nothing on it (no house, no `homes` door, no parked cars at its kerb); features/world
+        // + decor draw the family's house, driveway and car. Spot `luluHome` (ctx.town.spotOf / spot): lot centre + rot, nx/nz
+        // toward the street, door, drive {x, z, h: nose out}, kerb, w, d.
+        luluHome: { lot: true, among: "mwhomes", dims: { w: 14, d: 24, prot: 0 }, spot: "luluHome" },
         bank: { key: "heist_bank", fallback: "town_mw_store", dims: { w: 20, d: 14, prot: 4.0 }, sign: L.SIGNS.bank, spot: "bank",
             tints: { Walls: "#D8CCB4", Roof: "#3F6B4F" }, signSize: [11.4, 0.96, 92], signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"],
             with: [{ key: "town_mw_store", u: -16.5 }, { key: "town_mw_store", u: 16.5 }] },

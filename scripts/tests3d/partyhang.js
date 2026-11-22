@@ -155,7 +155,8 @@ async function partyRun(t, guests) {
   // ── 🕹️ a game spot in town: the arcade outside the pizza shop ──
   for (const p of [Hp, A]) {
     await p.until(`ctx.town.debug.S.loaded && ctx.town.exits.length > 0`, "town models + exits", 120000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 30000);
   }
   await Hp.until(`ctx.openworld.debug.spots.SP.list.length >= 1`, "the town has its game spots", 30000);

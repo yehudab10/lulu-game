@@ -16,7 +16,7 @@ import * as THREE from "three";
 import { models, findNodes } from "../../models.js";
 import { worldMaterials, canvasTex } from "../../world.js";
 import { Merger, Atlas, lookMaterials } from "./kit.js";
-import { PL, wx, wz, LANE, WALK, FRONT, street, streetPoint, streetCoords, nodeAlong, blockPoly, rng, cutAt, otherAt, stopsAt } from "./plan.js";
+import { PL, wx, wz, LANE, WALK, FRONT, CURB, PARK, street, streetPoint, streetCoords, nodeAlong, blockPoly, rng, cutAt, otherAt, stopsAt } from "./plan.js";
 import { buildRail, RAIL_MODELS } from "./rail.js";
 import { buildBoulevards, buildStrip, buildSkyline, buildBarricades, wholeBlock, LANDMARK_MODELS } from "./landmarks.js";
 
@@ -274,15 +274,23 @@ export function* buildTownSteps(def) {
         const lot = blockPoly(b);
         if (b.solid) {
             const step = 2.1, rad = 1.25;
+            // an empty lot's street side stays OPEN (its driveway: Lulu drives out of it — ci/hometown); its back and sides stay solid
+            const lots = [];
+            for (const [face, kind] of Object.entries(b.faces)) {
+                const use = def.uses && def.uses[kind];
+                if (use && use.lot) { const fr = railSplit(faceFrame(lot, face), def.rail)[0]; lots.push(lotSpotOf(fr, fr.len / 2 + (use.u || 0), Object.assign({ dims: use.dims }, use))); }
+            }
+            const open = (x, z) => lots.some(sp => { const dx = x - sp.lotX, dz = z - sp.lotZ; return Math.abs(dx * sp.ux + dz * sp.uz) < sp.w / 2 + 0.3 && -(dx * sp.nx + dz * sp.nz) < 8; });
+            const ring = (x, z, r, k) => { if (!lots.length || !open(x, z)) col(x, z, r, k); };
             if (!b.quad) {
                 const c = blockPoly(b, 1.4), x0 = c[0][0], x1 = c[1][0], z0 = c[0][1], z1 = c[2][1];
-                for (let x = x0; x <= x1 + 0.01; x += step) { col(x, z0, rad, "house"); col(x, z1, rad, "house"); }
-                for (let z = z0 + step; z < z1; z += step) { col(x0, z, rad, "house"); col(x1, z, rad, "house"); }
+                for (let x = x0; x <= x1 + 0.01; x += step) { ring(x, z0, rad, "house"); ring(x, z1, rad, "house"); }
+                for (let z = z0 + step; z < z1; z += step) { ring(x0, z, rad, "house"); ring(x1, z, rad, "house"); }
             } else {
                 const c = blockPoly(b, 1.4);
                 for (let i = 0; i < 4; i++) {
                     const a = c[i], e = c[(i + 1) % 4], L = Math.hypot(e[0] - a[0], e[1] - a[1]);
-                    for (let u = 0; u < L; u += step) col(a[0] + (e[0] - a[0]) * u / L, a[1] + (e[1] - a[1]) * u / L, rad, "house");
+                    for (let u = 0; u < L; u += step) ring(a[0] + (e[0] - a[0]) * u / L, a[1] + (e[1] - a[1]) * u / L, rad, "house");
                 }
             }
         }
@@ -327,6 +335,7 @@ export function* buildTownSteps(def) {
                     }
                     if (R() < parkSkip) continue;
                     const p = streetPoint(st, u, side * pd, {});
+                    if (T.noPark && T.noPark.some(n => Math.hypot(p.x - n.x, p.z - n.z) < n.r)) continue;     // (an empty lot's kerb)
                     const rot = st.h + (side > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.05;
                     parkedCar(p.x, p.z, rot);
                     T.parked.push({ x: p.x, z: p.z, rot });
@@ -615,6 +624,18 @@ export function* buildTownSteps(def) {
     T.indexCollider = index;      // (a collider added AFTER the build — the game spots' cabinet — joins the grid here)
     const EMPTY = [];
     T.near = (x, z) => grid.get(Math.floor(x / CELL) * 100000 + Math.floor(z / CELL)) || EMPTY;
+    /** Another feature's solid in this town (WORLD x/z, r): Lulu's house on its empty lot (ctx.town.addCollider). */
+    T.addCollider = c => {
+        colliders.push(c);
+        const m = c.r + 10;
+        for (let gx = Math.floor((c.x - m) / CELL); gx <= Math.floor((c.x + m) / CELL); gx++)
+            for (let gz = Math.floor((c.z - m) / CELL); gz <= Math.floor((c.z + m) / CELL); gz++) {
+                const k = gx * 100000 + gz;
+                let l = grid.get(k); if (!l) grid.set(k, l = []);
+                l.push(c);
+            }
+        return c;
+    };
 
     T.dispose = () => {
         if (root.parent) root.parent.remove(root);
@@ -736,6 +757,18 @@ function railSplit(fr, rail) {
 function layoutFace(kind, len, R, def = null) {
     const out = [];
     const use = def && def.uses && def.uses[kind];
+    if (use && use.lot) {
+        // an EMPTY lot among ordinary houses (`among`: the face's usual kind) — another feature draws what stands on it
+        // (ci/hometown: Lulu's house on E 16th St). Its own key "lot": no model, no `homes` door, no parked cars at its kerb.
+        const W = use.dims.w, u0 = len / 2 + (use.u || 0), sub = (a, b) => {
+            if (b - a < 6) return;
+            for (const o of layoutFace(use.among || "mwhomes", b - a, R, null)) out.push(Object.assign(o, { u: o.u + a }));
+        };
+        sub(0, u0 - W / 2 - 0.6);
+        out.push({ key: "lot", u: u0, use: Object.assign({ dims: use.dims }, use) });
+        sub(u0 + W / 2 + 0.6, len);
+        return out;
+    }
     if (use) {
         const key = models[use.key] ? use.key : use.fallback;
         if (key) out.push({ key, u: len / 2 + (use.u || 0), use: Object.assign({ dims: DIMS[key] }, use) });
@@ -793,6 +826,31 @@ function layoutFace(kind, len, R, def = null) {
     return out;
 }
 
+/** An empty lot's spot (local): centre + rot, along / toward-the-street vectors, its door, the driveway (a car parked
+ *  nose-out: h toward the street) and its kerb end, w × d — from the face frame and where along it the lot is. */
+function lotSpotOf(fr, u, use) {
+    const W = use.dims.w, Dp = use.dims.d, nx = fr.nx, nz = fr.nz, ux = fr.ux, uz = fr.uz;
+    const lotX = fr.ox + ux * u, lotZ = fr.oz + uz * u;
+    const at = (along, inward) => ({ x: lotX + ux * along - nx * inward, z: lotZ + uz * along - nz * inward });
+    const c = at(0, Dp / 2), k0 = at(0, -(FRONT - PARK));
+    return { lot: true, x: c.x, z: c.z, rot: fr.rot, ux, uz, nx, nz, w: W, d: Dp, lotX, lotZ,
+        door: at(-W / 4, 7.5), drive: Object.assign(at(W / 2 - 2.4, 3.2), { h: fr.rot }), kerb: Object.assign(at(W / 2 - 2.4, -(FRONT - CURB)), { h: fr.rot }),
+        noPark: { x: k0.x, z: k0.z, r: W / 2 + 3.5 } };
+}
+/** The CURRENT plan's empty lot named `spot` (a `uses` entry with lot: true), local, without building anything — the
+ *  same numbers the build will put in T.spots (the lot's place along its face doesn't depend on the town's dice). */
+export function lotSpot(spot) {
+    const def = PL.def, uses = def && def.uses;
+    if (!uses) return null;
+    const kind = Object.keys(uses).find(k => uses[k].lot && (uses[k].spot || "lot") === spot);
+    if (!kind) return null;
+    for (const b of PL.BLOCKS) for (const [face, k] of Object.entries(b.faces || {})) {
+        if (k !== kind) continue;
+        const fr = railSplit(faceFrame(blockPoly(b), face), def.rail)[0];
+        return lotSpotOf(fr, fr.len / 2 + (uses[kind].u || 0), Object.assign({ dims: uses[kind].dims }, uses[kind]));
+    }
+    return null;
+}
 /** Lay out one block face (or a frontage strip) of `kind` along the frame `fr` and place everything on it. */
 function* placeFace(B, kind, fr, counters) {
     const { R, T, S, merge, place, sign, anchorAt, parkedCar, col } = B;
@@ -822,6 +880,12 @@ function* placeFace(B, kind, fr, counters) {
             const sx = fr.ox + fr.ux * (it.u + 9) - fr.nx * 0.6, sz = fr.oz + fr.uz * (it.u + 9) - fr.nz * 0.6;
             poleAt(merge, sx - fr.ux * 1.8, sz - fr.uz * 1.8, 1.8); poleAt(merge, sx + fr.ux * 1.8, sz + fr.uz * 1.8, 1.8);
             sign({ lines: S.buses, bg: "#FFC107", fg: ["#1B1B1B", "#3E2723"], w: 1024, h: 256 }, sx, 2.3, sz, fr.rot, 4.2, 1.05, true);
+            continue;
+        }
+        if (it.key === "lot") {        // an empty lot (see layoutFace): only its spot — in local coords like every spot
+            const sp = lotSpotOf(fr, it.u, it.use);
+            T.spots[it.use.spot || "lot"] = sp;
+            (T.noPark || (T.noPark = [])).push(sp.noPark);          // (no parked cars along its kerb: the driveway's mouth)
             continue;
         }
         if (it.use) {                  // a landmark another feature models (the town's `uses`: data, see layoutFace)
