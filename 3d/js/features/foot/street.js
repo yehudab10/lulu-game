@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { ctx, on } from "../../core/ctx.js";
 import { models, registerModels, ensureModels, findNodes, instanced } from "../../models.js";
-import { ribbon, facingRoad, canvasTex, mulberry32 } from "../../world.js";
+import { ribbon, facingRoad, canvasTex, mulberry32, LAP } from "../../world.js";
 
 export const SHOP_MODELS = { foot_bar: "foot_bar", foot_school: "foot_school", foot_hospital: "foot_hospital",
     foot_police: "foot_police", foot_beach: "foot_beach", foot_lamp: "foot_lamp", foot_bench: "foot_bench", foot_planter: "foot_planter" };
@@ -52,7 +52,9 @@ on("boot", () => {
     ensureModels(Object.keys(SHOP_MODELS)).then(() => { modelsReady = true; }).catch(e => console.error("[foot] shop models", e));
     const rnd = mulberry32(5150);
     let s = 1050;
-    for (let k = 0; k < 140 && s < 120000; k++) {
+    // (🌍 ONE WORLD — ci/onemap: the blocks of one LAP, then the same blocks every lap: the same shops at the same lap
+    //  metre, every lap — the old seeded run of blocks for the first lap is unchanged)
+    for (let k = 0; k < 140 && s < LAP - 700; k++) {
         const side = rnd() < 0.55 ? 1 : -1;
         const kinds = [];
         const n = 2 + (rnd() < 0.5 ? 1 : 0);
@@ -70,6 +72,13 @@ on("boot", () => {
         mine.add(world.reserved[world.reserved.length - 1]);
         blocks.push(b);
         s = cur + 420 + rnd() * 380;
+    }
+    const lap1 = blocks.slice();
+    for (let n = 1; n * LAP < 120000; n++) for (const b0 of lap1) {
+        const o = n * LAP, b = Object.assign({}, b0, { k: b0.k + n * 1000, s0: b0.s0 + o, s1: b0.s1 + o, ok: null, shops: b0.shops.map(sh => Object.assign({}, sh, { s: sh.s + o })) });
+        world.reserve(b.s0 - 4, b.s1 + 4, b.side, WALK0 - 0.2, 34);
+        mine.add(world.reserved[world.reserved.length - 1]);
+        blocks.push(b);
     }
 });
 
