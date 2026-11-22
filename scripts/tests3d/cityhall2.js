@@ -146,7 +146,7 @@ module.exports = {
       // pay at the Taxes window: two presses
       await g(`(ctx.cityhall.debug.force.closed = 0, true)`);
       if (await st() !== "footRun") { await g(`(ctx.foot.start("parked", { noIntro: true }), true)`); await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000); }
-      await g(`(() => { const sp = ctx.cityhall.spot(); ctx.foot.debug.F.pos.set(sp.x + sp.nx, 0.05, sp.z + sp.nz); return true; })()`);
+      await g(`(() => { const sp = ctx.cityhall.spot(); ctx.foot.debug.F.pos.set(sp.x + sp.nx, 0.05, sp.z + sp.nz); if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       await g(`ctx.cityhall.enter()`);
       if (!await t.until(`__lulu3d.state === "interior" && __interiors.room && __interiors.room.ready`, "inside city hall", 60000)) return;
       const owed0 = await g(`${TX}.owed()`), c0 = await coins();

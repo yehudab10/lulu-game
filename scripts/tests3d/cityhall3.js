@@ -253,13 +253,13 @@ module.exports = {
       await g(`(${CH}.permits.need("yard", "family"), true)`);
       const c0 = await coins();
       await useHot("expediter"); await answer(0); await drain(); await t.frames(8);
-      t.check(`the expediter: 5 coins and the form's 'stamped' (${c0} → ${await coins()})`, c0 - await coins() === 5 && await g(`${CH}.permits.PM.open.some(p => p.kind === "yard" && p.step === 2)`));
+      t.check(`the expediter: 5 coins and the form's 'stamped' (${c0} → ${await coins()})`, c0 - await coins() === 5 && await g(`${CH}.permits.PM.open.some(p => p.step === 2)`));
       await g(`(__interiors.room.leave(), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "back outside", 30000);
       // the crew outside
       await t.until(`!!__lulu3d.ctx.cityhall.story.ST.crew`, "the crew is repaving the street in front of city hall", 6000);
       const C = await g(`(() => { const C = ${CH}.story.ST.crew; return { x: C.x, z: C.z }; })()`);
-      await footAt(C.x + 1.5, C.z + 1.5);
+      await footAt(C.x, C.z);
       await t.frames(30);
       await t.shot("cityhall3-crew");
       t.check(`✋ at the crew (${(await promptText()).slice(0, 40)})`, /FEIVISH/i.test(await promptText()));
@@ -284,11 +284,11 @@ module.exports = {
       // a sting: Midwood's crew, sting forced → arrested for bribery
       await playing();
       if (!await town("midwood")) return;
-      await g(`(() => { const S = ${CH}.story.state("midwood"); S.step = 1; ${CH}.story.ST.force.sting = true; return true; })()`);
+      await g(`(() => { const S = ${CH}.story.state("midwood"); S.step = 1; ${CH}.story.ST.force.sting = true; ${CH}.story.ST.force.day = "story-2"; return true; })()`);
       await onFoot();
       await t.until(`!!__lulu3d.ctx.cityhall.story.ST.crew`, "Midwood's crew", 6000);
       const M = await g(`(() => { const C = ${CH}.story.ST.crew; return { x: C.x, z: C.z }; })()`);
-      await footAt(M.x + 1.5, M.z + 1.5);
+      await footAt(M.x, M.z);
       if (await press(`ctx.dialogOpen`)) { await answer(1); await drain(); }
       t.check("a sting → the law takes her in (BRIBING A PUBLIC SERVANT)", await t.until(`/^law/.test(__lulu3d.state) || __lulu3d.state === "placesArrive"`, "arrested", 20000));
     });

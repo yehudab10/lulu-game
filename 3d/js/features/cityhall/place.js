@@ -12,7 +12,7 @@ export function cityhallUse(town, { u = 0, with: beside = [] } = {}) {
     const T = TOWNS[town] || TOWNS.lakewood;
     return {
         key: HALL_KEY, fallback: null, dims: HALL_DIMS, u, sign: T.sign, spot: "cityhall", tints: T.tints,
-        signSize: [10.4, 1.05, 80], signW: 768, signBg: T.signBg, signFg: T.signFg,       // (the town's one sign atlas is tight)
+        signSize: [10.4, 1.05, 48], signW: 512, signBg: T.signBg, signFg: T.signFg,       // (a SMALL cell: the town's one sign atlas is tight — Midwood's test needs scale ≥ 0.5)
         with: beside,
     };
 }
