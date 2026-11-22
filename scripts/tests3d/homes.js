@@ -283,7 +283,7 @@ module.exports = {
       await startRelay();
       await g(`(L3.state !== "title" && L3.setState("title"), true)`); await t.frames(4);
       await t.click(/Friends/);
-      if (!await t.click(/Party games/)) await g(`(ctx.party.hostParty(), true)`);
+      await g(`(ctx.party.hostParty(), true)`);
       if (!await t.until(`__lulu3d.ctx.state === "partyLobby" && __lulu3d.ctx.party.connected`, "host: lobby", 120000)) { await t.shot("party-fail"); return; }
       await t.L(`document.getElementById("pt_act_roam") && document.getElementById("pt_act_roam").click()`); await t.frames(4);
       await t.L(`document.getElementById("pt_go") && document.getElementById("pt_go").click()`);

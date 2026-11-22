@@ -98,7 +98,7 @@ async function roadTrip(t, guests) {
   t.check("party plan service (rng / seeded / road)", await g(`!!(ctx.party.rng && ctx.party.seeded && ctx.party.road && ctx.party.road.slot)`));
   t.check("the party OFF set no longer holds the shared-world features", await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true; try { return ["roadevents", "cameos", "world", "hustle", "community", "memory", "banter", "meta"].every(id => ctx.enabled(id)) && !ctx.enabled("journey") && !ctx.enabled("dina"); } finally { N.want = was; } })()`));
   await t.click(/Friends/);
-  await t.click(/Party games/);
+  await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return false;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
