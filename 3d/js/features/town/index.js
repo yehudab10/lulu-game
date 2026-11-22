@@ -739,7 +739,7 @@ function eligible() {
     return G.mode === "cruise" && ctx.enabled("town") && !G.tutorial && !(ctx.party && ctx.party.active);
 }
 /** Plan the route's exits from s0 to s1 (each once; an exit FIT slides past the next stop's start is skipped). */
-const PLAN_AHEAD = 8000;
+const PLAN_AHEAD = 10000;        // (≥ the longest gap between two exits on the lap — Midwood → Lakewood 8.4 km — so the next one is always known)
 function planRoute(s0, s1) {
     const last = X.exits[X.exits.length - 1];
     let k = last && last.routeK != null ? last.routeK + 1 : routeFrom(s0);
