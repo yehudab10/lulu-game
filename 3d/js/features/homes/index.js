@@ -384,10 +384,13 @@ function sceneNow(home) {
     // a house real estate has LISTED: the family's still there, packing (it gives the door up once it sells — a claim)
     if (!force) { try { if (ctx.realestate && ctx.realestate.claims && ctx.realestate.claims(home.key) === "listed") force = "forSale"; } catch (e) { /* no real estate */ } }
     const w = when();
-    if (!force) { const f = friendScene(home); if (f) { force = f[1]; if (typeof f[2] === "number") w.hour = f[2] / 10; } }      // (their hour too: who's home)
-    return sceneFor(home, w, force);
+    let mask = null;
+    if (!force) { const f = friendScene(home); if (f) { force = f[1]; if (typeof f[2] === "number") w.hour = f[2] / 10; if (typeof f[3] === "number") mask = f[3]; } }
+    const sc = sceneFor(home, w, force);
+    if (mask != null) sc.mask = mask;          // (exactly who's home on their screen — our own day may not have arrived yet)
+    return sc;
 }
-/** 👯 A friend is inside this house right now: the scene THEY walked into (d.x.hs = [door id, scene id, hour×10] — a few bytes, only
+/** 👯 A friend is inside this house right now: the scene THEY walked into (d.x.hs = [door id, scene id, hour×10, who's-home bits] — a few bytes, only
  *  while inside), so a friend who follows a minute later meets the same household doing the same thing. */
 function friendScene(home) {
     try {
@@ -419,11 +422,11 @@ function go(home, mode, via, scene = null, job = null) {
     if (recognized) emit("homes:recognized", { key: home.key, how: "inside" });
     const sc = scene || (HS.doorScene && HS.doorScene.key === home.key && HS.doorScene.sc) || sceneNow(home);
     HS.doorScene = null;
-    let cast = presentCast(home, sc, sc.w);
+    let cast = sc.mask != null ? home.cast.filter((k, i) => sc.mask & (1 << i)) : presentCast(home, sc, sc.w);
     if (mode === "kid" && !cast.some(k => k === "boy" || k === "girl")) cast = cast.concat(home.cast.filter(k => k === "boy" || k === "girl").slice(0, 1));
     if (job && job.type === "babysit") cast = home.cast.filter(k => !(KINDS[k] && KINDS[k].adult));      // (the parents stepped out)
     if (job && job.type === "glasses" && !cast.some(k => k === "bubbe" || k === "zeidy")) cast = cast.concat(home.cast.filter(k => k === "bubbe" || k === "zeidy").slice(0, 1));
-    if (!job) shareScene([home.key, sc.def.id, Math.round((sc.w ? sc.w.hour : 12) * 10)]);
+    if (!job) shareScene([home.key, sc.def.id, Math.round((sc.w ? sc.w.hour : 12) * 10), home.cast.reduce((m, k, i) => m | (cast.includes(k) ? 1 << i : 0), 0)]);
     prepare({ home, mode, via, recognized, fam: rec || null, noCatch: !!HS.force.noCatch, scene: job ? { def: SCENES.ordinary, seed: sc.seed, w: sc.w } : sc, cast, job });
     HS.inside = home;
     // where she comes back out (foot's resume reads road coords; backOutside() fine-tunes it)
