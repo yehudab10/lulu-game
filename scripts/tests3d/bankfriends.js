@@ -77,6 +77,7 @@ async function body(t, guests) {
   await W.install(t);
   const AW = { L: A.L };            // (QA: the watchdog on the friend's screen too)
   await W.install(AW);
+  await A.frames(15); await W.reset(AW); await W.reset(t);     // (the test just put both at the bank: watch from here)
   const coins0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
 
   // ── a robbery on the host's screen (she's on foot: the robber fumbles in the doorway) ──
@@ -131,9 +132,13 @@ async function body(t, guests) {
   await t.shot("robbery-foiled-host");
   // a payout broadcast by someone who isn't the host is ignored (the host's screen hears it and pays nobody)
   const hc0 = await PH.H.game(`L3.wallet.coins`);
+  // (QA: every coin award on the host's screen meanwhile, with its reason — only a robbery share would be the hole)
+  await PH.H.L(`import("./js/core/ctx.js").then(m => { window.__coinEv = []; if (!window.__coinHook) { window.__coinHook = true; m.on("coin", e => window.__coinEv && window.__coinEv.push(e)); } return true; })`);
   await PH.O.game(`(ctx.party.broadcast("hfa", 4242, ctx.party.uid, "ram", [[${HU}, 80], [${GU}, 80]]), true)`);
   await PH.H.frames(40);
-  t.check("a fake payout from a non-host pays nobody", (await PH.H.game(`L3.wallet.coins`)) === hc0, JSON.stringify({ was: hc0, now: await PH.H.game(`L3.wallet.coins`) }));
+  const cev = await PH.H.L(`window.__coinEv || []`);
+  t.check("a fake payout from a non-host pays nobody", !cev.some(e => /heist/.test(e.why || "")), JSON.stringify({ was: hc0, now: await PH.H.game(`L3.wallet.coins`), awards: cev }));
+  if (cev.length) console.log("   (other coins on the host's screen meanwhile:", JSON.stringify(cev), ")");
   // the same claim twice never pays twice
   const cc = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   await g(`(ctx.party.sendEvent("hfo", ctx.heist.robbery ? ctx.heist.robbery.id : 1, "tackle", [${HU}, ${GU}], 120), true)`);
