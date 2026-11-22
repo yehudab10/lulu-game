@@ -108,18 +108,18 @@ async function solo(t) {
   await t.until(`__lulu3d.ctx.town.exits.length > 0`, "a town exit is planned", 15000);
   await g(`ctx.phone.openPhone("nearby")`);
   await t.frames(4);
-  t.check("Nearby (highway): the next Lakewood exit is listed", await t.L(`/Lakewood exit/.test(document.getElementById("lpApp").textContent)`), (await t.L(`document.getElementById("lpApp").textContent`)).slice(0, 160));
+  t.check("Nearby (highway): the next exit is listed (Midwood's — the first one, ci/exits2)", await t.L(`/Midwood exit/.test(document.getElementById("lpApp").textContent)`), (await t.L(`document.getElementById("lpApp").textContent`)).slice(0, 160));
   await t.shot("nearby-highway");
-  await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].find(b => /Lakewood/.test(b.textContent)).click()`);
+  await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].find(b => /Midwood/.test(b.textContent)).click()`);
   await t.frames(14);
   const pinSt = await g(`({ open: ctx.phone.isOpen, pin: !!ctx.openworld.pinned, beacons: ctx.openworld.debug.beaconCount() })`);
   t.check("pinning closes the phone, shows a beacon", !pinSt.open && pinSt.pin && pinSt.beacons === 1, JSON.stringify(pinSt));
-  t.check("…and the chip with an arrow", await t.L(`getComputedStyle(document.getElementById("owChip")).display !== "none" && /Lakewood/.test(document.getElementById("owChip").textContent)`));
+  t.check("…and the chip with an arrow", await t.L(`getComputedStyle(document.getElementById("owChip")).display !== "none" && /Midwood/.test(document.getElementById("owChip").textContent)`));
   await t.shot("pin-chip");
   await g(`ctx.openworld.unpin()`);
 
   // into town
-  await t.until(`__lulu3d.ctx.town.debug.S.loaded`, "town models loaded", 60000);
+  await t.until(`(__lulu3d.ctx.town.load("lakewood"), __lulu3d.ctx.town.debug.S.loaded)`, "town models loaded", 60000);
   await g(`ctx.town.enter({ speed: 0 })`);
   if (!await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.openworld.zone === "lakewood"`, "in Lakewood", 8000)) return;
   await t.frames(20);
@@ -218,7 +218,7 @@ async function partyRun(t, guests) {
 
   // both into Lakewood (no ramp needed in a test)
   for (const p of pages) {
-    await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
+    await p.until(`(ctx.town.load("lakewood"), ctx.town.debug.S.loaded)`, "town models", 90000);
     await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 10000);

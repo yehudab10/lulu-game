@@ -275,7 +275,7 @@ async function freeRoam(t, guests) {
   for (const p of pages) ex.push(await p.game(`(["midwood", "lakewood", "midwood"].reduce((a, id) => { const s = ctx.town.exitOf(id, a.s); return { s: s + 1, out: a.out.concat(id + "@" + Math.round(s)) }; }, { s: 20000, out: [] }).out.join(","))`));
   t.check("the same exits, same towns, same order and metres on both screens", !!ex[0] && ex[0] === ex[1] && /midwood@/.test(ex[0]) && /lakewood@/.test(ex[0]), ex.join(" | "));
   for (const p of pages) {
-    await p.until(`ctx.town.debug.S.loaded && ctx.community.debug.CM.loaded`, "town + community models", 120000);
+    await p.until(`(ctx.town.load("lakewood"), ctx.town.debug.S.loaded) && ctx.community.debug.CM.loaded`, "town + community models", 120000);
     await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 15000);

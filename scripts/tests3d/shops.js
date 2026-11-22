@@ -111,7 +111,8 @@ module.exports = {
       await t.tap(1);
       await t.frames(6);
       t.check("○ closes it, back to walking", !await cardUp() && await st() === "footRun");
-      // Where to shop's mark: at home it points at the next exit into a town
+      // Where to shop's mark: at home it points at the next exit into a town (the guide part marks it; run alone, mark it here)
+      await g(`(ctx.shops.dest() || ctx.shops.setDest("dealer"), true)`);
       const tg = await g(`ctx.shops.debug.guide.target()`);
       t.check("the mark points at an exit into town from home", !!tg && /exit|town/i.test(tg.label || ""), JSON.stringify(tg));
       t.check("…as one small line on the HUD", await t.until(`!!document.querySelector(".shops-dest")`, "dest chip", 3000));
