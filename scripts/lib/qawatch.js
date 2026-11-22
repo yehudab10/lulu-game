@@ -113,7 +113,8 @@ const SRC = String.raw`
     const T = ctx.town;
     if (T && T.active) {
       const pl = T.plan, Lc = pl && pl.local ? pl.local(x, z, {}) : null;
-      if (Lc) for (const r of pl.OCCLUDERS) {
+      const lot = ctx.unstuck && ctx.unstuck.debug && ctx.unstuck.debug.onLot && ctx.unstuck.debug.onLot(x, z);     // (Lulu's own open lot: walkable)
+      if (Lc && !lot) for (const r of pl.OCCLUDERS) {
         const lx = Lc.x, lz = Lc.z;
         if (lx > r.x0 + pad && lx < r.x1 - pad && lz > r.z0 + pad && lz < r.z1 - pad) return "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0);
       }

@@ -99,6 +99,39 @@ curl https://lulu-shared-road.<your-subdomain>.workers.dev/health
 
 ---
 
+## 🏘️ The world-wide property registry (`homes.mjs`, added 2026-11-20 — owner-approved)
+
+Lulu's Road Trip 2.0 lets players buy homes in Lakewood / Midwood; this registry makes ownership the same for
+everyone online (one owner per house). Additive: new `/homes/*` endpoints, served by the existing global `Board`
+Durable Object (no new class, no migration) with ONE new SQLite table, `homes`. Nothing that existed changed shape;
+old clients never call it, and a new client against an old server gets a 404 on `/homes/config` and stays local.
+
+| endpoint | body | answer |
+|---|---|---|
+| `GET /homes/config` | — | `{ v, cfg }` — the government's knobs (below) |
+| `GET /homes/list?town=lakewood` | — | `{ list: [{ h, l, s, z }] }` every owned house in a town: id, the owner's generated label, since, seized |
+| `POST /homes/hello` | `{ pid, sec, name }` | my houses + my label; restarts the idle clock |
+| `POST /homes/claim` | `{ pid, sec, name, h }` | `{ ok, why: taken \| seized \| cap \| full \| mine, l }` |
+| `POST /homes/release` | `{ pid, sec, h }` | `{ ok }` (only the owner) |
+| `POST /homes/appeal` | `{ pid, sec, h }` | `{ ok, won }` — a seized house, once; the SERVER rolls |
+
+**Stored** (one row per owned house): the house id (a door's place in the town), the owner's random player id (16
+base32 chars made on the device — nothing personal), a SHA-256 hash of the device secret (never the secret), a
+GENERATED label (one of the 12 curated names + a number from the id — never typed text), the town, bought / last
+seen / seized / appealed times. No IP is stored (rate limits keep it in memory for seconds), no location, no device.
+
+**The government's knobs** — `CONFIG` at the top of `homes.mjs` ("subject to change if the government decides
+differently"; a server deploy changes them, no new client needed — clients show whatever `/homes/config` says):
+`cap` 10 homes a player · `idleDays` 14 (no hello → the Abandoned Kugel Ordinance seizes their homes) · `holdDays` 7
+(seized → back on the market) · `appealWin` 0.5 (the court's odds) · `claimGapMs` 3000 (per player AND per IP) ·
+`maxRows` 20000. If the towns fill up, turn `idleDays` down first (14 → 7), then `cap` (10 → 5).
+
+**Tests:** `node server/test-homes.mjs` (local relay, a dev-only clock `POST /homes/_clock` that the worker does NOT
+have) and the game's `scripts/tests3d/realestateworld.js` (two players, one local relay).
+
+**Rollback:** Cloudflare keeps every deployed version — `npx wrangler rollback` (or the dashboard: Workers →
+lulu-shared-road → Deployments → the previous one → Rollback). The `homes` table stays (harmless; nothing old reads it).
+
 ## Files
 
 - `mp-worker.js` — Cloudflare Worker + `Room` Durable Object (Hibernation API).
@@ -106,4 +139,5 @@ curl https://lulu-shared-road.<your-subdomain>.workers.dev/health
 - `local-relay.js` — Node dev relay, same protocol, `ws://127.0.0.1:9977`.
 - `ws-fallback.js` — zero-dependency WebSocket server used if `ws` is missing.
 - `test-relay.js` — protocol conformance test (`npm test`).
+- `homes.mjs` — 🏘️ the property registry (shared by the worker + the local relay); `test-homes.mjs` its tests.
 - `package.json` — deps (`ws`) + scripts.

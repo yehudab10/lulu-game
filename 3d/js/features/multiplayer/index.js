@@ -24,7 +24,7 @@ import * as H from "../../hud.js";
 import { showTitle } from "../../core/screens.js";
 import * as N from "./net.js";
 import { MP, DI_PER_M, X_PER_M, X_MID } from "./net.js";
-import { updateGhosts, clearGhosts, ghostStats } from "./ghosts.js";
+import { updateGhosts, clearGhosts, ghostStats, ghostAt, tagOnScreen } from "./ghosts.js";
 import * as U from "./ui.js";
 import { tone } from "../parking/sfx.js";
 
@@ -245,6 +245,25 @@ export function setOnline(on) {
 }
 ctx.mp.setOnline = setOnline;
 ctx.mp.setFr = N.setFr;                 // (features/friends: ➕ a friend from 📍 Nearby)
+ctx.mp.relabel = N.relabel;             // (features/friends: a friend recognised in EVERYONE → 👯 + her name over her ghost)
+// Tap a NAME over a car (a ghost in EVERYONE) → 📍 Nearby's page for that driver (➕ ask to be friends — features/friends).
+// A tap = short + still, not on a button / the phone; nothing for a hold (touch steering) or a drag.
+ctx.mp.ghostAt = ghostAt;
+ctx.mp.tagOnScreen = tagOnScreen;
+const TAP = { x: 0, y: 0, t: 0, id: -1 };
+function tapOk(e) {
+    if (!MP.connected || MP.room !== "lobby" || !ctx.friends || !ctx.friends.ui) return false;
+    if (!(ctx.state === "playing" || ctx.state === "footRun") || ctx.dialogOpen || (ctx.phone && ctx.phone.isOpen)) return false;
+    const t = e.target;
+    return !(t && t.closest && t.closest("button, a, input, select, .btn, #lpPhone, .lp-phone, .toast, #banner"));
+}
+window.addEventListener("pointerdown", e => { TAP.x = e.clientX; TAP.y = e.clientY; TAP.t = performance.now(); TAP.id = e.pointerId; }, true);
+window.addEventListener("pointerup", e => {
+    if (e.pointerId !== TAP.id || performance.now() - TAP.t > 350 || Math.hypot(e.clientX - TAP.x, e.clientY - TAP.y) > 12 || !tapOk(e)) return;
+    const id = ghostAt(e.clientX, e.clientY), p = id && MP.peers[id];
+    if (!p || !ctx.phone || !ctx.phone.openPhone) return;
+    ctx.phone.openPhone("nearby", { driver: id, name: p.name });
+}, true);
 Object.defineProperty(ctx.mp, "myId", { get: () => (MP.connected ? MP.myId : null) });
 Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
 Object.defineProperty(ctx.mp, "online", { get: onlineOn });
