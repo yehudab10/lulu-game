@@ -313,6 +313,12 @@ export function sampleTrack(S, T, o, free = false) {
     const a = S[i], b = S[i + 1];
     if (T <= a.t) { o.s = a.s; o.d = a.d; o.vs = a.vs; o.vd = a.vd; o.yaw = a.yaw; o.steer = a.steer; o.y = a.y; o.f = a.f; o.extrap = 0; return true; }
     const h = Math.max(0.001, (b.t - a.t) / 1000), u = (T - a.t) / (b.t - a.t);
+    // a stretch that moves far more than the reported speeds allow (a shove, a pratfall, a teleport) isn't a curve to
+    // draw: step to b at once — step()'s error offset absorbs it and glides it out (≤ glideRate), or snaps a real warp
+    if (jumpy(b.s - a.s, a.vs, b.vs, h) || jumpy(b.d - a.d, a.vd, b.vd, h)) {
+        o.s = b.s; o.d = b.d; o.vs = b.vs; o.vd = b.vd; o.yaw = b.yaw; o.steer = b.steer; o.y = b.y; o.f = b.f; o.extrap = 0;
+        return true;
+    }
     hermite(a.s, b.s, a.vs, b.vs, h, u, o, "s", "vs", !free);
     hermite(a.d, b.d, free ? a.vd : clampV(a.vd), free ? b.vd : clampV(b.vd), h, u, o, "d", "vd", false);
     o.yaw = a.yaw + (b.yaw - a.yaw) * u;
@@ -323,6 +329,7 @@ export function sampleTrack(S, T, o, free = false) {
     return true;
 }
 const clampV = v => Math.max(-8, Math.min(8, v));
+const jumpy = (dp, v0, v1, h) => Math.abs(dp) > (Math.max(Math.abs(v0), Math.abs(v1)) + 12) * h + 3;
 function hermite(p0, p1, m0, m1, h, u, o, k, kv, mono) {
     const dp = p1 - p0;
     let t0 = m0 * h, t1 = m1 * h;

@@ -59,11 +59,12 @@ async function body(t, pages) {
     const BU = JSON.stringify(await B.game(`ctx.party.uid`));
     await B.game(`(() => { const c = ctx.car; c.vx = c.vz = 0; c.vF = 0; return true; })()`);
     await A.frames(40);
-    await A.L(`(() => { const L3 = __lulu3d, rc = L3.ctx.party.remoteCar(${BU}); window.__steps = []; let last = [rc.x, rc.z]; const tick = () => { const r = L3.ctx.party.remoteCar(${BU}); if (r && r.shown) { window.__steps.push(Math.hypot(r.x - last[0], r.z - last[1])); last = [r.x, r.z]; } if (window.__steps.length < 240) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return true; })()`);
+    await A.L(`(() => { const L3 = __lulu3d, rc = L3.ctx.party.remoteCar(${BU}); rc.trace = []; window.__rs0 = L3.ctx.party.peer(${BU}).rs; window.__steps = []; let last = [rc.x, rc.z], lt = performance.now(); const tick = () => { const r = L3.ctx.party.remoteCar(${BU}), w = performance.now(); if (r && r.shown) { const m = Math.hypot(r.x - last[0], r.z - last[1]); window.__steps.push(m / Math.max(4, 60 * (w - lt) / 1000)); last = [r.x, r.z]; window.__moved = (window.__moved || 0) + m; } lt = w; if (window.__steps.length < 240) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return true; })()`);
     await B.game(`(() => { const c = ctx.car, p = ctx.world.road.point(c.s, c.d + 15 > 6 ? c.d - 15 : c.d + 15, {}); c.place(p.x, p.z, c.h); c.d = c.d + 15 > 6 ? c.d - 15 : c.d + 15; c.vx = c.vz = 0; c.vF = 0; return true; })()`);
     await A.until(`window.__steps.length >= 240`, "A: watched B's car for 240 frames", 60000);
-    const st = await A.L(`({ max: Math.max(...window.__steps), sum: window.__steps.reduce((a, b) => a + b, 0) })`);
-    t.check("a friend's car shoved 15 m: it slides over on my screen (no step over 4 m a frame)", st.max < 4 && st.sum > 10, JSON.stringify(st));
+    const st = await A.L(`({ worst: +Math.max(...window.__steps).toFixed(2), moved: +window.__moved.toFixed(1), snaps: (__lulu3d.ctx.party.remoteCar(${BU}).trace || []).filter(x => x.snap).length })`);
+    // (QA's watchdog allowance: 4 m a frame, or 60 m/s on a slow frame — worst = the biggest step ÷ that allowance)
+    t.check("a friend's car shoved 15 m: it slides over on my screen (no frame over the jump allowance, no snap)", st.worst < 1 && st.moved > 10 && st.snaps === 0, JSON.stringify(st));
   }
 
   // ── the list ──
