@@ -120,7 +120,13 @@ function codeView(el, api) {
     };
     onc(el, "#frSend", send);
     onc(el, "#frShare", async () => api.toast(await share(code)));
-    onc(el, "[data-cy]", async b => { const r = await HS.accept("code", b.dataset.cy); if (r === "full") api.toast(`Your list is full (${ST.CAP})`); api.refresh(); });
+    onc(el, "[data-cy]", async b => {
+        const r = await HS.accept("code", b.dataset.cy);
+        if (r === "full") api.toast(`Your list is full (${ST.CAP})`);
+        else if (r === "expired" || r == null) api.toast("That request expired. Ask your friend to send it again.");
+        else if (r === "accepted") api.toast("Connecting…");
+        api.refresh();
+    });
     onc(el, "[data-cn]", b => { HS.decline("code", b.dataset.cn); api.refresh(); });
 }
 async function share(code) {

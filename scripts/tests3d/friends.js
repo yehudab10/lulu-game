@@ -234,12 +234,28 @@ async function body(t, pages) {
   await A.frames(4);
   const code = await A.game(`${F}.code`);
   t.check("➕ Add by code shows a 6-letter code", /^[A-Z2-9]{6}$/.test(code), code);
-  const used = await C.game(`${F}.useCode(${JSON.stringify(code)})`);
-  t.check("C: typing it asks A", used === "asked", used);
-  if (!await A.until(`${F}.incoming("code").length === 1`, "A: C's ask on the code screen", 30000)) return;
-  await A.frames(4);
-  await A.L(`document.querySelector("[data-cy]").click()`);
-  t.check("A ✓ → C is A's friend", await A.until(`${F}.list.length === 2`, "A: 2 friends", 30000) && await C.until(`${F}.list.length === 1`, "C: 1 friend", 30000));
+  await drive(C, 450, 1.75);
+  await C.game(`(ctx.phone.openPhone("friends", { code: 1 }), true)`);
+  const cCode = await C.game(`${F}.code`);
+  const send = `${F}.useCode(${JSON.stringify(code)})`;
+  const used = await C.game(`Promise.all([${send}, ${send}])`);
+  t.check("double send uses one visit", used.every(v => v === "asked"), used);
+  if (!await A.until(`${F}.incoming("code").length === 1`, "A sees one request", 30000)) return;
+  const oldPeer = await A.game(`${F}.incoming("code")[0].peer`);
+  // Switching to an empty room closes that connection. Its row must disappear.
+  const empty = [ "ABC234", "DEF567", "GHJ789" ].find(v => v !== code && v !== cCode);
+  await C.game(`${F}.useCode(${JSON.stringify(empty)})`);
+  t.check("disconnected request disappears", await A.until(`!${F}.incoming("code").length && !document.querySelector("[data-cy]")`, "stale row removed"));
+  t.check("stale Accept cannot succeed", !await A.game(`${F}.accept("code", ${JSON.stringify(oldPeer)})`));
+  await Promise.all([C.game(send), A.game(`${F}.useCode(${JSON.stringify(cCode)})`)]);
+  for (const player of [A, C]) {
+    if (!await player.until(`document.querySelectorAll("[data-cy]").length === 1`, "one live Accept button", 30000)) return;
+  }
+  await Promise.all([A, C].map(player => player.L(`document.querySelector("[data-cy]").click()`)));
+  t.check("crossed codes add each friend once", await A.until(`${F}.list.length === 2`, "A: 2 friends", 30000) && await C.until(`${F}.list.length === 1`, "C: 1 friend", 30000));
+  const secretFor = id => `import("./js/features/friends/store.js").then(m => m.friend(${JSON.stringify(id)})?.s)`;
+  const ac = await A.L(secretFor(await C.game(`${F}.me`)));
+  t.check("both phones can read future friend messages", !!ac && ac === await C.L(secretFor(fA)));
   await A.game(`(ctx.phone.closePhone(), true)`);
   await A.until(`!${F}.code`, "A: the code room closes with the screen", 10000);
   const late = await C.game(`${F}.useCode(${JSON.stringify(code)})`);
