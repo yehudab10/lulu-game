@@ -25,6 +25,11 @@ jobs:
           xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Release -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/lulu-build" CODE_SIGNING_ALLOWED=NO build
           xcrun simctl bootstatus "$device" -b
           xcrun simctl install "$device" "$RUNNER_TEMP/lulu-build/Build/Products/Release-iphonesimulator/App.app"
+      - name: Set the test simulator's tracking choice before first launch
+        run: |
+          brew install wix/brew/applesimutils
+          applesimutils --byId "$SIM_ID" --bundle boats.lulu.game --setPermissions "userTracking=NO"
+          xcrun simctl bootstatus "$SIM_ID" -b
       - name: Verify the title is visible after a cold launch and a relaunch
         run: |
           set -euo pipefail
