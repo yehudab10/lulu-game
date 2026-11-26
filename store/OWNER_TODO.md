@@ -52,7 +52,8 @@ app"), a copy that doesn't start is rolled back automatically, and if a bad chan
    when something *native* changes; game changes go over the air.)
 
 3. **TestFlight on your iPhone.** App Store Connect → TestFlight → the new build → install with the TestFlight app.
-   Check: the tracking prompt appears in the first seconds; your old coins and cars are there; you can drive, walk
+   **First thing to check: the game's title screen appears and stays — no flashing or reloading over and over**
+   (an earlier TestFlight build looped at launch; that's fixed on main). Then check: the tracking prompt appears in the first seconds; your old coins and cars are there; you can drive, walk
    into a building, add a friend. Then close the app fully, open it again, play — still fine.
 
 4. **Record the tracking-prompt video** (Apple asked for it after the July rejection): delete the app or reset

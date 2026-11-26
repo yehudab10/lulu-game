@@ -79,7 +79,9 @@ export function validManifest(m) {
     if (!/^https:\/\//.test(m.base) && !ctx.TEST) return false;
     if (!m.files || typeof m.files !== "object") return false;
     const names = Object.keys(m.files);
-    if (!names.includes("index.html") || !names.some(n => n.startsWith("3d/js/"))) return false;   // the forwarder + the game
+    // the forwarder, the page the app opens first (capacitor.config.json › server.appStartPath) and the game's code
+    const start = String(m.startPath || ["", "3d", "index.html"].join("/")).replace(/^\//, "");
+    if (!names.includes("index.html") || !names.includes(start) || !names.some(n => n.startsWith("3d/js/"))) return false;
     return names.every(n => !n.startsWith("/") && !n.split("/").includes("..") && Array.isArray(m.files[n]) && /^[0-9a-f]{64}$/.test(m.files[n][0]) && m.files[n][1] >= 0);
 }
 

@@ -244,11 +244,16 @@ from the server and used from the next launch, so the app follows the website wi
    - **No Capgo account, no Capgo server**: `capacitor.config.json` sets `autoUpdate: false` and blanks
      `updateUrl`, `statsUrl` and `channelUrl` (the plugin's code skips every network call when they're empty —
      checked in its source), no shake menu, no preview mode, HTTPS only.
-4. **The save survives.** Every copy is served from the same origin, `capacitor://localhost` — only the folder
+4. **The start page.** The app opens `/3d/index.html` first (`server.appStartPath`); a reload or an update switch
+   opens the copy's root `index.html`, which forwards to `/3d/index.html` on `capacitor:`. `copy-web.js` fails the
+   build if that page isn't in `www/`, writes it into `ota-build.json` as `startPath`, the channel refuses to
+   publish a copy without it, and `ota.js` ignores a manifest that lacks it.
+5. **The save survives.** Every copy is served from the same origin, `capacitor://localhost` — only the folder
    behind it changes (Capacitor's `setServerBasePath`) — so `localStorage` (`luluSaveV2`, `lulu3dSave`, …) is
    the same storage before and after. **Never set `server.url`** in `capacitor.config.json` (that would change
-   the origin and lose every save) and never change the scheme / hostname.
-5. **A new App Store build resets to its own bundled copy** (`resetWhenUpdate`, keyed on the build number), then
+   the origin and lose every save) and never change the scheme / hostname. (`server.appStartPath` only picks the
+   first page inside the same origin — it's safe.)
+6. **A new App Store build resets to its own bundled copy** (`resetWhenUpdate`, keyed on the build number), then
    follows stable again.
 
 ### The brakes (no app release needed)
@@ -327,7 +332,10 @@ device — check them once on TestFlight (see the checklist).
    **Build the .ipa** and **Publishing → App Store Connect → uploaded**. 10–30 min later the build appears in
    App Store Connect → TestFlight (status "Processing", then "Ready to Test" / "Missing Compliance" should NOT
    appear because of the encryption key).
-3. **On TestFlight, on your iPhone:** install; the tracking prompt appears over the loading/title screen; play;
+3. **On TestFlight, on your iPhone:** install. **First check: the title screen appears and stays, with no
+   flashing / reloading loop** (the app opens `/3d/index.html` directly — `capacitor.config.json` ›
+   `server.appStartPath` — because Capacitor iOS answers a folder address like `/3d/` with the root page, which
+   used to bounce back and forth). Then: the tracking prompt appears over the loading/title screen; play;
    your coins/cars from the old app are there. Leave it open 1 minute, close it fully, open again — still fine
    (it may have switched to the latest stable copy).
 
