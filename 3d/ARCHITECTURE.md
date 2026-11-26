@@ -486,6 +486,21 @@ On its side `#touchExtra` (BAIL, 🚀…) is a column beside the stick, not a ro
 `scripts/tests3d/hudworst.js` (every chip at once at 360×800 / 390×844 / 412×915 / 430×932 / 800×360 / 844×390 / 932×430,
 a tablet with fingers + a controller, a laptop, TV 720p / 1080p: no overlaps, the window empty, ≤ 1 / 2 / 3 full chips,
 no "…"; before / after pictures in `3d/docs/hud/`), `hudfit.js`, and `calm` (on a phone ≤ 1 full objective and ≤ 3 chips at once).
+**One activity at a time (`ci/hud`):** `ctx.engaged(except)` (core/ctx.js) → the activity she's in ("" = free): `chase`
+(law / a foot chase), `job` (a side job, the Fixer's too), `heist` (a robbery to foil, a snatcher, her own heist),
+`parking`, `shabbos` (the rush), `underworld` (a bad-guy encounter), + whatever a feature adds with `ctx.addActivity(id,
+fn)`. Every scheduler that STARTS or OFFERS something new asks it, passing its own family as `except`, and stays quiet
+while she's busy. That covers robberies, snatchers, the heist tip, bad-guy cars, the Fixer, payphones / the job phone,
+cameos, drive-thru / ice cream, the town's street scenes and crimes, the chop shop and the Shabbos call. A player's own
+choice (📱 Jobs, a booth) isn't blocked. Test `oneact`. **Speech bubbles on a phone:** Lulu's line docks in the left
+column outside the clear window (`H.dockSpot(w, h)` → a spot, `null` = wait, `undefined` = not a phone); a line over
+someone else that would land in the window hides. **The 📱 (landing 3):** 💬 Messages keeps only texts that need her —
+`ctx.phone.text({ …, need: true })`, or the threads realtor / council / bank / City Hall / fixer / jfk (`inbox.js › NEED`).
+Any other text doesn't happen: no inbox line and no card. Only `"phone:text"` fires, with `quiet: true`. `react: true`
+shows the card for a line answering something she just did, never during an activity. The 📱 badge = kept unread +
+friends' requests / asks to join. Home screen: 👯 Friends · 🗺️ Map · 💼 Jobs · 💬 Messages · 📞 Contacts · 📻 Radio ·
+📸 Camera. An app with `home: false` is opened from another app (📍 Nearby from Friends, 🎨 Paint & Pray from a Jobs
+row while she's wanted).
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
