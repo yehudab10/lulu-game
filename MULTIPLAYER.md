@@ -332,3 +332,23 @@ No server change — the relay's protocol v1 in rooms the client names:
   handshake runs in that room's state.
 - Nothing personal: random ids, the curated name, the car skin, a few words of where in the game world ("in Midwood ·
   driving"), only to friends, sealed. Relay load: one idle socket per online player with friends + short knocks.
+
+## 3D — ACCOUNTS, USERNAMES, FRIENDS THAT WAIT (features/accounts + features/friends/server.js, ci/accounts)
+
+Owner-approved server change (2026-11-26). The relay gains `/acct/*` HTTP endpoints on the global Board object
+(`server/accounts.mjs`; table + endpoint list in `server/README.md`). **Nothing in the room protocol changed**; two new
+OPTIONAL state fields ride in existing messages, and every old client ignores them:
+
+- `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
+  the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
+  `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual
+  colour + number). ⚙️ "Other players' names: Off" shows colour + number for everyone but friends. Party members' names
+  are always shown (people you chose to play with).
+- The curated `mpName` and the `j` (join) name are untouched — the Classic 2D game and the board still use them.
+
+**Friends on the server:** requests by username (`/acct/ask`) wait for an offline player and show as a badge on 👯
+(no pop-up); accept / decline (silent) / cancel / remove / block / "who can send me requests" (everyone · friends of
+friends · nobody) are server calls. A friendship made on the server gets its doorbell through a SEALED card on the
+friendship (AES-GCM under ECDH(my long-term key, their public key) — the server holds only the sealed note). On-device
+friendships from before are "claimed" by each side's hello and become server friendships once both have updated.
+Presence / ▶ JOIN still go through the private doorbell rooms (nothing about where anyone is goes to the server).
