@@ -859,8 +859,13 @@ friend's screen; NEVER an exit metre or a lap number (those only say where on th
 In a town: `"<town>:<lx>:<lz>"` (the town's local metres, rounded — `ctx.town.addressOf(x, z)`; the key `homes` › `doorId`
 and `realestate` already use for a house; shared rooms' `inst` too) or `"<town>:<spot>"` for a named spot
 (`ctx.town.addressOf("luluHome")` → `"midwood:luluHome"`). On the highway: `"hw:rest:<slot>"` (a rest area's `R.address`),
-`"hw:exit:<town>"`, `"hw:jfk"`, `"hw:gas:<n>"` / `"hw:lookout:<n>"` (n = its index on the lap). Next stages: one 📱 map +
-real distances, hooks.
+`"hw:exit:<town>"`, `"hw:jfk"`, `"hw:gas:<n>"` / `"hw:lookout:<n>"` (n = its index on the lap). **THE MAP + REAL
+DISTANCES (stage 3):** `world/lapmap.js` › `lapPlaces()` (every place on the lap from fixed data — `{ addr, name, emoji,
+m, kind }`, sorted by lap metre, cached once a world exists), `ahead(m, from)` (metres on — the road goes one way),
+`myLapM()` (in a town: its exit's), `drawLap(cv, { me, dots })` (the ring: lap line at the top, clockwise, names inside).
+The 📱 🗺️ Map is the `lapmap` app solo in a lap world (the story `map` hides there); the 👯 friends' map on the highway
+draws the same ring with friends as dots. `world/lapsigns.js`: just past each town's and JFK's on-ramp a green board lists
+the next three big places in real miles (added 1.2–4.2 km ahead, once per lap per board). Next stage: hooks.
 
 **Towns (town):** a Cruise run has an INTERCHANGE every few km, and **each town has its OWN** (owner 2026-11-20: "Brooklyn
 and Lakewood shouldn't share the same exit"): the route is data — `towns/index.js` › `ROUTE` = `{ period, stops: [{town, at}] }`
