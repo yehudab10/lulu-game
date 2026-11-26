@@ -112,6 +112,7 @@ async function body(t, guests) {
   // ── 👯 "Come to my place": the host asks, the friend says yes → the friend goes straight to the host's front door ──
   await A.game(`(ctx.realestate.debug.GO.last = -1e9, ctx.foot.debug.F.pos.x += 30, ctx.foot.obj.position.copy(ctx.foot.debug.F.pos), true)`);
   await t.frames(10);
+  await A.L(`import("./js/core/ctx.js").then(m => { m.on("group:missionStart", e => { window.__mstart = (window.__mstart || 0) + 1; }); return true; })`).catch(() => null);
   const off = await g(`ctx.group.offer("realestate.visit")`);
   t.check("👯 Come to my place: the host offers it", off === "", String(off));
   await A.until(`!!ctx.group.offerNow && !!ctx.group.offerNow()`, "guest sees the offer", 20000);
@@ -119,7 +120,7 @@ async function body(t, guests) {
   await Hp.until(`(() => { const o = ctx.group.offerNow(); return !!o && o.ins.length >= 2; })()`, "the guest is in", 20000);
   await g(`ctx.group.goNow()`);
   const gd = await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && (() => { const r = ctx.realestate.homes().find(h => h.id === ${ID}); return !!r && Math.hypot(ctx.foot.pos.x - r.ap.x, ctx.foot.pos.z - r.ap.z) < 3; })()`, "guest at the host's door", 30000);
-  t.check("…the friend lands at the host's front door", gd);
+  t.check("…the friend lands at the host's front door", gd, JSON.stringify(await A.game(`(() => { const p = ctx.party.peer(${HU}); return { rv: p && p.x && p.x.rv, act: ctx.party.activity, go: ctx.realestate.debug.GO, why: p && p.x && p.x.rv ? ctx.realestate.goBlock(p.x.rv, { friend: true }) : "no rv", n: (window.__mstart || 0) }; })()`)));
   t.check("…nobody's coins moved", (await A.game(`L3.wallet.coins`)) >= 0);
 
   // ── a double booking: both signed the same home → exactly one keeps it, the other gets every coin back ──
