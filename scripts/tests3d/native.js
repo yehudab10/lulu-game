@@ -353,6 +353,19 @@ module.exports = {
         t.check("ota: …and is never tried again", await g(`ctx.native.ota.check()`) === "known bad");
         t.check("ota: the save is still untouched", (await saveNow()) === saveBefore);
       }
+
+      // the app never shows a silent screen: a copy whose game code doesn't load → after a while a plain panel
+      // (what failed, which copy) with "Use the built-in copy" → back to the bundled game, that copy never retried
+      await t.L(`(() => { const st = JSON.parse(localStorage.getItem("__fakeCapgo")); st.bundles.dead = { version: "test-dead", status: "success", dir: "/www-ota-bad/" }; st.current = "dead"; localStorage.setItem("__fakeCapgo", JSON.stringify(st)); })()`);
+      await t.page.goto(`${origin}/www-ota-bad/3d/?test&stuck=3000`);
+      const panel = await t.until(`!!document.getElementById("nativeStuck") && /test-dead/.test(document.getElementById("nsVer").textContent)`, "stuck: the panel appears", 60000);
+      if (panel) {
+        t.check("stuck: it says the game didn't start + which copy", await t.L(`/didn't start/.test(document.getElementById("nativeStuck").textContent) && /downloaded/.test(document.getElementById("nsVer").textContent)`));
+        t.check("stuck: 'Use the built-in copy' is offered", await t.L(`getComputedStyle(document.getElementById("nsBuilt")).display !== "none"`));
+        await t.L(`document.getElementById("nsBuilt").click()`);
+        const home = await t.until(`location.pathname.startsWith("/www/") && window.__lulu3d && __lulu3d.state === "title"`, "stuck: the built-in copy boots", 120000);
+        if (home) t.check("stuck: …and that copy is never tried again", await g(`ctx.native.ota.debug.state.bad.includes("test-dead")`));
+      }
     } finally {
       for (const d of OTA_DIRS) fs.rmSync(d, { recursive: true, force: true });
       // switching copies reloads the page while the old one may still be loading models: its cancelled

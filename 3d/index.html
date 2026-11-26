@@ -86,6 +86,75 @@
         </div>
     </div>
 
+    <!-- The iOS app: never a silent screen. If the game hasn't reached its first screen 25 s after launch, a plain panel
+         says what failed (the last errors), which app + game copy this is, and offers "Use the built-in copy" (resets
+         the over-the-air updater: features/native/ota.js) / "Try again" / "Keep waiting". Plain ES5, no imports — it
+         works even when the game's own code can't load. Only inside the app (window.Capacitor is injected before any
+         page script). IOS_BUILD.md › If the app doesn't start. -->
+    <script>
+    (function () {
+        var cap = window.Capacitor;
+        try { if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return; } catch (e) { return; }
+        var errs = [], box = null, timer = null;
+        function note(m) { m = String(m || "").slice(0, 300); if (m && errs.indexOf(m) < 0) { errs.push(m); if (errs.length > 6) errs.shift(); } }
+        window.addEventListener("error", function (e) {
+            var t = e && e.target;
+            if (t && t !== window && (t.src || t.href)) note("couldn't load " + String(t.src || t.href).replace(/^[a-z]+:\/\/[^\/]+/, ""));
+            else note((e && e.message || "error") + (e && e.filename ? " (" + String(e.filename).split("/").slice(-2).join("/") + ":" + e.lineno + ")" : ""));
+        }, true);
+        window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; note("unhandled: " + (r && (r.message || r))); });
+        function up() { try { return !!(window.__lulu3d && window.__lulu3d.state); } catch (e) { return false; } }
+        var P = cap.Plugins || {}, U = P.CapacitorUpdater, App = P.App;
+        function btn(id, label, main) { return '<button id="' + id + '" style="font:600 16px system-ui,sans-serif;border:0;border-radius:12px;padding:12px 16px;' + (main ? "background:#E91E63;color:#fff" : "background:#ececf2;color:#1a1a2e") + '">' + label + '</button>'; }
+        function show() {
+            if (up() || box) return;
+            var lt = document.getElementById("loadText");
+            if (lt && lt.textContent) note("loading screen: " + lt.textContent);
+            box = document.createElement("div");
+            box.id = "nativeStuck";
+            box.setAttribute("style", "position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(26,26,46,.92);padding:20px;font:16px/1.4 -apple-system,system-ui,sans-serif");
+            box.innerHTML = '<div style="max-width:520px;background:#fff;color:#1a1a2e;border-radius:16px;padding:20px">' +
+                '<h2 style="margin:0 0 8px;color:#E91E63">The game didn\'t start</h2>' +
+                '<p style="margin:0 0 8px">Something went wrong while it was loading. What we know:</p>' +
+                '<pre id="nsErr" style="white-space:pre-wrap;word-break:break-word;font:12px/1.35 ui-monospace,Menlo,monospace;background:#f3f3f6;border-radius:8px;padding:8px;max-height:30vh;overflow:auto;margin:0"></pre>' +
+                '<p id="nsVer" style="font-size:13px;color:#555;margin:8px 0 12px"></p>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap">' + btn("nsBuilt", "Use the built-in copy", true) + btn("nsRetry", "Try again") + btn("nsWait", "Keep waiting") + '</div></div>';
+            document.body.appendChild(box);
+            document.getElementById("nsErr").textContent = errs.length ? errs.join("\n") : "No error was reported — it's just taking very long.";
+            var ver = { app: "", copy: "" };
+            function paintVer() { document.getElementById("nsVer").textContent = [ver.app, ver.copy].filter(Boolean).join(" · "); }
+            var built = document.getElementById("nsBuilt"), cur = null;
+            built.style.display = "none";
+            try { if (App && App.getInfo) App.getInfo().then(function (i) { ver.app = "App " + i.version + " (build " + i.build + ")"; paintVer(); }); } catch (e) { /* no info */ }
+            try {
+                if (U && U.current) U.current().then(function (c) {
+                    cur = c && c.bundle;
+                    var builtin = !cur || cur.id === "builtin";
+                    ver.copy = builtin ? "game copy: built into the app" : "game copy: " + cur.version + " (downloaded)";
+                    built.style.display = builtin ? "none" : "";
+                    paintVer();
+                });
+            } catch (e) { /* no updater */ }
+            built.onclick = function () {
+                // never try this copy again (ota.js reads luluOtaV1), then back to the copy inside the app
+                try {
+                    var S = JSON.parse(localStorage.getItem("luluOtaV1") || "{}");
+                    S.bad = S.bad || []; if (cur && cur.version && S.bad.indexOf(cur.version) < 0) S.bad.push(cur.version);
+                    S.pending = null; S.trying = null;
+                    (S.log = S.log || []).push(new Date().toISOString().slice(0, 19) + " the player chose the built-in copy (" + (cur && cur.version) + " didn't start)");
+                    localStorage.setItem("luluOtaV1", JSON.stringify(S));
+                } catch (e) { /* storage full: reset anyway */ }
+                try { U.reset({ toLastSuccessful: false }); } catch (e) { location.reload(); }
+            };
+            document.getElementById("nsRetry").onclick = function () { location.reload(); };
+            document.getElementById("nsWait").onclick = function () { if (box) box.remove(); box = null; timer = setTimeout(show, 30000); };
+        }
+        window.__lulu3dStuck = show;                       // the old-browser check below hands over to this in the app
+        var q = /[?&]test\b/.test(location.search) ? /[?&]stuck=(\d+)/.exec(location.search) : null;
+        if (!/[?&]test\b/.test(location.search) || q) timer = setTimeout(show, q ? +q[1] : 25000);   // (tests: only with &stuck=ms)
+        var poll = setInterval(function () { if (up()) { clearTimeout(timer); clearInterval(poll); if (box) { box.remove(); box = null; } } }, 1000);
+    })();
+    </script>
     <noscript><p style="padding:2em;font:18px sans-serif">Lulu's Road Trip 3D needs JavaScript.</p></noscript>
     <!-- Old / console browsers (e.g. the PS5's built-in one) may have no WebGL, no ES
          modules or no import maps: explain and point to the 2D game instead of
@@ -96,6 +165,7 @@
         var ua = navigator.userAgent || "";
         var ps = /PlayStation/i.test(ua);
         window.__lulu3dFallback = function (why) {
+            if (window.__lulu3dStuck) { window.__lulu3dStuck(why); return; }     // the iOS app: its own panel (above)
             var box = document.getElementById("loading");
             if (!box || box.getAttribute("data-fallback")) return;
             box.setAttribute("data-fallback", why);
