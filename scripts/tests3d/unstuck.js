@@ -349,7 +349,7 @@ module.exports = {
       await W.reset(t);
       // a block's middle (a house) — in world coords
       const block = await g(`(() => { const pl = ctx.town.plan, n = pl.OCCLUDERS.length; let best = null, bd = 1e9; const me = ctx.town.debug.local(ctx.car.pos.x, ctx.car.pos.z);
-        for (const r of pl.OCCLUDERS) { const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, d = Math.hypot(cx - me.x, cz - me.z); if (d < bd && r.x1 - r.x0 > 8 && r.z1 - r.z0 > 8) { bd = d; best = { cx, cz }; } }
+        for (const r of pl.OCCLUDERS) { const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, d = Math.hypot(cx - me.x, cz - me.z); if (d < bd && r.x1 - r.x0 > 8 && r.z1 - r.z0 > 8) { const w = ctx.town.debug.world(cx, cz); if (ctx.unstuck.debug.onLot(w.x, w.z)) continue; bd = d; best = { cx, cz }; } }     // (not her own lot / a car lot: open ground)
         return best ? Object.assign(ctx.town.debug.world(best.cx, best.cz), { n }) : null; })()`);
       // 13 · the car inside a house → the nearest street, in her lane
       if (t.check(`${id}: a block to test`, !!block)) {
