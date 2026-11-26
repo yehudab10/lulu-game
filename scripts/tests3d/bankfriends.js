@@ -206,14 +206,18 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   const c0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   const done = { h: false, a: false }, end = Date.now() + 180000;
   while ((!done.h || !done.a) && Date.now() < end) {
-    if (!done.h && await g(OUT)) { await g(`ctx.heist.debug.crew.result("ok")`); done.h = true; }
-    if (!done.a && await A.game(OUT)) { await A.game(`ctx.heist.debug.crew.result("ok")`); done.a = true; }
+    // (shaking them for real: the cop law's crew crime put on her at once is dropped too — "ok" alone left that foot cop
+    //  running, and he caught the friend AFTER she'd got away)
+    const SHAKE = `(ctx.law.standDown && ctx.law.standDown(), ctx.foot.dropChase && ctx.foot.dropChase(), ctx.law.hold(99999), ctx.heist.debug.crew.result("ok"), true)`;
+    if (!done.h && await g(OUT)) { await g(SHAKE); done.h = true; }
+    if (!done.a && await A.game(OUT)) { await A.game(SHAKE); done.a = true; }
     await t.frames(2);
   }
   t.check("host + guest: THE ALARM — both out on the street, both shake the cops", done.h && done.a, JSON.stringify(done));
   t.check("taking part spends each one's own heist (one a run)", await g(`ctx.heist.debug.J.done`) && await A.game(`ctx.heist.debug.J.done`));
   await Hp.until(`!ctx.heist.debug.crew.C.lead && ctx.heist.debug.crew.C.paid.size > 0`, "host: the take is settled", 60000);
-  await A.until(`ctx.heist.debug.crew.C.paid.size > 0`, "guest: her share arrives", 60000);
+  if (!await A.until(`ctx.heist.debug.crew.C.paid.size > 0`, "guest: her share arrives", 60000))
+    console.log("   guest when her share didn't arrive:", JSON.stringify(await A.game(`({ state: ctx.state, host: ctx.party.host, me: ctx.party.uid, mine: ctx.heist.debug.crew.C.mine, seen: [...(ctx.heist.debug.crew.C.seenRes || new Map())], chasing: !!(ctx.law.chasing || ctx.foot.chasing) })`)));
   const dh = (await g(`L3.wallet.coins`)) - c0.h, da = (await A.game(`L3.wallet.coins`)) - c0.a, max = await g(`ctx.heist.debug.crew.MAX_TAKE`);
   t.check("the take is SPLIT between the two who got away (never more than one solo take)", dh > 0 && da > 0 && Math.abs(dh - da) <= 5 && dh + da <= max + 5, JSON.stringify({ dh, da, max }));
   const cbook = `(() => { const n = ctx.heist.debug.crew.C.host.n; return n.get(${HU}) === 1 && n.get(${GU}) === 1; })()`;

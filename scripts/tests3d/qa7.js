@@ -21,10 +21,12 @@ module.exports = {
     await g(`(ctx.law.hold && ctx.law.hold(1e6), ctx.town.load("midwood"), true)`);
     if (!await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "Midwood's models load", 90000)) return;
     await W.moved(t);
-    await g(`ctx.town.enter({ town: "midwood", speed: 0 })`);
+    // (the Midwood her house is in: ctx.town.home's exit — on another lap of the one world it's a town without it; qa14 checks that)
+    await g(`ctx.town.enter({ town: "midwood", exitS: ctx.town.home ? ctx.town.home.exitS : undefined, speed: 0 })`);
     if (!await t.until(`__lulu3d.ctx.town.active`, "in Midwood", 8000)) return;
     await t.frames(20);
     const lot = await g(`ctx.town.spot("luluHome")`);
+    const door = lot && lot.door ? lot.door : lot;     // (her front door: the house stands on the lot since ci/hometown)
     t.check("Midwood has Lulu's lot on E 34th St (spot luluHome)", !!lot, JSON.stringify(lot));
     const st = await g(`(() => { const s = ctx.town.plan.byName["E 34th St"]; return s ? { a0: s.a0, a1: s.a1, oneway: s.oneway } : null; })()`);
     if (!t.check("E 34th St exists", !!st, JSON.stringify(st))) return;
@@ -48,13 +50,13 @@ module.exports = {
     if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "out on E 34th St", 8000)) {
       if (lot) {
         for (let k = 0; k < 300; k += 3) {
-          const done = await g(`(() => { const F = ctx.foot.debug.F, dx = ${lot.x} - F.pos.x, dz = ${lot.z} - F.pos.z, L = Math.hypot(dx, dz); if (L < 2) { __pad.axes[0] = 0; __pad.axes[1] = 0; return true; }
+          const done = await g(`(() => { const F = ctx.foot.debug.F, dx = ${door.x} - F.pos.x, dz = ${door.z} - F.pos.z, L = Math.hypot(dx, dz); if (L < 2) { __pad.axes[0] = 0; __pad.axes[1] = 0; return true; }
             const fy = ctx.foot.frameYaw, fx = Math.sin(fy), fz = Math.cos(fy), rx = -fz, rz = fx; __pad.axes[0] = (dx * rx + dz * rz) / L; __pad.axes[1] = -(dx * fx + dz * fz) / L; return false; })()`);
           if (done) break;
           await t.frames(3);
         }
         await t.stick(0, 0);
-        t.check("walked onto her lot", await g(`Math.hypot(ctx.foot.debug.F.pos.x - ${lot.x}, ctx.foot.debug.F.pos.z - ${lot.z}) < 6`));
+        t.check("walked up her lot to the front door", await g(`Math.hypot(ctx.foot.debug.F.pos.x - ${door.x}, ctx.foot.debug.F.pos.z - ${door.z}) < 4`), JSON.stringify(await g(`({ x: ctx.foot.debug.F.pos.x, z: ctx.foot.debug.F.pos.z })`)));
         await t.shot("e34-lot");
       }
       for (const [x, y, n] of [[1, 0, 45], [0, 1, 45], [-1, 0, 90], [0, -1, 45], [1, -1, 40]]) { await t.stick(x, y); await t.frames(n); }
@@ -72,15 +74,8 @@ module.exports = {
       }
       await t.L(`(__pad.axes[0] = __pad.axes[1] = __pad.axes[2] = 0, true)`);
       await t.shot("e34-monkey");
-      // KNOWN (reported 2026-11-22 to the lot's owners, ci/exits2 / ci/hometown): from the open lot she can walk on into the
-      // NEIGHBOURS' houses (only a block's street front is solid) — the camera ends up inside a house. Logged, not failed,
-      // while it's open: any other glitch still fails.
-      const lotBlock = await g(`(() => { const sp = ctx.town.spot("luluHome"), pl = ctx.town.plan, L = pl.local(sp.door ? sp.door.x : sp.x, sp.door ? sp.door.z : sp.z, {}); const r = pl.OCCLUDERS.find(r => L.x > r.x0 && L.x < r.x1 && L.z > r.z0 && L.z < r.z1); return r ? "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0) : null; })()`);
+      // (strict since ci/hometown's hedge closed the lot's sides + back: no walking into the neighbours' houses)
       const rep = await W.report(t);
-      const known = i => (i.kind === "inside" || i.kind === "inwall" || i.kind === "flat") && (lotBlock && i.msg.includes(lotBlock) || i.kind === "flat");
-      const k = rep.issues.filter(known);
-      if (k.length) console.log(`   KNOWN (the neighbours' houses next to her lot are walk-in): ${k.length} issue(s), e.g. ${k[0].msg}`);
-      rep.issues = rep.issues.filter(i => !known(i));
       W.log(rep); W.check(t, "Midwood: walking her lot + E 34th St + a monkey run", rep); await W.reset(t);
       if (await g(`L3.state === "footRun"`)) { await g(`ctx.foot.debug.getIn()`); await t.until(`__lulu3d.state === "playing"`, "back in the car", 6000); }
     }

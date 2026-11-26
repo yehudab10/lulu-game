@@ -185,7 +185,10 @@ const SRC = String.raw`
       // (a camera on the move brushing through leaves for a moment is fine; PARKED in them — a green / black screen — isn't)
       if (leaf) Q.leafF += dF; else Q.leafF = 0;
       if (Q.leafF > 12) flag("inwall", "the camera stays inside a tree's leaves " + leaf, "inwall:tree");
-      if (who) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + (foot ? ", Lulu " : ", car ") + JSON.stringify(P(who)) + ")", foot ? "inwall" : "inwall:car"); }
+      // (one frame of an orbit swinging round at a hedge / a lot edge is invisible; a camera that STAYS in a wall — 3+ frames — isn't)
+      const wall = who ? solidAt(camP.x, camP.z, camP.y, 0.05, 0.8) : null;
+      Q.wallF = wall ? (Q.wallF || 0) + dF : 0;
+      if (who) { const s = Q.wallF >= 3 ? wall : null; if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + (foot ? ", Lulu " : ", car ") + JSON.stringify(P(who)) + ")", foot ? "inwall" : "inwall:car"); }
       const look = ctx.camera.getWorldDirection(Q._dir || (Q._dir = camP.clone()));
       if (f % Q.opts.flatEvery === 0 && !cov.length && !soft && look.y > -0.55) {      // (looking straight down at a lot / a lawn is flat on purpose)
         const fl = flatFrame();
