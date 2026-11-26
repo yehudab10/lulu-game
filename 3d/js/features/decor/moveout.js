@@ -245,7 +245,7 @@ ctx.moveout = {
         S, STAGES,
         /** Tests: pretend she has played n days (and, by default, hasn't been told about her boxes yet). */
         setDays(n, told = S.told) { S.played = Math.max(0, n | 0); S.day = today(); S.told = told; saveSoon(); return S.played; },
-        /** Inside the house: what this visit built — { stage, boxes, at, line, props }. */
-        room: () => { const rt = ctx.decor && ctx.decor.debug.room(); return rt && rt.data.MO ? rt.data.MO : null; },
+        /** Inside the house: what this visit built — { stage, boxes, at, line, props (how many signs) }. */
+        room: () => { const rt = ctx.decor && ctx.decor.debug.room(), M = rt && rt.data.MO; return M ? { stage: M.stage, boxes: M.boxes, at: M.at, line: M.line, props: M.props.length } : null; },
     },
 };

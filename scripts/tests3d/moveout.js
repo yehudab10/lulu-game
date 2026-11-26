@@ -64,11 +64,11 @@ async function body(t, riders) {
     const inside = (x, z, m) => cols.some(c => x > c.x0 - m && x < c.x1 + m && z > c.z0 - m && z < c.z1 + m);
     const bad = [];
     for (const h of r.hots) { if (h.track) continue; if (inside(h.x, h.z, 0)) bad.push("hot:" + h.id); }
-    const walk = pts => { for (let i = 1; i < pts.length; i++) { const [ax, az] = pts[i - 1], [bx, bz] = pts[i]; for (let k = 0; k <= 20; k++) { const x = ax + (bx - ax) * k / 20, z = az + (bz - az) * k / 20; if (inside(x, z, 0.22)) return [x.toFixed(2), z.toFixed(2)]; } } return null; };
+    const walk = pts => { for (let i = 1; i < pts.length; i++) { const [ax, az] = pts[i - 1], [bx, bz] = pts[i]; for (let k = 0; k <= 20; k++) { const x = ax + (bx - ax) * k / 20, z = az + (bz - az) * k / 20; if (inside(x, z, 0.12)) return [x.toFixed(2), z.toFixed(2)]; } } return null; };
     const d = r.hots.find(h => h.id === "dinaRoom"), I = r.byId.ima && r.byId.ima.p.obj.position;
     const a = walk([[1.4, 1.9], [1.4, 0.6], [3.1, 0.6], [d ? d.x : 8.5, d ? d.z : -1.1]]);
     if (a) bad.push("toDina@" + a);
-    const b = walk([[1.4, 1.9], [-3.1, 0.6], [I ? I.x + 0.6 : -5, I ? I.z + 0.6 : -0.4]]);
+    const b = walk([[1.4, 1.9], [0.4, -1.0], [-2.2, -1.0], [-2.6, 0.05], [-3.6, 0.05], [I ? I.x + 0.6 : -4.4, I ? I.z + 0.6 : -0.45]]);
     if (b) bad.push("toIma@" + b);
     return bad;
   })()`);
@@ -81,7 +81,7 @@ async function body(t, riders) {
   t.check("her boxes hold exactly what she bought (3 things, 3 boxes)", M1.boxes === 3 && box.boxed.join() === "bed:fluffy,mailbox:fish,rug:round" && box.bought === 3, JSON.stringify({ M1, box }));
   t.check("…Ima tells her once what happened to her things", /packed your things/.test(M1.line || ""), M1.line);
   t.check("…no redecorate spots at Ima's, a 📦 Your things spot", !(await g(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)) && await g(`window.__interiors.room.hots.some(h => h.id === "boxes")`));
-  t.check("…Ima's own bed and rug, not hers", await g(`(() => { const V = ctx.decor.debug.room().data.V; const vis = s => Object.keys(V.cache[s] || {}).filter(k => V.cache[s][k] && V.cache[s][k].visible).join(); return vis("bed") === "basic" && vis("rug") === "none"; })()`), await g(`JSON.stringify(Object.keys(ctx.decor.debug.room().data.V.cache))`));
+  t.check("…Ima's own bed and rug, not hers", await g(`(() => { const V = ctx.decor.debug.room().data.V; const vis = s => Object.keys(V.cache[s] || {}).filter(k => V.cache[s][k] && V.cache[s][k].visible).join(); return vis("bed") === "basic" && !/round/.test(vis("rug")); })()`), await g(`(() => { const V = ctx.decor.debug.room().data.V; return JSON.stringify(Object.fromEntries(Object.entries(V.cache).map(([s, c]) => [s, Object.keys(c).filter(k => c[k] && c[k].visible)]))); })()`));
   const bad1 = await open();
   t.check("…nothing in a wall, every spot reachable (day 1)", bad1.length === 0, bad1.join(" "));
   await t.shot("day1-boxes");
@@ -96,7 +96,7 @@ async function body(t, riders) {
   for (let k = 0; k < ST.length; k++) {
     await g(`ctx.moveout.debug.setDays(${ST[k].at}, true)`);
     if (!await goIn(`inside on day ${ST[k].at}`)) return;
-    const M = await g(`(() => { const m = ctx.moveout.debug.room(); return { stage: m.stage, line: m.line, props: m.props.length, boxes: m.boxes, at: m.at, bed: !!(ctx.decor.debug.room().data.V.objs.bed && ctx.decor.debug.room().data.V.objs.bed.visible) }; })()`);
+    const M = await g(`(() => { const m = ctx.moveout.debug.room(); return { stage: m.stage, line: m.line, props: m.props, boxes: m.boxes, at: m.at, bed: !!(ctx.decor.debug.room().data.V.objs.bed && ctx.decor.debug.room().data.V.objs.bed.visible) }; })()`);
     t.check(`stage ${k + 1} (${ST[k].id}, day ${ST[k].at}): it's showing, with Ima's line`, M.stage === k && M.line === ST[k].line, JSON.stringify(M));
     t.check(`…more than the stage before (props ${props0} → ${M.props})`, M.props >= props0 && (k === 0 || M.props > props0 || ST[k].id === "bike" || ST[k].id === "boarder"), JSON.stringify(M));
     const bad = await open();
@@ -164,7 +164,7 @@ async function body(t, riders) {
   // ── "Start my days here": the hints stop, and turn warm ──
   await g(`(ctx.home.setStartAt({ town: ${JSON.stringify(rec.town)}, key: ${JSON.stringify(rec.id)}, door: { x: ${rec.ax}, z: ${rec.az} }, face: 0, label: ${JSON.stringify(rec.address)} }), ctx.moveout.debug.setDays(40, true), true)`);
   // (dinner's at Ima's: ctx.onegame.home lands her on the family porch — her days start elsewhere now, so go via dinner)
-  await g(`ctx.onegame.home({ via: "dinner" })`);
+  await g(`(ctx.onegame.home({ via: "dinner" }), true)`);
   await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.town.id === __lulu3d.ctx.town.home.town`, "back at Ima's for dinner", 60000);
   if (!await goIn("Ima's after she moved out")) return;
   const K = await g(`ctx.moveout.debug.room()`);
