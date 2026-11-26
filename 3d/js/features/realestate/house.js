@@ -4,6 +4,7 @@
 //   • HER OWN HOUSE (✋ 🔑 GO IN with her key — no knocking, no burglary): empty and echoing, a beanbag, a mattress, a
 //     fridge with one pickle, boxes to unpack — decorating comes in stage 3 (features/decor's picker).
 // Rooms: a "cozy" rowhouse / a townhouse = 2 (the living room IS the kitchen), a duplex half / a house = 3.
+import { startAtFor } from "./goto.js";
 import * as THREE from "three";
 import { ctx, emit } from "../../core/ctx.js";
 import { saveSoon } from "../../core/save.js";
@@ -122,7 +123,7 @@ function build(rt) {
         const isBase = () => { const st = ctx.home.startAt; return !!(st && st.key === rec.id); };
         rt.hot({ id: "homebase", x: lx - 0.2, z: bz + 0.9, r: 1.1, label: () => (isBase() ? "🏠 Start my days at Ima's again" : "🏠 Start my days here"), action: async r => {
             if (isBase()) { ctx.home.setStartAt(null); await r.say("Lulu", "Back to Ima's in the mornings. The coffee's better there anyway. ☕", { emoji: "🏠" }); return; }
-            ctx.home.setStartAt({ town: rec.town, key: rec.id, door: { x: rec.ap.x, z: rec.ap.z }, face: Math.atan2(rec.nx, rec.nz), label: rec.address });
+            ctx.home.setStartAt(startAtFor(rec));
             await r.say("Lulu", `My days start at ${rec.address} now! (Dinner's still at Ima's. Obviously.)`, { emoji: "🏠" });
         } });
     }

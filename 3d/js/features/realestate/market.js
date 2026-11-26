@@ -57,8 +57,11 @@ export function catalogue() {
     const T = ctx.town;
     if (!T || !T.active || !T.def || !T.plan) { CAT.town = null; CAT.list = []; CAT.byId.clear(); return CAT.list; }
     const homes = T.homes || [];
-    if (CAT.town === T.def.id && CAT.n === homes.length && CAT.list.length) return CAT.list;
-    CAT.town = T.def.id; CAT.n = homes.length; CAT.list = []; CAT.byId.clear();
+    // (keyed by WHERE the town stands too: every lap of the road has its own copy of each town — the same addresses,
+    //  other world coords; a list from lap 1 put lap 2's signs / doors / mailboxes back on lap 1's spots)
+    const at = homes.length ? `${T.def.id}@${Math.round(homes[0].x)},${Math.round(homes[0].z)}` : T.def.id;
+    if (CAT.town === at && CAT.n === homes.length && CAT.list.length) return CAT.list;
+    CAT.town = at; CAT.n = homes.length; CAT.list = []; CAT.byId.clear();
     const def = T.def, plan = T.plan, town = def.id;
     const cops = ["precinct", "court"].map(k => T.spot && T.spot(k)).filter(Boolean);
     homes.forEach((h, hi) => {
@@ -113,7 +116,7 @@ export function valueOf(rec, day = today()) {
 export function isListed(rec, day = today()) {
     if (!rec || rec.family) return false;
     if (registry.ownerOf(rec.id)) return false;
-    const n = CAT.town === rec.town ? Math.max(1, CAT.list.length) : 200;
+    const n = CAT.town && CAT.town.split("@")[0] === rec.town ? Math.max(1, CAT.list.length) : 200;
     const ph = Math.floor(unit(rec.id + ":w") * MARKET.listDays);
     const win = Math.floor((day + ph) / MARKET.listDays);
     return unit(`${rec.id}:${win}`) < MARKET.perTown / n;
