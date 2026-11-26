@@ -152,25 +152,24 @@ async function body(t, guests) {
   }
   await g(`ctx.decor.enter()`);
   if (await Hp.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "host goes into her house", 60000)) {
-    await A.until(`(() => { const p = ctx.party.peer(${HU}); return !!p && p.x && Array.isArray(p.x.in) && p.x.in[0] === "luluHome"; })()`, "guest knows the host is home", 30000);
+    // (roadmap 23 — Ima's house is family only: the guest walks into HER OWN copy at once, nobody waits)
+    await A.until(`(() => { const pr = ctx.party.presenceOf(${HU}); return !!pr && pr.label === "at home"; })()`, "guest knows the host is home", 30000);
+    const door = await g(`ctx.decor.debug.spotAt("door")`);
+    await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
+    await W.reset(AW);          // (after the test's own teleport to the door — the watchdog would call it a jump)
     await A.game(`ctx.decor.enter()`);
-    if (await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest comes over", 60000)) {
-      await W.reset(AW);
-      // the host walks out of her own house: the guest stays a visitor, nothing breaks
-      await g(`(ctx.decor.debug.room().leave(), true)`);
-      await Hp.until(`ctx.state === "footRun"`, "host out of her house", 40000);
-      await A.frames(60);
-      t.check("the host walked out: the guest is still fine inside (or walked out with a line) — in control", await A.L(`window.__qa.control() || __lulu3d.state === "interior"`), await A.game(`ctx.state`));
-      await seg("visiting Lulu's house while the host walks out", A, KINDS);
-      // …and leaves the party altogether
-      await g(`(ctx.party.leave ? ctx.party.leave() : 0, true)`);
-      await A.frames(150);
-      const st = await A.game(`({ state: ctx.state, party: !!(ctx.party && ctx.party.active), visiting: !!(ctx.decor && ctx.decor.visiting) })`);
-      console.log("   after the host left the party:", JSON.stringify(st));
-      t.check("the host left the party: the guest isn't stranded in a house that isn't hers", !(st.state === "interior" && st.visiting && !st.party) || await A.L(`window.__qa.control() || __lulu3d.state === "interior"`), JSON.stringify(st));
-      if (await A.game(`ctx.state === "interior"`)) { await A.game(`(ctx.decor.debug.room() && ctx.decor.debug.room().leave(), true)`); await A.until(`ctx.state === "footRun" || ctx.state === "playing"`, "guest out of the house", 40000); }
-      await A.frames(30);
-      await seg("in Lulu's house when the host leaves the party", A, KINDS);
-    }
+    t.check("a friend at Ima's door while the host is inside: straight into her own copy", await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest's own copy", 60000));
+    await A.frames(60);
+    t.check("…in control, and nobody else in her copy", await A.L(`window.__qa.control() || __lulu3d.state === "interior"`) && (await A.game(`(() => { const R = ctx.together.debug.room(); return R.room !== "luluHome" && R.mates.length === 0; })()`)), await A.game(`ctx.state`));
+    await seg("both in their own copies of Ima's house", A, KINDS);
+    await A.game(`(ctx.decor.debug.room().leave(), true)`);
+    await A.until(`ctx.state === "footRun"`, "guest out of her copy", 40000);
+    // the host walks out, then leaves the party: nothing strands anyone
+    await g(`(ctx.decor.debug.room().leave(), true)`);
+    await Hp.until(`ctx.state === "footRun"`, "host out of her house", 40000);
+    await g(`(ctx.party.leave ? ctx.party.leave() : 0, true)`);
+    await A.frames(150);
+    t.check("the host left the party: the guest is fine (in control)", await A.L(`window.__qa.control()`), await A.game(`ctx.state`));
+    await seg("outside Lulu's house when the host leaves the party", A, KINDS);
   }
 }

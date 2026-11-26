@@ -27,7 +27,6 @@ import { friends, friendHex, zoneOf } from "./where.js";
 /** Which rooms friends share, and how two copies of a room are told apart. */
 export const SHARED = {
     home: () => (ctx.homes && ctx.homes.house ? ctx.homes.house.key : null),       // a house in town: its door
-    luluHome: () => (ctx.decor && ctx.decor.visitOwner ? ctx.decor.visitOwner() || "" : null),   // Lulu's house: whose it is
     bar: () => "", school: () => "", hospital: () => "", police: () => "", beach: () => "",       // the roadside doors: by the door (d.x.dr)
     courthouse: () => "",                                       // (places: the town's precinct / hospital reuse police / hospital — the door tells them apart)
     shul: () => "",                                             // (features/shul: the town's shul — the door tells two copies apart)
@@ -36,7 +35,9 @@ export const SHARED = {
     terminal: () => "jfk",                                      // ✈️ the JFK terminal (features/airport): one hall
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
-export const NOT_SHARED = {};
+export const NOT_SHARED = {
+    luluHome: "Ima's house is family only (roadmap 23, ci/moveout): everyone has her own copy, friends get a refusal at the door",
+};
 
 const DOOR_MATCH = 25;          // two friends' doors this close (m) = the same building
 const LAG = 220;                // draw friends this far in the past (ms) — the same idea as the street's interpolation
