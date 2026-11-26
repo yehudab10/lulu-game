@@ -345,7 +345,7 @@ export function registerBays(restS) {
         pos.set(c.x, 3.6, c.z); look.set(l.x, 1.2, l.z);
     };
     P.add({
-        id: "exits_pump", name: "the rest-area pumps", icon: "⛽", verb: `fill up · ${L.GAS.cost} 💰`, kind: "rest",
+        id: "exits_pump", name: "the rest-area pumps", icon: "⛽", verb: `fill up for ${L.GAS.cost} coins`, kind: "rest",
         where: mode => restS(mode).map(s => s + B.pump.u),
         d: B.pump.d, bay: { half: B.pump.half, d0: B.pump.d0, d1: B.pump.d1 },
         host: sp => { const o = hostObj("pump", sp); return { x: o.position.x, y: 1.5, z: o.position.z }; },
@@ -365,7 +365,7 @@ export function registerBays(restS) {
         ],
     });
     P.add({
-        id: "exits_garage", name: "Mendel's Mufflers", icon: "🔧", verb: `Mendel's · dents out ${L.MECHANIC.cost} 💰`, kind: "rest",
+        id: "exits_garage", name: "Mendel's Mufflers", icon: "🔧", verb: `get the dents out for ${L.MECHANIC.cost} coins`, kind: "rest",
         where: mode => restS(mode).map(s => s + B.garage.u),
         d: B.garage.d, bay: { half: B.garage.half, d0: B.garage.d0, d1: B.garage.d1 },
         host: sp => { const o = hostObj("mechanic", sp); return { x: o.position.x, y: 1.5, z: o.position.z }; },
