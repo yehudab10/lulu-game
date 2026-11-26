@@ -344,7 +344,17 @@ async function partyRun(t, guests) {
     if (await waitOn(holder.page || t.page, `ctx.openworld.game.itN >= 1`, 12000)) break;
   }
   for (const p of pages) await p.until(`ctx.openworld.game.itN >= 1`, "kugel: passed on contact", 30000);
-  t.check("kugel: the bump passed it (both screens agree)", (await g(`ctx.openworld.game.it`)) !== it0 && (await A.game(`ctx.openworld.game.it`)) === (await g(`ctx.openworld.game.it`)));
+  // (the two cars are still touching, so it can pass BACK after its 2.2 s guard: pull them apart, let both screens
+  //  settle on the same pass, then an odd number of passes = the other one holds it)
+  await holder.game(PLACE(op.x - Math.sin(op.h) * 40, op.z - Math.cos(op.h) * 40, op.h));
+  let kg = null;
+  for (let k = 0; k < 40; k++) {
+    await sleep(250);
+    const [h, a] = [await g(`[ctx.openworld.game.it, ctx.openworld.game.itN]`), await A.game(`[ctx.openworld.game.it, ctx.openworld.game.itN]`)];
+    if (kg && h[0] === a[0] && h[1] === a[1] && kg[1] === h[1]) { kg = h; break; }
+    kg = h[0] === a[0] && h[1] === a[1] ? h : null;
+  }
+  t.check("kugel: the bump passed it (both screens agree)", !!kg && kg[1] >= 1 && (kg[0] !== it0) === (kg[1] % 2 === 1), JSON.stringify({ it0, kg }));
   await sleep(600);
   await t.shot("kugel");
   await g(`ctx.party.setA(Object.assign({}, ctx.party.activity, { g: Object.assign({}, ctx.openworld.game, { fuse: Math.round(ctx.party.clock() + 300), guard: 1e15 }) }))`);
