@@ -17,7 +17,8 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 9000)) return;
     await g(`(ctx.law.hold(1e6), ctx.G.hearts = 99, ctx.G.maxHearts = 99, true)`);
     // as unstuck.js: 1,200 + 1,800 m on, then the rest area ahead
-    for (const k of [1200, 1800]) await g(`(() => { const r = ctx.world.road, s = ctx.car.s + ${k}, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+    const S0 = +(process.env.QAPROBE_S || 13600);
+    for (const k of [S0]) await g(`(() => { const r = ctx.world.road, s = ${k}, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
     const RS = await g(`ctx.exits && ctx.exits.debug.restAhead(500)`);
     console.log("   rest area at", RS, "lap metre", RS % 16000);
     if (typeof RS !== "number" || !await t.until(`__lulu3d.ctx.exits.debug.modelsReady()`, "rest-area models", 60000)) return;
