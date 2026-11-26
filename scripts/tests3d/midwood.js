@@ -92,6 +92,7 @@ module.exports = {
       const sp2 = await g(`ctx.town.spotOf("midwood", "luluHome", ${H.exitS})`);
       // the owner: "Lulu's house should specifically be on East 34th St between J and K" (in Midwood now: its plan is the current one)
       const JK = await g(`(() => { const P = ${D}.PL; return [P.byName["Avenue K"].c, P.byName["Avenue J"].c]; })()`);
+      t.check("its fixed address: ctx.town.addressOf(\"luluHome\") === \"midwood:luluHome\"; a point → \"midwood:<lx>:<lz>\" (homes' door-id form)", await g(`ctx.town.addressOf("luluHome") === "midwood:luluHome" && /^midwood:-?\\d+:-?\\d+$/.test(ctx.town.addressOf(ctx.car.pos.x, ctx.car.pos.z))`), String(await g(`[ctx.town.addressOf("luluHome"), ctx.town.addressOf(ctx.car.pos.x, ctx.car.pos.z)]`)));
       t.check("…on East 34th St, between Avenue K and Avenue J (the owner's address)", sp2 && sp2.street === "E 34th St" && sp2.lz > Math.min(...JK) && sp2.lz < Math.max(...JK), JSON.stringify({ street: sp2 && sp2.street, lz: sp2 && sp2.lz, JK }));
       t.check("…and the lot's spot is the same once the town stands", sp2 && sp2.built && Math.hypot(sp2.door.x - sp.door.x, sp2.door.z - sp.door.z) < 0.01, JSON.stringify([sp.door, sp2 && sp2.door]));
       // a second warp while in town (to the same place): she leaves the town she's in without a cut, then is put down again
