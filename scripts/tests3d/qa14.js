@@ -91,12 +91,16 @@ module.exports = {
     const bad = [];
     for (let s = s0 + 800; s < s0 + L - 400; s += 800) {
       await W.moved(t);
+      // (out of the car on the last stretch — a knock-out, a scene: noted above; back in for the next stretch)
+      await g(`(() => { if (ctx.foot.active) ctx.foot.end("test"); if (L3.state !== "playing") L3.setState("playing"); return true; })()`);
+      await t.frames(2);
       await g(`(() => { ctx.traffic.clear(); const p = ctx.world.highway.point(${s}, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = 5.25; ctx.car.vx = Math.sin(p.h) * 25; ctx.car.vz = Math.cos(p.h) * 25; ctx.world.prebuild && ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
       await t.frames(4);
       await W.reset(t);
       await t.hold(7, 0.8); await t.frames(60); await t.hold(7, 0);
       const r = await W.report(t);
-      const st = await g(`({ s: Math.round(ctx.car.s), d: +ctx.car.d.toFixed(1), state: L3.state, town: !!ctx.town.active, v: +Math.hypot(ctx.car.vx, ctx.car.vz).toFixed(1) })`);
+      const st = await g(`({ s: Math.round(ctx.car.s), d: +ctx.car.d.toFixed(1), state: L3.state, town: !!ctx.town.active, v: +Math.hypot(ctx.car.vx, ctx.car.vz).toFixed(1),
+        why: ctx.foot.active ? ctx.foot.debug.F.reason : undefined, ko: ctx.G.knockouts, hearts: ctx.G.hearts, last: (window.__ev || []).slice(-4) })`);
       const kinds = [...new Set((r.issues || []).map(i => i.kind).filter(k => ["jump", "nan", "overlay", "flat", "underground", "stuck"].includes(k)))];
       if (kinds.length || st.state !== "playing" || st.town || !(st.v > 5) || Math.abs(st.d) > 14) bad.push({ lap: Math.round((s - s0) % L), st, kinds, first: (r.issues || []).slice(0, 2).map(i => i.msg.slice(0, 160)) });
       await W.reset(t);
