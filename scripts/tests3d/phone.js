@@ -105,7 +105,7 @@ module.exports = {
     // (ci/hud landing 3: only texts that need her are kept — filler is a passing bubble that never counts)
     await g(`ctx.phone.text({ from: "Bubbe", msg: "Just checking in, mamele" })`);
     await t.frames(3);
-    t.check("a filler text: the bubble shows, but it isn't kept and the 📱 badge stays 0", await t.L(`/Just checking/.test((document.querySelector("#slot-left .jtext") || {}).textContent || "")`)
+    t.check("a filler text doesn't happen: no card on the HUD, not kept, the 📱 badge stays 0", await t.L(`!/Just checking/.test((document.querySelector("#slot-left .jtext") || {}).textContent || "")`)
       && await g(`ctx.phone.inbox.unread() === 0 && ctx.phone.inbox.threads().length === 0`) && await t.L(`!document.querySelector("#phoneBtn .lp-dot.on")`));
     await t.L(`document.querySelectorAll("#slot-left .jtext").forEach(e => e.remove())`);
     await g(`ctx.phone.text({ from: "Ima", emoji: "👩", msg: "Did you eat? Text me back.", need: true })`);

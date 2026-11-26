@@ -329,6 +329,23 @@ const maxFull = () => phoneHud() ? 1 : innerWidth * innerHeight >= 1280 * 700 ? 
 export function clearWindow() {
     return innerWidth > innerHeight ? { x0: 0.3, x1: 0.7, y0: 0.4, y1: 1 } : { x0: 0.26, x1: 0.74, y0: 0.36, y1: 0.68 };
 }
+/** Is the screen point (px) inside the clear window? */
+export function inClearWindow(x, y) { const c = clearWindow(); return x > c.x0 * innerWidth && x < c.x1 * innerWidth && y > c.y0 * innerHeight && y < c.y1 * innerHeight; }
+/** A phone's spot for Lulu's speech bubble (w × h px), OUTSIDE the clear window: the left column, under the top band,
+ *  the objective line and the left stack. → { x, y } (top-left), null = no room right now (don't show it), undefined =
+ *  not a phone (place it as you like). banter's bubbles ask it. */
+export function dockSpot(w, h) {
+    if (!phoneHud() || el.hud.classList.contains("hidden")) return undefined;
+    const W = innerWidth, Hh = innerHeight, x = Math.max(12, Math.min(W - w - 12, 12)), c = clearWindow();
+    let top = 12;
+    for (const sel of ["#hud .hud-tl .pill", "#pauseBtn", "#phoneBtn", "#objLine.phone:not(.empty)", "#hud .hud-top", "#slot-left > *", "#slot-right > *", "#slot-center > *:not(#banner)"])
+        for (const o of document.querySelectorAll(sel)) { if (!shownEl(o)) continue; const r = o.getBoundingClientRect(); if (r.left < x + w + 6 && r.right > x - 6) top = Math.max(top, r.bottom + 8); }
+    let bottom = W > Hh ? Hh : c.y0 * Hh;                       // upright: above the window; on its side: the left column
+    for (const sel of ["#stickBase", "#touchExtra > *", "#touch .tbtn"]) for (const o of document.querySelectorAll(sel)) {
+        if (!shownEl(o)) continue; const r = o.getBoundingClientRect(); if (r.left < x + w + 6 && r.right > x - 6 && r.top > top) bottom = Math.min(bottom, r.top - 6); }
+    if (W > Hh && x + w > c.x0 * W) return null;                 // (too wide for the left column)
+    return top + h <= bottom ? { x, y: Math.round(top) } : null;
+}
 /** Register a chip as an objective (call once, after it's in its slot; a re-created chip registers again). */
 export function objective(e, opts = {}) {
     if (!e) return e;

@@ -8,7 +8,7 @@
 // left of the screen instead.
 import * as THREE from "three";
 import { ctx, css } from "../../core/ctx.js";
-import { bubbleOk } from "../../hud.js";
+import { bubbleOk, phoneHud, dockSpot, inClearWindow } from "../../hud.js";
 import { CAMS } from "../../core/camera.js";
 import { clamp } from "./util.js";
 
@@ -41,6 +41,10 @@ css("banter-bubbles", `
 body.tv .bn-in { font-size: 22px; max-width: 380px; padding: 8px 16px 9px; border-radius: 18px; }
 body.tv .bn-npc .bn-in { font-size: 19px; max-width: 320px; padding: 6px 13px 7px; }
 body.tv .bn-lulu.big .bn-in { font-size: 25px; }
+/* a phone: Lulu's line sits in the left column, out of the way (no tail: it isn't next to her) */
+.bn-lulu.dock .bn-in::before, .bn-lulu.dock .bn-in::after { display: none; }
+.bn-lulu.dock .bn-in { max-width: min(300px, 64vw); text-align: left; }
+@media (min-aspect-ratio: 1/1) { .bn-lulu.dock .bn-in { max-width: min(240px, 27vw); } }
 @media (max-width: 600px), (max-height: 420px) {
   .bn-in { font-size: 13px; max-width: 42vw; padding: 5px 9px 6px; }
   .bn-npc .bn-in { font-size: 11.5px; max-width: 36vw; padding: 3px 8px 4px; }
@@ -96,7 +100,7 @@ export function setHeadSource(fn) { headFn = fn; }
 /** Show a line over Lulu's head for `dur` seconds (replaces what she was saying). */
 export function showLulu(text, dur, { big = false, cat = "" } = {}) {
     L.inner.textContent = text;
-    L.el.className = "bn-b bn-lulu" + (big ? " big" : "");
+    L.el.className = "bn-b bn-lulu" + (big ? " big" : "") + (phoneHud() ? " dock" : "");      // (a phone: docked outside the clear window — ci/hud)
     L.on = true; L.t = 0; L.dur = dur; L.text = text; L.cat = cat; L.n++;
     L.x = L.y = -1;
     L.w = L.h = 0;           // measured once per line, on its first visible frame
@@ -108,6 +112,13 @@ export function luluBubble() { return L; }
 function placeLulu(W, Hh) {
     const cam = ctx.camera, car = ctx.car;
     if (!L.w) { L.w = L.inner.offsetWidth; L.h = L.inner.offsetHeight; }
+    // a phone: never over the car / the road ahead — her line docks in the left column (hud.js › dockSpot), or waits
+    const dk = L.el.classList.contains("dock") ? dockSpot(L.w, L.h) : undefined;
+    if (dk !== undefined) {
+        L.el.style.opacity = dk ? "" : "0";
+        if (dk && (dk.x !== L.x || dk.y !== L.y)) { L.x = dk.x; L.y = dk.y; L.el.style.transform = `translate(${dk.x}px, ${dk.y}px)`; }
+        return;
+    }
     const fp = !!(CAMS[ctx.cam ? ctx.cam.mode : 0] || {}).fp;
     let x, y;
     if (!fp && headFn && headFn(_v)) {
@@ -166,6 +177,7 @@ function placeNpc(b, W, Hh) {
     if (!(_v.z < 1 && dist < 110 && Math.abs(_v.x) < 1.15 && Math.abs(_v.y) < 1.15)) { b.el.style.opacity = "0"; return; }
     b.el.style.opacity = "";
     const x = (_v.x + 1) / 2 * W, y = (1 - _v.y) / 2 * Hh;
+    if (phoneHud() && inClearWindow(x, y)) { b.el.style.opacity = "0"; return; }      // (a phone: nobody's line over the car / the road ahead — ci/hud)
     const sc = clamp(24 / dist, 0.72, 1);
     b.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%) scale(${sc.toFixed(2)})`;
 }

@@ -599,7 +599,7 @@ function soreFeet(F, B) {
 
 function imaText(F, B, off) {
     const msg = pick(off ? LINES.imaField : LINES.imaRoad);
-    if (ctx.phone && ctx.phone.text) { try { ctx.phone.text({ from: "IMA", emoji: "📱", color: "#E91E63", msg, dur: 5 }); return; } catch (e) { console.error(e); } }
+    if (ctx.phone && ctx.phone.text) { try { ctx.phone.text({ from: "IMA", emoji: "📱", color: "#E91E63", msg, dur: 5, react: true }); return; } catch (e) { console.error(e); } }
     H.toast(`📱 IMA: ${msg}`, "pink");
 }
 

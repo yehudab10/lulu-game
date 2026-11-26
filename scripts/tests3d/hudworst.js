@@ -32,11 +32,11 @@ const BEFORE = !!process.env.HUDWORST_BEFORE;      // (only the pictures: the "b
 const PIECES = {
   pills: "#hud .hud-tl .pill", trip: "#hud .trip", tripLabel: "#tripLabel", pause: "#pauseBtn", phone: "#phoneBtn",
   obj: "#objLine > *", left: "#slot-left > *", center: "#slot-center > *:not(#banner):not(#objLine)", right: "#slot-right > *",
-  speedo: "#hud .speedo", prompt: "#slot-bottom .prompt",
+  speedo: "#hud .speedo", prompt: "#slot-bottom .prompt", bubble: "#banterBubbles .bn-lulu:not(.hide) .bn-in",
   stick: "#stickBase", pedals: "#touch .pedals .tbtn", extra: "#touchExtra button",
 };
 /** The persistent HUD that must stay out of the clear window (touch buttons sit in the bands / side columns by design). */
-const PERSIST = ["pills", "trip", "tripLabel", "obj", "left", "center", "right", "speedo", "extra", "pedals", "stick"];
+const PERSIST = ["pills", "trip", "tripLabel", "obj", "left", "center", "right", "speedo", "extra", "pedals", "stick", "bubble"];
 const measure = t => t.L(`(() => { const P = ${JSON.stringify(PIECES)}, W = innerWidth, H = innerHeight, out = [];
     const hidden = e => { for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === "none" || c.visibility === "hidden" || +c.opacity < 0.1 || n.classList.contains("hidden") || n.classList.contains("calm-off")) return true; } return false; };
     for (const [g, sel] of Object.entries(P)) for (const e of document.querySelectorAll(sel)) {
@@ -124,6 +124,9 @@ module.exports = {
       await g(`(ctx.applySettings(), true)`);
       await device(t, d);
       await worstCase(t);
+      // (a phone: + Lulu says a long line — her bubble docks outside the clear window, or waits; bigger screens keep it by her head)
+      const phoneSize = /^[pl]\d/.test(name);
+      await t.L(`import("./js/features/banter/bubbles.js").then(m => { ${phoneSize ? `m.showLulu("Amber lights. Somebody's getting a jump start.", 99)` : "m.hideLulu()"}; return true; })`);
       await t.frames(12);
       const live = await g(`({ day: !!(ctx.day && ctx.day.active), rob: !!document.querySelector(".heist-chip.on"), job: !!ctx.hustle.job, chase: !!ctx.law.chasing, pass: ctx.roadevents.passengerTime > 0, state: L3.state })`);
       const m = await measure(t);
@@ -138,6 +141,7 @@ module.exports = {
       t.check(`${where}: at most ${maxFull} full objective chip${maxFull > 1 ? "s" : ""} (the rest are badges)`, m.full.length <= maxFull, m.full.join(","));
       t.check(`${where}: no text cut off with "…"`, !m.cut.length, m.cut.join(" | "));
     }
+    await t.L(`import("./js/features/banter/bubbles.js").then(m => { m.hideLulu(); return true; })`);
     await t.page.setViewportSize({ width: 412, height: 915 });
     await setSave(`m.save3d.settings.tv = "off";`);
     await g(`(ctx.applySettings(), true)`);

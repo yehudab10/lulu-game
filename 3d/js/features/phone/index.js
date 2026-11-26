@@ -36,13 +36,19 @@ const S = store("phone", { hinted: false });
 // ── ctx.phone: extend journey's (or stand alone without it) ────────────────
 const phone = ctx.phone || (ctx.phone = { busy: () => false });
 const bubble = phone.text ? phone.text.bind(phone) : null;
-/** A text: the driving bubble (journey) AND the inbox. opts { from, emoji, color, msg, dur, thread? } */
+/** A text: the driving bubble (journey) AND the inbox. opts { from, emoji, color, msg, dur, thread?, need? }
+ *  ci/hud landing 3: a text that doesn't need her (inbox.js › needs) doesn't happen at all — no inbox line AND no card
+ *  on the HUD (it would only move the clutter onto the road); the "phone:text" event (quiet: true) still fires. → the
+ *  card, or null. */
 phone.text = function text(opts = {}) {
     const m = post(opts);
+    // (opts.react: a line that answers something she JUST did — Ima when she walks off the road — shows its card, isn't
+    //  kept, and never while she's in an activity)
+    if (!m && !(opts.react && !(ctx.engaged && ctx.engaged()))) return null;
     let el = null;
     if (bubble) { try { el = bubble(opts); } catch (e) { console.error("[phone] bubble", e); } }
     else H.toast(`💬 ${m.from}: ${m.msg}`, "pink");
-    if (el && el.addEventListener && m) {      // (a passing bubble that isn't kept in Messages opens nothing)
+    if (el && el.addEventListener && m) {
         el.style.cursor = "pointer";
         el.title = "Open in Messages";
         el.addEventListener("click", e => { e.stopPropagation(); if (!PH.open) openPhone("messages", { thread: m.k }); });

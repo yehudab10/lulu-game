@@ -85,7 +85,7 @@ async function busiest(t, d, foot) {
     H.hideBanner(); H.banner("<b>🏙️ " + S[0] + "</b><small>" + S.slice(1).join(" · ") + "</small>", 0, { key: "town", prio: 2 }); return true; })()`);
   // exactly one 💬 text card in the left column (a town's gossip / Bubbe's text arrives on its own at random times)
   await g(`(() => { document.querySelectorAll("#slot-left .jtext").forEach(e => e.remove());
-    window.__hfText = ctx.phone.text({ from: "BUBBE", emoji: "👵", color: "#E91E63", msg: "Lakewood?! What did you do wrong?", dur: 900 });
+    window.__hfText = ctx.phone.text({ from: "BUBBE", emoji: "👵", color: "#E91E63", msg: "Lakewood?! What did you do wrong?", dur: 900, need: true });
     window.__hfText.style.animation = "none"; return true; })()`);      // (its 0.3 s slide-in from the left isn't over in 14 fast frames: measure it where it lands)
   await g(`(L3.H.prompt("✋ <b>Talk to Heshy</b>"), true)`);
   await t.frames(14);

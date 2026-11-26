@@ -209,6 +209,7 @@ async function body(t, pages, riders) {
 
   if (REPORT_ONLY) { t.check("report only (CALM_REPORT)", true); return; }
   const per = r => r ? r.perMin : 0;
+  const per1 = (r, kind) => (r.by[kind] || 0) * 60 / Math.max(1, r.secs);
   t.check(`solo highway: ≤ ${LIMIT.solo} pop-ups a minute`, per(results.solo) <= LIMIT.solo, JSON.stringify(results.solo.by));
   t.check("solo highway: never two toasts at once on a phone", results.solo.maxToasts <= 1 && results.soloPortrait.maxToasts <= 1, `${results.solo.maxToasts} / ${results.soloPortrait.maxToasts}`);
   if (results.foot) t.check(`on foot in town: ≤ ${LIMIT.foot} pop-ups a minute`, per(results.foot) <= LIMIT.foot, JSON.stringify(results.foot.by));
@@ -218,6 +219,9 @@ async function body(t, pages, riders) {
   t.check("a stranger never produces a toast / banner / record line (party)", fromStrangers(results.friends).length === 0, JSON.stringify(fromStrangers(results.friends)));
   t.check("a stranger never produces a toast / banner / record line (solo online)", fromStrangers(results.online).length === 0, JSON.stringify(fromStrangers(results.online)));
   for (const k of Object.keys(results)) t.check(`${k}: pop-ups never cover more than a fifth of the screen`, results[k].coverMax <= 20, `${results[k].coverMax} %`);
+  // filler texts don't happen any more (ci/hud landing 3: a text that doesn't need her makes no card) — the count of
+  // text cards a minute can only have gone DOWN (it was 1–3 a minute on the highway / on foot before)
+  for (const k of ["solo", "foot"]) if (results[k]) t.check(`${k}: at most 1 text card a minute (filler texts are silent)`, per1(results[k], "text") <= 1, JSON.stringify(results[k].by));
   // the persistent-chip limit (ci/hud — the owner: "too much going on"): on a phone ONE full objective at a time (the rest
   // are badges on its line), and at most CHIPS_MAX chips in the HUD's stacks at once (texts / calls / the radio are pop-ups)
   for (const k of Object.keys(results)) t.check(`${k}: one full objective at a time on a phone, ≤ ${CHIPS_MAX} chips at once`,
