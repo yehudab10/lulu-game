@@ -22,12 +22,18 @@ export const GO = { cool: 20, last: -1e9, testDrive: false, busy: false, n: 0 };
 const now = () => performance.now() / 1000;
 on("shops:test", e => { GO.testDrive = e.phase === "start"; });
 
-/** Why she can't go to home `id` right now — "" when she can. */
-export function goBlock(id) {
-    const h = registry.get(id);
-    if (!h) return "That house isn't yours.";
-    if (h.seized || h.lost) return "The Town Council has that house. Win it back in court first.";
-    if (tenantOf(id)) return "Your tenants live there now. You can't just walk in!";
+/** Why she can't go to home `id` right now — "" when she can. friend: a FRIEND's home she's been asked over to (👯 "Come
+ *  to my place" — visit.js): the friend's, not hers, so no ownership checks; only out in town with friends. */
+export function goBlock(id, { friend = false } = {}) {
+    if (friend) {
+        if (!(ctx.party && ctx.party.active && ctx.party.activity && ctx.party.activity.k === "roam")) return "Only when you're out in town with friends.";
+        if (!id || typeof id !== "string" || !/^(lakewood|midwood):-?\d+:-?\d+$/.test(id)) return "That house isn't there any more.";
+    } else {
+        const h = registry.get(id);
+        if (!h) return "That house isn't yours.";
+        if (h.seized || h.lost) return "The Town Council has that house. Win it back in court first.";
+        if (tenantOf(id)) return "Your tenants live there now. You can't just walk in!";
+    }
     const G = ctx.G || {}, st = ctx.state;
     if (G.mode === "dina" || /^dina/.test(st || "")) return "Not while you're playing as Dina.";
     if (ctx.law && (ctx.law.chasing || (ctx.law.wanted || 0) > 0)) return "Lose the cops first!";
@@ -55,16 +61,16 @@ export function goBlock(id) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms) { const t0 = performance.now(); while (performance.now() - t0 < ms) { if (fn()) return true; await sleep(50); } return !!fn(); }
 
-/** Go to home `id`: → "" (on her way) or the line why not. */
-export function goHome(id) {
-    const why = goBlock(id);
+/** Go to home `id`: → "" (on her way) or the line why not. opts.friend: a friend's home (see goBlock). */
+export function goHome(id, opts = {}) {
+    const why = goBlock(id, opts);
     if (why) { H.toast(why, "red"); return why; }
     GO.busy = true;
-    run(id).catch(e => console.error("[realestate] go there", e)).finally(() => { GO.busy = false; });
+    run(id, opts).catch(e => console.error("[realestate] go there", e)).finally(() => { GO.busy = false; });
     return "";
 }
 
-async function run(id) {
+async function run(id, opts = {}) {
     const town = id.split(":")[0], T = ctx.town;
     if (ctx.phone && ctx.phone.isOpen && ctx.phone.closePhone) ctx.phone.closePhone();
     // the town's models (the other town may not be loaded yet)
@@ -75,7 +81,7 @@ async function run(id) {
         if (r) r.leave();
         if (!await until(() => ctx.state !== "interior", 8000)) return false;
     }
-    if (goBlock(id).replace(/^On your way already!$/, "")) return false;       // (something happened on the way out)
+    if (goBlock(id, opts).replace(/^On your way already!$/, "")) return false;       // (something happened on the way out)
     GO.last = now();
     return new Promise(res => dissolve(() => res(land(id, town)), { ms: 650 }));
 }

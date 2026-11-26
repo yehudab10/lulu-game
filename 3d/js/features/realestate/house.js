@@ -5,6 +5,7 @@
 //     fridge with one pickle, boxes to unpack — decorating comes in stage 3 (features/decor's picker).
 // Rooms: a "cozy" rowhouse / a townhouse = 2 (the living room IS the kitchen), a duplex half / a house = 3.
 import { startAtFor } from "./goto.js";
+import { friendDecor } from "./party.js";
 import * as THREE from "three";
 import { ctx, emit } from "../../core/ctx.js";
 import { saveSoon } from "../../core/save.js";
@@ -81,7 +82,9 @@ function build(rt) {
         B.col("bed", bx - 2.32, bx - 1.08, -2.8, -0.62);
         if (!tn) movingBoxes(B, bx + 1.2, 0.9, 2, 5);
         // decorations she placed here (features/decor's catalogue + props; the room is decor's size)
-        if (!visit) for (const id of DSLOTS) { const o = placedHere(id); if (o) show(rt, id, o); }
+        // (a friend visiting sees HER decorations here — what her client publishes for this home, party.js d.x.rd)
+        const fdc = visit && rec ? friendDecor(rec.id) : null;
+        for (const id of DSLOTS) { const o = visit ? fdc && fdc[id] : placedHere(id); if (o) show(rt, id, o); }
         if (tn) {
             // a tenant lives here: their stuff everywhere, no redecorating (that's their home now)
             try {

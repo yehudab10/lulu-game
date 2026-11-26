@@ -37,10 +37,11 @@ import { finalize, log } from "./deal.js";
 import { pickPaged } from "./pager.js";
 import * as MG from "./mortgage.js";
 import * as RN from "./rent.js";
-import { tick as partyTick, roam, P as PP } from "./party.js";
+import { tick as partyTick, roam, P as PP, friendDecor } from "./party.js";
 import { SHARED } from "../together/rooms.js";
 import * as SVR from "./server.js";
 import * as GOTO from "./goto.js";
+import * as VISIT from "./visit.js";
 import { verdict, openCases } from "./court.js";
 import { COURT_LINES } from "./data.js";
 import { COUNCIL } from "./data.js";
@@ -586,7 +587,7 @@ ctx.realestate = {
     rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, starters, moveOutStep, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
+    debug: { W, S, MG, RN, PP, friendDecor, SV: SVR.SV, SVR, CLOCK, starters, moveOutStep, VISIT, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
         /** Buy a listed home for cash right now, no dialogue (tests). */
         buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; },
         /** The same through the world-wide registry first (tests). → a promise of { ok, why } */
