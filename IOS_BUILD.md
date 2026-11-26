@@ -331,7 +331,7 @@ themselves — plain ES5, no imports, inside the app only:
   (for a downloaded copy) **Use the built-in copy**. The native test also checks that, in the app, the launcher's
   target is a FILE that isn't itself (Capacitor iOS answers any folder address with the root page — the Nov 2026
   TestFlight loop).
-- **`3d/index.html`** (the game page): if the game hasn't reached its first screen **25 s** after launch, a panel says
+- **`3d/index.html`** (the game page): if the game hasn't reached its first screen and its loading has STOPPED (15 s after it stalls when an error was caught, 90 s with no progress and no error — never just because a first boot is slow), a panel says
   *"The game didn't start"* with the last errors it caught (scripts / files that failed to load), the app + game-copy
   version and **Use the built-in copy** (marks that copy bad + resets the updater) · **Try again** · **Keep waiting**.
   It disappears by itself if the game comes up.

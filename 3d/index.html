@@ -86,7 +86,7 @@
         </div>
     </div>
 
-    <!-- The iOS app: never a silent screen. If the game hasn't reached its first screen 25 s after launch, a plain panel
+    <!-- The iOS app: never a silent screen. If the game hasn't reached its first screen and has stopped loading, a plain panel
          says what failed (the last errors), which app + game copy this is, and offers "Use the built-in copy" (resets
          the over-the-air updater: features/native/ota.js) / "Try again" / "Keep waiting". Plain ES5, no imports — it
          works even when the game's own code can't load. Only inside the app (window.Capacitor is injected before any
@@ -147,12 +147,23 @@
                 try { U.reset({ toLastSuccessful: false }); } catch (e) { location.reload(); }
             };
             document.getElementById("nsRetry").onclick = function () { location.reload(); };
-            document.getElementById("nsWait").onclick = function () { if (box) box.remove(); box = null; timer = setTimeout(show, 30000); };
+            document.getElementById("nsWait").onclick = function () { if (box) box.remove(); box = null; timer = setTimeout(function () { timer = null; show(); }, 30000); };
         }
-        window.__lulu3dStuck = show;                       // the old-browser check below hands over to this in the app
+        // the old-browser check below hands over to this in the app: it counts as a caught error (shown once loading stalls)
+        window.__lulu3dStuck = function (why) { note(why === "webgl" ? "this device's 3D graphics (WebGL) are off" : "the game's code didn't start within 20 s"); };
+        // WHEN: never just because a boot is slow (a first launch can take a long while on an old phone). It waits while
+        // the loading bar / text still changes, and appears 15 s after progress stops IF an error was caught, or after
+        // 90 s without any progress at all. (tests: &stuck=ms = show after that long, whatever happens)
         var q = /[?&]test\b/.test(location.search) ? /[?&]stuck=(\d+)/.exec(location.search) : null;
-        if (!/[?&]test\b/.test(location.search) || q) timer = setTimeout(show, q ? +q[1] : 25000);   // (tests: only with &stuck=ms)
-        var poll = setInterval(function () { if (up()) { clearTimeout(timer); clearInterval(poll); if (box) { box.remove(); box = null; } } }, 1000);
+        var test = /[?&]test\b/.test(location.search), last = "", lastT = Date.now(), t0 = Date.now();
+        var poll = setInterval(function () {
+            if (up()) { clearTimeout(timer); clearInterval(poll); if (box) { box.remove(); box = null; } return; }
+            var f = document.getElementById("loadFill"), lt = document.getElementById("loadText");
+            var now = Date.now(), p = (f && f.style.width) + "|" + (lt && lt.textContent);
+            if (p !== last) { last = p; lastT = now; }
+            if (box || timer) return;
+            if (q ? now - t0 >= +q[1] : !test && ((errs.length && now - lastT > 15000) || now - lastT > 90000)) show();
+        }, 1000);
     })();
     </script>
     <noscript><p style="padding:2em;font:18px sans-serif">Lulu's Road Trip 3D needs JavaScript.</p></noscript>
