@@ -7,7 +7,7 @@
 //     never stuck riding a car that's gone
 //   • a Free Roam warp (📱 👯 → go to a friend) into an attached town
 // Waits are in GAME frames (scripts/lib/party3d.js).
-const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
+const { startRelay, guestPage, hostPage, setWallCap, waitOn } = require("../lib/party3d.js");
 const W = require("../lib/qawatch.js");
 let relay = null;
 const PORT = 27000 + (process.pid % 20000);
@@ -54,8 +54,14 @@ async function body(t, guests) {
   const ride = async label => {
     await A.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
     await A.until(`ctx.state === "playing"`, `guest in her car (${label})`, 30000);
-    const r = await A.game(`ctx.openworld.ride(${HU})`);
-    return A.until(`ctx.openworld.riding === ${HU}`, `guest riding with the host (${label}: ${r})`, 30000);
+    // (asks again while the host's page catches up — building a town can stall a crawling page for seconds and a ride is
+    //  refused while the driver's packets are > 2.5 s old: a player just taps again)
+    let r = "";
+    for (let i = 0; i < 10; i++) {
+      r = await A.game(`ctx.openworld.riding === ${HU} ? "" : ctx.openworld.ride(${HU})`);
+      if (await waitOn(A.page, `__lulu3d.ctx.openworld.riding === ${HU}`, 3000)) return true;
+    }
+    return A.until(`ctx.openworld.riding === ${HU}`, `guest riding with the host (${label}: ${r})`, 3000);
   };
   const hostDrive = async () => {
     await g(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
