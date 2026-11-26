@@ -67,13 +67,19 @@ module.exports = {
     await g(`(ctx.law.hold(99999), ${D}.place("Ocean Pkwy", -290, -1.75, 12, -1), true)`);
     await t.frames(4);
     await W.reset(t);
+    // (a per-frame trace of the car + the camera through the on-ramp: printed if the camera jumps there)
+    await t.L(`(() => { const c = __lulu3d.ctx, T = window.__ramp = []; let f0 = -1; const rec = () => { if (!window.__ramp) return; if (c.frames !== f0) { f0 = c.frames; const k = c.camera.position, p = c.car.pos;
+      T.push([c.frames, c.state, +p.x.toFixed(1), +p.z.toFixed(1), +k.x.toFixed(1), +k.z.toFixed(1), c.town.active ? 1 : 0, c.town.transitioning ? 1 : 0, c.cam && c.cam.mode, +(c.car.h || 0).toFixed(2), Math.round(c.car.s), +(+c.car.d).toFixed(1)]); if (T.length > 900) T.shift(); } requestAnimationFrame(rec); }; rec(); return true; })()`);
     await t.hold(7, 0.6);
     const out = await t.until(`!__lulu3d.ctx.town.active`, "south down Ocean Pkwy onto the on-ramp", 30000);
     await t.hold(7, 0);
     if (!t.check("out of Midwood by the on-ramp, onto the highway", out && await g(`ctx.car.s > ${E} + 150`), String(await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1)]`)))) return;
     await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
     await t.hold(7, 0.8); await t.frames(240); await t.hold(7, 0);
-    await seg("the on-ramp + the highway");
+    const rr = await seg("the on-ramp + the highway");
+    const jumps = await t.L(`(() => { const T = window.__ramp || [], out = []; for (let i = 1; i < T.length; i++) { const a = T[i - 1], b = T[i], dk = Math.hypot(b[4] - a[4], b[5] - a[5]); if (dk > 5) out.push(i); } window.__ramp = null; return out.length ? T.slice(Math.max(0, out[0] - 8), out[0] + 8) : []; })()`);
+    if (jumps.length) console.log("   on-ramp trace [f, state, car x, z, cam x, z, town, fade, cam mode, h, s, d]:\n     " + jumps.map(r => JSON.stringify(r)).join("\n     "));
+    if (process.env.QA14_STOP === "ramp") return;
 
     // ── one full 16 km lap: a stretch at a time, all the way round ──
     const s0 = await g(`ctx.car.s`);
