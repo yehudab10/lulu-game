@@ -16,7 +16,7 @@
 // Service: ctx.friends — see the bottom. Events: friends:made, friends:asks, friends:presence, friends:joinAsk, friends:checked.
 import { ctx, on, emit } from "../../core/ctx.js";
 import * as H from "../../hud.js";
-import { cryptoOk, randStr } from "./crypto.js";
+import { cryptoOk, randStr, keyPair } from "./crypto.js";
 import { openRoom } from "./room.js";
 import * as ST from "./store.js";
 import * as HS from "./handshake.js";
@@ -43,14 +43,24 @@ HS.chans.party = {
 
 // ── friend codes: a room "F" + CODE, open only while I show it (or while I use someone's) ──
 const C = { mine: null, code: "", until: 0, using: null };
-function codeChannel(room, ownerSide) {
-    const id = "code";
-    HS.chans[id] = {
+// Two phones can each be hosting AND visiting. Relay peer ids are local to a room.
+// An invitation tag lets crossed exchanges with the same phone derive the same
+// friendship secret, even when both players press Accept at the same time.
+function invitation() { return { tag: randStr(16), keys: new Map() }; }
+function codeChannel(room, chan, invite) {
+    const marker = chan === "code" ? { fc: 1, tag: invite.tag } : { tag: invite.tag };
+    HS.chans[chan] = {
         myId: () => (room.connected ? room.me : null),
         peers: () => [...room.peers].filter(([, d]) => d && d.fr).map(([pid, d]) => ({ id: pid, fr: d.fr })),
-        publish: list => room.state(Object.assign(ownerSide ? { fc: 1 } : {}, list ? { fr: list } : {})),
+        keyFor(peer) {
+            const tag = room.peers.get(peer)?.tag;
+            if (!/^[A-HJ-NP-Z2-9]{16}$/.test(tag || "")) return keyPair(); // older client
+            if (!invite.keys.has(tag)) invite.keys.set(tag, keyPair());
+            return invite.keys.get(tag);
+        },
+        publish: list => room.state(list ? { ...marker, fr: list } : marker),
     };
-    return id;
+    room.state(marker);
 }
 /** ➕ Show my friend code (and keep its room open ≤ 10 min). → the code */
 export function showCode() {
@@ -60,8 +70,8 @@ export function showCode() {
     C.code = randStr(6);
     C.until = Date.now() + 10 * 60000;
     C.mine = openRoom("F" + C.code, { stay: true, name: "Friend" });
-    codeChannel(C.mine, true);
-    C.mine.state({ fc: 1 });
+    C.mine.invite = invitation();
+    codeChannel(C.mine, "code", C.mine.invite);
     return C.code;
 }
 export function closeCode() { if (C.mine) { C.mine.close(); C.mine = null; HS.dropChannel("code"); delete HS.chans.code; } C.code = ""; }
@@ -72,20 +82,43 @@ export function useCode(code) {
     if (!CODE_RE.test(code)) return Promise.resolve("bad");
     if (!live()) return Promise.resolve("offline");
     if (C.mine && C.code === code) return Promise.resolve("bad");
-    if (C.using) { C.using.close(); HS.dropChannel("code"); }
-    return new Promise(resolve => {
-        let done = false;
-        const fin = v => { if (!done) { done = true; resolve(v); } };
-        const room = openRoom("F" + code, {
-            name: "Friend",
-            onHello: rm => { const o = [...rm.peers].find(([, d]) => d && d.fc === 1); if (!o) { setTimeout(() => { if (!done) { rm.close(); fin("nobody"); } }, 2500); } },
-            onPeer: async (rm, pid, d) => { if (d && d.fc === 1 && !done) { codeChannel(rm, false); const r = await HS.ask("code", pid); fin(r === "full" ? "full" : "asked"); } },
-            onClose: () => fin("offline"),
-        });
-        C.using = room;
-        setTimeout(() => { if (C.using === room && !done) { room.close(); fin("nobody"); } }, 8000);
-        setTimeout(() => { if (C.using === room) { room.close(); C.using = null; if (HS.chans.code && !C.mine) { HS.dropChannel("code"); delete HS.chans.code; } } }, 90000);
+    if (C.using?.code === code) return C.using.result;
+    C.using?.stop("nobody");
+
+    const visit = { code, owner: null };
+    visit.result = new Promise(resolve => { visit.resolve = resolve; });
+    C.using = visit;
+    const room = openRoom("F" + code, {
+        name: "Friend",
+        onHello: rm => {
+            if (![...rm.peers.values()].some(d => d?.fc === 1))
+                setTimeout(() => { if (!visit.owner) visit.stop("nobody"); }, 2500);
+        },
+        onPeer: async (rm, pid, d) => {
+            if (C.using !== visit || visit.owner || d?.fc !== 1) return;
+            visit.owner = pid;
+            visit.ownerTag = d.tag;
+            try {
+                const r = await HS.ask("code-out", pid);
+                if (r === "asked" || r === "pending") visit.resolve("asked");
+                else visit.stop(r === "full" ? "full" : "offline");
+            } catch { visit.stop("offline"); }
+        },
+        onLeave: (rm, pid) => { if (pid === visit.owner) visit.stop("nobody"); },
+        onClose: () => visit.stop("offline"),
     });
+    codeChannel(room, "code-out", C.mine?.invite || invitation());
+    visit.stop = reason => {
+        if (C.using !== visit) return;
+        C.using = null;
+        room.close();
+        HS.dropChannel("code-out");
+        delete HS.chans["code-out"];
+        visit.resolve(reason);
+    };
+    setTimeout(() => { if (!visit.owner) visit.stop("nobody"); }, 8000);
+    setTimeout(() => visit.stop("nobody"), 60000);
+    return visit.result;
 }
 
 // ── one-tap JOIN ──────────────────────────────────────────────────────────
@@ -129,7 +162,11 @@ on("friends:made", e => {
     if (!e) return;
     const msg = e.result === "full" ? `👯 Your friends list is full (${ST.CAP})` : e.result === "added" ? `🤝 You and ${ST.labelOf({ n: e.n, f: e.f })} are friends!` : e.result === "updated" ? `🤝 ${ST.labelOf({ n: e.n, f: e.f })} — still friends` : "";
     if (msg) H.toast(msg, "pink", { prio: 2 });               // (the answer to a tap: never dropped by the budget)
-    if (e.chan === "code" && C.using) { const r = C.using; setTimeout(() => { if (C.using === r) { r.close(); C.using = null; } }, 3000); }
+    const incomingTag = e.chan === "code" && C.mine?.peers.get(e.peer)?.tag;
+    if (C.using && (e.chan === "code-out" || (incomingTag && incomingTag === C.using.ownerTag))) {
+        const visit = C.using;
+        setTimeout(() => visit.stop("nobody"), 3000);
+    }
     UI.refresh();
 });
 on("boot", () => {

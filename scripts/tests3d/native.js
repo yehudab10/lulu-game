@@ -170,9 +170,30 @@ module.exports = {
     t.page.on("requestfailed", r => { const why = (r.failure() || {}).errorText || ""; if (!/fonts\.(googleapis|gstatic)\.com/.test(r.url()) && !/ABORTED/.test(why)) bad.push("failed " + r.url() + " " + why); });
     await t.page.addInitScript(fakeCapacitor);
     const origin = new URL(t.page.url()).origin;
-    await t.page.goto(`${origin}/www/3d/?test&enable=ads`);
-    if (!await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "app bundle: boots www/3d/ to the title", 120000)) return;
-    t.check("app bundle: the page is www/3d/", await t.L(`location.pathname`) === "/www/3d/");
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, "capacitor.config.json"), "utf8"));
+    const nativeEntry = config.server.appStartPath;
+    t.check("iOS opens the bundled 3D document directly", nativeEntry === "/3d/index.html");
+
+    // Reloads and update switches may still request the bundle root. Exercise the
+    // actual staged launcher with the custom scheme that the HTTP harness cannot serve.
+    const launcher = fs.readFileSync(path.join(ROOT, "www", "index.html"), "utf8");
+    const script = launcher.match(/<script>([\s\S]*?)<\/script>/)[1];
+    for (const [from, expected] of [
+      ["capacitor://localhost/", "capacitor://localhost/3d/index.html"],
+      ["capacitor://localhost/3d/", "capacitor://localhost/3d/index.html"],
+      [origin + "/www/", origin + "/www/3d/"],
+    ]) {
+      const url = new URL(from + "?party=ABC#join");
+      let target;
+      require("node:vm").runInNewContext(script, { location: {
+        protocol: url.protocol, search: url.search, hash: url.hash,
+        replace: value => { target = new URL(value, url).href; },
+      } });
+      t.check("launcher preserves the invite from " + from, target === expected + "?party=ABC#join", target);
+    }
+
+    await t.page.goto(`${origin}/www${nativeEntry}?test&enable=ads`);
+    if (!await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "app bundle: native entry boots to the title", 120000)) return;
     t.check("app bundle: native on (Capacitor + AdMob + Haptics)", await g(`ctx.native.active && ctx.ads.native && ctx.haptics.native`));
     t.check("app bundle: the shared save carried over (same origin, new path)",
       await g(`(() => { const s = JSON.parse(localStorage.getItem("luluSaveV2")); return s.totalCoins === 4321 && s.ownedSkins.includes("blue"); })()`));
@@ -183,8 +204,6 @@ module.exports = {
       const urls = Object.values(m.modelFiles()).concat(["../classic.html", "../game.js", "../style.css", "../luludriving.mp3", "../story-beach.mp3", "../dina.mp3", "../"]);
       const out = [];
       for (const u of urls) { const r = await fetch(u); if (!r.ok) out.push(r.status + " " + u); else await r.arrayBuffer(); }   // GET + read it all (a HEAD the test server answers with a body counts as a failed request)
-      const fwd = await (await fetch("../")).text();
-      if (!/location\\.replace\\("3d\\/"/.test(fwd)) out.push("www/index.html does not forward to 3d/");
       return out;
     })()`);
     t.check("app bundle: every registered model, the music and Classic 2D are in www/", missing.length === 0, missing.slice(0, 5).join(" | "));

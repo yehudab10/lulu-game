@@ -2,6 +2,9 @@
   "appId": "boats.lulu.game",
   "appName": "Lulu's Road Trip",
   "webDir": "www",
+  "server": {
+    "appStartPath": "/3d/index.html"
+  },
   "ios": {
     "contentInset": "never",
     "scrollEnabled": false,

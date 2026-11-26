@@ -411,7 +411,8 @@ function step(rc, p, dt, road, cam) {
     if (!st.init || p.respawn || Math.abs(o.s - expS) > WARP_S || Math.abs(o.d - expD) > WARP_D) {
         // …where she was last drawn (a respawn hides the car a frame or two while its track refills): a short hop glides
         // there in world space below; a stale or far one snaps behind a poof
-        if (st.init && st.lastAt != null && clock() - st.lastAt < 1500) from = [st.lastX, st.lastZ];
+        // (also after a moment hidden — a wreck / pratfall can hide her a frame or two: init is reset, lastAt isn't)
+        if (st.lastAt != null && clock() - st.lastAt < 1500) from = [st.lastX, st.lastZ];
         else { if (st.init) poof(rc); if (rc.trace) rc.trace.push({ T, snap: 1 }); }
         st.errS = st.errD = 0; st.init = true; p.respawn = false;
     } else {

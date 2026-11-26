@@ -844,6 +844,18 @@ is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music wh
 states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
 leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.
 
+**🌍 One world — the lap (`ci/onemap`, roadmap 20; the owner: "I want one main world and that's it"):** the highway is a
+`LAP` of 16 km (`world.js` › `LAP`, `lapS(s)` = the lap metre, `lapOf(s)`, `lapAt(s, m)`, `lapWorld()` = a Cruise / 🌍
+Free Roam). `Road.headingFn` repeats every lap — the first lap is the old endless road metre for metre; its last
+`LAP_BLEND` (600 m) ease into the next lap's straight start, so the road under her never jumps — and the scenery chunks
+seed by lap chunk (`k % (LAP / CHUNK)`: the same trees every lap). `s` keeps counting (distance, score, chases); every
+PLACE comes round once a lap at a FIXED lap metre — the same place, not a copy: Midwood's exit 3600 (home, E 34th St) ·
+rest area 5700 · JFK 8800 (`airport/plan.js` › `AIR.every = LAP`) · Lakewood 12000 (`towns/index.js` › `ROUTE`, period
+`LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · Gas 'n' Go 1300 / 6900 +
+the Lookout 2400 / 8200 (`world/places.js`) · the roadside storefront blocks (`foot/street.js`: the first lap's, repeated).
+The Story Trip's family stops (Bubbe's, the beach…) are its own road: not built on the lap (Story is hidden for now).
+Test `exits` › "lap". Next stages: places keyed by a fixed ADDRESS, one 📱 map + real distances, hooks.
+
 **Towns (town):** a Cruise run has an INTERCHANGE every few km, and **each town has its OWN** (owner 2026-11-20: "Brooklyn
 and Lakewood shouldn't share the same exit"): the route is data — `towns/index.js` › `ROUTE` = `{ period, stops: [{town, at}] }`
 (Midwood @ 3600, Lakewood @ 7600, every 8 km), `routeAt(k)` → the k-th stop `{town, s}`, `routeFrom(s)`. The planner

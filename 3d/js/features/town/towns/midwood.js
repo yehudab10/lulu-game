@@ -60,7 +60,7 @@ export default {
     blocks: {
         "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "dealer", n: "hospital" } }, "2,0": { faces: { s: "realty", w: "cia" } },    // (features/realestate: Brick by Brick Realty on Avenue M)
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
-        "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
+        "0,1": { faces: { w: "pkwy", e: "parkLot" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
         "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
         "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia", s: "cityhall" } },
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts", w: "luluHome" } },
@@ -76,6 +76,9 @@ export default {
         // + decor draw the family's house, driveway and car. Spot `luluHome` (ctx.town.spotOf / spot): lot centre + rot, nx/nz
         // toward the street, door, drive {x, z, h: nose out}, kerb, w, d.
         luluHome: { lot: true, among: "mwhomes", dims: { w: 14, d: 24, prot: 0 }, spot: "luluHome" },
+        // 🅿️ a small municipal lot on E 8th St (block 0,1 east face, Avenue L → K) for ci/parkinglot's challenge: EMPTY like
+        // Lulu's — the town builds nothing on it, no parked cars at its kerb; features/parking draws the bays + booth.
+        parkLot: { lot: true, among: "mwhomes", dims: { w: 26, d: 20, prot: 0 }, spot: "parkLot" },
         bank: { key: "heist_bank", fallback: "town_mw_store", dims: { w: 20, d: 14, prot: 4.0 }, sign: L.SIGNS.bank, spot: "bank",
             tints: { Walls: "#D8CCB4", Roof: "#3F6B4F" }, signSize: [11.4, 0.96, 92], signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"],
             with: [{ key: "town_mw_store", u: -16.5 }, { key: "town_mw_store", u: 16.5 }] },
