@@ -55,7 +55,7 @@ function luluLine(text) {
 
 // ── fixed spots along Cruise (metres). Kept clear of the family stops and the coast's ocean side. ──
 // (🌍 ONE WORLD — ci/onemap: each pull-in is ONE place on the highway's lap, met again every lap at the same lap metre)
-const GAS_LAP = [1300, 6900], LOOK_LAP = [2400, 8200];
+export const GAS_LAP = [1300, 6900], LOOK_LAP = [2400, 8200];
 const GAS_AT = [], LOOK_AT = [];
 for (let n = 0; n * LAP < 400000; n++) { for (const m of GAS_LAP) GAS_AT.push(n * LAP + m); for (const m of LOOK_LAP) LOOK_AT.push(n * LAP + m); }
 
