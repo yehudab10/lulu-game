@@ -68,6 +68,7 @@ module.exports = {
     await t.frames(4);
     await W.reset(t);
     // (a per-frame trace of the car + the camera through the on-ramp: printed if the camera jumps there)
+    await t.L(`(() => { const c = __lulu3d.ctx, PL = window.__places = [], P0 = c.car.place; c.car.place = function (...a) { PL.push([c.frames, +a[0].toFixed(1), +a[1].toFixed(1), (new Error().stack || "").split("\\n").slice(2, 6).map(l => l.trim().replace(/^at /, "").replace(/https?:\\/\\/[^/]+\\//, "")).join(" ← ")]); if (PL.length > 60) PL.shift(); return P0.apply(this, a); }; return true; })()`);
     await t.L(`(() => { const c = __lulu3d.ctx, T = window.__ramp = []; let f0 = -1; const rec = () => { if (!window.__ramp) return; if (c.frames !== f0) { f0 = c.frames; const k = c.camera.position, p = c.car.pos;
       T.push([c.frames, c.state, +p.x.toFixed(1), +p.z.toFixed(1), +k.x.toFixed(1), +k.z.toFixed(1), c.town.active ? 1 : 0, c.town.transitioning ? 1 : 0, c.cam && c.cam.mode, +(c.car.h || 0).toFixed(2), Math.round(c.car.s), +(+c.car.d).toFixed(1)]); if (T.length > 900) T.shift(); } requestAnimationFrame(rec); }; rec(); return true; })()`);
     await t.hold(7, 0.6);
@@ -79,6 +80,7 @@ module.exports = {
     const rr = await seg("the on-ramp + the highway");
     const fJ = ((rr.issues || []).find(i => i.kind === "jump") || {}).f;
     const jumps = fJ == null ? [] : await t.L(`(() => { const T = window.__ramp || [], i = T.findIndex(r => r[0] >= ${fJ}); window.__ramp = null; return i < 0 ? [] : T.slice(Math.max(0, i - 40), i + 8); })()`);
+    if (fJ != null) console.log("   car.place calls round it:", JSON.stringify(await t.L(`(window.__places || []).filter(p => p[0] >= ${fJ} - 12 && p[0] <= ${fJ} + 4)`), null, 1));
     if (jumps.length) console.log("   on-ramp trace [f, state, car x, z, cam x, z, town, fade, cam mode, h, s, d]:\n     " + jumps.map(r => JSON.stringify(r)).join("\n     "));
     if (process.env.QA14_STOP === "ramp") return;
 
