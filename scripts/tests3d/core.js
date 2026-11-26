@@ -13,7 +13,7 @@ module.exports = {
     t.check("A starts the drive (countdown → playing)", true);
     t.check("▶ PLAY is the open road (mode cruise)", await t.game(`ctx.G.mode`) === "cruise");
     // the road trip (the 🧳 suitcase / 🗺️ map in the world — features/onegame) → story mode, for Bubbe's arrival below
-    await t.game(`ctx.onegame.roadTrip("test")`);
+    await t.game(`(ctx.onegame.switches.story = true, ctx.onegame.roadTrip("test"))`);     // (hidden for now — onegame/switches.js)
     if (!await t.until(`__lulu3d.state === "playing" && __lulu3d.ctx.G.mode === "story"`, "the road trip starts")) return;
     t.check("story mode", await t.game(`ctx.G.mode`) === "story");
 

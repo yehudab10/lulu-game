@@ -29,6 +29,7 @@ import "./style.js";
 import { APPS, PH, PHONE_STATES, addApp, openPhone, closePhone, canOpen, openApp, refresh, buildCorner, refreshCorner, visibleApps, partyOn } from "./ui.js";
 import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines, addPin, pins } from "./inbox.js";
 import "./apps.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 const S = store("phone", { hinted: false });
 
@@ -73,7 +74,7 @@ hook("hud", () => {
     }
     if (P.phone || P.map) {
         if (P.phone && canOpen()) { if (openPhone()) P.phone = P.map = false; }
-        else if (!P.phone && P.map && canOpen() && ctx.journey && ctx.journey.openMap && !partyOn()) {
+        else if (!P.phone && P.map && ONEGAME.story && canOpen() && ctx.journey && ctx.journey.openMap && !partyOn()) {
             if (ctx.journey.openMap({ from: "phone" })) P.map = false;
         }
     }
@@ -109,6 +110,6 @@ addMenuItem("pause", {
     action: () => openPhone(),
 });
 setControlRow("phone", "📱 Lulu's phone", "interact");
-setControlRow("map", "🗺️ Story map (shortcut)");
+if (ONEGAME.story) setControlRow("map", "🗺️ Story map (shortcut)");      // (the Story Trip is hidden for now: L3 stays the scrapbook)
 
 css("phone-pill", `.lp-pill { background: #FF3B30; color: #fff; border-radius: 999px; padding: 0 7px; font-size: .8em; margin-left: 4px; }`);

@@ -5,14 +5,15 @@
 import { ctx } from "../../core/ctx.js";
 import { STATIONS, SONGS, JOBS } from "../hustle/data.js";
 import { addApp, esc, partyOn } from "./ui.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 const inCarNow = () => ctx.state === "playing" && !(ctx.foot && ctx.foot.active);
 const miles = m => `${(Math.max(0, m) / 1609).toFixed(1)} mi`;
 
-// 🗺️ the story map (journey) — over the live run, ○ comes straight back
+// 🗺️ the story map (journey) — over the live run, ○ comes straight back (hidden with the Story Trip: onegame/switches.js)
 addApp({
     id: "map", icon: "🗺️", name: "Map", order: 10, color: "#26A69A", color2: "#00695C",
-    visible: () => !!(ctx.journey && ctx.journey.openMap) && !partyOn(),
+    visible: () => ONEGAME.story && !!(ctx.journey && ctx.journey.openMap) && !partyOn(),
     open: () => ctx.journey.openMap({ from: "phone" }),
 });
 

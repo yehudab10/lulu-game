@@ -7,7 +7,8 @@
 const today = Math.floor(Date.now() / 86400000);
 // every title item a seasoned player sees (Shared Road needs the online backend, not in tests)
 // (roadmap 10: ▶ PLAY replaced Story Trip / Cruise / the Parking Challenge on the title — those start in the world now)
-const ITEMS = ["play", "storyMap", "shop", "distracted", "dina", "party", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
+// (2026-11-22, the owner: the Story Trip's map + Dina's tile are hidden for now — features/onegame/switches.js)
+const ITEMS = ["play", "shop", "distracted", "party", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
 
 module.exports = {
   name: "ux",
@@ -46,7 +47,9 @@ module.exports = {
     t.check("home: ▶ PLAY is the hero tile and has the focus", await t.L(`!!document.querySelector("#screenCard .tile.hero#play")`) && await focusId() === "play");
     t.check("home: coins in the top bar", await t.L(`/12,345/.test(document.querySelector(".home-bar").textContent)`));
     t.check("home: the streak is a top-bar chip", await t.L(`/🔥 3/.test(document.querySelector(".home-bar").textContent)`));
-    t.check("home: two small play tiles under it (👯 Friends · 👧 Dina), no 'More to play'", await t.L(`[...document.querySelectorAll("#screenCard .home-tiles .tile")].map(b => b.id).join() === "party,dina" && !document.getElementById("tg_play")`));
+    t.check("home: one small play tile under it (👯 Friends — 👧 Dina's is hidden for now), no 'More to play'", await t.L(`[...document.querySelectorAll("#screenCard .home-tiles .tile")].map(b => b.id).join() === "party" && !document.getElementById("tg_play")`));
+    const hidden = await g(`L3.titleLabels().filter(i => i.id === "dina" || i.id === "storyMap").map(i => i.id)`);
+    t.check("hidden for now: no 👧 Dina tile, no 🗺️ Road to Vegas map (even with story progress)", hidden.length === 0, hidden.join(","));
     t.check("home: the controller is a small chip (no footer line)", await t.L(`!!document.querySelector(".home-bar .pad-status.on") && !document.querySelector(".home-foot")`));
     const nBtns = await t.L(`[...document.querySelectorAll("#screenCard button, #screenCard .nav")].filter(b => b.offsetParent).length`);
     t.check("home: a handful of big targets, not a wall of buttons", nBtns <= 10, `${nBtns} buttons`);

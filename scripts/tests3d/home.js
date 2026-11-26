@@ -197,7 +197,7 @@ module.exports = {
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`ctx.places.debug.parkNow()`);
-    await g(`ctx.onegame.roadTrip("test")`);
+    await g(`(ctx.onegame.switches.story = true, ctx.onegame.roadTrip("test"))`);     // (the Story Trip is hidden for now — onegame/switches.js)
     t.check("Story Trip starts at home on foot", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.G.mode === "story"`, "story home", 3000));
     t.check("…a returning player gets no tutorial hint", !(await g(`ctx.places.home.depart().first`)));
     await t.frames(20);

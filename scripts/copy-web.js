@@ -232,7 +232,9 @@ function writeBuildList() {
   let committed = "";
   try { committed = execFileSync("git", ["show", "-s", "--format=%cI", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch (e) { /* not a git checkout */ }
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const list = { schema: 1, commit, committed, appVersion: pkg.version, minNative: (pkg.ota && pkg.ota.minNative) || pkg.version, bytes, files };
+  // the page the iOS app opens first (capacitor.config.json › server.appStartPath): every copy must have it
+  const startPath = ((JSON.parse(fs.readFileSync(path.join(ROOT, "capacitor.config.json"), "utf8")).server || {}).appStartPath || "/index.html");
+  const list = { schema: 1, commit, committed, startPath, appVersion: pkg.version, minNative: (pkg.ota && pkg.ota.minNative) || pkg.version, bytes, files };
   fs.writeFileSync(path.join(OUT, OTA_FILE), JSON.stringify(list));
   return list;
 }
@@ -240,6 +242,7 @@ function writeBuildList() {
 const stats = stage();
 const built = writeBuildList();
 const { problems, scanned } = checkRefs();
+if (!built.files[built.startPath.replace(/^\//, "")]) problems.push(`the iOS start page ${built.startPath} (capacitor.config.json › server.appStartPath) is not in www/`);
 const mb = n => (n / 1048576).toFixed(1) + " MB";
 console.log(`copy-web: staged ${stats.files} files (${mb(stats.bytes)}) into www/ — 2.0 (3D) at www/3d/, classic 2D at www/classic.html`);
 if (stats.skipped.length) console.log(`copy-web: left out ${stats.skipped.length} dev-only file(s) (${stats.skipped.slice(0, 4).join(", ")}${stats.skipped.length > 4 ? ", …" : ""})`);

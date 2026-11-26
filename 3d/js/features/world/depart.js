@@ -19,6 +19,7 @@ import { save3d, store, saveSoon } from "../../core/save.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
+import { ONEGAME } from "../onegame/switches.js";
 import { home, luluSpots, placeParked, peopleTick, titleShot, nearHome, homeEdge, enterHomeTown } from "./home.js";
 
 const HS = store("worldHome", { starts: 0, drives: 0, wayHint: 0 });
@@ -28,6 +29,8 @@ const spots = {};
 const IMA = {
     // (a first-time player: the car AND the road trip — her suitcase by the car, features/onegame)
     first: ["Lulu! Your suitcase is by the car 🧳 — Bubbe's expecting you! Or just hop in and go for a spin 🚗"],
+    // (…while the Story Trip is hidden — onegame/switches.js: just the car and the town)
+    firstOpen: ["Lulu! The car's all yours — go for a spin! 🚗 And be home for DINNER!"],
     any: ["Drive safe! Text me when you get there! 💕", "Your KEYS— oh, they're in the car. Of course they are.",
         "Seatbelt! And take a SWEATER!", "Go, go — and drive SLOW, you hear me?", "Don't forget Dina's snacks! ...Fine, go.",
         "Call Bubbe from the road! Hands-FREE!"],
@@ -171,7 +174,7 @@ function startAtHome(opts = {}, alt = null) {
     // (a real Friday afternoon: the Erev Shabbos Rush is what Ima asks for — getting in the car starts it; features/shabbos)
     const friday = G.mode === "cruise" && ctx.shabbos && ctx.shabbos.atDoor ? ctx.shabbos.atDoor() : false;
     const dayLine = G.mode === "cruise" && !friday && ctx.day && ctx.day.imaLine ? ctx.day.imaLine() : null;
-    const line = G.mode === "shabbos" || friday ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : opts.homeLine || dayLine || pick(IMA.any);
+    const line = G.mode === "shabbos" || friday ? pick(IMA.shabbos) : D.first ? (ONEGAME.story ? IMA.first[0] : IMA.firstOpen[0]) : G.mode === "story" ? pick(IMA.story) : opts.homeLine || dayLine || pick(IMA.any);
     D.pendingLine = line;
     D.fri = friday;
     D.pendingLine2 = D.first && dayLine ? dayLine : opts.homeLine && dayLine && line !== dayLine ? dayLine : null;
@@ -216,7 +219,7 @@ function drove() {
     if (home.site === "town" && !HS.wayHint && ctx.town && typeof ctx.town.wayOut === "function") {
         let w = null;
         try { w = ctx.town.wayOut(); } catch (e) { w = null; }
-        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To the highway: ${w.street ? `take ${w.street}` : "follow the signs"} — the on-ramp's at the end`, "", { prio: 2 }); }
+        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To get to the highway, ${w.street ? `take ${w.street}` : "follow the signs"}. The on-ramp is at the end.`, "", { prio: 2 }); }
     }
     emit("world:depart", { mode: G.mode, left: D.left });
 }

@@ -9,7 +9,7 @@ const SAVE = `JSON.parse(localStorage.getItem("luluSaveV2") || "{}")`;
 
 module.exports = {
   name: "journey",
-  query: "&enable=journey",
+  query: "&enable=journey&story=1",     // (the Story Trip is hidden for now — onegame/switches.js; this test covers it through the switch)
   save2d: { totalCoins: 100, avigailRel: 70 },
   async run(t) {
     const G = code => t.game(code);

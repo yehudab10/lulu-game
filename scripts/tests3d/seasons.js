@@ -441,7 +441,7 @@ module.exports = {
       t.check("every prop kind is on the wholesome list", kinds.every(k => WHOLESOME.test(k)), kinds.join(","));
       await g(`L3.setState("title")`);
       await t.frames(4);
-      await t.click(/Dina/);
+      await g(`(ctx.dina.start(), true)`);          // (her title tile is hidden for now — onegame/switches.js)
       await t.until(`__lulu3d.state === "dinaSelect"`, "Dina's picker");
       await t.tap(0);
       await t.until(`__lulu3d.state === "dinaBus" && !!__lulu3d.ctx.view`, "Dina's bus intro", 30000);

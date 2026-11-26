@@ -1,8 +1,11 @@
 // 🎮 ONE GAME, NOT A MENU OF MODES (roadmap 10, features/onegame + core/screens.js).
 //
-//  • A fresh save: the title has ONE big ▶ PLAY + exactly two small play tiles (👯 Friends · 👧 Dina), no
+//  • A fresh save: the title has ONE big ▶ PLAY + one small play tile (👯 Friends — 👧 Dina's is hidden for now), no
 //    "More to play", no Story Trip / Cruise / Parking Challenge / Shabbos chip — PLAY isn't locked, and a
-//    first-time player is walking at home within a few seconds; Ima's first line points at the suitcase.
+//    first-time player is walking at home within a few seconds.
+//  • HIDDEN FOR NOW (the owner, 2026-11-22 — features/onegame/switches.js): the Story Trip (no suitcase, no 📱 story map,
+//    no road-trip start, Ima's first line just the car) and Dina's porch ✋. Then each switch is flipped ON and the old
+//    ways in are played through, so their content stays covered (Dina's room + her school bus: scripts/tests3d/hidden.js).
 //  • The road trip: ✋ the 🧳 suitcase by the car → the Story Trip's leg 1 starts right where she stands (no title,
 //    no countdown); a stop on the 📱 🗺️ Map → that leg starts ROLLING at its start (no 3-2-1); "Call it a
 //    trip" → 🏠 Head home → on her feet at home again.
@@ -39,12 +42,12 @@ module.exports = {
       return { hero: ids("#screenCard .tile.hero"), tiles: ids("#screenCard .home-tiles .tile"), groups: ids("#screenCard .home-groups .tile"),
                chip: !!document.getElementById("shabbosChip"), text: document.querySelector("#screenCard .home").textContent }; })()`);
     t.check("title: ONE big ▶ PLAY hero", home.hero.length === 1 && home.hero[0] === "play" && /PLAY/.test(home.text), home.hero.join(","));
-    t.check("title: exactly two small play tiles — 👯 Friends + 👧 Dina", home.tiles.length === 2 && /^(party|friends)$/.test(home.tiles[0]) && home.tiles[1] === "dina", home.tiles.join(","));
+    t.check("title: exactly one small play tile — 👯 Friends (👧 Dina's is hidden for now)", home.tiles.length === 1 && /^(party|friends)$/.test(home.tiles[0]), home.tiles.join(","));
     t.check("title: no 'More to play' overflow", !home.groups.includes("tg_play") && !/More to play/.test(home.text), home.groups.join(","));
     const labels = (await t.titleItems()).join(" | ");
     t.check("title: no Story Trip / Cruise / Parking Challenge items", !/Story Trip|Cruise|Parking Challenge/.test(labels), labels);
     t.check("title: no Shabbos chip", !home.chip);
-    t.check("title: the story map is still in the 📒 Scrapbook group (when there's progress) — none yet", !/Road to Vegas/.test(labels));
+    t.check("title: no Road to Vegas map (hidden — and no progress yet)", !/Road to Vegas/.test(labels));
     t.check("title: PLAY has the focus", await focusId() === "play", await focusId());
     await t.shot("title");
 
@@ -59,9 +62,15 @@ module.exports = {
     t.check("…it's the open world (a 'cruise' run, reason 'home')", S0.mode === "cruise" && S0.reason === "home");
     await t.frames(30);
     const dep = await g(`ctx.places.home.depart()`);
-    t.check("Ima's first line points at the suitcase", /suitcase/i.test(dep.line), dep.line);
+    t.check("Ima's first line: just the car (no suitcase — the Story Trip is hidden)", /car/i.test(dep.line) && !/suitcase|Bubbe/i.test(dep.line), dep.line);
+    t.check("hidden: no 🧳 suitcase by the car", !(await g(`ctx.onegame.info()`)).suitcase);
+    t.check("hidden: no 🗺️ story map in the 📱", !(await g(`ctx.phone.apps()`)).includes("map"));
+    t.check("hidden: the road trip won't start (from anywhere)", !!(await g(`ctx.onegame.tripBlock()`)) && !(await g(`ctx.onegame.roadTrip("test")`)) && (await g(`ctx.G.mode`)) === "cruise");
+    // ── …and with the switch ON, the old ways in (ONEGAME.story) ──
+    await g(`(ctx.onegame.switches.story = true, true)`);
+    await t.frames(3);
     const info = await g(`ctx.onegame.info()`);
-    t.check("the 🧳 suitcase stands by the car", info.suitcase);
+    t.check("story ON: the 🧳 suitcase stands by the car", info.suitcase);
 
     // ── 🧳 the suitcase → the road trip, right here ──────────────────────────
     const sc = await g(`({ x: ctx.onegame.debug.SC.pos.x, z: ctx.onegame.debug.SC.pos.z })`);
@@ -106,7 +115,11 @@ module.exports = {
     await t.L(`document.getElementById("jHome").click()`);
     t.check("…and home again", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.G.mode === "cruise"`, "home 2", 3000));
 
-    // ── 👧 Dina on the porch ─────────────────────────────────────────────────
+    // ── 👧 Dina on the porch: hidden for now (no ✋), then with ONEGAME.dinaTile ON ──
+    await g(`(ctx.onegame.switches.story = false, true)`);
+    const dHidden = await g(`ctx.onegame.debug.dinaSpot.pos() === null`);
+    t.check("hidden: no ✋ PLAY AS DINA on the porch", dHidden);
+    await g(`(ctx.onegame.switches.dinaTile = true, true)`);
     const dn = await g(`(() => { const p = ctx.onegame.debug.dinaSpot.pos(); return p && { x: p.x, z: p.z }; })()`);
     const startLabel = await label();
     t.check("at the porch steps (the start): no accidental ✋ PLAY AS DINA", !/DINA/.test(startLabel), startLabel);
@@ -119,6 +132,7 @@ module.exports = {
     await t.frames(4);
     await t.L(`document.getElementById("dsLulu").click()`);
     t.check("pick Lulu → back on her feet at home (not the title)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.reason === "home"`, "dina home", 4000));
+    await g(`(ctx.onegame.switches.dinaTile = false, true)`);
 
     // ── 🅿️ the parking booth at a rest area: it stands at the course (the challenge is PLAYED on the lot) ───
     await shared(`s.totalCoins = 1500;`);
@@ -164,14 +178,15 @@ module.exports = {
     await t.frames(4);
     t.check("📱 'Show me the course' → the course is marked, she's still driving", await g(`ctx.state === "playing" && !!ctx.parking._debug.mark`));
 
-    // ── the 👧 Dina tile → back to the title ─────────────────────────────────
-    await g(`L3.setState("title")`);
+    // ── the 👧 Dina tile (with ONEGAME.dinaTile ON) → back to the title ───────
+    await g(`(ctx.onegame.switches.dinaTile = true, L3.setState("title"), true)`);
     await t.frames(4);
     await t.click(/Dina/);
     await t.until(`__lulu3d.state === "dinaSelect"`, "dina tile", 6000);
     await t.frames(4);
     await t.L(`document.getElementById("dsLulu").click()`);
     t.check("the Dina tile → pick Lulu → the title (as before)", await t.until(`__lulu3d.state === "title"`, "title", 3000));
+    await g(`(ctx.onegame.switches.dinaTile = false, L3.setState("title"), true)`);
 
     // ── the layouts: phone portrait + landscape, TV 720p / 1080p ─────────────
     const layouts = [["phone-portrait", 390, 844, false], ["phone-landscape", 844, 390, false], ["tv-1080", 1920, 1080, true], ["tv-720", 1280, 720, true]];
@@ -182,7 +197,7 @@ module.exports = {
       await t.frames(4);
       const f = await fits();
       t.check(`the new home fits ${name} (${w}×${h})`, f.ok, JSON.stringify(f));
-      const hero = await t.L(`(() => { const r = document.getElementById("play").getBoundingClientRect(), d = document.getElementById("dina").getBoundingClientRect(); return { h: r.height, w: r.width, dh: d.height }; })()`);
+      const hero = await t.L(`(() => { const r = document.getElementById("play").getBoundingClientRect(), d = document.querySelector("#screenCard .home-tiles .tile").getBoundingClientRect(); return { h: r.height, w: r.width, dh: d.height }; })()`);
       t.check(`${name}: PLAY is the biggest button`, hero.h >= hero.dh && hero.h >= 44, JSON.stringify(hero));
       await t.shot(`home-${name}`);
     }
@@ -193,7 +208,7 @@ module.exports = {
     await g(`(ctx.shabbos.debug.date("2026-11-20T15:00"), ctx.applySettings(), L3.setState("title"), true)`);
     await t.frames(4);
     t.check("Friday: PLAY's subtitle says Erev Shabbos", await t.L(`/Erev Shabbos/.test(document.getElementById("play").textContent)`));
-    t.check("…and there's still no chip / extra tile", await t.L(`!document.getElementById("shabbosChip") && document.querySelectorAll("#screenCard .home-tiles .tile").length === 2`));
+    t.check("…and there's still no chip / extra tile", await t.L(`!document.getElementById("shabbosChip") && document.querySelectorAll("#screenCard .home-tiles .tile").length === 1`));
     await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun"`, "friday home", 4000);
     await t.frames(30);

@@ -20,7 +20,7 @@ module.exports = {
     t.check("Cruise starts at home with the list", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.day.active`, "day on", 3000));
     await t.frames(40);
     const line = await g(`ctx.places.home.depart().line`);
-    t.check("Ima reads out today's list at the door", /Today:/.test(line) || /RIGHT THERE|suitcase/.test(line), line);
+    t.check("Ima reads out today's list at the door", /Today:/.test(line) || /RIGHT THERE|suitcase|all yours/.test(line), line);
     t.check("the 📝 chip is on the HUD", /Ima's list 0\/3/.test(await g(`ctx.day.debug.chip()`)), await g(`ctx.day.debug.chip()`));
     await t.shot("list");
     // the list is on Lulu's 📱 too: a pinned note in Messages (it never adds an app of its own, and the phone stays

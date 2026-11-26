@@ -143,7 +143,7 @@ module.exports = {
     } else t.check("(a neighbour's house for startAt)", false);
 
     // ── the road trip from the suitcase: leg 1 starts at home, in Midwood ──
-    await g(`ctx.onegame.roadTrip("test", 0)`);
+    await g(`(ctx.onegame.switches.story = true, ctx.onegame.roadTrip("test", 0))`);     // (hidden for now — onegame/switches.js)
     t.check("🧳 the road trip's first leg starts at home in Midwood", await t.until(`__lulu3d.ctx.G.mode === "story" && __lulu3d.state === "footRun" && __lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "story at home", 6000),
       await g(`JSON.stringify({ mode: ctx.G.mode, st: L3.state, town: ctx.town.active && ctx.town.id })`));
   },

@@ -59,6 +59,7 @@ function manifestFor(sha, hold, by) {
         const listFile = path.join(dir, "www", "ota-build.json");
         if (!fs.existsSync(listFile)) throw new Error(`${sha.slice(0, 7)} is older than the update channel (its copy-web.js writes no www/ota-build.json)`);
         const list = JSON.parse(fs.readFileSync(listFile, "utf8"));
+        if (list.startPath && !list.files[list.startPath.replace(/^\//, "")]) throw new Error(`the iOS start page ${list.startPath} is missing from www/`);
         // the files must be byte-identical to the repo at that commit: that's what the pinned URLs serve
         for (const f of Object.keys(list.files)) {
             const blob = execFileSync("git", ["show", `${sha}:${f}`], { cwd: ROOT, maxBuffer: 1 << 30 });
@@ -78,6 +79,7 @@ function manifestFor(sha, hold, by) {
             published: new Date().toISOString(),
             appVersion: list.appVersion,
             minNative: list.minNative,
+            startPath: list.startPath || "",
             paused: false,
             revert: false,
             hold: !!hold,
