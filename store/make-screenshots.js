@@ -257,8 +257,12 @@ const SCENES = [
       await P.g(`ctx.cityhall.enter()`);
       await P.until(`L3.state === "interior" && __interiors.room && __interiors.room.ready && __interiors.room.def.id === "cityhall"`);
       await P.frames(60);
+      // Lulu at the take-a-number machine (not in the doorway)
+      await P.g(`(() => { const r = window.__interiors.room, h = r.hots.find(h => h.id === "ticket"); if (h) r.lulu.obj.position.set(h.x, 0, h.z); return true; })()`);
+      await P.frames(30);
     },
-    async frame(P) { await P.frames(10); } },
+    async frame(P) { await P.frames(10); },
+    clean: { banner: true } },
   { id: "09-airport", caption: "Check the board at JFK's Terminal 4½", enable: "all,airport",
     async setup(P) {
       await cruise(P);
