@@ -146,7 +146,7 @@ hook("update", (dt, P, controlsOn) => {
     if (!job) {
         if (!live()) return;                               // (a 🎉 party too: Shmuel only calls ME)
         CHOP.nextT -= dt;
-        if (CHOP.nextT <= 0 && !(ctx.phone && ctx.phone.busy && ctx.phone.busy()) && !(ctx.law && ctx.law.chasing)) { CHOP.nextT = rand(100, 160); chopRequest(); }
+        if (CHOP.nextT <= 0 && !(ctx.phone && ctx.phone.busy && ctx.phone.busy()) && !(ctx.law && ctx.law.chasing) && !ctx.engaged()) { CHOP.nextT = rand(100, 160); chopRequest(); }
         return;
     }
     job.t += dt;

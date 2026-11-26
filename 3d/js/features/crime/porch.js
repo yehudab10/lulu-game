@@ -60,7 +60,7 @@ export function dropPorch() {
 export function porchTick(dt, on) {
     const E = PORCH.E;
     if (E) { tick(dt, E); return; }
-    if (!on || PORCH.n >= K.perRun || !walking() || chasing() || ctx.dialogOpen) return;
+    if (!on || PORCH.n >= K.perRun || !walking() || chasing() || ctx.dialogOpen || ctx.engaged()) return;
     PORCH.nextT -= dt;
     if (PORCH.nextT > 0) return;
     PORCH.nextT = K.gap[0] + Math.random() * (K.gap[1] - K.gap[0]);

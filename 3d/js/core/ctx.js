@@ -48,6 +48,33 @@ const ENABLED = new Set((new URLSearchParams(location.search).get("enable") || "
 /** True unless this is a test run that didn't opt in to feature `id`. Gate random spawns with it. */
 ctx.enabled = id => !ctx.TEST || ENABLED.has(id) || ENABLED.has("all");
 
+// ── one activity at a time (ci/hud, 2026-11-26) ─────────────────────────────
+// The owner's friend was on a timed kugel delivery, in a chase, AND got offered a robbery to foil — five chips at once.
+// The rule: while she's IN an activity (a chase, a side job, a heist thing — a robbery to foil / a snatcher / her own
+// heist —, the 🅿️ challenge, the Shabbos rush, a bad-guy encounter, or anything a feature adds), no NEW world event is
+// started or offered: robberies, snatchers, road-ragers / gang cars, the Fixer's / the chop shop's / a job's phone
+// offers, payphones, roadside cameos and drive-thrus, the town's street scenes and crimes, the Shabbos call. Background
+// things (Ima's list, bonuses) carry on but step out of the way on the HUD (hud.js › the objective line).
+// A scheduler asks `ctx.engaged(except)` → the id of the activity she's in ("" = free); `except` = its OWN family, so
+// it can keep checking its own rules (heist passes "heist"). A feature with an activity of its own adds it once:
+// `addActivity(id, () => bool)`. Test: scripts/tests3d/oneact.js.
+const ACTIVITIES = [
+    ["chase", () => !!(ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || !!(ctx.foot && ctx.foot.chasing)],
+    ["job", () => !!(ctx.hustle && ctx.hustle.job)],
+    ["heist", () => !!(ctx.heist && ctx.heist.busy && ctx.heist.busy())],
+    ["parking", () => !!(ctx.parking && ctx.parking.active)],
+    ["shabbos", () => !!(ctx.shabbos && ctx.shabbos.active && ctx.shabbos.phase === "drive")],
+    ["underworld", () => !!(ctx.underworld && ctx.underworld.enc)],      // (a road-rager, a gang car, a pickpocket; the Fixer's jobs are side jobs)
+];
+/** Add an activity: while fn() is true, nothing new is started or offered (except by its own feature). */
+export function addActivity(id, fn) { ACTIVITIES.push([id, fn]); }
+ctx.addActivity = addActivity;
+/** The activity she's in right now ("" = none), ignoring `except` (a scheduler's own family). */
+ctx.engaged = (except = "") => {
+    for (const [id, fn] of ACTIVITIES) { if (id === except) continue; try { if (fn()) return id; } catch (e) { /* a service mid-boot */ } }
+    return "";
+};
+
 // ── events ────────────────────────────────────────────────────────────────
 const listeners = new Map();
 /** Subscribe. Returns an unsubscribe function. */

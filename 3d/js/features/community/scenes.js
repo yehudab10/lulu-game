@@ -230,7 +230,7 @@ function maybeStart(dt) {
     CM.sceneT -= dt;
     if (CM.sceneT > 0) return;
     CM.sceneT = rand(cfg.scenes.every[0], cfg.scenes.every[1]);
-    if ((ctx.law && ctx.law.chasing) || CM.chase) return;
+    if ((ctx.law && ctx.law.chasing) || CM.chase || ctx.engaged()) return;      // (ci/hud: one activity at a time)
     startScene();
 }
 /** The highway's version (fleet.js asks for it on the approach to a town). */

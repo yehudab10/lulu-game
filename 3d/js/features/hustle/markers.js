@@ -49,7 +49,7 @@ export function canOffer() {
 
 /** Every driving frame: count down to the next offer. */
 export function offersTick(dt, controlsOn) {
-    if (!controlsOn || !canOffer()) return;
+    if (!controlsOn || !canOffer() || ctx.engaged()) return;      // (ci/hud: one activity at a time)
     M.t -= dt;
     if (M.t > 0) return;
     M.t = rand(...TUNE.nextOffer);

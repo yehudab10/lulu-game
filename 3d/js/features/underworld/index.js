@@ -48,6 +48,7 @@ export function why() {
     const party = inParty();
     if (!live(party ? "pickpocket" : "")) return "off";
     if (UW.enc || UW.loading) return "busy";
+    if (ctx.engaged("underworld")) return "busy";      // (ci/hud: one activity at a time)
     if (UW.runT < SPAWN.firstAfter) return "early";
     if (chasing() || (ctx.law && ctx.law.reported)) return "chase";
     if (calm()) return "calm";

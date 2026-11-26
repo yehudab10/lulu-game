@@ -25,6 +25,7 @@ hook("update", (dt, P, controlsOn) => {
     if (!controlsOn || ctx.state !== "playing") return;
     if (!ctx.enabled("cameos") || ctx.cameos.auto === false) return;
     if (ctx.party && ctx.party.active) return;          // a 🎉 party plans its cameos from the seed (party.js)
+    if (ctx.engaged()) return;                          // (ci/hud: one activity at a time — no new cameo mid-chase / mid-job)
     const t = ctx.G.runTime;
     if (T.tick("heshyPool", dt) && t > 12 && !RS.heshyOut()) RS.spawnHeshy();
     if (T.tick("avigailCar", dt) && t > 15 && !AV.avigailOut()) AV.spawnAvigailCar();

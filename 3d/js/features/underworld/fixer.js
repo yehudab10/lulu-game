@@ -36,7 +36,7 @@ export function fixerTick(dt) {
     if (UW.fixT > 0 || UW.runT < SPAWN.fixer.first) return;
     UW.fixT = rand(SPAWN.fixer.every[0], SPAWN.fixer.every[1]);
     const h = ctx.hustle;
-    if (blocked() || !h || h.job || (h.marker && !h.marker.done) || (ctx.phone && ctx.phone.busy && ctx.phone.busy())) return;
+    if (blocked() || !h || h.job || (h.marker && !h.marker.done) || (ctx.phone && ctx.phone.busy && ctx.phone.busy()) || ctx.engaged()) return;
     if (!chance(SPAWN.fixer.chance)) return;
     offer();
 }

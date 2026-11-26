@@ -326,6 +326,7 @@ export function offer() {
     if (!ctx.phone || ctx.phone.busy() || R.active || G.mode !== "cruise" || ctx.state !== "playing") return false;
     if (ctx.party && ctx.party.active) return false;
     if (ctx.hustle && ctx.hustle.job) return false;
+    if (ctx.engaged("shabbos")) return false;      // (ci/hud: one activity at a time)
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted > 0)) return false;
     if (ctx.foot && ctx.foot.active) return false;
     if (ctx.town && ctx.town.active) return false;          // (out on the highway only — a town's streets have their own s)

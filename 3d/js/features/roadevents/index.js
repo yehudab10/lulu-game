@@ -81,6 +81,7 @@ function scheduler(dt) {
     for (const name of OWN_SPAWNS) {
         if (!tickSpawn(name, dt) || t <= MIN_TIME[name]) continue;
         if (name !== "pedestrian" && busy(name)) continue;
+        if ((name === "driveThru" || name === "iceCream") && ctx.engaged()) continue;      // (ci/hud: no new offer mid-activity)
         spawn(name);
     }
     const speedFactor = 1 - clamp((car.speed - 18) / 35, 0, 1) * 0.4;
