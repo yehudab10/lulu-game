@@ -59,10 +59,12 @@ function onLot(x, z) {
     const T = ctx.town;
     if (!T || !T.active) return false;
     if (ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z)) return true;      // (Uncle Refael's car lot: open ground too)
-    if (ctx.home && typeof ctx.home.isFamily === "function") return !!ctx.home.isFamily(x, z);   // (her lot, as features/world draws it — the camera uses the same)
-    if (LOT.town !== T.def) {
-        LOT.town = T.def; LOT.r = null;
-        const sp = T.spot && T.spot("luluHome");
+    if (ctx.home && typeof ctx.home.isFamily === "function" && ctx.home.isFamily(x, z)) return true;   // (her lot, as features/world draws it — the camera uses the same)
+    // (the lot in THIS Midwood — on another lap of the one world the town stands somewhere else, and its lot is open ground too)
+    const sp = T.spot && T.spot("luluHome");
+    const key = sp ? Math.round(sp.x) + ":" + Math.round(sp.z) : null;
+    if (LOT.town !== key) {
+        LOT.town = key; LOT.r = null;
         // (the spot: (x, z) the back of the lot, (lotX, lotZ) a point 12 m toward the street; u along the street, n toward it)
         if (sp && fin(sp.lotX) && fin(sp.ux) && fin(sp.nx)) LOT.r = { cx: (sp.x + sp.lotX) / 2, cz: (sp.z + sp.lotZ) / 2, ux: sp.ux, uz: sp.uz, nx: sp.nx, nz: sp.nz, hw: (sp.w || 14) / 2 + 1, hd: (sp.d || 24) / 2 + 1 };
     }

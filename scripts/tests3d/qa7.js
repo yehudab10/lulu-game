@@ -21,7 +21,8 @@ module.exports = {
     await g(`(ctx.law.hold && ctx.law.hold(1e6), ctx.town.load("midwood"), true)`);
     if (!await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "Midwood's models load", 90000)) return;
     await W.moved(t);
-    await g(`ctx.town.enter({ town: "midwood", speed: 0 })`);
+    // (the Midwood her house is in: ctx.town.home's exit — on another lap of the one world it's a town without it; qa14 checks that)
+    await g(`ctx.town.enter({ town: "midwood", exitS: ctx.town.home ? ctx.town.home.exitS : undefined, speed: 0 })`);
     if (!await t.until(`__lulu3d.ctx.town.active`, "in Midwood", 8000)) return;
     await t.frames(20);
     const lot = await g(`ctx.town.spot("luluHome")`);

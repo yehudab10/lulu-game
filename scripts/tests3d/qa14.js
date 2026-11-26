@@ -112,6 +112,10 @@ module.exports = {
       if (t.check("into Midwood at its exit on the next lap", await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "in Midwood again", 30000))) {
         await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
         await t.frames(20);
+        // 🌍 her house on E 34th St on THIS lap's Midwood (features/world builds it at ctx.town.home's exit — lap 0's)
+        const hl = await g(`(() => { const sp = ctx.town.spot("luluHome"), lot = ctx.home && ctx.home.lot; return { spot: sp ? [Math.round(sp.x), Math.round(sp.z)] : null, house: lot ? [Math.round(lot.x), Math.round(lot.z)] : null, homeExit: ctx.town.home && ctx.town.home.exitS, here: ctx.town.debug.S.exitS }; })()`);
+        t.check("one lap on, her house stands on E 34th St in this Midwood too", !!(hl.spot && hl.house && Math.hypot(hl.spot[0] - hl.house[0], hl.spot[1] - hl.house[1]) < 2), JSON.stringify(hl));
+        await t.shot("lap2-e34");
         await W.moved(t);
         await g(`(ctx.onegame && ctx.onegame.home ? ctx.onegame.home() : 0, true)`);
         if (t.check("🏠 home: on her feet", await walk())) {
