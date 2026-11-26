@@ -76,9 +76,14 @@ export function createHomes(db, opts = {}) {
     if (!body || !PID_RE.test(body.pid) || !SEC_RE.test(body.sec)) return null;
     const h = await sha(body.sec), rows = db.byOwner(body.pid);
     if (rows.length && rows[0].sech !== h) return null;
+    // 🪪 (ci/accounts) a player with an ACCOUNT proves it with the account's secret too (accounts.mjs keeps its hash)
+    const ah = opts.acctSech ? opts.acctSech(body.pid) : null;
+    if (ah && ah !== h) return null;
     return { pid: body.pid, sech: h, rows };
   }
-  const pub = (r) => ({ h: r.house, l: r.label, s: r.since, z: r.seized ? 1 : 0 });
+  // the label others see: the owner's USERNAME when they have one (ci/accounts — the server's, filtered), else the
+  // generated "Kugel Kid #37" stored with the house
+  const pub = (r) => ({ h: r.house, l: (opts.nameOf && r.owner && opts.nameOf(r.owner)) || r.label, s: r.since, z: r.seized ? 1 : 0 });
   const config = () => ({ ordinance: cfg.ordinance, amended: cfg.amended, cap: cfg.cap, idleDays: cfg.idleDays, holdDays: cfg.holdDays, appealWin: cfg.appealWin });
 
   return {
@@ -162,7 +167,7 @@ export function sqlStore(sql) {
       r.house, r.town, r.owner, r.sech, r.label, r.since, r.seen, r.seized || 0, r.appealed || 0); },
     del: (h) => { sql.exec("DELETE FROM homes WHERE house = ?", h); },
     byOwner: (pid) => rows("SELECT * FROM homes WHERE owner = ?", pid),
-    byTown: (town) => rows("SELECT house, label, since, seized FROM homes WHERE town = ?", town),
+    byTown: (town) => rows("SELECT house, owner, label, since, seized FROM homes WHERE town = ?", town),
     seizeIdle(cutoff, now) { sql.exec("UPDATE homes SET seized = ? WHERE seized = 0 AND seen < ?", now, cutoff); },
     dropSeized(cutoff) { sql.exec("DELETE FROM homes WHERE seized > 0 AND seized < ?", cutoff); },
     count: () => rows("SELECT COUNT(*) AS n FROM homes")[0].n,

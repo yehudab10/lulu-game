@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node local-relay.js",
     "test": "node test-relay.js",
+    "test:accounts": "node test-accounts.mjs",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
