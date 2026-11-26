@@ -266,7 +266,7 @@ function parkBlock() {
 function startParking(via) {
     const why = parkBlock();
     if (why) { H.toast(why, "red"); return false; }
-    if (!parkingUnlocked()) { H.toast(`🔒 Unlock the Parking Challenge first (${UNLOCK_COST.toLocaleString()} 💰)`, "red"); return false; }
+    if (!parkingUnlocked()) { H.toast(`🔒 Unlock the Parking Challenge first (${UNLOCK_COST.toLocaleString()} coins)`, "red"); return false; }
     OG.booth++; saveSoon();
     if (ctx.paused) resume();
     ctx.parking.start({ challenge: true, from: via });
@@ -291,7 +291,7 @@ JOB_EXTRAS.push({
         const p = el.querySelector("#lpPark");
         if (p) p.addEventListener("click", () => { const w = parkBlock(); if (w) { api.toast(w); return; } api.close(); startParking("phone"); });
         const u = el.querySelector("#lpParkUnlock");
-        if (u) u.addEventListener("click", () => { if (unlockParking()) { api.toast("🅿️ Unlocked!"); api.refresh(); } else api.toast(`🔒 ${UNLOCK_COST.toLocaleString()} 💰 — jobs on the 📱 pay`); });
+        if (u) u.addEventListener("click", () => { if (unlockParking()) { api.toast("🅿️ Unlocked!"); api.refresh(); } else api.toast(`🔒 It costs ${UNLOCK_COST.toLocaleString()} coins. Side jobs on your phone pay well.`); });
     },
 });
 

@@ -144,7 +144,8 @@ export { carBox, pushC };
  */
 const CAM_PAD = 0.25, CAM_MIN = 0.05, _cl = {}, _cl2 = {};
 /** An open lot inside a town block (features/shops' car lot): walkable, the camera may stand over it. */
-const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z));     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
+const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z))
+    || !!(ctx.home && ctx.home.isFamily && ctx.home.isFamily(x, z));      // (and her own lot on E 34th St: the camera stops at its hedge, not in the neighbours' houses)     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;

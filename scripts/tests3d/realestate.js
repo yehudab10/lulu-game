@@ -329,7 +329,7 @@ module.exports = {
       // early pay-off: half the remaining fee off
       await g(`(ctx.realestate.debug.CLOCK.offset = 0, true)`);
       await setCoins(30000);
-      const r2 = await g(`(() => { const R = ctx.realestate, MG = R.debug.MG; const rec = R.listings()[0]; const p = MG.plan(R.valueOf(rec), 0.2, { days: 10, fee: 0.05 }); const ok = MG.take(rec, p).ok; const m = R.mortgage(rec.id); const want = m.owed - Math.round(m.fee * 0.5); const paid = MG.payOff(rec.id); return { ok, want, paid, gone: !R.mortgage(rec.id), mine: R.owns(rec.id), id: rec.id }; })()`);
+      const r2 = await g(`(() => { const R = ctx.realestate, MG = R.debug.MG; const rec = R.listings()[0]; const p = MG.plan(R.valueOf(rec), 0.2, { days: 10, fee: 0.05 }); const ok = MG.take(rec, p).ok; const m = R.mortgage(rec.id); const want = Math.round(m.owed - m.fee * 0.5);   /* (rounded once, as payoff() does: an odd fee is no longer a coin out) */ const paid = MG.payOff(rec.id); return { ok, want, paid, gone: !R.mortgage(rec.id), mine: R.owns(rec.id), id: rec.id }; })()`);
       t.check("pay it off early: what's owed minus half the bank's fee; free and clear", r2.ok && r2.paid === r2.want && r2.gone && r2.mine, JSON.stringify(r2));
     });
 

@@ -8,7 +8,8 @@
 //               switch at the next launch, roll back a copy that never reaches the title · ctx.native.ota
 //   cap.js      isNative() / plugin(name) — Capacitor.Plugins, like the 2D game
 // See IOS_BUILD.md for the build + App Review side.
-import { ctx } from "../../core/ctx.js";
+import { ctx, addMenuItem } from "../../core/ctx.js";
+import * as H from "../../hud.js";
 import { isNative, platformName } from "./cap.js";
 import "./ads.js";
 import "./haptics.js";
@@ -20,3 +21,24 @@ ctx.native = {
     ota,
 };
 if (isNative()) document.documentElement.classList.add("native-app");
+
+// ⚙️ More → 📱 the app's version (only in the app): the owner can see which build is installed and whether the game
+// on the server already needs a newer App Store build (then: Codemagic → Start new build). Tap = check for an update now.
+addMenuItem("title", {
+    id: "appVersion", order: 98, group: "more",
+    visible: () => isNative(),
+    label: () => `📱 ${ota.status().app || "App version"}`,
+    sub: () => { const st = ota.status(); return st.needs ? `Needs a newer app (${st.needs} or later) — update from the App Store` : st.copy; },
+    action: () => {
+        H.toast("📱 Checking for an update…", "", { prio: 3, key: "ota-check" });
+        Promise.resolve(ota.check()).then(r => {
+            const say = { "up to date": "The game is up to date", downloaded: "An update is ready — it starts next time you open the app",
+                "already downloaded": "An update is ready — it starts next time you open the app", offline: "No internet right now",
+                "needs a newer app": "The game needs a newer app — update from the App Store", paused: "Updates are paused for now",
+                revert: "Going back to the built-in game next time", "bundled copy is newer": "The game is up to date",
+                "waiting for Wi-Fi": "An update is waiting for Wi-Fi" }[r] || "Couldn't check right now";
+            H.toast(`📱 ${say}`, "", { prio: 3, key: "ota-check" });
+        });
+    },
+});
+

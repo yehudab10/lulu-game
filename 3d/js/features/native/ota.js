@@ -176,6 +176,7 @@ async function decide(u) {
     let m;
     try { m = await fetchJSON(OTA.manifestUrl); } catch (e) { return "offline"; }
     if (!validManifest(m)) { note("ignored a manifest that doesn't look right"); return "invalid"; }
+    if (m.minNative && S.minNative !== m.minNative) { S.minNative = m.minNative; save(); }
 
     if (m.revert) {
         S.pending = null;
@@ -243,6 +244,13 @@ if (isNative() && U()) {
 /** ctx.native.ota — read-only status + a manual check (tests; ⚙️ could show it one day). */
 export const ota = {
     get active() { return isNative() && !!U(); },
+    /** For ⚙️ More: the app's version + build, which game copy runs, and whether the game now needs a newer app. */
+    status() {
+        const app = info && info.version ? `App ${info.version} (build ${info.build})` : "";
+        const copy = cur.id === "builtin" ? "game: built into the app" : `game: ${cur.version} (downloaded)`;
+        const needs = S.minNative && info && info.version && cmpVersion(info.version, S.minNative) < 0 ? S.minNative : "";
+        return { app, copy, needs, last: dbg.last };
+    },
     check: () => check(true),
     debug: dbg,
 };

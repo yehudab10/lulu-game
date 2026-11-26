@@ -219,7 +219,7 @@ function drove() {
     if (home.site === "town" && !HS.wayHint && ctx.town && typeof ctx.town.wayOut === "function") {
         let w = null;
         try { w = ctx.town.wayOut(); } catch (e) { w = null; }
-        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To the highway: ${w.street ? `take ${w.street}` : "follow the signs"} — the on-ramp's at the end`, "", { prio: 2 }); }
+        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To get to the highway, ${w.street ? `take ${w.street}` : "follow the signs"}. The on-ramp is at the end.`, "", { prio: 2 }); }
     }
     emit("world:depart", { mode: G.mode, left: D.left });
 }
