@@ -204,8 +204,8 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   await g(`(() => { const c = ctx.homes.debug.VISIT.cur; c.V.exit = "door"; c.rt.leave(); return true; })()`);
   await Hp.until(`ctx.state === "footRun"`, "host out again", 40000);
 
-  // ── IMA'S HOUSE with friends (roadmap 23): the host goes in — her own copy, alone; the guest rings the bell and gets
-  //    Ima's refusal ──
+  // ── IMA'S HOUSE with friends (roadmap 23): each one walks into HER OWN copy — the host, then the guest at once;
+  //    neither sees the other inside ──
   await g(`(() => { const S = ctx.decor.debug.S; S.owned.rug = ["road"]; S.placed.rug = "road"; return true; })()`);
   await A.game(`(() => { const S = ctx.decor.debug.S; S.owned = {}; S.placed = {}; return true; })()`);
   for (const P of [Hp, A]) {
@@ -235,15 +235,18 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
   console.log("   WHERE (guest at the door)", await where(A));
   t.check("guest: the host is \"at home\" (the friend finder's words)", await A.until(`(() => { const pr = ctx.party.presenceOf(${HU}); return !!pr && pr.label === "at home"; })()`, "the host is at home", 30000));
-  t.check("…✋ at the door is 🔔 RING THE BELL (a friend's inside)", await A.until(`/RING THE BELL/.test((ctx.foot.debug.interactables() || {}).label || "")`, "the bell", 20000), await A.game(`(ctx.foot.debug.interactables() || {}).label`));
-  await A.game(`(() => { const pr = ctx.foot.debug.interactables(); return !!(pr && pr.kind === "spot" && (pr.ent.act(), true)); })()`);          // (✋ on the guest's page)
-  await A.frames(30);
-  t.check("…Ima says no, kindly — the guest stays outside", (await A.game(`ctx.state`)) === "footRun" && (await A.game(`ctx.moveout.refusedAt`)) > 0);
-  t.check("…and the host's house has nobody else in it", !(await g(`ctx.together.debug.room()`)) || (await g(`ctx.together.debug.room().mates.length`)) === 0);
+  t.check("…the door is still ✋ GO INSIDE for her (nobody waits)", await A.until(`/GO INSIDE/.test((ctx.foot.debug.interactables() || {}).label || "")`, "the guest's door", 20000), await A.game(`(ctx.foot.debug.interactables() || {}).label`));
+  await A.game(`ctx.decor.enter()`);
+  t.check("…she walks straight into HER OWN copy of Ima's house", await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest goes into her own house", 60000));
+  await A.frames(60); await Hp.frames(30);
+  t.check("both inside at once: neither sees the other (nothing shared in Ima's house)", (await g(`(() => { const R = ctx.together.debug.room(); return R.room !== "luluHome" && R.mates.length === 0; })()`)) && (await A.game(`(() => { const R = ctx.together.debug.room(); return R.room !== "luluHome" && R.mates.length === 0; })()`)) && !(await g(`ctx.decor.visiting`)) && !(await A.game(`ctx.decor.visiting`)),
+    JSON.stringify([await g(`JSON.stringify(ctx.together.debug.room())`), await A.game(`JSON.stringify(ctx.together.debug.room())`)]));
   await t.shot("luluhome-family-only");
   t.check("coins still untouched", (await g(`L3.wallet.coins`)) === coins0.h && (await A.game(`L3.wallet.coins`)) === coins0.a);
-  await g(`(ctx.decor.debug.room().leave(), true)`);
-  await Hp.until(`ctx.state === "footRun"`, `host: back out on the porch`, 40000);
+  for (const P of [A, Hp]) {
+    await P.game(`(ctx.decor.debug.room().leave(), true)`);
+    await P.until(`ctx.state === "footRun"`, `${P.label}: back out on the porch`, 40000);
+  }
 
   // ── a roadside place (the bar on the party highway): the same door → the same room ──
   const bar = await g(`ctx.foot.debug.nextDoorAt(300, "bar")`);

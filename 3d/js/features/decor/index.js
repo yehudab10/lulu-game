@@ -211,9 +211,9 @@ const doorSpot = {
         if (reg && reg.warm && ctx.time - FT.t > 1.6) { const p = ctx.foot.pos; if ((p.x - w.x) ** 2 + (p.z - w.z) ** 2 < 9 * 9) reg.warm(); }
         return { x: w.x, z: w.z };
     },
-    // (with friends: a friend's already inside HER copy of Ima's — ring the bell instead: moveout.js's refusal)
-    label: () => (ctx.moveout && ctx.moveout.friendHome() ? "🔔 RING THE BELL" : "🏠 GO INSIDE"),
-    act() { if (ctx.moveout && ctx.moveout.friendHome()) { ctx.moveout.refuse(); return; } enter(); },
+    // (always HER OWN copy — with friends too: nobody waits, nobody visits; moveout.js has Ima's joke for a friend beside her)
+    label: () => "🏠 GO INSIDE",
+    act() { enter(); },
 };
 on("boot", () => {
     // (her house is on a Midwood street — roadmap 14: its inside plays IN the town, the town standing outside)

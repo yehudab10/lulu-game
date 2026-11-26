@@ -3,7 +3,7 @@
 //  • what she bought sits in boxes in her room — exactly those things — and Ima says once what happened to them
 //  • the hints, day by day (real days from her first day — a forced day offset): each stage's props are there, Ima's one line as she walks in,
 //    nothing in a wall: every ✋ spot is reachable and the way from the front door to Dina's door / Ima stays open
-//  • with a friend inside her copy: ✋ at the door is 🔔 RING THE BELL → Ima's refusal, she stays outside
+//  • a friend beside her at the door: she walks straight into her own copy; Ima only jokes (two players: together.js)
 //  • strangers' ghosts aren't drawn on / around the family lot (one on the porch hidden, one up the street shown)
 //  • her FIRST own home: the pieces she'd picked go up there by themselves, no coins
 //  • "Start my days here" → the hints stop: WE KEPT YOUR ROOM! (it's a gym now)
@@ -110,15 +110,15 @@ async function body(t, riders) {
     await goOut();
   }
 
-  // ── a friend inside her copy: the door is a bell, Ima says no ──
-  await g(`(window.__fh = ctx.moveout.friendHome, ctx.moveout.friendHome = () => true, true)`);
-  await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${door.x}, 0.05, ${door.z}); return true; })()`);
-  await t.frames(3);
-  t.check("with a friend inside: ✋ 🔔 RING THE BELL at Ima's door", /RING THE BELL/.test(await g(`(ctx.foot.debug.interactables() || {}).label || ""`)));
-  await g(`(() => { const pr = ctx.foot.debug.interactables(); return !!(pr && pr.kind === "spot" && (pr.ent.act(), true)); })()`);
-  await t.frames(20);
-  t.check("…Ima's refusal; she stays outside", (await g(`ctx.state`)) === "footRun" && (await g(`ctx.moveout.refusedAt`)) > 0);
-  await g(`(ctx.moveout.friendHome = window.__fh, true)`);
+  // ── a friend beside her at the door: she still walks straight in (her own copy) — only Ima's joke ──
+  await g(`(window.__fb = ctx.moveout.friendBeside, ctx.moveout.friendBeside = () => true, true)`);
+  if (await goIn("in, with a friend beside her")) {
+    const MB = await g(`ctx.moveout.debug.room()`);
+    t.check("a friend beside her at the door: she's let in, Ima only jokes", MB && (await g(`ctx.moveout.BESIDE`)).includes(MB.line), JSON.stringify(MB));
+    await goOut();
+  }
+  await g(`(ctx.moveout.friendBeside = window.__fb, true)`);
+  t.check("…the door is always 🏠 GO INSIDE (never a bell, never locked)", await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${door.x}, 0.05, ${door.z}); return true; })()`) && (await t.frames(3), /GO INSIDE/.test(await g(`(ctx.foot.debug.interactables() || {}).label || ""`))));
 
   // ── strangers on the porch aren't drawn (one up the street is) ──
   await g(`(ctx.mp.setOnline ? ctx.mp.setOnline(true) : ctx.mp.connect("lobby"), true)`);

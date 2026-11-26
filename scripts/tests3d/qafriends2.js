@@ -152,15 +152,18 @@ async function body(t, guests) {
   }
   await g(`ctx.decor.enter()`);
   if (await Hp.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "host goes into her house", 60000)) {
-    // (roadmap 23 — Ima's house is family only: the guest rings the bell, Ima says no, she stays outside in control)
+    // (roadmap 23 — Ima's house is family only: the guest walks into HER OWN copy at once, nobody waits)
     await A.until(`(() => { const pr = ctx.party.presenceOf(${HU}); return !!pr && pr.label === "at home"; })()`, "guest knows the host is home", 30000);
     await W.reset(AW);
     const door = await g(`ctx.decor.debug.spotAt("door")`);
     await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
-    await A.game(`(() => { const pr = ctx.foot.debug.interactables(); return !!(pr && pr.kind === "spot" && (pr.ent.act(), true)); })()`);
+    await A.game(`ctx.decor.enter()`);
+    t.check("a friend at Ima's door while the host is inside: straight into her own copy", await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest's own copy", 60000));
     await A.frames(60);
-    t.check("a friend at Ima's door: refused kindly, still outside and in control", (await A.game(`ctx.state`)) === "footRun" && await A.L(`window.__qa.control()`), await A.game(`ctx.state`));
-    await seg("ringing Ima's bell while the host is inside", A, KINDS);
+    t.check("…in control, and nobody else in her copy", await A.L(`window.__qa.control() || __lulu3d.state === "interior"`) && (await A.game(`(() => { const R = ctx.together.debug.room(); return R.room !== "luluHome" && R.mates.length === 0; })()`)), await A.game(`ctx.state`));
+    await seg("both in their own copies of Ima's house", A, KINDS);
+    await A.game(`(ctx.decor.debug.room().leave(), true)`);
+    await A.until(`ctx.state === "footRun"`, "guest out of her copy", 40000);
     // the host walks out, then leaves the party: nothing strands anyone
     await g(`(ctx.decor.debug.room().leave(), true)`);
     await Hp.until(`ctx.state === "footRun"`, "host out of her house", 40000);

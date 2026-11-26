@@ -7,17 +7,17 @@
 //     ever bought stays hers (ctx.decor.owns): packed in boxes in her room — one box per thing — "for your own place".
 //     Ima says once what happened to them. In the FIRST home she owns, the Lulu's-room pieces she had placed go up by
 //     themselves (`seed`, called by features/realestate's house), free; any owned thing is free to pick there anyway.
-//   • NO FRIENDS INSIDE: everyone has her own copy of the house and nobody's room is shared (together/rooms.js ›
-//     NOT_SHARED). With a friend already inside hers, ✋ at the door is 🔔 RING THE BELL → Ima's refusal (`refuse`).
-//     Strangers' ghosts aren't drawn around the lot (multiplayer/ghosts.js › LOT_R).
+//   • NO FRIENDS INSIDE: everyone who uses that door walks into HER OWN copy — never a shared room (together/rooms.js ›
+//     NOT_SHARED), nothing in there networked, never locked, nobody waits. A friend right beside her at the door gets
+//     only Ima's joke as she goes in (`friendBeside`). Strangers' ghosts aren't drawn around the lot (ghosts.js › LOT_R).
 //   • THE HINTS: STAGES below, by REAL calendar days (the device's local date) counted from her first day — the owner,
 //     2026-11-26: "7 real days is better for the max hint" (day 1 nothing, then one stage a day; a player who stays away
 //     comes back to a later stage — Ima got on with it). A save from before this counts from its first launch after it:
 //     props in the kitchen / her room / by the door, and ONE line from Ima when she walks in. No pop-ups, nothing that
 //     blocks or locks: the bed, Dina's door, the front door and the kitchen always work. Once her days start at a home
 //     of her own (ctx.home.startAt) they stop and turn warm: "WE KEPT YOUR ROOM! (it's a gym now)".
-// Service ctx.moveout: days · stage() · based() · build(rt, B) → Ima's line | null · imaLines() · friendHome() ·
-// refuse() · seed(homeId, decorMap) · debug { S, setDays(n), STAGES }.
+// Service ctx.moveout: days · stage() · based() · build(rt, B) → Ima's line | null · imaLines() · friendBeside() ·
+// seed(homeId, decorMap) · boxed() · debug { S, setDays(n), STAGES, room() }.
 import { ctx, on } from "../../core/ctx.js";
 import { store, saveSoon } from "../../core/save.js";
 import { textPlane } from "../../core/sets.js";
@@ -163,6 +163,7 @@ export function build(rt, B) {
     // ── Ima's one line as she walks in ──
     let line = null;
     if (items.length && !S.told) { line = TOLD_LINE; S.told = true; saveSoon(); }
+    else if ((ctx.moveout ? ctx.moveout.friendBeside() : friendBeside())) line = BESIDE[Math.floor(Math.random() * BESIDE.length)];
     else if (based()) line = KEPT_LINE;
     else if (k >= 0 && (S.seen !== k || Math.random() < 0.35)) { line = STAGES[k].line; }
     if (k !== S.seen && !based()) { S.seen = k; saveSoon(); }
@@ -183,38 +184,20 @@ export function imaLines() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-//  friends at the door: nobody's let in to anybody's copy of Ima's house
+//  friends: everyone walks into HER OWN copy of Ima's house (never shared, never waiting — the owner via the
+//  coordinator, 2026-11-26); a friend standing right beside her at the door only gets Ima's joke
 // ═════════════════════════════════════════════════════════════════════════
 const HOUSE = "luluHome";
-/** A friend in my party is inside her own copy of Ima's house right now (so this door is "her friend's" door). */
-export function friendHome() {
-    const P = ctx.party;
-    if (!P || !P.active || !P.members) return false;
-    const town = (ctx.home && ctx.home.town) || "";
-    for (const u of P.members()) {
-        if (u === P.uid) continue;
-        const p = P.peer(u);
-        if (!p || p.m !== 7 || !P.fresh(p, 6000)) continue;
-        const z = p.x && typeof p.x.z === "string" ? p.x.z : "";
-        if (z !== town) continue;
-        const pr = P.presenceOf ? P.presenceOf(u) : null;
-        if (pr && pr.mode === "in" && /^at home|in Home$/.test(pr.label || "")) return true;
-    }
-    return false;
+/** A party friend standing right beside her (≤ 3.5 m, out in the same place) as she goes in. */
+export function friendBeside() {
+    if (!ctx.party || !ctx.party.active || !ctx.together || !ctx.together.locateAll) return false;
+    try { return ctx.together.locateAll().some(f => f && !f.inside && f.kind === "here" && f.dist < 3.5); } catch (e) { return false; }
 }
-const REFUSE = [
-    "Ima, through the door: \"Lulu's friend! Sweetheart! Family only today. When she has her OWN place — come over THERE! 😘\"",
-    "Ima, through the door: \"Who's that? A friend! Lovely! No. 💕 Ask Lulu about her new apartment! …She doesn't have one? Ask her WHY.\"",
-    "Ima, through the door: \"I just mopped! Wave from the window. 👋 Lulu's place, next time — once she gets one.\"",
+const BESIDE = [
+    "Just you, sweetie? Your friend can wave from the street — family only! 😘",
+    "Is that your friend outside? Lovely! When you have your OWN place, she comes over THERE. 💕",
+    "Tell your friend I said hi! And that you're looking at apartments. You ARE looking, right? 🏢",
 ];
-let refusedAt = -99;
-/** ✋ 🔔 RING THE BELL (a friend's inside her copy): Ima says no, kindly. Nothing happens to anyone. */
-export function refuse() {
-    const text = REFUSE[Math.floor(Math.random() * REFUSE.length)];
-    refusedAt = ctx.time || 0;
-    if (ctx.foot && ctx.foot.bubble && ctx.foot.obj) ctx.foot.bubble(ctx.foot.obj, text, 3.4);
-    return text;
-}
 // (while she's inside: the friend finder says she's "at home", not "in Home")
 on("state", ({ to }) => {
     if (to !== "interior" || !(ctx.stateData && ctx.stateData.id === HOUSE) || !ctx.party || !ctx.party.active || !ctx.party.presence) return;
@@ -241,8 +224,7 @@ export function seed(homeId, map) {
 
 ctx.moveout = {
     get days() { return days(); },
-    stage, based, build, imaLines, friendHome, refuse, seed, boxed,
-    get refusedAt() { return refusedAt; },
+    stage, based, build, imaLines, friendBeside, seed, boxed, BESIDE,
     debug: {
         S, STAGES,
         /** Tests: make today her n-th day (her first day n − 1 days ago); `told` = whether Ima's said where her things went. */
