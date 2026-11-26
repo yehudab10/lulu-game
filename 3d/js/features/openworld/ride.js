@@ -51,7 +51,7 @@ export function startRide(uid) {
     const p = ctx.party.peer(uid);
     if (!p || !ctx.party.fresh(p)) return "📶 Can't see them right now";
     if (E.zoneOfPeer(p) !== E.zone()) E.warpToFriend(uid);
-    RIDE.uid = uid; RIDE.t = 0; RIDE.lost = 0; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; RIDE.last = null;
+    RIDE.uid = uid; RIDE.t = 0; RIDE.lost = 0; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; RIDE.last = null; RIDE.vx = RIDE.vz = 0;
     E.setRide(uid);
     hideCar(true);
     H.banner(`<b>🚗 Riding with ${E.nameOf(uid)}</b><small>${glyph("interact")} hop out · honk to wave</small>`, 2600, { key: "ow", prio: 2 });
@@ -126,7 +126,8 @@ function crossWith(p) {
 function roll(dt) {
     const car = ctx.car, L = RIDE.last;
     // (from where she was last drawn — the car's own physics step may or may not have moved it this frame)
-    if (L) { car.pos.x = L.x + car.vx * dt; car.pos.z = L.z + car.vz * dt; car.h = L.h; }
+    // (at her own measured speed — the driver's reported velocity can read 0 on a frame)
+    if (L) { car.pos.x = L.x + (RIDE.vx || 0) * dt; car.pos.z = L.z + (RIDE.vz || 0) * dt; car.h = L.h; }
     RIDE.last = { x: car.pos.x, z: car.pos.z, h: car.h };
     RIDE.gap = true;
     car.syncObject();
@@ -157,6 +158,8 @@ hook("update", (dt, P) => {
     const om = Math.hypot(RIDE.ox, RIDE.oz);
     if (om > 0.01) { const cut = Math.min(om * (1 - Math.exp(-dt / 0.12)), (8 + 2 * om) * dt), f = (om - cut) / om; RIDE.ox *= f; RIDE.oz *= f; } else RIDE.ox = RIDE.oz = 0;
     car.pos.set(rc.x + RIDE.ox, 0, rc.z + RIDE.oz); car.h = rc.h;
+    const L = RIDE.last;
+    if (L && dt > 0) { const k = 0.25, vx = (car.pos.x - L.x) / dt, vz = (car.pos.z - L.z) / dt; if (Math.hypot(vx, vz) < 60) { RIDE.vx = (RIDE.vx || 0) * (1 - k) + vx * k; RIDE.vz = (RIDE.vz || 0) * (1 - k) + vz * k; } }
     RIDE.last = { x: car.pos.x, z: car.pos.z, h: car.h };
     car.vx = rc.vx; car.vz = rc.vz; car.vF = rc.speed;
     const n = ctx.world.road.nearest(rc.x, rc.z, car.s, {});
