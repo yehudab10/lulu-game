@@ -131,7 +131,12 @@ module.exports = {
 
       // ── WHO ──
       await A.game(`ctx.friends.setWho("nobody")`);
-      t.check("'Nobody' → refused", await C.game(`ctx.friends.cancel(${JSON.stringify(idA)}).then(() => 0)`) === 0 && await C.game(`ctx.friends.askByName(${JSON.stringify(nameA)})`) === "closed");
+      // (a fresh asker: C was already declined by A, and a declined ask stays a silent "sent")
+      const Dx = { pid: Array.from({ length: 16 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"[Math.floor(Math.random() * 32)]).join(""), sec: Array.from({ length: 32 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("") };
+      const post = (p, b) => fetch(HTTP + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then(r => r.json());
+      await post("/acct/hello", Dx); await sleep(500); await post("/acct/name", { ...Dx, name: ("zz_test_D" + letters(5)).slice(0, 15) }); await sleep(500);
+      const nob = await post("/acct/ask", { ...Dx, to: nameA });
+      t.check("'Nobody' → refused ('They aren't taking friend requests.')", nob && nob.why === "closed", JSON.stringify(nob));
       await A.game(`ctx.friends.setWho("everyone")`);
 
       // ── REMOVE ──
