@@ -51,6 +51,14 @@ module.exports = {
     await t.frames(40);
     const w1 = await t.L(`(JSON.parse(localStorage.getItem("luluSaveV2") || "{}").totalCoins || 0)`);
     t.check("coins land in the shared 2D wallet", w1 - w0 === 7, `${w0} → ${w1}`);
+    // …and the counter on screen is that wallet — everything she has — not "coins picked up this drive"
+    // (it used to restart at 0 with every run, which read as the game forgetting her coins)
+    const hudCoins = () => t.L(`+document.getElementById("coins").textContent`);
+    await t.L(`(() => { const s = JSON.parse(localStorage.getItem("luluSaveV2") || "{}"); s.totalCoins = (s.totalCoins || 0) + 500; localStorage.setItem("luluSaveV2", JSON.stringify(s)); return true; })()`);
+    await t.game(`L3.addCoins(3, "test")`);
+    await t.until(`+document.getElementById("coins").textContent >= 510`, "the HUD shows the wallet");
+    const shown = await hudCoins(), run = await t.game(`ctx.G.coins`);
+    t.check("the coin counter shows her whole wallet, not just this drive's coins", shown >= 510 && shown > run, `${shown} on screen · ${run} picked up this drive`);
 
     // Start pauses (overlay), B resumes; the pause menu has Settings
     await t.tap(9);
@@ -78,6 +86,15 @@ module.exports = {
     await t.tap(9); await t.frames(2);
     await t.click(/Title screen/);
     await t.until(`__lulu3d.state === "title"`, "back to the title screen");
+    // a NEW run starts with the coins she has (the counter doesn't go back to 0)
+    const before = await t.L(`import("./js/core/save.js").then(m => Math.floor(m.wallet.coins))`);
+    await t.game(`(L3.startRun({ mode: "cruise" }), true)`);
+    await t.frames(30);
+    const fresh = await hudCoins(), freshRun = await t.game(`ctx.G.coins`);
+    t.check("a new run starts with her coins on screen (not 0)", before >= 510 && fresh === before && freshRun === 0, `${fresh} on screen · wallet ${before} · this drive ${freshRun}`);
+    await t.tap(9); await t.frames(2);
+    await t.click(/Title screen/);
+    await t.until(`__lulu3d.state === "title"`, "back to the title screen again");
     await t.click(/Settings/);
     t.check("settings screen opens", await t.L(`!!document.querySelector("#set_quality")`));
     await t.tap(13); await t.tap(0);  // D-pad down + A on a setting
