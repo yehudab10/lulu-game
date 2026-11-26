@@ -79,6 +79,8 @@ function build(rt) {
         V.mattress = [B.box(1.1, 0.22, 2.0, "#ECEFF1", bx - 1.7, 0.11, -1.75), B.box(0.6, 0.12, 0.34, "#F8BBD0", bx - 1.7, 0.28, -2.45)];
         B.col("bed", bx - 2.32, bx - 1.08, -2.8, -0.62);
         if (!tn) movingBoxes(B, bx + 1.2, 0.9, 2, 5);
+        // her FIRST own home: the pieces she'd picked at Ima's go up here by themselves, free (ci/moveout — roadmap 23)
+        if (!visit && !tn && rec && !S.decor[rec.id] && ctx.moveout && ctx.moveout.seed && ctx.moveout.seed(rec.id, S.decor)) saveSoon();
         // decorations she placed here (features/decor's catalogue + props; the room is decor's size)
         if (!visit) for (const id of DSLOTS) { const o = placedHere(id); if (o) show(rt, id, o); }
         if (tn) {

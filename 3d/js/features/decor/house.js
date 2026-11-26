@@ -2,8 +2,9 @@
 //
 // Three rooms in a row, dollhouse-style (the front wall cut away): the KITCHEN (Ima at the stove), the LIVING
 // ROOM (the front door, the family couch, the TV, the family photos) and LULU'S ROOM (the bed, a shelf, the
-// nightstand lamp, a rug, wall art, her own wallpaper — and a sign for Dina). Every decoratable thing is a ✋
-// hotspot: walk up, ✋ → the picker card (picker.js), the camera leans in on it, previews swap in at once.
+// nightstand lamp, a rug, wall art — and a sign for Dina). Roadmap 23 (ci/moveout): it's IMA'S house — nothing here is
+// decorated (every slot shows Ima's own first option); her bought things sit in boxes in her room and the hints that
+// she should get her own place grow with the days she's played — both from moveout.js (`ctx.moveout.build(rt, B)`).
 // The furniture is homes' kit (homes_kit.glb) + boxes; the decorations are props.js. Built in ONE frame behind
 // the soft cut (the door warmed it — interiors engine › Flow).
 import * as THREE from "three";
@@ -16,7 +17,6 @@ import { defineInterior, pick } from "../interiors/engine.js";
 import { sfx } from "../interiors/fx.js";
 import { SLOTS, slotById, optOf, LINES } from "./data.js";
 import { buildOption, disposeObj, wallTex, couchCover, Kit, animate } from "./props.js";
-import { openPicker, pickerTick, pickerOpen, closePicker } from "./picker.js";
 import { dissolve } from "../../core/transition.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
@@ -44,14 +44,11 @@ export const houseRoom = () => RT;
 
 const DEF = defineInterior({
     id: "luluHome", name: "Home", short: "home", emoji: "🏠", title: "🏠 HOME SWEET HOME", model: "homesKit",
-    tagline: "✋ at anything to redecorate it", models: ["imaPerson", "dinaPerson"], music: "../story-relax.mp3",
+    tagline: "Ima's house — dinner's at seven", models: ["imaPerson", "dinaPerson"], music: "../story-relax.mp3",
     light: "indoor", cam: { dist: 7.4, height: 5.8, lookY: 0.8, clampX: 2.6 }, walkSpeed: 3.5,
     build, tick, dispose,
 });
 export const HOUSE_ID = DEF.id;
-const TAGLINE = DEF.tagline;
-/** With friends it's a visit, not a makeover: the welcome line says so. */
-export function houseVisit(on) { DEF.tagline = on ? "friends over — the kugel's on the table 🥘" : TAGLINE; }
 
 function kit(name) {
     const src = models.homesKit && findNodes(models.homesKit, "Kit_" + name)[0];
@@ -184,8 +181,11 @@ function build(rt) {
     const low = ctx.gfx ? ctx.gfx.tier === "low" : save3d.settings.quality === "low";
     if (!low) { V.light = new THREE.PointLight("#FFE6C7", 4, 7, 1.6); V.light.position.set(RCX + 0.4, 2.3, 0.2); rt.add(V.light); rt.lightsList.push(V.light); }
 
-    // ── the decorations she has placed ──
-    for (const s of SLOTS) if (s.where === "inside" || s.id === "door") show(s.id, API ? API.placed(s.id) : s.opts[0].id);
+    // ── the way Ima keeps it (every slot's own first option — nobody decorates Ima's house) ──
+    for (const s of SLOTS) if (s.where === "inside" || s.id === "door") show(s.id, s.opts[0].id);
+    // ── her boxes + the move-out hints (moveout.js) ──
+    let said = null;
+    try { said = ctx.moveout && ctx.moveout.build ? ctx.moveout.build(rt, { col, put, box, M, kit, RCX, LCX, KCX, D, W, WALL, X1, DOOR_X, bz: -D / 2 }) : null; } catch (e) { console.error("[decor] moveout", e); }
 
     // ── people: Ima at the stove ──
     try {
@@ -198,14 +198,8 @@ function build(rt) {
         rt.hot({ id: "dina", who: "dina", track: true, r: 1.5, label: "💬 Talk to Dina", action: talkDina });
     } catch (e) { console.warn("[decor] dina", e); }
 
-    // ── hotspots: one per slot ──
-    for (const id of Object.keys(SPOTS)) {
-        const sp = SPOTS[id], slot = slotById(id);
-        if (!slot) continue;
-        if (id === "door") { rt.hot({ id: "door", x: sp.x, z: sp.z, r: sp.r, label: "🚪 Front door", action: frontDoor }); continue; }
-        if (API && !API.allowed()) continue;          // (with friends it's a visit: look, don't redecorate)
-        rt.hot({ id: "slot:" + id, x: sp.x, z: sp.z, r: sp.r, label: () => `${slot.icon} ${slot.name} — redecorate`, action: () => pickHere(id) });
-    }
+    // ── the front door (no redecorate spots — roadmap 23) ──
+    rt.hot({ id: "door", x: SPOTS.door.x, z: SPOTS.door.z, r: SPOTS.door.r, label: "🚪 Front door", action: frontDoor });
     // Lulu: in through the front door
     rt.lulu.obj.position.set(DOOR_X, 0, D / 2 - 0.9);
     rt.lulu.obj.rotation.y = Math.PI;
@@ -214,8 +208,8 @@ function build(rt) {
     rt.wait(0.9).then(() => {
         if (rt.disposed) return;
         const ima = rt.byId.ima;
-        const visit = API && !API.allowed();          // (with friends: Ima's a host, not a decorator)
-        if (ima) rt.bubble(visit ? pick(["Friends! Come in, come in — there's kugel. 🥘", "Shoes OFF, everybody. 👟", "Who wants kugel? Everybody wants kugel."]) : V.first ? "Lulu! Your room needs some LIFE. Go — decorate! 🎨" : pick(LINES.ima), ima.p.obj, 3.2);
+        // (one line from Ima per visit: the move-out stage's, else her usual)
+        if (ima) rt.bubble(said || pick(LINES.ima), ima.p.obj, 3.2);
     });
 }
 
@@ -251,55 +245,14 @@ function show(slot, optId) {
     V.objs[slot] = cache[o.id];
     if (slot === "lamp") V.lampMode = o.id;
 }
-/** After the picker: keep only what's placed (free the previews). */
-function trim(slot) {
-    const V = RT && RT.data.V, cache = V && V.cache[slot];
-    if (!cache) return;
-    const keep = API ? API.placed(slot) : null;
-    for (const k of Object.keys(cache)) if (k !== keep) { disposeObj(cache[k]); delete cache[k]; }
-}
-
-/** index.js: something changed (bought / placed / a preview / back to placed) — show it if we're inside. */
-export function houseShow(slot, optId) { if (RT && !RT.disposed) show(slot, optId); }
-export function houseBurst(slot) {
-    if (!RT || RT.disposed) return;
-    const sp = SPOTS[slot];
-    if (sp) RT.burst(new THREE.Vector3(sp.look[0], Math.max(0.6, sp.look[1]), sp.look[2]), undefined, 22, 2.6);
-}
-/** Someone says something about a purchase. */
-export function houseReact(slot, optId) {
-    const rt = RT;
-    if (!rt || rt.disposed) return;
-    const ima = rt.byId.ima, I = LINES.imaBuy;
-    const special = I[optId] || (slot === "lamp" && optId === "disco" ? I.disco : null) || (slot === "lawn" && optId === "flock" ? I.flock : null);
-    const line = special ? pick(special) : Math.random() < 0.55 ? pick(I.any) : null;
-    if (line && ima) rt.bubble(line, ima.p.obj, 3.2);
-    else rt.bubble(pick(LINES.luluBuy), rt.lulu.obj, 2.4);
-}
-
-// ── picking ──────────────────────────────────────────────────────────────
-function pickHere(id) {
-    const rt = RT, slot = slotById(id), sp = SPOTS[id];
-    if (!rt || !slot || !API) return;
-    if (!API.allowed()) { H.toast("🛋️ You can't decorate while you're playing with friends.", "pink"); return; }
-    rt.focusAt = new THREE.Vector3(sp.look[0], sp.look[1] - 1.3, sp.look[2]);
-    rt.faceTo = { x: sp.look[0], z: sp.look[2] };
-    sfx.click && sfx.click();
-    return rt.runMode({
-        start() { openPicker(slot, API.pickerApi(), null); },
-        update(r, dt, P) { return !pickerTick(P); },
-        stop() { if (pickerOpen()) closePicker(true); rt.focusAt = null; trim(id); },
-    });
-}
 async function frontDoor(rt) {
-    const solo = !API || API.allowed();
-    const i = await rt.choose("🚪 Front door", "Heading out?", solo ? ["🚪 Head outside", "🎨 Paint the front door", "💬 Stay in"] : ["🚪 Head outside", "💬 Stay in"], { emoji: "🏠" });
+    const i = await rt.choose("🚪 Front door", "Heading out?", ["🚪 Head outside", "💬 Stay in"], { emoji: "🏠" });
     if (i === 0) rt.leave();
-    else if (i === 1 && solo) return pickHere("door");
 }
 async function talkIma(rt) {
     const V = rt.data.V;
-    const lines = V.said === 0 && V.first ? ["Lulu! Look at this room. Bare walls! Go, make it nice — with YOUR coins, not mine. 💕"] : LINES.ima;
+    const extra = ctx.moveout && ctx.moveout.imaLines ? ctx.moveout.imaLines() : [];
+    const lines = extra.length && V.said % 2 === 0 ? extra : LINES.ima;
     V.said++;
     await rt.say("Ima", pick(lines), { emoji: "👩", person: rt.byId.ima });
 }
@@ -336,7 +289,6 @@ function tick(rt, dt) {
     }
 }
 function dispose(rt) {
-    if (pickerOpen()) closePicker(true);
     // (the set frees geometries; the pictures' own materials are ours to free)
     const V = rt && rt.data.V;
     if (V) for (const c of Object.values(V.cache)) for (const o of Object.values(c)) if (o) o.traverse(m => { if (m.isMesh && m.userData.ownMaterial) m.material.dispose(); });

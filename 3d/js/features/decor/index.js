@@ -1,4 +1,12 @@
-// features/decor — 🛋️ SOMEWHERE FOR COINS TO GO (roadmap step 9): Lulu's own house, and decorating it.
+// features/decor — 🛋️ SOMEWHERE FOR COINS TO GO (roadmap step 9): the family house, and the decorating catalogue.
+//
+// ROADMAP 23 (ci/moveout, the owner 2026-11-26): the family house on E 34th St is IMA'S — "not their own, more like a
+// temporary place until they settle on their own". So there's NO decorating there any more: the house and the street
+// always look the way Ima keeps them (every slot's first option), the ✋ porch / mailbox / yard spots and the room's
+// redecorate spots are gone, and friends don't come in (moveout.js: a refusal at the door). The CATALOGUE, the
+// wallet and ownership stay here: `buy` is what features/realestate's own homes call, and everything she ever bought
+// stays hers (`owns`) — packed in boxes in her room at Ima's (moveout.js) and free to put up in a home she owns.
+// The rest of this header is the old design (kept for the catalogue / props / picker, which own homes still use):
 //
 // A run starts at home on foot (features/world). Her FRONT DOOR is a ✋ spot now: GO INSIDE is a soft cut (the
 // house is warmed while she stands on the porch) into her own house (house.js — the kitchen with Ima, the living
@@ -32,8 +40,9 @@ import * as H from "../../hud.js";
 import { home, S_HOME } from "../world/home.js";
 import { SLOTS, SETS, slotById, optOf, setPieces, LINES } from "./data.js";
 import { buildOption, disposeObj, YARD_SOLIDS } from "./props.js";
-import { openPicker, pickerTick, pickerOpen, closePicker, pickerSlot } from "./picker.js";
-import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, houseVisit, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
+import { pickerOpen, closePicker, pickerSlot } from "./picker.js";
+import { bindHouse, houseRoom, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
+import "./moveout.js";              // (roadmap 23: Ima's house is temporary — boxes, hints, no friends inside)
 
 const S = store("decor", { owned: {}, placed: {}, spent: 0, bought: 0, sets: [], visits: 0, nudges: 0 });
 // (a hand-edited / old save: keep only what the catalogue knows)
@@ -60,34 +69,8 @@ export function canEnter() {
     if (allowed()) return true;
     return !!(ctx.party && ctx.party.active && ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
 }
-// ── a visit with friends: whose house this is, and its decorations ──
-const VIS = { owner: "", placed: null };
-const DC_SLOTS = SLOTS.filter(s => s.where === "inside" || s.id === "door");
-/** What's placed in the house I'm in (a friend's house on a visit, else mine). */
-function visitPlaced(slot) { return (VIS.placed && VIS.placed[slot]) || placed(slot); }
-const encodeDc = () => DC_SLOTS.map(s => Math.max(0, s.opts.findIndex(o => o.id === visitPlaced(s.id))));
-function decodeDc(a) {
-    if (!Array.isArray(a) || a.length !== DC_SLOTS.length) return null;
-    const out = {};
-    DC_SLOTS.forEach((s, i) => { const k = a[i] | 0; if (k >= 0 && k < s.opts.length) out[s.id] = s.opts[k].id; });
-    return out;
-}
-/** A friend who's inside Lulu's house right now (in the same world): { owner, placed } | null. */
-function friendInside() {
-    const P = ctx.party;
-    if (!P || !P.active) return null;
-    for (const u of P.members()) {
-        if (u === P.uid) continue;
-        const p = P.peer(u), x = p && p.x;
-        // (x.z: the town the friend's in — the house stands in its home town (ctx.home.town — Midwood), or on the highway ("")
-        //  when the town engine has no lot)
-        const homeZone = (ctx.home && ctx.home.town) || "";
-        if (!x || p.m !== 7 || !P.fresh(p, 6000) || !Array.isArray(x.in) || x.in[0] !== HOUSE_ID || (typeof x.z === "string" && x.z && x.z !== homeZone)) continue;
-        const pl = decodeDc(x.dc);
-        if (pl) return { owner: String(x.in[1] || u).slice(0, 12), placed: pl };
-    }
-    return null;
-}
+/** What Ima's house shows for a slot: always Ima's own (the first option) — nobody decorates Ima's house. */
+const imas = slot => { const s = slotById(slot); return s ? s.opts[0].id : null; };
 
 /** Buy something (the picker's second press). → { ok, why: "party" | "bad" | "coins" | "owned" } */
 export function buy(slot, id) {
@@ -111,33 +94,20 @@ export function buy(slot, id) {
     if (price > 0) emit("stat", { id: "decorSpent", n: price });
     emit("decor:buy", { slot, opt: id, price });
     place(slot, id, true);
-    // a little celebration where it landed
+    // a little celebration (it lands in a home of her own — features/realestate shows it there)
     if (price >= 300) A.sfxFanfare(); else { A.sfxCloseCall(5); setTimeout(() => A.sfxCloseCall(8), 110); }
     rumble(0.25, 0.5, 160, true);
-    if (s.where === "inside" || slot === "door") { houseBurst(slot); houseReact(slot, id); }
-    if (s.where === "outside") outsideBurst(slot);
-    if (s.where === "outside" && !houseRoom()) luluSay(pick(LINES.luluBuy));
     return { ok: true, why: "bought" };
 }
-/** Put something she owns in its spot (free). */
+/** Her pick for a slot (free) — what goes up in a home of her own (Ima's house never shows it). */
 export function place(slot, id, bought = false) {
     if (!owns(slot, id) || !allowed()) return false;
     S.placed[slot] = id;
     saveSoon();
-    apply(slot, id);
     emit("decor:place", { slot, opt: id, bought });
     checkSets(slot);
     return true;
 }
-/** Show an option in the world (a preview), or `null` = back to what's placed. */
-function preview(slot, id) { apply(slot, id == null ? placed(slot) : id); }
-function apply(slot, id) {
-    const s = slotById(slot);
-    if (!s) return;
-    if (s.where === "outside") outsideShow(slot, id);
-    if (s.where === "inside" || slot === "door") houseShow(slot, id);
-}
-const pickerApi = () => ({ owns, placed, buy, place, preview });
 
 function checkSets(slot) {
     for (const st of SETS) {
@@ -182,7 +152,7 @@ function outsideInit() {
         if (!OUT.doorMat) { OUT.doorMat = o.material.clone(); OUT.doorBase = { r: o.material.roughness, m: o.material.metalness }; }
         o.material = OUT.doorMat;
     });
-    for (const s of SLOTS) if (s.where === "outside") outsideShow(s.id, placed(s.id));
+    for (const s of SLOTS) if (s.where === "outside") outsideShow(s.id, imas(s.id));
     return true;
 }
 function outsideShow(slot, id) {
@@ -220,29 +190,7 @@ on("chunk:build", ({ chunk }) => {
     }
     yardSync();
 });
-/** After a picker outside: free the previews, keep what's placed. */
-function outsideTrim(slot) {
-    const cache = OUT.cache[slot];
-    if (!cache) return;
-    const keep = placed(slot);
-    for (const k of Object.keys(cache)) if (k !== keep) { disposeObj(cache[k]); if (cache[k]) cache[k].traverse(m => { if (m.isMesh && m.userData.ownMaterial) m.material.dispose(); }); delete cache[k]; }
-}
-function outsideBurst(slot) {
-    const c = OUT_SPOTS[slot];
-    if (!c || !ctx.car || !ctx.car.fx) return;
-    const p = at(c.look[0], c.look[2], c.look[1]);
-    const cols = [[1, 0.31, 0.6], [1, 0.84, 0.31], [0.5, 0.87, 0.92], [1, 1, 1]];
-    for (let i = 0; i < 22; i++) ctx.car.fx.emit(p.x + (Math.random() - 0.5) * 1.2, p.y + 0.4, p.z + (Math.random() - 0.5) * 1.2,
-        (Math.random() - 0.5) * 4, 2 + Math.random() * 3, (Math.random() - 0.5) * 4, 0.3, 0.9, cols[i % 4]);
-}
-
-// ── the ✋ spots on foot ──────────────────────────────────────────────────
-// house-local: where she stands (x, z, r) and how the camera frames it while she picks (cam / look, x y z)
-const OUT_SPOTS = {
-    porch: { x: -1.7, z: 6.7, r: 1.6, cam: [1.4, 2.7, 12.2], look: [0.1, 1.2, 5.3] },
-    mailbox: { x: 3.0, z: 11.5, r: 1.6, cam: [5.6, 2.0, 15.4], look: [3.0, 1.0, 12.3] },
-    lawn: { x: 4.4, z: 8.6, r: 1.9, cam: [2.6, 3.4, 16.8], look: [5.0, 0.4, 9.6] },
-};
+// ── the ✋ front door on foot (the porch / mailbox / yard spots are gone: nobody decorates Ima's house) ──
 const DOOR = { x: 0.6, z: 5.0, r: 1.5 };
 const FT = { t: 0, warmed: false };
 on("state", ({ to }) => { if (to === "footRun") FT.t = ctx.time; });
@@ -263,40 +211,24 @@ const doorSpot = {
         if (reg && reg.warm && ctx.time - FT.t > 1.6) { const p = ctx.foot.pos; if ((p.x - w.x) ** 2 + (p.z - w.z) ** 2 < 9 * 9) reg.warm(); }
         return { x: w.x, z: w.z };
     },
-    label: () => "🏠 GO INSIDE",
-    act() { enter(); },
+    // (with friends: a friend's already inside HER copy of Ima's — ring the bell instead: moveout.js's refusal)
+    label: () => (ctx.moveout && ctx.moveout.friendHome() ? "🔔 RING THE BELL" : "🏠 GO INSIDE"),
+    act() { if (ctx.moveout && ctx.moveout.friendHome()) { ctx.moveout.refuse(); return; } enter(); },
 };
-function slotSpot(id) {
-    const c = OUT_SPOTS[id], slot = slotById(id);
-    return {
-        r: c.r, short: "DECOR",
-        pos() { if (!nearHome()) return null; const w = at(c.x, c.z); return { x: w.x, z: w.z }; },
-        label: () => `${slot.icon} ${slot.verb.toUpperCase()}`,
-        act() { pickOutside(id); },
-    };
-}
 on("boot", () => {
     // (her house is on a Midwood street — roadmap 14: its inside plays IN the town, the town standing outside)
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     try { outsideInit(); } catch (e) { console.error("[decor] outside", e); }
-    if (ctx.foot && ctx.foot.addSpot) {
-        ctx.foot.addSpot(doorSpot);
-        for (const id of Object.keys(OUT_SPOTS)) ctx.foot.addSpot(slotSpot(id));
-    }
-    bindHouse({ owns, placed: visitPlaced, buy, place, preview, allowed, pickerApi, visits: () => S.visits, visited: () => { S.visits++; saveSoon(); emit("stat", { id: "decorVisits", n: 1 }); } });
-    // her own house's exit: back on the porch steps, facing the street (foot's resume only knows road coords)
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(doorSpot);
+    bindHouse({ owns, placed: imas, buy, place, allowed, visits: () => S.visits, visited: () => { S.visits++; saveSoon(); emit("stat", { id: "decorVisits", n: 1 }); } });
+    // her family's house's exit: back on the porch steps, facing the street (foot's resume only knows road coords)
     const reg = ctx.interiors && ctx.interiors[HOUSE_ID];
     if (reg && !reg.wrapped) {
         const enter0 = reg.enter.bind(reg);
         reg.wrapped = true;
         reg.enter = (opts = {}) => {
             const exit0 = opts.exit;
-            const P = ctx.party;
-            houseVisit(!allowed());
-            if (P && P.active) { P.setX("dc", encodeDc()); }
             return enter0(Object.assign({}, opts, { exit: () => {
-                if (P && P.setX) P.setX("dc", null);
-                VIS.owner = ""; VIS.placed = null;
                 if (typeof exit0 === "function") exit0();
                 try { backOnPorch(); } catch (e) { console.error("[decor] porch", e); }
             } }));
@@ -304,13 +236,10 @@ on("boot", () => {
     }
 });
 
-/** ✋ GO INSIDE: through the front door (foot hands her to the interiors engine; a soft cut when it's warmed). */
+/** ✋ GO INSIDE: through the front door (foot hands her to the interiors engine; a soft cut when it's warmed). Always
+ *  HER OWN copy of the house — with friends too (they each have their own; nobody visits — roadmap 23). */
 export function enter() {
     if (!nearHome(true) || !ctx.foot.handoff || !ctx.world) return false;
-    // with friends: a visit to the house of whoever's already inside, else mine (they'll see my decorations)
-    const P = ctx.party, fr = P && P.active ? friendInside() : null;
-    VIS.owner = fr ? fr.owner : P && P.active ? P.uid : "";
-    VIS.placed = fr ? fr.placed : null;
     const st = at(0.6, 7.1);
     // (in town — the house is on its Midwood lot: the town's own streets, near where she stands — like a town house's
     //  door, features/homes; the highway's home s would take her out of the town on the way in)
@@ -334,58 +263,14 @@ function backOnPorch() {
     if (ctx.cam && ctx.cam.snap) ctx.cam.snap();
     if (ctx.cam && ctx.cam.free) ctx.cam.free.yaw = yaw;
 }
-
-/** ✋ at the porch / the mailbox / the yard: the picker, the camera on it, Lulu waits. */
-function pickOutside(id) {
-    const slot = slotById(id), c = OUT_SPOTS[id];
-    if (!slot || !c || !allowed() || !ctx.foot || !ctx.foot.script) return false;
-    const cam = ctx.camera, P0 = { pos: cam.position.clone(), look: new THREE.Vector3(), started: false };
-    cam.getWorldDirection(P0.look).multiplyScalar(6).add(cam.position);
-    const tgtPos = at(c.cam[0], c.cam[2], c.cam[1]).clone(), look = at(c.look[0], c.look[2], c.look[1]).clone();
-    const aim = look.clone(); aim.y -= 0.9;            // (aim under it: the item sits above the card)
-    const ok = ctx.foot.script({
-        update(dt, P, F) {
-            if (F.lulu) { F.lulu.face(look.x, look.z, dt, 6); F.lulu.update(dt, { walk: 0 }); }
-            const open = pickerTick(P);
-            if (!open) outsideTrim(id);
-            return open;
-        },
-        camera(dt) {
-            const k = 1 - Math.exp(-dt * 3.5);
-            P0.pos.lerp(tgtPos, k); P0.look.lerp(aim, k);
-            cam.position.copy(P0.pos); cam.lookAt(P0.look);
-            const fov = cam.aspect < 1 ? 68 : 52;
-            cam.fov += (fov - cam.fov) * k; cam.updateProjectionMatrix();
-            if (ctx.cam && ctx.cam.state) ctx.cam.state.pos.copy(cam.position);
-            return true;
-        },
-        abort() { if (pickerOpen()) closePicker(true); outsideTrim(id); },
-    });
-    if (!ok) return false;
-    openPicker(slot, pickerApi(), null);
-    return true;
-}
-// the first couple of home starts before she's ever been in: one gentle toast that the house is open (gated: a popup)
-on("world:homeStart", () => {
-    if (S.visits > 0 || (S.nudges || 0) >= 2 || !ctx.enabled("decor") || !allowed()) return;
-    S.nudges = (S.nudges || 0) + 1; saveSoon();
-    const t0 = ctx.time;
-    const tick = () => {
-        if (ctx.state !== "footRun" || S.visits > 0) return;
-        if (ctx.time - t0 < 7) { setTimeout(tick, 500); return; }
-        H.toast("🛋️ Your house is open! Go in the front door to decorate it.", "pink", { key: "decorNudge" });
-    };
-    setTimeout(tick, 500);
-});
 on("foot:end", () => { if (pickerOpen() && !houseRoom()) closePicker(true); });
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.decor = {
     owns, placed, buy, place, allowed, enter, canEnter,
-    /** On a visit with friends: whose house this is (a party uid; "" solo / outside). */
-    visitOwner: () => (houseRoom() ? VIS.owner : null),
-    /** Is the house I'm in a friend's (on a visit)? */
-    get visiting() { return !!(houseRoom() && VIS.owner && ctx.party && VIS.owner !== ctx.party.uid); },
+    /** (roadmap 23: nobody visits Ima's house — always her own copy) */
+    visitOwner: () => null,
+    get visiting() { return false; },
     get slots() { return SLOTS; },
     get spent() { return S.spent; },
     get sets() { return S.sets.slice(); },
@@ -399,13 +284,8 @@ ctx.decor = {
         });
         return { bought, sets, spent: S.spent };
     },
-    /** Open the picker for a slot where she is (inside: that room's spot; outside: its ✋ spot). */
-    pick(slot) {
-        const s = slotById(slot);
-        if (!s) return false;
-        if (houseRoom()) { const rt = houseRoom(), h = rt.hots.find(x => x.id === "slot:" + slot || (slot === "door" && x.id === "door")); if (!h) return false; rt.use(h); return true; }
-        return pickOutside(slot);
-    },
+    /** (roadmap 23: no picker at Ima's — her own homes have theirs, features/realestate) */
+    pick() { return false; },
     debug: {
         S,
         get pickerSlot() { return pickerSlot(); },
@@ -416,12 +296,12 @@ ctx.decor = {
         outsideObj: slot => OUT.objs[slot] || null,
         doorColor: () => OUT.doorMat ? "#" + OUT.doorMat.color.getHexString() : null,
         calls: () => { let n = 0; if (OUT.root) OUT.root.traverse(o => { if (o.isMesh && o.visible) { let v = true, p = o; while (p) { if (!p.visible) { v = false; break; } p = p.parent; } if (v) n++; } }); return n; },
-        spotAt: id => { const c = id === "door" ? DOOR : OUT_SPOTS[id]; if (!c || !home.house) return null; const w = at(c.x, c.z); return { x: w.x, z: w.z }; },
+        spotAt: id => { const c = id === "door" ? DOOR : null; if (!c || !home.house) return null; const w = at(c.x, c.z); return { x: w.x, z: w.z }; },
         houseSpots: HOUSE_SPOTS,
         /** A world point in the house's own metres (+Z = toward the street). */
         houseLocal: p => { if (!home.house) return null; home.house.updateMatrixWorld(); const v = home.house.worldToLocal(new THREE.Vector3(p.x, p.y || 0, p.z)); return { x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2) }; },
         room: () => houseRoom(),
         /** Forget everything bought (tests only). */
-        reset() { S.owned = {}; S.placed = {}; S.spent = 0; S.bought = 0; S.sets = []; saveSoon(); for (const s of SLOTS) apply(s.id, placed(s.id)); },
+        reset() { S.owned = {}; S.placed = {}; S.spent = 0; S.bought = 0; S.sets = []; saveSoon(); },
     },
 };
