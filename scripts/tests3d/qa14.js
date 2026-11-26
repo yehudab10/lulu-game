@@ -52,7 +52,7 @@ module.exports = {
     // ── ✋ into her car, down E 34th St ──
     await W.moved(t);
     const inCar = await g(`ctx.foot.debug.getIn ? ctx.foot.debug.getIn() : false`);
-    if (!t.check("✋ into her car at home", inCar && await t.until(`__lulu3d.state === "playing"`, "driving", 8000))) return;
+    if (!t.check("✋ into her car at home", inCar && await t.until(`__lulu3d.state === "playing"`, "driving (after the pull-out of her driveway)", 30000))) return;
     await t.frames(20);
     await W.reset(t);
     await t.hold(7, 0.7); await t.frames(150); await t.hold(7, 0);
