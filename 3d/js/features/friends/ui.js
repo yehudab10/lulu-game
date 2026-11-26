@@ -267,7 +267,7 @@ function chipTick() {
         chipEl = document.createElement("div"); chipEl.id = "frChip";
         chipEl.addEventListener("click", () => openApp(chipEl.dataset.tap === "party" ? { party: 1 } : null));
         H.hudSlot("center").appendChild(chipEl);
-        H.objective(chipEl, { prio: H.OBJ.list, id: "friendask" });      // (ci/hud: the play HUD's objective line)
+        H.objective(chipEl, { prio: H.OBJ.mission + 5, id: "friendask" });      // (ci/hud: a friend waiting for her answer outranks a mission / Ima's list)
     }
     chipEl.dataset.tap = tap || "";
     chipEl.innerHTML = html;
