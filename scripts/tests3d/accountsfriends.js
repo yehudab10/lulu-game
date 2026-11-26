@@ -53,6 +53,11 @@ async function named(P, base) {
   const r = await P.game(`ctx.accounts.setName(${JSON.stringify(n)})`);
   return r && r.ok ? n : null;
 }
+async function play(P) {
+  await P.game(`L3.startRun({ mode: "cruise", quick: true })`);
+  await P.until(`__lulu3d.state === "playing"`, `${P.label}: drives`);
+  await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(900), ctx.G.invT = 999, ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+}
 const inList = (P, fid) => P.game(`ctx.friends.list.some(f => f.f === ${JSON.stringify(fid)})`);
 
 module.exports = {
@@ -72,6 +77,7 @@ module.exports = {
       t.check("A and B have names", !!nameA && !!nameB);
       const idA = await A.game(`ctx.player.id()`), idB = await B.game(`ctx.player.id()`);
       let bStore = await close(B);
+      await play(A);
       await A.game(`(ctx.phone.openPhone("friends", { add: 1 }), true)`);
       await A.until(`!!document.getElementById("frName")`, "👯 › Add a friend by name");
       await A.page.fill("#frName", nameB.toLowerCase());
@@ -82,6 +88,7 @@ module.exports = {
       B = await open("B (reopened)", bStore);
       t.check("B reopened: a badge of 1 on 👯", await B.until(`ctx.friends.badge === 1`, "the badge", 30000));
       t.check("…and no pop-up about it", !/friend/i.test(await B.L(POPS)), await B.L(POPS));
+      await play(B);
       await B.game(`(ctx.phone.openPhone("friends"), true)`);
       t.check("B: 👯 lists 'A wants to be friends'", await B.until(`[...document.querySelectorAll("[data-rq]")].some(b => b.textContent.includes(${JSON.stringify(nameA)}))`, "the request row", 20000));
       await B.L(`document.querySelector("[data-rq]").click()`);
@@ -97,8 +104,7 @@ module.exports = {
       const ready = P => P.game(`import("./js/features/friends/store.js").then(m => m.S.list.filter(m.ready).map(f => f.f))`).catch(() => []);
       t.check("both have each other's doorbell (sealed cards crossed on the server)", await A.until(`true`, "") && (await (async () => { for (let k = 0; k < 20; k++) { const a = await A.L(`import("./js/features/friends/store.js").then(m => m.S.list.filter(m.ready).map(f => f.f))`), b = await B.L(`import("./js/features/friends/store.js").then(m => m.S.list.filter(m.ready).map(f => f.f))`); if (a.includes(idB) && b.includes(idA)) return true; await A.game(`ctx.accounts.hello(true)`); await B.game(`ctx.accounts.hello(true)`); await sleep(700); } return false; })()));
       // presence: B in the world (doorbell open) → A's knock says "playing"
-      await B.game(`L3.startRun({ mode: "cruise", quick: true })`);
-      await B.until(`__lulu3d.state === "playing"`, "B drives");
+      await B.game(`(ctx.phone.closePhone && ctx.phone.closePhone(), true)`);
       t.check("A knocks: B is playing (the doorbell works for a friendship made on the server)", await A.until(`(ctx.friends.check(), (ctx.friends.list.find(f => f.f === ${JSON.stringify(idB)}) || {}).presence?.on === true)`, "B on", 60000));
 
       // ── DECLINE ──
