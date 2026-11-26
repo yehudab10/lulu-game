@@ -10,7 +10,9 @@
 //   • NO FRIENDS INSIDE: everyone has her own copy of the house and nobody's room is shared (together/rooms.js ›
 //     NOT_SHARED). With a friend already inside hers, ✋ at the door is 🔔 RING THE BELL → Ima's refusal (`refuse`).
 //     Strangers' ghosts aren't drawn around the lot (multiplayer/ghosts.js › LOT_R).
-//   • THE HINTS: STAGES below, by the days she has PLAYED (a device day with a home start = one; not real days):
+//   • THE HINTS: STAGES below, by REAL calendar days (the device's local date) counted from her first day — the owner,
+//     2026-11-26: "7 real days is better for the max hint" (day 1 nothing, then one stage a day; a player who stays away
+//     comes back to a later stage — Ima got on with it). A save from before this counts from its first launch after it:
 //     props in the kitchen / her room / by the door, and ONE line from Ima when she walks in. No pop-ups, nothing that
 //     blocks or locks: the bed, Dina's door, the front door and the kitchen always work. Once her days start at a home
 //     of her own (ctx.home.startAt) they stop and turn warm: "WE KEPT YOUR ROOM! (it's a gym now)".
@@ -22,18 +24,18 @@ import { textPlane } from "../../core/sets.js";
 import { Kit } from "./props.js";
 import { SLOTS } from "./data.js";
 
-const S = store("moveout", { played: 0, day: null, told: false, seeded: false, seen: -1 });
+const S = store("moveout", { first: null, told: false, seeded: false, seen: -1 });
 
-/** The stages, in order: `at` played days; each one ADDS to the ones before it. `line`: Ima's line the visit it first
+/** The stages, in order: `at` = her day number (day 1 = the first day she played; the owner wants the last by day 7); each one ADDS to the ones before it. `line`: Ima's line the visit it first
  *  shows (and now and then after). Props are built by `props(K, B, put)` (K: one merged Kit; put(textPlane …)). */
 export const STAGES = [
-    { id: "flyer", at: 3, line: "Someone left a flyer on the fridge. No idea who. A mystery! 🧲" },
-    { id: "photo", at: 5, line: "The Goldbergs' daughter has her OWN apartment now. Lovely place. I'm just mentioning. 🏢" },
-    { id: "circled", at: 8, line: "I circled a few in the paper. For fun! Circling is fun. ⭕" },
-    { id: "bike", at: 11, line: "The bike needed a room. And your room is… a room! 🚲" },
-    { id: "rent", at: 15, line: "The sign in the window is a JOKE. Mostly. 😅" },
-    { id: "boarder", at: 20, line: "The air mattress is very comfortable! I'm told. Mr. Feivish's plant says hi. 🪴" },
-    { id: "feivish", at: 26, line: "I printed you directions to the realtor. And a map. And a sandwich for the trip. 🥪" },
+    { id: "flyer", at: 2, line: "Someone left a flyer on the fridge. No idea who. A mystery! 🧲" },
+    { id: "photo", at: 3, line: "The Goldbergs' daughter has her OWN apartment now. Lovely place. I'm just mentioning. 🏢" },
+    { id: "circled", at: 4, line: "I circled a few in the paper. For fun! Circling is fun. ⭕" },
+    { id: "bike", at: 5, line: "The bike needed a room. And your room is… a room! 🚲" },
+    { id: "rent", at: 6, line: "The sign in the window is a JOKE. Mostly. 😅" },
+    { id: "boarder", at: 7, line: "The air mattress is very comfortable! I'm told. Mr. Feivish's plant says hi. 🪴" },
+    { id: "feivish", at: 7, line: "I printed you directions to the realtor. And a map. And a sandwich for the trip. 🥪" },
 ];
 const KEPT_LINE = "We kept your room! It's a gym now. Come for dinner! 💕";
 const TOLD_LINE = "I packed your things in boxes, sweetie — they're for your own place. 📦";
@@ -47,20 +49,20 @@ const TALK = {
     feivish: ["I love you to the moon. And the moon has VERY reasonable listings.", "The realtor said she has openings! I happened to ask. Twice."],
 };
 
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-/** A home start on a new device day = one more played day. */
-on("world:homeStart", () => {
-    const d = today();
-    if (S.day === d) return;
-    S.day = d; S.played = (S.played | 0) + 1; saveSoon();
-});
+/** Today's local calendar day as a day number (DST-proof: the date's own Y/M/D through UTC). */
+const dayNo = (d = new Date()) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+// her first day: the first launch with this code (a new player's first day; an old save's first day after the update)
+if (!Number.isFinite(S.first)) { S.first = dayNo(); saveSoon(); }
+/** Her day number: 1 on the first day, 7 a week later (never below 1 — a clock set back doesn't undo anything). */
+export const days = () => Math.max(1, dayNo() - S.first + 1);
 
 /** Her days start at a home of her own (features/realestate's "🏠 Start my days here"). */
 export const based = () => !!(ctx.home && ctx.home.startAt);
 /** The current stage index (-1: none yet). */
 export function stage() {
     let k = -1;
-    for (let i = 0; i < STAGES.length; i++) if ((S.played | 0) >= STAGES[i].at) k = i;
+    const n = days();
+    for (let i = 0; i < STAGES.length; i++) if (n >= STAGES[i].at) k = i;
     return k;
 }
 const has = id => { const k = stage(); return STAGES.findIndex(s => s.id === id) <= k; };
@@ -135,7 +137,7 @@ export function build(rt, B) {
     }
     // ── 5 · ROOM FOR RENT in the window (a joke!), her boxes by the door (above), ABBA'S STUDY (SOON) on her wall ──
     if (vis("rent")) {
-        M.props.push(sign(rt, ["ROOM FOR RENT", "(JOKE!) (MOSTLY)"], { w: 0.9, h: 0.38, bg: "#FFFFFF", fg: "#C62828", font: 56 }, LCX + 0.9, 1.45, bz + 0.07));
+        M.props.push(sign(rt, ["ROOM FOR RENT", "(JOKE!) (MOSTLY)"], { w: 1.15, h: 0.46, bg: "#FFFFFF", fg: "#C62828", font: 64 }, LCX + 0.95, 1.92, bz + 0.07));
         M.props.push(sign(rt, ["ABBA'S STUDY", "(SOON) 📏"], { w: 0.5, h: 0.3, bg: "#FFF59D", fg: "#5D4037", font: 52 }, RCX - 2.45, 1.75, bz + 0.03));
         K.cyl(0.07, 0.07, 0.04, "#FDD835", RCX - 2.0, 0.02, -0.4); K.box(0.9, 0.01, 0.03, "#FFF176", RCX - 1.55, 0.01, -0.4);
     }
@@ -238,13 +240,13 @@ export function seed(homeId, map) {
 }
 
 ctx.moveout = {
-    get days() { return S.played | 0; },
+    get days() { return days(); },
     stage, based, build, imaLines, friendHome, refuse, seed, boxed,
     get refusedAt() { return refusedAt; },
     debug: {
         S, STAGES,
-        /** Tests: pretend she has played n days (and, by default, hasn't been told about her boxes yet). */
-        setDays(n, told = S.told) { S.played = Math.max(0, n | 0); S.day = today(); S.told = told; saveSoon(); return S.played; },
+        /** Tests: make today her n-th day (her first day n − 1 days ago); `told` = whether Ima's said where her things went. */
+        setDays(n, told = S.told) { S.first = dayNo() - Math.max(1, n | 0) + 1; S.told = told; saveSoon(); return days(); },
         /** Inside the house: what this visit built — { stage, boxes, at, line, props (how many signs) }. */
         room: () => { const rt = ctx.decor && ctx.decor.debug.room(), M = rt && rt.data.MO; return M ? { stage: M.stage, boxes: M.boxes, at: M.at, line: M.line, props: M.props.length } : null; },
     },

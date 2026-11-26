@@ -1,7 +1,7 @@
 // 📦 MOVE OUT — Ima's house is temporary (roadmap 23, ci/moveout: features/decor/moveout.js).
 //
 //  • what she bought sits in boxes in her room — exactly those things — and Ima says once what happened to them
-//  • the hints, stage by stage on forced played-day counts: each stage's props are there, Ima's one line as she walks in,
+//  • the hints, day by day (real days from her first day — a forced day offset): each stage's props are there, Ima's one line as she walks in,
 //    nothing in a wall: every ✋ spot is reachable and the way from the front door to Dina's door / Ima stays open
 //  • with a friend inside her copy: ✋ at the door is 🔔 RING THE BELL → Ima's refusal, she stays outside
 //  • strangers' ghosts aren't drawn on / around the family lot (one on the porch hidden, one up the street shown)
@@ -90,21 +90,23 @@ async function body(t, riders) {
   t.check("…said once: not again on the next visit", !/packed your things/.test((await g(`ctx.moveout.debug.room()`)).line || ""));
   await goOut();
 
-  // ── the stages, on forced played-day counts ──
+  // ── the stages, by her day number (real days from her first day — the last one by day 7; a forced day offset) ──
   const ST = await g(`ctx.moveout.debug.STAGES.map(s => ({ id: s.id, at: s.at, line: s.line }))`);
+  t.check("the last stage shows by day 7 (the owner: \"7 real days … for the max hint\")", Math.max(...ST.map(s => s.at)) <= 7 && ST[0].at >= 2, JSON.stringify(ST.map(s => s.at)));
   let props0 = 0;
-  for (let k = 0; k < ST.length; k++) {
-    await g(`ctx.moveout.debug.setDays(${ST[k].at}, true)`);
-    if (!await goIn(`inside on day ${ST[k].at}`)) return;
-    const M = await g(`(() => { const m = ctx.moveout.debug.room(); return { stage: m.stage, line: m.line, props: m.props, boxes: m.boxes, at: m.at, bed: !!(ctx.decor.debug.room().data.V.objs.bed && ctx.decor.debug.room().data.V.objs.bed.visible) }; })()`);
-    t.check(`stage ${k + 1} (${ST[k].id}, day ${ST[k].at}): it's showing, with Ima's line`, M.stage === k && M.line === ST[k].line, JSON.stringify(M));
-    t.check(`…more than the stage before (props ${props0} → ${M.props})`, M.props >= props0 && (k === 0 || M.props > props0 || ST[k].id === "bike" || ST[k].id === "boarder"), JSON.stringify(M));
+  for (const day of [...new Set(ST.map(s => s.at))]) {
+    const k = ST.reduce((m, s, i) => (s.at <= day ? i : m), -1), ids = ST.filter(s => s.at <= day).map(s => s.id), id = ST[k].id;
+    await g(`ctx.moveout.debug.setDays(${day}, true)`);
+    if (!await goIn(`inside on day ${day}`)) return;
+    const M = await g(`(() => { const m = ctx.moveout.debug.room(); return { days: ctx.moveout.days, stage: m.stage, line: m.line, props: m.props, boxes: m.boxes, at: m.at, bed: !!(ctx.decor.debug.room().data.V.objs.bed && ctx.decor.debug.room().data.V.objs.bed.visible) }; })()`);
+    t.check(`day ${day}: stage ${k + 1} (${id}) is showing, with Ima's line`, M.days === day && M.stage === k && M.line === ST[k].line, JSON.stringify(M));
+    t.check(`…as much as the day before or more (signs ${props0} → ${M.props})`, M.props >= props0, JSON.stringify(M));
     const bad = await open();
-    t.check(`…nothing in a wall, every spot reachable (${ST[k].id})`, bad.length === 0, bad.join(" "));
-    if (ST[k].id === "rent") t.check("…her boxes moved by the front door", M.at && M.at.x < 2, JSON.stringify(M.at));
-    if (ST[k].id === "boarder") t.check("…her bed is an air mattress now", !M.bed);
+    t.check(`…nothing in a wall, every spot reachable (day ${day})`, bad.length === 0, bad.join(" "));
+    if (ids.includes("rent")) t.check(`…her boxes are by the front door (day ${day})`, M.at && M.at.x < 2, JSON.stringify(M.at));
+    if (ids.includes("boarder")) t.check(`…her bed is an air mattress now (day ${day})`, !M.bed);
     props0 = M.props;
-    await t.shot(`stage-${k + 1}-${ST[k].id}`);
+    await t.shot(`day-${day}-${id}`);
     await goOut();
   }
 
