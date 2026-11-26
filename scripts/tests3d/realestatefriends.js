@@ -95,6 +95,16 @@ async function body(t, guests) {
   await A.until(`ctx.state === "footRun"`, "guest back out", 30000);
   await Hp.until(`ctx.state === "footRun"`, "host back out", 30000);
 
+  // ── 🏠 Go there with a friend around: she goes alone (the friend finder points to her), the friend stays put ──
+  await A.game(`(ctx.foot.debug.F.pos.x += 25, ctx.foot.obj.position.copy(ctx.foot.debug.F.pos), true)`);     // (the guest wanders off a bit)
+  await t.frames(10);
+  const gp = await A.game(`[ctx.foot.pos.x, ctx.foot.pos.z]`);
+  t.check("with a friend: 🏠 Go there — the host is on her way, alone", (await g(`(ctx.realestate.debug.GO.last = -1e9, ctx.realestate.goTo(${ID}))`)) === "");
+  const hd = await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && (() => { const r = ctx.realestate.homes().find(h => h.id === ${ID}); return !!r && Math.hypot(ctx.foot.pos.x - r.ap.x, ctx.foot.pos.z - r.ap.z) < 3; })()`, "host at her door", 30000);
+  t.check("…the host lands at her own front door", hd);
+  const ga = await A.game(`({ st: ctx.state, town: ctx.town.active && ctx.town.id, p: [ctx.foot.pos.x, ctx.foot.pos.z], party: ctx.party.connected })`);
+  t.check("…the guest stays where she was, still in the group", ga.st === "footRun" && ga.town === "lakewood" && Math.hypot(ga.p[0] - gp[0], ga.p[1] - gp[1]) < 2 && ga.party, JSON.stringify({ ga, gp }));
+
   // ── a double booking: both signed the same home → exactly one keeps it, the other gets every coin back ──
   // (with the world-wide registry up — the test's relay has it — the SERVER decides: the first claim to reach it; without
   //  it, the friends' rule: the earlier signature)

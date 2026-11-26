@@ -40,6 +40,7 @@ import * as RN from "./rent.js";
 import { tick as partyTick, roam, P as PP } from "./party.js";
 import { SHARED } from "../together/rooms.js";
 import * as SVR from "./server.js";
+import * as GOTO from "./goto.js";
 import { verdict, openCases } from "./court.js";
 import { COURT_LINES } from "./data.js";
 import { COUNCIL } from "./data.js";
@@ -79,7 +80,7 @@ function migrate(h) {
     const old = registry.release(h.id, "moved");
     if (old) registry.claim(near.id, Object.assign({}, old, { lx: near.lx, lz: near.lz, address: near.address, street: near.street, number: near.number, via: "moved", reg: false }));
     for (const k of ["mortgage", "bills", "rent"]) if (S[k][h.id]) { S[k][near.id] = S[k][h.id]; delete S[k][h.id]; }
-    if (based) { try { ctx.home.setStartAt(Object.assign({}, st, { key: near.id, door: { x: near.ap.x, z: near.ap.z }, face: Math.atan2(near.nx, near.nz), label: near.address })); } catch (e) { /* */ } }
+    if (based) { try { ctx.home.setStartAt(GOTO.startAtFor(near)); } catch (e) { /* */ } }
     saveSoon();
     return near;
 }
@@ -408,7 +409,8 @@ function contactHtml() {
     let h = `<div class="lp-note">🏘️ <b>${R.name}</b> · ${R.firm}${here ? "" : " (Lakewood) · Brick by Brick (Midwood)"}</div>`;
     h += `<div class="lp-note"><b>🔑 Your places</b> (${mine.length} of ${CAP})</div>`;
     if (!mine.length) h += `<p class="lp-empty">No houses yet. ${here ? "Look for the FOR SALE signs on the lawns!" : "Drive into Lakewood or Midwood and look for the FOR SALE signs!"}</p>`;
-    h += mine.map(m => `<button class="btn lp-row re-mine" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.label} in ${m.town === "midwood" ? "Midwood" : "Lakewood"}${m.town === here ? ". Tap to show the way." : ""}</small></span></button>`).join("");
+    // (each home: the row shows the way; "🏠 Go there" takes her to its front door — goto.js)
+    h += mine.map(m => `<div class="re-home" style="display:flex;gap:6px;align-items:stretch"><button class="btn lp-row re-mine" style="flex:1;min-width:0" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.label} in ${m.town === "midwood" ? "Midwood" : "Lakewood"}${m.town === here ? ". Tap to show the way." : ""}</small></span></button><button class="btn re-go" style="flex:none;white-space:nowrap" data-go="${m.id}">🏠 Go there</button></div>`).join("");
     if (here) {
         const list = locked() ? [] : listings();
         h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b>. New listings every day.</div>`;
@@ -419,6 +421,7 @@ function contactHtml() {
 }
 function contactRender(el) {
     el.innerHTML = contactHtml();
+    el.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => GOTO.goHome(b.dataset.go)));
     el.querySelectorAll("[data-id]").forEach(b => b.addEventListener("click", () => {
         const rec = lookup(b.dataset.id);
         if (!rec) { H.toast("📍 That one's in the other town!", "pink"); return; }
@@ -535,6 +538,10 @@ ctx.realestate = {
     /** Her homes everywhere: [{ id, town, address, kind, label, paid, day, … }]. */
     owned: () => registry.listFor(null),
     owns: id => registry.mine(id),
+    /** 🏠 Go there: to the front door of home `id` she owns (goto.js) → "" (on her way) | the line why not. */
+    goTo: id => GOTO.goHome(id),
+    /** Why she can't go to home `id` right now ("" = she can). */
+    goBlock: id => GOTO.goBlock(id),
     ownerOf: id => registry.ownerOf(id),
     count: () => registry.count(),
     cap: CAP,
@@ -564,7 +571,7 @@ ctx.realestate = {
     rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, partyTick, refundLost, verdict, openCases,
+    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
         /** Buy a listed home for cash right now, no dialogue (tests). */
         buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; },
         /** The same through the world-wide registry first (tests). → a promise of { ok, why } */
