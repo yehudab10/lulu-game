@@ -279,7 +279,7 @@ function nextPlace(s) {
         pts.sort((a, b) => ahead(a) - ahead(b));
         const nx = pts[0], a = ahead(nx), back = pts.reduce((m, p) => Math.min(m, mod(here - p.s)), LAP), gap = Math.max(1, a + back);
         const mi = a / 1609, far = mi < 0.1 ? "now" : `in ${mi.toFixed(1)} mi`;
-        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: nx.kind === "rest" ? `🅿️ Rest stop ${far}` : `🛣️ ${nx.names.join(" & ")} exit ${far}` };
+        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: nx.kind === "rest" ? `🅿️ Rest area ${far}` : `🛣️ ${nx.names.join(" & ")} exit ${far}` };
     }
     NP.t = ctx.time; NP.v = v;
     return v;

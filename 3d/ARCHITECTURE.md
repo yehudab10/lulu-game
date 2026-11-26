@@ -464,6 +464,28 @@ chase each other down the screen); held upright (`H.PORTRAIT`) it stays put and 
 390×844 / 375×667 / 768×1024 controller, 1280×720, TV 720p / 1080p, driving + on foot, the HUD at its busiest — 📝, a 💬 text,
 ⏭, WELCOME, ✋, the hint — + the Clean HUD on the phones) — add a new HUD piece's selector to its `PIECES` (and to together's
 `AVOID`).
+**The play HUD's layout contract (`ci/hud`, 2026-11-26 — the owner's friend's Android, upright, with every chip at once
+over the car):** a top band (hearts, coins, 📱) and a bottom band (touch controls) as before, and between them ONE
+**objective line** (`#objLine`): the chip that matters most right now, by `H.OBJ` priority — `chase` 50 > `timed` 40 (a
+side job, the 🅿️ challenge) > `mission` 30 (a robbery to foil / a snatcher / a game / Shomrim) > `errand` 20 (a story task, a
+test drive, a ride) > `list` 10 (📝 Ima's list, a shop marker, a friend's ask) > `bonus` 5 (2× coins, nitro turbo, dreidels) >
+`info` 2 (the next-exit chip, no badge). Everything else that's on folds (`.obj-folded`) into a small icon **badge** on that
+line (a number on the first two — ⏱ 0:42, 0/3, 30s; a tap shows that chip for 5 s; the 📱 has the detail). On a phone
+(≤ 600 px wide or ≤ 520 px tall) that's the ONE full chip, drawn as one compact line (its meters inside it; a long one
+shrinks to 78 %, then wraps — never "…"), under the top band upright / between the pills and the 📱 on its side; a tablet
+shows 2, a big screen / TV 3, stacked at the top of the centre stack. **A feature registers its chip once**, after putting it
+in its slot: `H.objective(el, { prio: H.OBJ.timed, id, icon?, badge?: ".tm" | el => text | false })` — the HUD core moves
+it into the line or back to its slot and folds it; never position an objective yourself. `H.objectives()` → `{ main, badges,
+full }` (tests). **The trip bar** is the line's quiet default on a phone: it shows only while nothing outranks it —
+`ctx.trip.prio` (a getter; none = 9, a town's street name: just under Ima's list; journey's story leg `errand`; the Shabbos
+countdown and a party race `timed`); on the open road (`ctx.trip.label()` → null) app.js labels it with the next exit / rest
+stop on the lap and how far ("🛣️ Lakewood exit in 1.2 mi") and fills the bar from the last place to the next. **The clear
+window** `H.clearWindow()` (screen fractions: upright x 0.26–0.74, y 0.36–0.68; on its side x 0.3–0.7, y 0.4–1) holds
+no persistent HUD, ever — Lulu's car and the road ahead; the ✋ prompt keeps its one place, bubbles and toasts are pop-ups.
+On its side `#touchExtra` (BAIL, 🚀…) is a column beside the stick, not a row under the car. Tests:
+`scripts/tests3d/hudworst.js` (every chip at once at 360×800 / 390×844 / 412×915 / 430×932 / 800×360 / 844×390 / 932×430,
+a tablet with fingers + a controller, a laptop, TV 720p / 1080p: no overlaps, the window empty, ≤ 1 / 2 / 3 full chips,
+no "…"; before / after pictures in `3d/docs/hud/`), `hudfit.js`, and `calm` (on a phone ≤ 1 full objective and ≤ 3 chips at once).
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
