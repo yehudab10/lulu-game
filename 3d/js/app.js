@@ -263,10 +263,22 @@ async function fastForward(P) {
     present(FF_DT);
 }
 
+// The coin counter on screen is her WALLET — every coin she has, the same number the shops and the title show — not
+// "coins picked up this drive" (G.coins, which restarts at 0 and made a player think the game forgot her coins).
+// Reading the wallet parses the save, so it's cached and re-read only when it changes (+ once a second as a net).
+let walletShown = -1, walletAt = -1e9;
+on("wallet", () => { walletShown = -1; });
+on("shared:changed", () => { walletShown = -1; });
+function walletCoins() {
+    const now = performance.now();
+    if (walletShown < 0 || now - walletAt > 1000) { walletShown = Math.floor(wallet.coins); walletAt = now; }
+    return walletShown;
+}
+
 function updateHud(dt) {
     const G = ctx.G, car = ctx.car;
     H.setSpeed(car.speed * MPH);
-    H.setCoins(G.coins);
+    H.setCoins(walletCoins());
     H.setScore(G.score);
     H.setBoost(G.boost);
     if (ctx.trip) H.setTrip(ctx.trip.progress(), ctx.trip.label());
