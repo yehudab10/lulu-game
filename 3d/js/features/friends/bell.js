@@ -14,7 +14,7 @@
 import { ctx, emit } from "../../core/ctx.js";
 import { seal, open, randStr } from "./crypto.js";
 import { openRoom } from "./room.js";
-import { S, me, bellRoom, friend, isBlocked, BELL_RE, validName, labelOf } from "./store.js";
+import { S, me, bellRoom, friend, isBlocked, BELL_RE, validName, labelOf, ready } from "./store.js";
 import { myName } from "../multiplayer/net.js";
 
 const SKEW = 10 * 60000, REPLY_LIFE = 30000, KNOCK_MS = 6000, JOIN_MS = 30000, PARALLEL = 3;
@@ -70,7 +70,7 @@ async function onKnock(r, pid, d) {
     const k = d && d.k;
     if (!k || typeof k.f !== "string" || typeof k.c !== "string") return;
     const f = friend(k.f);
-    if (!f || isBlocked(k.f)) return;
+    if (!f || !f.s || isBlocked(k.f)) return;
     const q = await open(f.s, k.c);
     if (!q || typeof q.ts !== "number" || Math.abs(Date.now() - q.ts) > SKEW || typeof q.nn !== "string") return;
     const seenN = nonces.get(f.f) || [];
@@ -124,6 +124,7 @@ async function letIn(f, pid, base) {
 // ── knocking at a friend's doorbell ───────────────────────────────────────
 /** → { on: false } | { on: true, w, i, j, code?, u?, no? }   (q "where" | "join") */
 export function knock(f, q = "where", onWait = null) {
+    if (!ready(f)) return Promise.resolve({ on: false });              // (a server friendship whose card hasn't come yet)
     return new Promise(resolve => {
         let done = false, owner = null, sent = false, nn = randStr(8), waiting = false;
         const finish = v => {
@@ -164,7 +165,7 @@ let checking = null;
 export function checkAll() {
     if (checking) return checking;
     if (!(ctx.mp && ctx.mp.allowed) || S.hidden || dinaMode()) return Promise.resolve();
-    const list = S.list.slice();
+    const list = S.list.filter(ready);
     checking = (async () => {
         const run = async () => { while (list.length) { const f = list.shift(); if (friend(f.f)) await knock(f, "where"); } };
         await Promise.all(Array.from({ length: PARALLEL }, run));

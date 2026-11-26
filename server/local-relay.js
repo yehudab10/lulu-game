@@ -321,8 +321,7 @@ function acctReg() {
     const fast = process.env.ACCT_FAST === "1";
     return m.createAccounts(q, { clock: () => Date.now() + homesClock.offset,
       config: fast ? { writeGapMs: 30, checkGapMs: 0 } : {},
-      homeSech: (pid) => { const r = homesStore && homesStore.byOwner(pid)[0]; return r ? r.sech : null; },
-      dropHomes: (pid) => { if (homesStore) for (const r of homesStore.byOwner(pid)) homesStore.del(r.house); } });
+      homeSech: (pid) => { const r = homesStore && homesStore.byOwner(pid)[0]; return r ? r.sech : null; } });
   });
   return acctP;
 }

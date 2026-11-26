@@ -359,7 +359,6 @@ export class Board {
       const q = doSql(this.sql);
       this.acct = createAccounts(q, {
         homeSech: (pid) => { try { const r = q("SELECT sech FROM homes WHERE owner = ? LIMIT 1", pid)[0]; return r ? r.sech : null; } catch (e) { return null; } },
-        dropHomes: (pid) => { try { q("DELETE FROM homes WHERE owner = ?", pid); } catch (e) { /* no homes table yet */ } },
       });
     }
     return this.acct;

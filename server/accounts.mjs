@@ -77,7 +77,6 @@ export function createAccounts(q, opts = {}) {
   const cfg = Object.assign({}, CONFIG, opts.config || {});
   const clock = opts.clock || (() => Date.now());
   const homeSech = opts.homeSech || (() => null);      // pid → the homes registry's secret hash (an account must match it)
-  const dropHomes = opts.dropHomes || (() => {});       // pid → forget their houses (account deleted)
   const hits = new Map();                              // rate limits: key → last ms / [window start, count]
   let ready = false, lastSweep = 0, tkey = null;
 
@@ -334,7 +333,7 @@ export function createAccounts(q, opts = {}) {
       q("DELETE FROM blocks WHERE src = ? OR dst = ?", p, p);
       q("DELETE FROM reports WHERE src = ? OR dst = ?", p, p);
       q("DELETE FROM accounts WHERE pid = ?", p);
-      try { dropHomes(p); } catch (e) { /* homes off */ }
+      // (her houses are game progress on the same random id, like her coins — they stay hers; the registry stores no name)
       return ok({ ok: true });
     }
 

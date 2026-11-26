@@ -361,7 +361,8 @@ export function showSettings(back, focusId = null) {
     if (ctl) ctl.addEventListener("click", () => { A.sfxSelect(); showControls(() => showSettings(back, "set_controls")); });
     for (const i of menuItems("settings")) {
         const b = card.querySelector("#set_x_" + i.id);
-        if (b) b.addEventListener("click", () => { i.action(b); saveSoon(); showSettings(back); });
+        // (an item may open its own card: action(b, backToSettings) returns "card" — features/accounts' 🪪 Your name)
+        if (b) b.addEventListener("click", () => { const r = i.action(b, () => showSettings(back, "set_x_" + i.id)); saveSoon(); if (r !== "card") showSettings(back); });
     }
 }
 /** Body classes that follow the settings (called from ctx.applySettings). */
