@@ -1,0 +1,79 @@
+# TEST BRANCH ONLY (ci/ios-ota-verify): the iPhone app's over-the-air update path on a REAL iOS runtime (simulator),
+# with the REAL @capgo/capacitor-updater — not the mock in scripts/tests3d/native.js.
+#
+# The app is built from OLD_COMMIT (what TestFlight has) exactly like Codemagic does, except that its updater reads a
+# TEST channel (ota-test/stable.json on this branch — a newer copy with a visible "OTA COPY B" marker) instead of the
+# real one. Then: built-in → copy B (marker, today's code) → copy C (broken) → rolled back to B.
+# Each phase: screenshot + OCR, the updater's own notes (localStorage luluOtaV1) and the native log.
+name: Verify the iPhone app's updates (simulator)
+on:
+  push:
+    branches: [ci/ios-ota-verify]
+permissions:
+  contents: read
+env:
+  OLD_COMMIT: f852b8471521df11cf34ce23d457e109e2e09598
+  TEST_MANIFEST: https://raw.githubusercontent.com/yehudab10/lulu-game/refs/heads/ci/ios-ota-verify/ota-test/stable.json
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The test channel is reachable
+        run: curl -fsS "$TEST_MANIFEST" | python3 -c 'import json,sys; m=json.load(sys.stdin); print(m["version"], m["base"], len(m["files"]), "files")'
+      - name: Prepare the OLD app exactly like Codemagic (+ the test channel)
+        run: |
+          set -euo pipefail
+          OLD="$RUNNER_TEMP/old"
+          git worktree add --detach "$OLD" "$OLD_COMMIT"
+          cp scripts/ios-ota-verify/*.py "$RUNNER_TEMP/"
+          cd "$OLD"
+          ruby -ryaml -e '
+            s = YAML.load_file("codemagic.yaml").fetch("workflows").fetch("ios-capacitor").fetch("scripts")
+            s.take_while { |st| st["name"] != "Set the build number" }.each do |st|
+              puts "── " + st["name"]
+              exit 1 unless system("bash", "-eo", "pipefail", "-c", st.fetch("script"))
+              if st["name"].start_with?("Build web bundle")
+                f = "www/3d/js/features/native/ota.js"
+                src = File.read(f)
+                abort("manifestUrl not found") unless src.include?("https://raw.githubusercontent.com/yehudab10/lulu-game/ota/stable.json")
+                File.write(f, src.sub("https://raw.githubusercontent.com/yehudab10/lulu-game/ota/stable.json", ENV["TEST_MANIFEST"]))
+                puts "   (test channel: #{ENV["TEST_MANIFEST"]})"
+              end
+            end'
+          grep -c "ios-ota-verify" ios/App/App/public/3d/js/features/native/ota.js
+      - name: Build + install in an iPhone simulator
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/old"
+          device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; ds=json.load(sys.stdin)["devices"]; print(next(d["udid"] for rt in sorted(ds,reverse=True) if ".iOS-" in rt for d in ds[rt] if d["name"].startswith("iPhone")))')
+          echo "SIM_ID=$device" >> "$GITHUB_ENV"
+          xcrun simctl boot "$device"
+          xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Release -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/lulu-build" CODE_SIGNING_ALLOWED=NO build
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl install "$device" "$RUNNER_TEMP/lulu-build/Build/Products/Release-iphonesimulator/App.app"
+          cat > "$RUNNER_TEMP/ocr.swift" <<'SWIFT'
+          import Foundation
+          import Vision
+          let r = VNRecognizeTextRequest()
+          r.recognitionLevel = .accurate
+          try VNImageRequestHandler(url: URL(fileURLWithPath: CommandLine.arguments[1])).perform([r])
+          print((r.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " | "))
+          SWIFT
+          swiftc "$RUNNER_TEMP/ocr.swift" -o "$RUNNER_TEMP/ocr"
+          brew install wix/brew/applesimutils >/dev/null
+      - name: Run the phases
+        run: bash scripts/ios-ota-verify/phases.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ota-verify
+          path: |
+            ${{ runner.temp }}/shots/
+          if-no-files-found: ignore
