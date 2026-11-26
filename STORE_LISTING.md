@@ -42,9 +42,9 @@ Every game starts on Lulu's street in Midwood, Brooklyn. Ima is at the door with
 ONE WORLD, NO MENUS
 • Drive the highway between Midwood and Lakewood — each town has its own exit
 • Take Exit 12 to the airport: taxi runs from the kerb, a lost suitcase, planes overhead and Kugel Air at the check-in desk
-• Park and walk: knock on doors, go into houses, shops, the pizza place, the bakery and the shul
+• Park and walk: knock on doors, go into houses, shops, the pizza place, the bakery, the shul and city hall
 • Every place is real in the game: the police precinct, the courthouse and the hospital are buildings you can walk into
-• Rest areas, side jobs, deliveries and a Story Trip all start from places in the world
+• Rest areas, side jobs, deliveries and the parking challenge all start from places in the world
 
 CARTOON TROUBLE
 • Jaywalking sprees, shopping-cart joyrides, double-parking empires and other very small crimes
@@ -70,7 +70,6 @@ The town follows the real Jewish calendar: menorahs in the windows at Chanukah, 
 PLAY YOUR WAY
 • Touch controls on iPhone and iPad, portrait or landscape
 • Game controllers (PlayStation, Xbox, Switch) with rumble
-• Dina's mode for younger players
 • The classic 2D game is still inside, under More → Classic 2D
 
 Free to play, with occasional ads (never while you drive). No account, no login.
@@ -163,7 +162,7 @@ Apple's 2025 ratings are 4+, 9+, 13+, 16+, 18+ (12+ no longer exists). The game'
 | Sexual Content or Nudity | None | — |
 | Graphic Sexual Content and Nudity | None | — |
 | Dating and Relationships | No | (that question is about dating apps) |
-| Simulated Gambling | **None** | no betting or games of chance for coins: "Viva Vegas" is just the Story Trip's last stop, the bingo hall is a place in a cartoon robbery (no bingo is played), golden dreidels are collectibles (not spun for stakes), and the precinct coffee machine "jackpot" is a joke line |
+| Simulated Gambling | **None** | no betting, casino or games of chance for coins: the bingo hall is a place in a cartoon robbery (no bingo is played), golden dreidels are collectibles (not spun for stakes), and the precinct coffee machine "jackpot" is a joke line |
 | Gambling (real money) | No | — |
 | Loot Boxes | No | no paid random rewards (coins are earned in play; there are no in-app purchases) |
 | Contests | None | leaderboards only, no prizes |
@@ -186,14 +185,14 @@ SEEING EVERYTHING IN 2 MINUTES
 1. Launch: the App Tracking Transparency prompt appears over the loading/title screen about 1-2 seconds in (either answer is fine). Then tap the big PLAY.
 2. You start at home on foot (Midwood). Walk with the on-screen stick; the hand button interacts (doors, people). The pink car is in the driveway: walk up to it and tap GET IN to drive.
 3. Drive onto the highway; the exits lead to the towns (Midwood, Lakewood), the airport (Exit 12, parody airlines) and rest areas. In town, park anywhere and walk into the open doors: shops, the pizza place, the shul, the police precinct, the courthouse, the hospital.
-4. The phone button in the corner opens Lulu's phone: the Map (tap a place for a guide line), Jobs and Friends.
+4. The phone button in the corner opens Lulu's phone: Jobs, Friends, Messages, the radio and the camera.
 5. The pause button: settings, "I'm stuck", and under More the Classic 2D game.
 
 ONLINE PLAY (no user-generated content)
-- Other players who are online appear as see-through "ghost" cars/people labelled only with a car colour and a number. They cannot touch, push or follow you.
+- Other players who are online appear as see-through "ghost" cars/people labelled only with a car colour and a number (a friend you both agreed to add shows their generated name). They cannot touch, push or follow you.
 - The only way to communicate is 6 preset emoji reactions. There is no text chat, no voice, no free-text names (names are generated from a fixed list), no photos or other content shared.
 - Friends: two players add each other with a code or link (both must agree). A friend can be removed or blocked at any time (Friends > Remove or block). "Who can join me" can be set to nobody.
-- Settings > Play online turns all online play off. Online play is always off in Dina's mode (for younger players).
+- Settings > Play online turns all online play off. Online play is always off in Dina's mode (a small extra for younger players: the DINA'S ROOM door inside Lulu's house).
 
 ADS
 - Google AdMob. An occasional full-screen ad only at a stop in play: after every second knock-out (once Lulu is back on her feet) and at most once during a jail stay; never while driving, never during a scene or dialogue, never with friends, never in Dina's mode. The game is fully paused while an ad is up.

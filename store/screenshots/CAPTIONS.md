@@ -16,7 +16,7 @@ Folders: `iphone-6.9/` (1320×2868 · 2868×1320), `iphone-6.5/` (1242×2688 · 
 | 5 | `05-friends-*.jpg` | Play with friends in the same world |
 | 6 | `06-house-*.jpg` | Hang out at home with Ima and Dina |
 | 7 | `07-courtroom-*.jpg` | Have your day in court |
-| 8 | `08-dina-*.jpg` | Race Dina home from the school bus |
+| 8 | `08-cityhall-*.jpg` | Take a number at City Hall |
 | 9 | `09-airport-*.jpg` | Check the board at JFK's Terminal 4½ |
 
 ## Notes
