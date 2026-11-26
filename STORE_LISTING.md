@@ -56,7 +56,7 @@ FRIENDS
 • Other players who are online are simply there, as see-through ghosts — no lobby, no chat
 • Add friends with a code or a link and join them in one tap
 • Do things together: missions for friends, share a wanted level, get caught together, break out together
-• Online play is safe by design: preset emoji reactions only, no typing, generated names, strangers can't touch you, and you can remove or block a friend any time. One switch turns online play off.
+• Online play is safe by design: preset emoji reactions only, no chat, made-up usernames checked by our server, report and block, strangers can't touch you. One switch turns online play off.
 
 YOUR STUFF
 • Earn coins, buy cars at Uncle Refael's Pre-Loved Cars, add horns and decorations
@@ -72,7 +72,7 @@ PLAY YOUR WAY
 • Game controllers (PlayStation, Xbox, Switch) with rumble
 • The classic 2D game is still inside, under More → Classic 2D
 
-Free to play, with occasional ads (never while you drive). No account, no login.
+Free to play, with occasional ads (never while you drive). No email, no password: just pick a made-up name to play with friends.
 ```
 
 **Keywords** (≤ 100, no spaces after commas):
@@ -121,10 +121,10 @@ use one orientation per set so the gallery looks tidy. Up to 10 per set; order =
 | **Location → Coarse Location** (approximate, from the IP address — the game itself never asks for location) | Google AdMob | Third-Party Advertising, Analytics | No | **Yes** |
 | **Diagnostics → Crash Data** | Google AdMob (its own SDK crashes) | Analytics | No | No |
 | **Diagnostics → Performance Data** | Google AdMob | Third-Party Advertising, Analytics | No | No |
-| **Identifiers → User ID** (a random player id the game makes on the device — no name, email, phone or account) | The game (online world, friends list, home ownership) | App Functionality | No | No |
-| **User Content → Gameplay Content** (position in the world, car, preset emoji reactions, scores on leaderboards under a generated name, friends list codes, the homes you own) | The game | App Functionality | No | No |
+| **Identifiers → User ID** (a random player id the game makes on the device + the made-up USERNAME the player picks — no real name, email, phone or password) | The game (online world, friends list, friend requests, home ownership) | App Functionality | **Yes** (since 2.0's accounts, 2026-11-26: the username and friends list belong to an in-game account) | No |
+| **User Content → Gameplay Content** (position in the world — passed on live, not kept —, car, preset emoji reactions, scores on leaderboards, the friends list, friend requests, blocks, name reports, the homes you own) | The game | App Functionality | **Yes** (kept under the in-game account) | No |
 
-Everything else → **not collected**: no contact info, no name, no email, no precise location, no contacts, no
+Everything else → **not collected**: no contact info, no real name (the username is a made-up game name, declared as User ID above), no email, no precise location, no contacts, no
 photos (📸 photo mode saves only to the phone), no messages (there is no chat), no health, no financial info,
 no purchases (there are no in-app purchases), no browsing or search history, no sensitive info.
 
@@ -144,7 +144,7 @@ Apple's 2025 ratings are 4+, 9+, 13+, 16+, 18+ (12+ no longer exists). The game'
 | Parental Controls | No | — |
 | Age Assurance | No | — |
 | Unrestricted Web Access | **No** | the game never opens arbitrary web pages; links go to its own pages only |
-| User-Generated Content | **No** | players can't post text, images or anything they made; names are generated |
+| User-Generated Content | **Yes** (since 2026-11-26) | the only thing a player types is a USERNAME (3–16 letters / numbers / _), shown to other players. It is filtered on the server (rude words incl. spelled-around ones, slurs, sexual words, staff impersonation, phone numbers / social media), every player can 🚩 report a name (several reports from different accounts replace it automatically), block a player, hide other players' names, and turn friend requests or online play off. No other text, images or content |
 | Messaging and Chat | **No** | no chat or messages; online players can only show 6 preset emoji reactions |
 | Social Media | No | — |
 | Shared Location | **No** | the game never uses the device's location; other players see only where your car is in the game |
@@ -179,7 +179,7 @@ something else, keep the answers honest and accept its result — don't change a
 - **Attachment:** the ATT screen recording (see `store/OWNER_TODO.md` step 7).
 - **Notes** (paste):
 ```
-Lulu's Road Trip 2.0 is a 3D open-world comedy game built with web technology (Capacitor + WebKit). No login or account. It works fully offline (online play is optional and on by default).
+Lulu's Road Trip 2.0 is a 3D open-world comedy game built with web technology (Capacitor + WebKit). No login, email or password; online players pick a made-up username (optional — "Later" skips it). It works fully offline (online play is optional and on by default).
 
 SEEING EVERYTHING IN 2 MINUTES
 1. Launch: the App Tracking Transparency prompt appears over the loading/title screen about 1-2 seconds in (either answer is fine). Then tap the big PLAY.
@@ -188,10 +188,13 @@ SEEING EVERYTHING IN 2 MINUTES
 4. The phone button in the corner opens Lulu's phone: Jobs, Friends, Messages, the radio and the camera.
 5. The pause button: settings, "I'm stuck", and under More the Classic 2D game.
 
-ONLINE PLAY (no user-generated content)
-- Other players who are online appear as see-through "ghost" cars/people labelled only with a car colour and a number (a friend you both agreed to add shows their generated name). They cannot touch, push or follow you.
-- The only way to communicate is 6 preset emoji reactions. There is no text chat, no voice, no free-text names (names are generated from a fixed list), no photos or other content shared.
-- Friends: two players add each other with a code or link (both must agree). A friend can be removed or blocked at any time (Friends > Remove or block). "Who can join me" can be set to nobody.
+ONLINE PLAY (the only user-generated content is a filtered username)
+- USERNAMES: the first time the game reaches the title screen online, it asks for a made-up username (three one-tap suggestions, or type one; "Don't use your real name"; "Later" skips it — the game is fully playable without one). No email, no password, no real name. Every name is checked on our server: rude words (also spelled with numbers or stretched letters), slurs, sexual words, pretending to be staff ("admin", "official"…) and contact details (phone numbers, social media) are refused.
+- Other players who are online appear as see-through "ghost" cars/people labelled with their username (Settings > Your name > Other players' names: Off shows a colour and a number instead). They cannot touch, push or follow you.
+- The only way to communicate is 6 preset emoji reactions. There is no text chat, no voice, no photos or other content shared. The username is the only text a player types.
+- REPORT / BLOCK: tap a player's car (or open Phone > Nearby) > "Report this name" — hidden on your screen at once; several reports from different accounts replace the name automatically and its owner must pick another. Friend requests: "No thanks", "Block", "Report this name". Friends > Remove or block. Friends > "Friend requests from: Everyone / Friends of friends / Nobody". "Who can join me" can be set to nobody.
+- Friends: add by username (the request waits until the other player opens the game and says yes), with a code or link, or from Nearby — both must agree.
+- ACCOUNT DELETION (5.1.1(v)): Settings > Your name > Delete my online account deletes the username, friends list, requests, blocks and reports from the server at once.
 - Settings > Play online turns all online play off. Online play is always off in Dina's mode (a small extra for younger players: the DINA'S ROOM door inside Lulu's house).
 
 ADS

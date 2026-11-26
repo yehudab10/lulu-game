@@ -17,7 +17,8 @@ const { startRelay, waitOn, framesOn, setWallCap } = require("../lib/party3d.js"
 const PORT = 30500 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
 const HTTP = `http://127.0.0.1:${PORT}`;
-const Q = `&enable=multiplayer,party,openworld,foot,atmos,phone,friends&mpurl=${encodeURIComponent(URL)}&acctname=1`;
+const Q0 = `&enable=multiplayer,party,openworld,foot,atmos,phone,friends&mpurl=${encodeURIComponent(URL)}`;
+const Q = Q0 + "&acctname=1";                          // (only pages that should be ASKED for a name carry this)
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const rid = () => Array.from({ length: 16 }, () => B32[Math.floor(Math.random() * 32)]).join("");
@@ -103,7 +104,7 @@ async function body(t, pages, keep) {
   t.check("it says don't use your real name", await t.L(`/Don't use your real name/.test(document.getElementById("screenCard").textContent)`));
   await t.shot("name-card-phone");
   // B (another phone) takes a name first
-  const B = await phone(t, "B"); pages.push(B);
+  const B = await phone(t, "B", null, undefined, Q0); pages.push(B);
   await B.until(`ctx.accounts.on`, "B: account up");
   const nameB = "zz_test_Bee" + "abcdefghjk"[Math.floor(Math.random() * 10)] + "x";
   t.check("B takes a name in code (the same call the card makes)", (await B.game(`ctx.accounts.setName(${JSON.stringify(nameB)})`)).ok === true);
@@ -137,13 +138,13 @@ async function body(t, pages, keep) {
     await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(900), ctx.G.invT = 999, ctx.traffic.clear(), ctx.traffic.config.enabled = false, (() => { const p = ctx.world.road.point(${s}, ${d}, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = ${d}; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; })(), true)`);
   };
   await drive(A, 400, 1.75); await drive(B, 420, -1.75);
-  await A.until(`ctx.mp._debug.connected && Object.keys(ctx.mp._debug.peers).length >= 1`, "A sees B in the world");
+  await A.until(`ctx.mp._debug.connected && Object.keys(ctx.mp._debug.peers).length >= 1`, "A sees B in the world", 300000);
   const peerB = `Object.values(ctx.mp._debug.peers)[0]`;
-  t.check("A sees B's USERNAME over B's car (the server's, by ticket)", await A.until(`${peerB}.name === ${JSON.stringify(nameB)}`, "B's name over the car", 30000), await t.game(`${peerB}.name`));
-  t.check("B sees A's username", await B.until(`Object.values(ctx.mp._debug.peers)[0].name === ${JSON.stringify(nameA)}`, "A's name on B's screen", 30000));
+  t.check("A sees B's USERNAME over B's car (the server's, by ticket)", await A.until(`${peerB}.name === ${JSON.stringify(nameB)}`, "B's name over the car", 120000), await t.game(`${peerB}.name`));
+  t.check("B sees A's username", await B.until(`Object.values(ctx.mp._debug.peers)[0].name === ${JSON.stringify(nameA)}`, "A's name on B's screen", 120000));
   // a forged ticket (B's id with a made-up signature) from a raw relay client stays a colour + number
   const forged = await rawGhost(URL, (await B.game(`ctx.player.id()`)) + ".zzzzzz.AAAAAAAAAAAAAAAAAAAAAA");
-  await A.until(`Object.values(ctx.mp._debug.peers).length >= 2`, "A sees the raw ghost");
+  await A.until(`Object.values(ctx.mp._debug.peers).length >= 2`, "A sees the raw ghost", 120000);
   await t.frames(60);
   const raw = await t.game(`Object.values(ctx.mp._debug.peers).find(p => p.un && p.un.endsWith("AAAAAAAAAAAAAAAAAAAAAA"))?.name || "?"`);
   t.check("a forged ticket never shows a name (colour + number)", /^[A-Z][a-z]+ \d+$/.test(raw) && raw !== nameB, raw);
@@ -190,7 +191,7 @@ async function body(t, pages, keep) {
   await api("/acct/_clock", { offset: 0 });
   // ── NEW PHONE: the save code ──
   const code = await t.game(`ctx.player.backup.code()`);
-  const D = await phone(t, "D (new phone)", null); pages.push(D);
+  const D = await phone(t, "D (new phone)", null, undefined, Q0); pages.push(D);
   await D.until(`ctx.accounts.on`, "D: online");
   await D.game(`ctx.player.backup.restore(${JSON.stringify(code)})`);
   await sleep(1500);

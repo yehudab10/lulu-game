@@ -43,7 +43,7 @@ const dateOf = ms => new Date(ms).toLocaleDateString(undefined, { month: "short"
  */
 export function nameCard(opts = {}) {
     const seq = ++U.seq;
-    U.open = true;
+    U.open = true; U.first = !!opts.first;
     const cur = ctx.player.name();
     const title = opts.first || !cur ? "🪪 Pick your name" : "🪪 Change your name";
     const sub = opts.replaced ? "Other players reported your name, so it was changed. Pick a new one."
@@ -130,6 +130,8 @@ async function maybeAsk() {
     nameCard({ first: true, replaced, done: () => { if (ctx.state === "title") showTitle(true); } });
 }
 on("title", () => { setTimeout(maybeAsk, ctx.TEST ? 100 : 600); });
+// the first-time card belongs to the title: if a run starts underneath it (a link, a test), it goes away — asked later
+on("state", e => { if (U.open && U.first && e && e.to !== "title") { U.seq++; U.open = false; U.asked = false; if (H.screenOpen() && document.getElementById("acctIdeas")) H.hideScreen(); } });
 on("accounts:view", () => { if (ctx.state === "title" && !U.asked) setTimeout(maybeAsk, 50); });
 
 // ── ⚙️ › 🪪 Your name ──
