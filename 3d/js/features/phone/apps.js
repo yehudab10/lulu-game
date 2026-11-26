@@ -13,17 +13,17 @@ const inCarNow = () => ctx.state === "playing" && !(ctx.foot && ctx.foot.active)
 const miles = m => `${(Math.max(0, m) / 1609).toFixed(1)} mi`;
 
 // 🗺️ the story map (journey) — over the live run, ○ comes straight back (hidden with the Story Trip: onegame/switches.js;
-// on the one world's lap the 🗺️ is the lap map below)
+// while it's hidden the 🗺️ is the one world's lap map below)
 addApp({
     id: "map", icon: "🗺️", name: "Map", order: 10, color: "#26A69A", color2: "#00695C",
-    visible: () => ONEGAME.story && !!(ctx.journey && ctx.journey.openMap) && !partyOn() && !lapWorld(),
+    visible: () => ONEGAME.story && !!(ctx.journey && ctx.journey.openMap) && !partyOn(),
     open: () => ctx.journey.openMap({ from: "phone" }),
 });
 // 🗺️ 🌍 ONE WORLD (ci/onemap stage 3): the one map of the whole world — the 16 km loop with every place once, you are
 // here, and how far on each place is (the road only goes one way)
 addApp({
     id: "lapmap", icon: "🗺️", name: "Map", order: 10, color: "#26A69A", color2: "#00695C",
-    visible: () => lapWorld() && !partyOn(),
+    visible: () => lapWorld() && !partyOn() && !ONEGAME.story,
     render(el) {
         const me = myLapM(), list = lapPlaces().filter(p => p.kind !== "gas" && p.kind !== "lookout").map(p => ({ p, d: ahead(p.m, me) })).sort((a, b) => a.d - b.d);
         const inTown = ctx.town && ctx.town.active ? ctx.town.def && ctx.town.def.name : "";

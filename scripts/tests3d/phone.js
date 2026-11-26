@@ -153,15 +153,17 @@ module.exports = {
     await g(`ctx.hustle.radio.tune("auto")`);
 
     // ── 🗺️ Map: on the one world's lap (a Cruise — ci/onemap) the ONE map: the 16 km loop with every place, real miles ──
-    if (await g(`ctx.phone.apps().includes("lapmap")`)) {
-      await t.key("Tab");
-      await clickSel("#lpa_lapmap");
-      await t.frames(4);
-      t.check("Map (one world): the lap as a ring + every place with how far up the road", await t.L(`!!document.querySelector("#screenCard canvas.lp-lapmap") && /Midwood/.test(document.getElementById("screenCard").textContent) && /Lakewood/.test(document.getElementById("screenCard").textContent) && /\d+\.\d mi|NOW/.test(document.getElementById("screenCard").textContent)`), await t.L(`document.getElementById("screenCard").textContent.slice(0, 200)`));
-      await t.shot("lapmap");
-      await t.key("Tab");
-      await t.frames(4);
-    }
+    // (while the Story Trip is hidden — this test switches it on for the story map below)
+    await t.L(`import("./js/features/onegame/switches.js").then(m => { m.ONEGAME.story = false; return true; })`);
+    t.check("Map (one world): the lap map is the 🗺️ while the Story is hidden", (await g(`ctx.phone.apps()`)).includes("lapmap") && !(await g(`ctx.phone.apps()`)).includes("map"));
+    await t.key("Tab");
+    await clickSel("#lpa_lapmap");
+    await t.frames(4);
+    t.check("…the lap as a ring + the places with how far up the road", await t.L(`!!document.querySelector("#screenCard canvas.lp-lapmap") && document.querySelectorAll("#screenCard .lp-row").length >= 2 && /\\d+\\.\\d mi|NOW/.test(document.getElementById("screenCard").textContent)`), await t.L(`document.getElementById("screenCard").textContent.slice(0, 200)`));
+    await t.shot("lapmap");
+    await t.key("Tab");
+    await t.frames(4);
+    await t.L(`import("./js/features/onegame/switches.js").then(m => { m.ONEGAME.story = true; return true; })`);
     // ── 🗺️ Map: the old story map, over the live run (the Story Trip's road — not on the lap) ──────
     if (await g(`ctx.phone.apps().includes("map")`)) {
     await t.key("Tab");
