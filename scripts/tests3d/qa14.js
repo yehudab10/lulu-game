@@ -77,7 +77,8 @@ module.exports = {
     await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
     await t.hold(7, 0.8); await t.frames(240); await t.hold(7, 0);
     const rr = await seg("the on-ramp + the highway");
-    const jumps = await t.L(`(() => { const T = window.__ramp || [], out = []; for (let i = 1; i < T.length; i++) { const a = T[i - 1], b = T[i], dk = Math.hypot(b[4] - a[4], b[5] - a[5]); if (dk > 5) out.push(i); } window.__ramp = null; return out.length ? T.slice(Math.max(0, out[0] - 8), out[0] + 8) : []; })()`);
+    const fJ = ((rr.issues || []).find(i => i.kind === "jump") || {}).f;
+    const jumps = fJ == null ? [] : await t.L(`(() => { const T = window.__ramp || [], i = T.findIndex(r => r[0] >= ${fJ}); window.__ramp = null; return i < 0 ? [] : T.slice(Math.max(0, i - 40), i + 8); })()`);
     if (jumps.length) console.log("   on-ramp trace [f, state, car x, z, cam x, z, town, fade, cam mode, h, s, d]:\n     " + jumps.map(r => JSON.stringify(r)).join("\n     "));
     if (process.env.QA14_STOP === "ramp") return;
 
