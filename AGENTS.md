@@ -113,6 +113,14 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
    *Scope-limited exception (owner, 2026-11-20: "Do version B, you can touch the server"):* `ci/realestate` may add
    the world-wide PROPERTY REGISTRY to the relay (additive, backwards-compatible messages + one table) and deploy it.
    Nothing else on the server is covered by that OK.
+   *Second exception (owner, 2026-11-26: "I also would add real usernames into the game that players can type when they
+   start the game for the first time and have them be unique and id make the friends thing work even if a player is
+   offline. Like a real multiplayer game. Do the changes necessary even server side, just make everything work without
+   work from my end. No bugs"):* `ci/accounts` may add PLAYER ACCOUNTS to the relay — unique usernames, a server-kept
+   friends list + friend requests that wait for an offline player, presence — and deploy it (the "Deploy Shared Road
+   worker" workflow; the Cloudflare token was renewed on 2026-11-2x). Still additive + backwards-compatible (old clients
+   keep working), with the before / after messages to the coordinator and a production check each deploy. Anything
+   beyond accounts / usernames / friends still needs the owner.
 4. Never change the iOS bundle id, signing, AdMob IDs, or
    `submit_to_app_store` in `codemagic.yaml`. Ad unit IDs in
    `3d/js/features/native/ads.js` and `src/10c-ads.js` must stay identical.
