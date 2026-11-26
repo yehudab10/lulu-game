@@ -354,7 +354,10 @@ body.touch .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 10
 /* extra feature touch buttons (missile, pepper spray, interact…) */
 #touchExtra { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 300px);
     display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
-@media (min-aspect-ratio: 1/1) { #touchExtra { right: auto; left: max(190px, calc(env(safe-area-inset-left) + 180px)); bottom: max(16px, env(safe-area-inset-bottom)); flex-direction: row; } }
+/* on its side: a column right beside the stick, from the bottom up — out of the clear window over the car (ci/hud; the row
+   ran along the bottom into the middle, under the car) */
+@media (min-aspect-ratio: 1/1) { #touchExtra { right: auto; left: max(190px, calc(env(safe-area-inset-left) + 180px)); bottom: max(16px, env(safe-area-inset-bottom)); flex-direction: column-reverse; } }
+@media (min-aspect-ratio: 1/1) and (max-height: 520px) { body.touch #touchExtra { left: calc(max(24px, env(safe-area-inset-left)) + 140px); } }
 
 /* wider cards, settings rows, 3-column controls */
 .card.wide { width: min(820px, 100%); }
@@ -668,6 +671,69 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
 @media (max-aspect-ratio: 1/1) and (max-width: 380px) {
     body.touch #stickBase { width: 140px; height: 140px; }
     body.touch #stickZone span { width: 140px; }
+}
+/* ══ THE OBJECTIVE LINE (ci/hud — hud.js › THE PLAY HUD'S LAYOUT CONTRACT) ══════════════════════════════════════
+   One line under the top band: the objective that matters most (full), everything else that's on as small badges
+   (a tap shows it for a few seconds). On a phone it has its own spot (hud.js places it) and the trip bar shares it;
+   on a bigger screen it's the top of the centre stack and only holds the badges. Each feature's chip, when it's the
+   phone's objective, is drawn as one compact line here — its meters inside it. ═══════════════════════════════════ */
+.obj-folded { display: none !important; }
+#objLine { display: flex; align-items: center; gap: 6px; pointer-events: none; }
+#objLine.empty { display: none; }
+#objLine.phone { position: absolute; z-index: 2; justify-content: center; }
+#objLine .obj-main { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
+/* a bigger screen: the badges, then up to three objectives, each one compact line, at the top of the centre stack */
+#objLine:not(.phone) { flex-direction: column; justify-content: flex-start; max-width: min(640px, 46vw); }
+#objLine:not(.phone) .obj-badges { order: -1; }
+#objLine:not(.phone) .obj-main { flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
+body.tv #objLine:not(.phone) { max-width: 72vw; }
+body.tv #objLine .obj-main { zoom: 1.25; }
+@media (min-height: 1000px) { body.tv #objLine .obj-main { zoom: 1.6; } }
+#objLine.only-badges .obj-main { display: none; }
+#objLine .obj-main > * { margin: 0 !important; max-width: 100% !important; min-width: 0; pointer-events: none; }
+#objLine .obj-badges { flex: none; display: flex; gap: 4px; }
+#objLine .obj-badges:empty { display: none; }
+.obj-badge { pointer-events: auto; border: none; display: inline-flex; align-items: center; gap: 3px; height: 30px; min-width: 30px; padding: 0 7px;
+    border-radius: 999px; background: rgba(43, 27, 46, 0.78); color: #fff; font: 700 15px var(--font); box-shadow: var(--shadow); line-height: 1; cursor: pointer; }
+.obj-badge small { font-size: 11px; font-variant-numeric: tabular-nums; }
+body.tv .obj-badge { height: 44px; min-width: 44px; padding: 0 12px; font-size: 22px; } body.tv .obj-badge small { font-size: 16px; }
+/* too long for the line even a little smaller (hud.js › fitMain): it wraps instead of being cut off */
+#objLine .obj-wrap { flex-wrap: wrap !important; }
+#objLine .obj-wrap, #objLine .obj-wrap * { white-space: normal !important; text-overflow: clip !important; overflow: visible !important; }
+/* the chips as one line: 🚨 the chase (stars + its meter), 💼 a job (+ its meters), 🦹 a robbery, 📝 Ima's list */
+#objLine .law-wanted { flex-direction: row; align-items: center; gap: 6px; background: rgba(43, 27, 46, 0.78); border-radius: 999px; padding: 3px 10px 3px 4px; }
+#objLine .law-wanted .tag { white-space: nowrap; font-size: 12px; padding: 3px 9px; }
+#objLine .law-wanted .stars { font-size: 18px; }
+#objLine .law-wanted .mtr { width: 64px; flex: none; }
+#objLine .law-wanted .mtr .lbl { font-size: 9px; letter-spacing: 0.04em; white-space: nowrap; text-align: left; }
+#objLine .law-wanted .hint, #objLine .law-wanted .crew { display: none; }
+#objLine .hs-job { flex-wrap: nowrap; justify-content: center; gap: 4px; }
+#objLine .hs-obj { flex: 0 1 auto; font-size: 13px; padding: 3px 9px; gap: 5px; }
+#objLine .hs-dist { font-size: 11px; padding: 2px 7px 2px 4px; }
+#objLine .hs-meters { flex-basis: auto; flex-wrap: nowrap; gap: 3px; }
+#objLine .hs-m { padding: 2px 5px; font-size: 10px; gap: 3px; } #objLine .hs-m .bar { width: 26px; }
+#objLine .heist-chip { flex-direction: row; align-items: center; gap: 5px; }
+#objLine .heist-chip b { font-size: 12px; padding: 4px 10px; }
+#objLine .heist-chip small { font-size: 10px; padding: 2px 8px; }
+#objLine .heist-chip .heist-meter { width: 40px; flex: none; }
+#objLine .day-chip { display: flex; align-items: baseline; gap: 6px; padding: 5px 11px; font-size: 13px; }
+#objLine .day-chip small { display: inline; font-size: 11.5px; }
+#objLine .re-badge { font-size: 13px; padding: 4px 12px; }
+/* a phone: the stacks start right under the top band — hud.js keeps them under the objective line / the trip bar */
+@media (max-aspect-ratio: 1/1) {
+    body.touch .hud-slot.left, body.touch .hud-slot.right, body.touch .hud-slot.center,
+    body.touch:not(.hud-clean) .hud-slot.left, body.touch:not(.hud-clean) .hud-slot.right, body.touch:not(.hud-clean) .hud-slot.center {
+        top: calc(max(12px, env(safe-area-inset-top)) + 52px); }
+}
+@media (min-aspect-ratio: 1/1) and (max-height: 520px) {
+    body.touch .hud-slot.left > * { max-width: min(250px, 28vw); }
+}
+
+/* the narrowest phones held upright (360 px): a 128 px stick nearer the edge — the 140 px one reached the BRAKE pedal */
+@media (max-aspect-ratio: 1/1) and (max-width: 370px) {
+    body.touch #stickBase { width: 128px; height: 128px; }
+    body.touch #stickZone { padding-left: max(14px, env(safe-area-inset-left)); }
+    body.touch #stickZone span { left: max(14px, env(safe-area-inset-left)); width: 128px; }
 }
 /* a controller / keyboard on a phone held upright (no touch layout): the touch-portrait arrangement — the pills in a
    row (two once the score is long), the trip bar full width under them, the chips under that, a compact speedo. The

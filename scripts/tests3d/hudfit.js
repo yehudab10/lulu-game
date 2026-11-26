@@ -29,7 +29,8 @@ const ONLY = process.env.HUDFIT_VIEWS ? process.env.HUDFIT_VIEWS.split(",") : nu
 /** The HUD's pieces, by name → selector. Pieces of one group never count against each other (a stack lays them out). */
 const PIECES = {
   pills: "#hud .hud-tl .pill", trip: "#hud .trip", tripLabel: "#tripLabel", pause: "#pauseBtn", phone: "#phoneBtn",
-  left: "#slot-left > *", center: "#slot-center > *:not(#banner)", banner: "#banner", right: "#slot-right > *",
+  left: "#slot-left > *", center: "#slot-center > *:not(#banner):not(#objLine)", banner: "#banner", right: "#slot-right > *",
+  obj: "#objLine > *",      // (ci/hud: the objective line — the top objective + the badges)
   speedo: "#hud .speedo", skip: "#skipBtn", prompt: "#slot-bottom .prompt", padHint: "#padHint",
   stick: "#stickBase", pedals: "#touch .pedals .tbtn", footPad: "#footPad .tbtn", extra: "#touchExtra button",
 };
@@ -112,7 +113,7 @@ module.exports = {
     if (!await inTown(t, "lakewood")) return;
     await g(`(ctx.traffic.config.enabled = false, true)`);
     await t.frames(30);
-    const hasDay = await t.L(`!!document.querySelector("#slot-left .day-chip")`);
+    const hasDay = await t.L(`!!document.querySelector("#slot-left .day-chip, #objLine .day-chip")`);
     t.check("📝 Ima's list is on the HUD (the chip the layout has to make room for)", hasDay);
     // the LONGEST errand line any item can show: today's list is date-seeded, so this used to pass or fail by the calendar
     await g(`(() => { const all = []; (function walk(o) { if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === "object") { if (o.id && o.text) all.push(o); else Object.values(o).forEach(walk); } })(ctx.day.ITEMS);
@@ -138,7 +139,7 @@ module.exports = {
         t.check(`${where}: ⏭ SKIP is clear of the trip bar + its label`, clash(m, "skip", "tripLabel").length + clash(m, "skip", "trip").length === 0, clash(m, "skip", "tripLabel").concat(clash(m, "skip", "trip")).join(" | "));
         if (!foot) t.check(`${where}: the bottom prompt + hint are clear of the speedo`, clash(m, "prompt", "speedo").length + clash(m, "padHint", "speedo").length === 0, clash(m, "prompt", "speedo").concat(clash(m, "padHint", "speedo")).join(" | "));
         t.check(`${where}: Ima's list line (the longest errand) never wraps — the chip stays 2 lines`, await t.L(`(() => { const s = document.querySelector("#slot-left .day-chip small"); if (!s) return true; const cs = getComputedStyle(s); return s.getBoundingClientRect().height < parseFloat(cs.fontSize) * 1.7 && cs.whiteSpace === "nowrap"; })()`));
-        t.check(`${where}: the WELCOME banner is clear of the 📝 chip (+ the other chips)`, ["left", "right", "trip", "tripLabel", "pills"].every(x => !clash(m, "banner", x).length), ["left", "right", "trip", "tripLabel", "pills"].flatMap(x => clash(m, "banner", x)).join(" | "));
+        t.check(`${where}: the WELCOME banner is clear of the 📝 chip (+ the other chips)`, ["left", "right", "obj", "trip", "tripLabel", "pills"].every(x => !clash(m, "banner", x).length), ["left", "right", "obj", "trip", "tripLabel", "pills"].flatMap(x => clash(m, "banner", x)).join(" | "));
         // …and nothing else on anything else
         t.check(`${where}: no two HUD pieces on top of each other, all on screen`, !m.pairs.length && !m.off.length, m.pairs.map(p => p.txt).concat(m.off.map(o => "off-screen " + o)).join(" | "));
         await t.shot(`${name}-${foot ? "foot" : "car"}`);
@@ -184,7 +185,7 @@ module.exports = {
       await t.frames(8);
       const m = await measure(t);
       const where = `🅿️ Parking Challenge, ${name} (${w}×${h}${tv ? " TV" : ""}, ${d})`;
-      t.check(`${where}: the challenge's chip is on the HUD`, m.groups.includes("left") && await t.L(`!!document.querySelector("#slot-left .park-chip")`));
+      t.check(`${where}: the challenge's chip is on the HUD`, (m.groups.includes("left") || m.groups.includes("obj")) && await t.L(`!!document.querySelector("#slot-left .park-chip, #objLine .park-chip")`));
       t.check(`${where}: no two HUD pieces on top of each other, all on screen`, !m.pairs.length && !m.off.length, m.pairs.map(p => p.txt).concat(m.off.map(o => "off-screen " + o)).join(" | "));
       await t.shot(`parking-${name}`);
       await g(`(ctx.parking._debug.introUntil = 0, true)`);

@@ -215,6 +215,7 @@ function showChip(html) {
         chipEl = document.createElement("div");
         chipEl.className = "rides-hud";
         H.hudSlot("right").appendChild(chipEl);
+        H.objective(chipEl, { prio: H.OBJ.errand, id: "ride" });      // (ci/hud: the play HUD's objective line)
     }
     chipEl.innerHTML = html;
     chipEl.style.display = html ? "" : "none";

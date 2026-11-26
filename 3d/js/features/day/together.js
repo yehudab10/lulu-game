@@ -106,7 +106,8 @@ function helperTick() {
     const n = [...bits].filter(b => b === "1").length, next = dl[1].find((id, i) => bits[i] !== "1");
     const it = next && DAYX.byId(next);
     const txt = `📝 ${nameOf(T.by)}'s list <span class="ok">${n}/${dl[1].length}</span><small>${it ? it.text : "Go to her house for dinner."}</small>`;
-    if (!T.chip) { T.chip = document.createElement("div"); T.chip.className = "day-chip"; H.hudSlot("left").appendChild(T.chip); T.chipText = ""; }
+    if (!T.chip) { T.chip = document.createElement("div"); T.chip.className = "day-chip"; H.hudSlot("left").appendChild(T.chip); T.chipText = "";
+        H.objective(T.chip, { prio: H.OBJ.list, id: "day2", icon: "📝", badge: ".ok" }); }
     if (txt !== T.chipText) { T.chipText = txt; T.chip.innerHTML = txt; }
 }
 hook("hud", () => {

@@ -292,7 +292,7 @@ export function keepClear(e, avoid, dir = 1, gap = 6) {
     if (dy !== cur) { e.dataset.fitDy = dy; e.style.translate = dy ? `0 ${dy}px` : ""; }
     return dy;
 }
-const TOPS = ["#hud .hud-tl .pill", "#hud .hud-top", "#pauseBtn", "#phoneBtn"];
+const TOPS = ["#hud .hud-tl .pill", "#hud .hud-top", "#pauseBtn", "#phoneBtn", "#objLine.phone:not(.empty)"];
 // (a piece marked data-fit="self" keeps clear of the centre stack on its own on a wide screen — hustle's 📻 ticker
 // steps down the right column — so there the centre doesn't also duck under it: two pieces each dodging the other
 // would chase each other down the screen. On a screen held upright the centre stack carries on under BOTH columns
@@ -301,10 +301,167 @@ const SIDES = ["#slot-left > *", "#slot-right > *"];
 const SIDES_WIDE = ["#slot-left > *:not([data-fit=self])", "#slot-right > *:not([data-fit=self])"];
 export const PORTRAIT = matchMedia("(max-aspect-ratio: 1/1)");
 const BOTTOM = ["#hud .hud-br .speedo", "#touch .tbtn", "#stickBase", "#touchExtra > *"];
+// ── THE PLAY HUD'S LAYOUT CONTRACT (ci/hud, 2026-11-26) ─────────────────────────────────────────────────────────
+// The owner's friend's Android, upright, on the highway: a 2× coins pill + Ima's list + a chase + a robbery to foil + a
+// timed delivery + their meters, each a full-size chip of its own — the road and Lulu's car under them. So:
+//   • a TOP BAND (hearts, coins, the 📱 phone) and a BOTTOM BAND (the touch controls), as before;
+//   • ONE OBJECTIVE LINE right under the top band: what matters most right now, by a fixed priority (OBJ: a chase >
+//     a timed job > a mission / a robbery to foil > an errand > Ima's list > a bonus > info). Everything else that's on
+//     folds into a small icon BADGE on that same line (a tap shows it for a few seconds; the 📱 has the detail).
+//     Its meters live inside its line. On a phone that is the only full chip (a tablet 2, a big screen / TV 3, one
+//     compact line each, at the top of the centre stack);
+//   • on a phone the trip bar IS the line's quiet default: it shows only while nothing else is the objective;
+//   • a CLEAR WINDOW around the car and the road ahead (clearWindow(), screen fractions) where no persistent HUD sits;
+//   • no piece on another or on a touch button, no text cut off with "…" (a long line shrinks a little, then wraps).
+// A feature keeps building its own chip and registers it ONCE, after putting it in its slot:
+//   H.objective(el, { prio: H.OBJ.timed, icon: "🥔", badge: ".tm" })      (badge: a selector / fn → a short text;
+//                                                                          false = no badge when folded)
+// Test: scripts/tests3d/hudworst.js (every chip at once, 12 screen sizes) + hudfit.js; calm counts the full chips.
+export const OBJ = { chase: 50, timed: 40, mission: 30, errand: 20, list: 10, bonus: 5, info: 2 };
+const OB = { list: [], seq: 0, line: null, main: null, badges: null, pin: null, pinT: 0, phone: false, full: 0, dirty: false, tripP: 0, tripWins: false };
+/** How much the trip bar matters now (app.js, from ctx.trip.prio): 0 on the open road (just where the next exit is), 9 a town's
+ *  street name, a story leg / the Shabbos countdown more. On a phone it's shown when nothing outranks it. */
+export function tripPrio(p) { OB.tripP = p || 0; }
+/** Phones (either way up): one objective; a tablet two; a big screen / TV three. */
+export const phoneHud = () => innerWidth <= 600 || innerHeight <= 520;
+const maxFull = () => phoneHud() ? 1 : innerWidth * innerHeight >= 1280 * 700 ? 3 : 2;
+/** The clear window around the car and the road ahead, as screen fractions — no persistent HUD in it, ever. */
+export function clearWindow() {
+    return innerWidth > innerHeight ? { x0: 0.3, x1: 0.7, y0: 0.4, y1: 1 } : { x0: 0.26, x1: 0.74, y0: 0.36, y1: 0.68 };
+}
+/** Register a chip as an objective (call once, after it's in its slot; a re-created chip registers again). */
+export function objective(e, opts = {}) {
+    if (!e) return e;
+    let o = OB.list.find(x => x.el === e);
+    if (!o) { o = { el: e, seq: OB.seq++, badge: null }; OB.list.push(o); }
+    o.prio = opts.prio != null ? opts.prio : OBJ.mission;
+    o.icon = opts.icon || "";
+    o.short = opts.badge !== undefined ? opts.badge : null;
+    o.home = opts.home ? hudSlot(opts.home) : e.parentElement && e.parentElement !== OB.main ? e.parentElement : o.home || hudSlot("center");
+    e.dataset.obj = opts.id || String(e.className || "chip").split(" ")[0];
+    OB.dirty = true;
+    return e;
+}
+/** What the line shows now: { main: [ids], badges: [ids], phone } (tests, calm). */
+export function objectives() {
+    const ids = l => l.map(o => o.el.dataset.obj);
+    const act = OB.list.filter(o => o.el.isConnected && !o.el.classList.contains("obj-folded") && objActive(o.el));
+    return { main: ids(act), badges: ids(OB.list.filter(o => o.el.isConnected && o.el.classList.contains("obj-folded"))), phone: OB.phone, full: OB.full };
+}
+function objLine() {
+    if (OB.line) return OB.line;
+    const l = OB.line = document.createElement("div");
+    l.id = "objLine";
+    l.className = "empty";
+    l.innerHTML = `<div class="obj-main"></div><div class="obj-badges"></div>`;
+    OB.main = l.firstChild; OB.badges = l.lastChild;
+    el.hud.appendChild(l);
+    return l;
+}
+function objActive(e) {
+    if (!e.isConnected || e.classList.contains("hidden")) return false;
+    for (let n = e; n && n !== el.hud; n = n.parentElement) if (getComputedStyle(n).display === "none") return false;
+    return !!e.textContent.trim();
+}
+const EMOJI = /\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/u;
+function badgeHtml(o, words) {
+    const ic = o.icon || ((o.el.textContent.match(EMOJI) || [""])[0]) || "•";
+    let t = "";
+    if (words) try { t = typeof o.short === "function" ? o.short(o.el) : o.short ? (o.el.querySelector(o.short) || {}).textContent || "" : ""; } catch (err) { t = ""; }
+    t = String(t || "").replace(/[^\p{L}\p{N}:/×.]/gu, "").slice(0, 6);
+    return `${ic}${t ? `<small>${t.replace(/[&<]/g, c => c === "&" ? "&amp;" : "&lt;")}</small>` : ""}`;
+}
+/** Place the objectives: the top one(s) full, the rest folded to badges; on a phone, the line under the top band. */
+function layoutObjectives() {
+    const line = objLine();
+    OB.list = OB.list.filter(o => o.el.isConnected || o.el.parentElement === OB.main);
+    for (const o of OB.list) if (!o.el.isConnected) o.dead = true;
+    OB.list = OB.list.filter(o => !o.dead);
+    const phone = OB.phone = phoneHud();
+    for (const o of OB.list) o.el.classList.remove("obj-folded");
+    // (a chip that went quiet goes home first, so its own "hidden" rules are the ones that count)
+    for (const o of OB.list) if (o.el.parentElement === OB.main && !objActive(o.el) && o.home && o.home.isConnected) o.home.appendChild(o.el);
+    const act = OB.list.filter(o => objActive(o.el)).sort((a, b) => b.prio - a.prio || a.seq - b.seq);
+    if (OB.pin && (!act.includes(OB.pin) || NT.now > OB.pinT)) OB.pin = null;
+    if (OB.pin) { act.splice(act.indexOf(OB.pin), 1); act.unshift(OB.pin); }
+    const tripWins = OB.tripWins = phone && !OB.pin && act.length > 0 && act[0].prio <= OB.tripP;
+    const n = tripWins ? 0 : maxFull(), full = act.slice(0, n), folded = act.slice(n);
+    OB.full = full.length;
+    for (const o of act) {
+        const want = full.includes(o) ? OB.main : o.home;
+        if (want && want.isConnected && o.el.parentElement !== want) want.appendChild(o.el);
+        if (folded.includes(o)) o.el.classList.add("obj-folded");
+    }
+    // the badges: one small button each, in priority order (a tap shows that chip for a few seconds)
+    const keep = new Set();
+    for (const o of folded) {
+        if (o.short === false) continue;      // (info that's only worth a full line: no badge)
+        if (!o.badge) { const b = o.badge = document.createElement("button"); b.className = "obj-badge"; b.type = "button";
+            b.addEventListener("pointerdown", ev => { ev.preventDefault(); ev.stopPropagation(); OB.pin = o; OB.pinT = NT.now + 5; OB.dirty = true; layoutObjectives(); }); }
+        const h = badgeHtml(o, folded.indexOf(o) < (OB.phone && innerWidth < 500 ? 2 : 4));      // (a number on the first few: the rest just their icon)
+        if (o.badge.dataset.h !== h) { o.badge.dataset.h = h; o.badge.innerHTML = h; }
+        OB.badges.appendChild(o.badge);
+        keep.add(o.badge);
+    }
+    for (const b of [...OB.badges.children]) if (!keep.has(b)) b.remove();
+    for (const o of OB.list) if (o.badge && !keep.has(o.badge)) o.badge = null;
+    // where the line lives: on a phone its own spot under the top band; elsewhere the top of the centre stack
+    const home = phone ? el.hud : hudSlot("center");
+    if (line.parentElement !== home) { if (phone) home.appendChild(line); else home.prepend(line); }
+    line.classList.toggle("phone", phone);
+    line.classList.toggle("empty", !full.length && !keep.size);
+    line.classList.toggle("only-badges", !full.length);
+    // (the line's chips in priority order)
+    full.forEach((o, i) => { if (OB.main.children[i] !== o.el) OB.main.insertBefore(o.el, OB.main.children[i] || null); });
+    // on a phone the trip bar is the line's quiet default
+    const trip = document.querySelector("#hud .hud-top");
+    if (trip) trip.classList.toggle("obj-folded", phone && full.length > 0);
+    line.classList.toggle("under-trip", tripWins);
+    if (phone) placeLine(line, trip);
+    else { line.style.top = line.style.left = line.style.right = ""; if (trip) trip.style.top = ""; }
+    fitMain();
+    OB.dirty = false;
+}
+/** The phone's line: under the top band upright; between the pills and the 📱 on its side. The trip bar shares the spot. */
+function placeLine(line, trip) {
+    const W = innerWidth, H = innerHeight, rs = [];
+    for (const sel of ["#hud .hud-tl .pill", "#pauseBtn", "#phoneBtn"]) for (const o of document.querySelectorAll(sel)) if (shownEl(o)) rs.push(o.getBoundingClientRect());
+    const pills = rs.filter((r, i) => i < rs.length), corner = rs.filter(r => r.left > W * 0.6);
+    let top, left, right;
+    if (W > H) {
+        const pr = Math.max(12, ...pills.filter(r => r.left < W * 0.5).map(r => r.right)), cl = Math.min(W - 12, ...corner.map(r => r.left));
+        top = Math.max(12, ...rs.map(r => r.top)); top = Math.min(...rs.map(r => r.top).concat(top));
+        left = pr + 10; right = W - cl + 10;
+    } else {
+        top = Math.max(0, ...rs.map(r => r.bottom)) + 8;
+        left = 12; right = 12;
+    }
+    line.style.top = Math.round(top) + "px"; line.style.left = Math.round(left) + "px"; line.style.right = Math.round(right) + "px";
+    if (trip) trip.style.top = W > H ? "" : Math.round(top) + "px";
+    // (the trip bar outranks everything that's on — the Shabbos countdown, a story leg: the badges go right under it)
+    if (OB.tripWins && trip && shownEl(trip)) { const r = trip.getBoundingClientRect(); line.style.top = Math.round(r.bottom + 6) + "px"; }
+}
+/** A long objective shrinks a little (to 78 %), then wraps — never cut off with "…". */
+function fitMain() {
+    const m = OB.main;
+    for (const c of m.children) {
+        const over = () => { if (c.scrollWidth > m.clientWidth + 1) return true;
+            for (const d of c.querySelectorAll("*")) if (d.clientWidth && d.scrollWidth > d.clientWidth + 1 && getComputedStyle(d).overflow !== "visible") return true; return false; };
+        c.classList.remove("obj-wrap");
+        let ok = false;
+        for (const z of [1, 0.92, 0.85, 0.78]) { c.style.zoom = z === 1 ? "" : z; if (!over()) { ok = true; break; } }
+        if (!ok) c.classList.add("obj-wrap");
+    }
+    for (const o of OB.list) if (o.el.parentElement !== m && o.el.style.zoom) { o.el.style.zoom = ""; o.el.classList.remove("obj-wrap"); }
+}
+
 /** One keep-clear pass over the HUD (every 0.2 s of game time, and when a banner / prompt shows). */
 export function fitHud() {
     if (el.hud.classList.contains("hidden")) return;
+    layoutObjectives();
     const s = id => document.getElementById("slot-" + id);
+    if (OB.phone && innerWidth > innerHeight) keepClear(document.querySelector("#hud .hud-br"), ["#objLine:not(.empty)"]);
+    else { const br = document.querySelector("#hud .hud-br"); if (br && br.dataset.fitDy) { br.dataset.fitDy = 0; br.style.translate = ""; } }
     keepClear(s("left"), TOPS);
     keepClear(s("right"), TOPS.concat("#slot-left > *"));
     keepClear(s("center"), TOPS.concat(PORTRAIT.matches ? SIDES : SIDES_WIDE, "#hud .hud-br .speedo"));

@@ -199,13 +199,14 @@ on("state", ({ to }) => {
 on("boot", () => {
     const base = ctx.trip;
     ctx.trip = {
+        get prio() { return R.active ? H.OBJ.timed : base ? base.prio : null; },      // (ci/hud: the countdown outranks Ima's list on a phone)
         progress() {
             if (!R.active) return base ? base.progress() : 1;
             if (R.phase !== "drive") return 1;
             return Math.max(0, Math.min(1, (roadS() - R.s0) / Math.max(1, R.dest - TUNE.pullIn - R.s0)));
         },
         label() {
-            if (!R.active) return base ? base.label() : `CRUISE · ${Math.max(0, (ctx.car.s - (ctx.G.startS || 0)) / 1609).toFixed(1)} mi`;
+            if (!R.active) return base ? base.label() : null;
             if (R.phase === "arrive" || R.phase === "done") return "🏡 BUBBE'S HOUSE · GOOD SHABBOS!";
             if (R.phase === "late") return "🕯️ Candles are lit…";
             const l = Math.max(0, left()), mi = Math.max(0, (R.dest - roadS()) / 1609);

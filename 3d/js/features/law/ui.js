@@ -225,6 +225,7 @@ export function wantedHud(info) {
         hudEl = document.createElement("div");
         hudEl.className = "law-wanted";
         H.hudSlot("right").appendChild(hudEl);
+        H.objective(hudEl, { prio: H.OBJ.chase, id: "chase", icon: "🚨" });      // (ci/hud: the play HUD's objective line)
     }
     // a clean GTA-style star row: lit stars, dim slots; the lit ones FLASH while the cops search for her
     const prev = +(hudEl.dataset.stars || 0);

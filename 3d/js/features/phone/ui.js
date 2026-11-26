@@ -164,7 +164,7 @@ function homeHello() {
     const G = ctx.G;
     if (ctx.foot && ctx.foot.active) return "🚶‍♀️ on foot";
     if (ctx.hustle && ctx.hustle.job) { const d = ctx.hustle.job.def || {}; return `💼 on the clock · ${d.emoji || ""} ${esc(d.name || "")}`; }
-    if (G.mode === "story" && ctx.trip && ctx.trip.label) return `📖 ${esc(ctx.trip.label())}`;
+    if (G.mode === "story" && ctx.trip && ctx.trip.label && ctx.trip.label()) return `📖 ${esc(ctx.trip.label())}`;
     if (G.mode === "cruise") return `🛣️ cruising · ${Math.max(0, (ctx.car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`;
     return "";
 }

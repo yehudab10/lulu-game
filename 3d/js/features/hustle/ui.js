@@ -140,6 +140,7 @@ function ensureBox() {
     box.innerHTML = `<div class="hs-obj"><span class="ic"></span><span class="tx"></span><span class="tm"></span></div>` +
         `<div class="hs-dist hud-secondary"><span class="ar">▲</span><span class="dv"></span></div><div class="hs-meters"></div>`;
     H.hudSlot("center").appendChild(box);
+    H.objective(box, { prio: H.OBJ.timed, id: "job", badge: ".tm" });      // (ci/hud: the play HUD's objective line)
     el.obj = box.querySelector(".hs-obj"); el.ic = box.querySelector(".ic"); el.tx = box.querySelector(".tx"); el.tm = box.querySelector(".tm");
     el.dist = box.querySelector(".hs-dist"); el.ar = box.querySelector(".ar"); el.dv = box.querySelector(".dv"); el.meters = box.querySelector(".hs-meters");
     for (const k of Object.keys(last)) last[k] = k === "low" ? null : "";

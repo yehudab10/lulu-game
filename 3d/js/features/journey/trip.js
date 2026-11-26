@@ -118,7 +118,7 @@ let chip = null;
 function updateChip() {
     const show = isStory() && !ctx.G.jDone && task.cur && ["playing", "intro", "storyTalk"].includes(ctx.state);
     if (!show) { if (chip) { chip.remove(); chip = null; } return; }
-    if (!chip) { chip = document.createElement("div"); chip.className = "hud-chip jtask"; H.hudSlot("center").prepend(chip); }
+    if (!chip) { chip = document.createElement("div"); chip.className = "hud-chip jtask"; H.hudSlot("center").prepend(chip); H.objective(chip, { prio: H.OBJ.errand, id: "story" }); }
     const met = taskMet();
     const txt = `${met ? "⭐" : "☆"} ${taskLine()}`;
     if (chip.dataset.t !== txt) { chip.dataset.t = txt; chip.textContent = txt; chip.classList.toggle("met", met && task.cur.id !== "avigail" && task.cur.id !== "vegas"); }
@@ -134,6 +134,8 @@ function setTripIcon(icon) {
     if (el && el.textContent !== icon) el.textContent = icon;
 }
 ctx.trip = {
+    /** How much the trip bar matters on a phone's objective line (ci/hud): a story leg is an errand. */
+    get prio() { return isStory() && !ctx.G.jDone ? H.OBJ.errand : null; },
     progress() {
         const G = ctx.G;
         if (!isStory() || G.jDone) return 1;
@@ -142,7 +144,7 @@ ctx.trip = {
     },
     label() {
         const G = ctx.G, car = ctx.car;
-        if (!isStory() || G.jDone) return `${G.jDone ? "ENDLESS CRUISE" : "CRUISE"} · ${Math.max(0, (car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`;
+        if (!isStory() || G.jDone) return null;      // (the open road: app.js shows the next exit + how far — ci/hud)
         const st = curStop();
         if (G.jArriving) return `${st.icon} ARRIVED!`;
         const rem = Math.max(0, stopAt(curLeg()) - car.s);

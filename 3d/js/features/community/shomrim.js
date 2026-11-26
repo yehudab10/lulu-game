@@ -174,7 +174,7 @@ export function witness(reason, r = 55, chance = 0.25) {
 // ── the contextual chip: "📞 calling it in…" (only while THEY lead) ──────
 function showChip(ch) {
     if (!ch) { if (chip) { chip.remove(); chip = null; } return; }
-    if (!chip) { chip = document.createElement("div"); chip.className = "cm-chip"; H.hudSlot("center").appendChild(chip); }
+    if (!chip) { chip = document.createElement("div"); chip.className = "cm-chip"; H.hudSlot("center").appendChild(chip); H.objective(chip, { prio: H.OBJ.mission, id: "shomrim" }); }
     const k = clamp(1 - ch.callT / ((ch.cfg.shomrim.callIn[0] + ch.cfg.shomrim.callIn[1]) / 2), 0, 1);
     const html = `🔦 SHOMRIM · ${ch.unseenT > 0.3 ? "lost sight…" : "calling it in…"}<i><b style="width:${(k * 100).toFixed(0)}%"></b></i>`;
     if (chip.dataset.h !== html) { chip.dataset.h = html; chip.innerHTML = html; }

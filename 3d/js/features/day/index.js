@@ -200,7 +200,8 @@ function chipTick() {
     const back = t && t.far == null && t.s != null && t.s < hwS();
     const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${back ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!") : "";
     const txt = `📝 Ima's list <span class="ok">${n}/${DAY.list.length}</span><small>${t ? t.label + dist : ""}</small>`;
-    if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = ""; }
+    if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = "";
+        H.objective(S.chip, { prio: H.OBJ.list, id: "day", icon: "📝", badge: ".ok" }); }
     if (txt !== S.chipText) { S.chipText = txt; S.chip.innerHTML = txt; }
 }
 function beacon() {

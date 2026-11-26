@@ -341,7 +341,7 @@ function chip(n) {
     else if (n && n.kind === "rest") html = `<span class="exits-chip rest hud-secondary">🅿️ REST AREA <small>· ${miles(n.a)} · ⛽🍔🚻</small></span>`;
     if (html === chipHtml) return;
     chipHtml = html;
-    if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "exits-wrap"; H.hudSlot("center").appendChild(chipEl); }
+    if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "exits-wrap"; H.hudSlot("center").appendChild(chipEl); H.objective(chipEl, { prio: H.OBJ.info, id: "exit", badge: false }); }
     chipEl.innerHTML = html;
 }
 

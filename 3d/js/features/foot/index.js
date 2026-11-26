@@ -2026,7 +2026,7 @@ function hud() {
     if (t !== chipText) { chipText = t; chipEl.innerHTML = t; }
     const ch = F.chase;
     if (ch && !ch.giveUp) {
-        if (!chaseEl) { chaseEl = document.createElement("div"); chaseEl.className = "foot-chase"; H.hudSlot("center").appendChild(chaseEl); }
+        if (!chaseEl) { chaseEl = document.createElement("div"); chaseEl.className = "foot-chase"; H.hudSlot("center").appendChild(chaseEl); H.objective(chaseEl, { prio: H.OBJ.chase, id: "footchase" }); }
         const gp = clamp(ch.dist / 32, 0, 1);
         const col = gp > 0.6 ? "#7CFC4F" : gp > 0.3 ? "#FFD740" : "#FF5252";
         chaseEl.innerHTML = `🚨 COP CHASING — RUN! ⚡ <small>${glyph("boost")} sprint</small><div class="meter"><i style="width:${(gp * 100).toFixed(0)}%;background:${col}"></i></div>${ch.dist > 32 ? "<small>KEEP GOING! 🏃‍♀️</small>" : "<small>distance</small>"}`;

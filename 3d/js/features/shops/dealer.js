@@ -283,7 +283,7 @@ export function startTest(k) {
 function canTestFrom() { return canShop() && !party() && (ctx.foot.ownCar === "parked" || ctx.foot.ownCar === "ok"); }
 function chip(text) {
     if (!text) { if (TD.chip) { TD.chip.remove(); TD.chip = null; } return; }
-    if (!TD.chip) { TD.chip = document.createElement("div"); TD.chip.className = "day-chip shops-chip"; H.hudSlot("left").appendChild(TD.chip); }
+    if (!TD.chip) { TD.chip = document.createElement("div"); TD.chip.className = "day-chip shops-chip"; H.hudSlot("left").appendChild(TD.chip); H.objective(TD.chip, { prio: H.OBJ.errand, id: "testdrive" }); }
     if (TD.chip.dataset.t !== text) { TD.chip.dataset.t = text; TD.chip.innerHTML = text; }
 }
 function testTick(dt) {

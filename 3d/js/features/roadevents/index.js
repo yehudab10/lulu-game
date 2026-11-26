@@ -196,7 +196,8 @@ const shown = {};
 function badge(id, html, frac, low) {
     let el = badges.querySelector(`[data-b="${id}"]`);
     if (html == null) { if (el) el.remove(); shown[id] = null; return; }
-    if (!el) { el = document.createElement("div"); el.className = "re-badge"; el.dataset.b = id; el.innerHTML = `<span></span><div class="bar"><i></i></div>`; badges.appendChild(el); }
+    if (!el) { el = document.createElement("div"); el.className = "re-badge"; el.dataset.b = id; el.innerHTML = `<span></span><div class="bar"><i></i></div>`; badges.appendChild(el);
+        H.objective(el, { prio: H.OBJ.bonus, id: "re-" + id, badge: e => { const m = e.textContent.match(/(\d+)s\s*$/); return m ? m[1] + "s" : ""; } }); }
     if (shown[id] !== html) { el.firstChild.innerHTML = html; shown[id] = html; }
     el.querySelector("i").style.width = (clamp(frac, 0, 1) * 100).toFixed(0) + "%";
     el.classList.toggle("low", !!low);
