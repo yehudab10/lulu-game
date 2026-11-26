@@ -36,7 +36,7 @@ module.exports = {
     const apps = await g(`ctx.phone.apps()`);
     // (other features add theirs: 👯 Friends, 📍 Nearby, 📞 Phone… — the full game keeps it to 9 (calls / onegame / day check that;
     //  🗞️ Kvetch is a pinned row in 💬 Messages, ctx.phone.addPin); the grid still goes 4 across past 9 so a 10th never falls off)
-    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 12, one screen)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 12, apps.join(","));
+    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 12, one screen)", (apps.includes("map") || apps.includes("lapmap")) && ["messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 12, apps.join(","));
     t.check("the grid shows them as big icons", await t.L(`document.querySelectorAll("#screenCard .lp-app").length`) === apps.length);
     const sA = await g(`ctx.car.s`);
     await t.frames(10);
@@ -57,7 +57,8 @@ module.exports = {
     // ── controller: L3 (Xbox: no touchpad) + touchpad, D-pad focus, ✕ / ○ ─────
     await t.tap(17);
     t.check("controller touchpad opens the phone", await isOpen());
-    t.check("…focus starts on the first app (🗺️ Map)", await focusApp() === "map", await focusApp());
+    const fa = await focusApp();
+    t.check("…focus starts on the first app (🗺️ Map)", fa === "map" || fa === "lapmap", fa);
     // the grid runs in app order (map, messages, then whatever comes next — 📍 Nearby when openworld is in)
     await t.tap(15);
     t.check("D-pad → moves to 💬 Messages", await focusApp() === "messages", await focusApp());
@@ -151,7 +152,20 @@ module.exports = {
     t.check("keyboard T still changes station (no phone needed)", (await t.key("KeyT"), await g(`ctx.hustle.radio.station`)) === "lounge");
     await g(`ctx.hustle.radio.tune("auto")`);
 
-    // ── 🗺️ Map: the old story map, over the live run ───────────────────────
+    // ── 🗺️ Map: on the one world's lap (a Cruise — ci/onemap) the ONE map: the 16 km loop with every place, real miles ──
+    // (while the Story Trip is hidden — this test switches it on for the story map below)
+    await t.L(`import("./js/features/onegame/switches.js").then(m => { m.ONEGAME.story = false; return true; })`);
+    t.check("Map (one world): the lap map is the 🗺️ while the Story is hidden", (await g(`ctx.phone.apps()`)).includes("lapmap") && !(await g(`ctx.phone.apps()`)).includes("map"));
+    await t.key("Tab");
+    await clickSel("#lpa_lapmap");
+    await t.frames(4);
+    t.check("…the lap as a ring + the places with how far up the road", await t.L(`!!document.querySelector("#screenCard canvas.lp-lapmap") && document.querySelectorAll("#screenCard .lp-row").length >= 2 && /\\d+\\.\\d mi|NOW/.test(document.getElementById("screenCard").textContent)`), await t.L(`document.getElementById("screenCard").textContent.slice(0, 200)`));
+    await t.shot("lapmap");
+    await t.key("Tab");
+    await t.frames(4);
+    await t.L(`import("./js/features/onegame/switches.js").then(m => { m.ONEGAME.story = true; return true; })`);
+    // ── 🗺️ Map: the old story map, over the live run (the Story Trip's road — not on the lap) ──────
+    if (await g(`ctx.phone.apps().includes("map")`)) {
     await t.key("Tab");
     const before = await g(`({ s: ctx.car.s, rt: ctx.G.runTime, mode: ctx.G.mode })`);
     await clickSel("#lpa_map");
@@ -165,6 +179,7 @@ module.exports = {
     const after = await g(`({ s: ctx.car.s, rt: ctx.G.runTime, mode: ctx.G.mode, mark: ctx.G.__phoneMark })`);
     t.check("○ comes straight back to the same drive", await g(`ctx.state === "playing" && !ctx.view`) && after.mark === 1 && after.mode === before.mode && after.rt - before.rt < 0.5, JSON.stringify([before, after]));
     t.check("…with the HUD back", await t.L(`!document.getElementById("hud").classList.contains("hidden")`));
+    }
 
     // ── 📸 Camera: photo mode ─────────────────────────────────────────────
     await t.key("Tab");

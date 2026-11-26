@@ -323,10 +323,24 @@ export function wantedSite() {
     // (the highway cul-de-sac is only a fallback now: no town engine / towns switched off (?test without "town") — the
     //  real game always has Midwood; if its models never load, a day just starts on the road, as before)
     if (!H || typeof T.spotOf !== "function" || !ctx.enabled("town")) return { site: "highway" };
+    const ex = FOLLOW != null ? FOLLOW : H.exitS;
     let sp = null;
-    try { sp = T.spotOf(H.town, "luluHome", H.exitS); } catch (e) { sp = null; }
-    return sp ? { site: "town", spot: sp, town: H.town, exitS: H.exitS } : { site: "pending", town: H.town, exitS: H.exitS };
+    try { sp = T.spotOf(H.town, "luluHome", ex); } catch (e) { sp = null; }
+    return sp ? { site: "town", spot: sp, town: H.town, exitS: ex } : { site: "pending", town: H.town, exitS: ex };
 }
+/** 🌍 One world (ci/onemap): the highway is a lap, and every lap's Midwood is the same town standing at that lap's exit —
+ *  so her house stands in the copy she's heading into (built ~900 m before its exit) or warped to; a lap on, her lot
+ *  on E 34th St isn't empty. Back on the title it's the first lap's again (the home start). null = the town's home. */
+let FOLLOW = null;
+function followTown(e) {
+    const H = ctx.town && ctx.town.home;
+    if (!e || e.exitS == null || !H || e.town !== H.town || home.site !== "town" || ctx.state === "title") return;
+    if (home.exitS != null && Math.abs(e.exitS - home.exitS) < 1) return;
+    FOLLOW = e.exitS;
+    try { if (relocate()) houseColliders(); } catch (err) { console.error("[world] home", err); }
+}
+on("town:built", followTown);
+on("town:enter", followTown);
 /** Drop whatever is built (people, house, street) — before building home somewhere else. */
 function dropHome() {
     const g = home.group;
@@ -728,6 +742,7 @@ on("chunk:build", ({ chunk }) => {
 
 /** Back to the title: home. First boot = already parked; after a run she drives up and parks. */
 export function onTitle(from) {
+    if (FOLLOW != null) { FOLLOW = null; try { relocate(); } catch (e) { console.error("[world] home", e); } }
     if (!home.ready) return;
     home.camSnap = from === "loading" || home.camSnap;
     makeLulu();

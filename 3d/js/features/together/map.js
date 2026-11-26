@@ -2,11 +2,13 @@
 // One clean picture + one row per friend:
 //   • in a town: the town's streets from above (north up), the ramps out, me (a white arrow) and every friend in
 //     town as a small dot in their colour with their name; a friend inside a house sits at its door (🏠)
-//   • on the highway: the road as one straight strip (ahead = up), the town exits on it, me, and every friend on
-//     the highway or in a town (at that town's exit)
+//   • on the highway: the ONE map — the whole 16 km lap as a ring (world/lapmap.js, ci/onemap): every place once, me,
+//     and every friend on the highway or in a town (at that town's exit)
 // Tap a dot or a row → a DESTINATION: one soft beam over that friend in the world + their pointer stays on with
 // the distance (features/together/index.js). Tap it again → cleared. Plus the 🧭 pointers switch.
 import { ctx, css } from "../../core/ctx.js";
+import { lapS } from "../../world.js";
+import { drawLap } from "../world/lapmap.js";
 import { locateAll, locate, myPos, myZone, zoneOf, townName, friendHex, friends, townExits, fmtDist, toL } from "./where.js";
 
 css("together-map", `
@@ -98,44 +100,15 @@ function draw(cv, list, dest) {
         meArrow(px(me.x, me.z), py(me.x, me.z), -(h + (plan.ROT || 0)));
         return pts;
     }
-    // ── the highway: one straight strip, ahead = up — zoomed to fit the friends (and the next exit) ──
-    const s0 = ctx.car.s, cx = W * 0.4;
-    let far = 300;
-    for (const l of list) { const s1 = hwyS(l); if (s1 != null) far = Math.max(far, Math.abs(s1 - s0) * 1.25); }
-    const nx = (ctx.town && ctx.town.exits ? ctx.town.exits : []).filter(e => e.s > s0).sort((a, b) => a.s - b.s)[0];
-    if (nx && nx.s - s0 < 4000) far = Math.max(far, (nx.s - s0) * 1.15);
-    const span = Math.min(6000, far);
-    const py = s => Hh / 2 - (s - s0) / span * (Hh / 2 - 14 * U);
-    g.fillStyle = "#9E9E9E"; g.fillRect(cx - 7 * U, 0, 14 * U, Hh);
-    g.strokeStyle = "#FFD54F"; g.lineWidth = 1.5 * U; g.setLineDash([6 * U, 8 * U]);
-    g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, Hh); g.stroke(); g.setLineDash([]);
-    const exits = ctx.town && ctx.town.exits ? ctx.town.exits : [];
-    const seen = new Set();
-    g.font = `700 ${11 * U}px Fredoka, Arial, sans-serif`; g.textBaseline = "middle";
-    for (const e of exits) {
-        const y = py(e.s);
-        if (y < -10 || y > Hh + 10) continue;
-        const k = Math.round(e.s) + ":" + e.town;
-        if (seen.has(k)) continue;
-        seen.add(k);
-        const off = [...seen].filter(q => q.startsWith(Math.round(e.s) + ":")).length - 1;
-        const ly = y + (8 + off * 14) * U;
-        g.strokeStyle = "#9E9E9E"; g.lineWidth = 5 * U; g.beginPath(); g.moveTo(cx + 7 * U, y); g.lineTo(cx + 26 * U, ly); g.stroke();
-        g.fillStyle = "#2b1b2e"; g.textAlign = "left";
-        g.fillText(`${e.emoji || "🏙️"} ${e.name}`, cx + 30 * U, ly);
-    }
+    // ── the highway: the ONE map (ci/onemap stage 3) — the whole 16 km lap as a ring, every place once (world/lapmap.js),
+    //    me on it, every friend on the highway at their lap metre (in a town: at its exit) ──
+    const dots = [];
     for (const l of list) {
         const s1 = hwyS(l);
         if (s1 == null) continue;
-        let x = cx;
-        if (!l.zone) { const p = ctx.party.peer(l.uid), sm = p && p.samples && p.samples.length ? p.samples[p.samples.length - 1] : null; if (sm) x = cx + Math.max(-6, Math.min(6, sm.d)) * U; }
-        else x = cx + 30 * U;
-        const y = py(s1), cl = Math.max(12 * U, Math.min(Hh - 12 * U, y));
-        dot(x, cl, l.hex, l.name + (y < 0 ? " ↑" : y > Hh ? " ↓" : ""), l.uid === dest, l.inside ? "🏠" : l.foot ? "🚶‍♀️" : "");
-        pts.push({ uid: l.uid, x, y: cl });
+        dots.push({ uid: l.uid, m: lapS(s1), hex: l.hex, name: l.name + (l.inside ? " 🏠" : l.foot ? " 🚶‍♀️" : ""), here: !l.zone });
     }
-    meArrow(cx, py(s0), 0);
-    return pts;
+    return drawLap(cv, { me: { m: lapS(ctx.car.s) }, dots });
 }
 
 /** The app's screen. tg = the together service (destination + the switch). */

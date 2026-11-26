@@ -383,6 +383,8 @@ module.exports = {
       const one = o => Object.values(o).every(v => v.length === 1);
       t.check("every town's exit is at the same lap metre every lap", one(per.towns) && Object.keys(per.towns).length === 2, JSON.stringify(per.towns));
       t.check("…and every rest area: the same name at the same lap metre, lap after lap", one(per.rests) && Object.keys(per.rests).length === 2 && per.laps >= 3, JSON.stringify(per));
+      const addr = await g(`[...new Set(ctx.exits.debug.RS.list.map(R => R.address))]`);
+      t.check("…with a fixed address per rest area (hw:rest:0 / hw:rest:1, never a metre)", addr.length === 2 && addr.includes("hw:rest:0") && addr.includes("hw:rest:1"), JSON.stringify(addr));
       await g(`L3.setState("title")`);
     });
   },
