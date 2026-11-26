@@ -101,6 +101,26 @@ export function stopRide(quiet = false, opts = {}) {
     return true;
 }
 
+/** The driver crossed an ATTACHED town's line (it stands at its interchange, right here): she crosses with them at once,
+ *  right where she sits — the same seamless line as driving it herself. (A warp after the 0.8 s wait below froze her car
+ *  and then jumped it the ~12 m the driver had gone on — qafriends.) → true when she's on their side of the line now. */
+function crossWith(p) {
+    const T = ctx.town, z = E.zoneOfPeer(p), car = ctx.car;
+    if (!T || !T.enter) return false;
+    try {
+        if (z && !T.active) {
+            const b = (T.standing || []).find(x => x.town === z && x.ready && (!p.x || !p.x.ex || Math.abs(x.exitS - p.x.ex) < 1));
+            if (!b) return false;
+            T.enter({ town: z, exitS: b.exitS, at: { x: car.pos.x, z: car.pos.z, h: car.h }, speed: car.vF, quiet: true });
+        } else if (!z && T.active && T.attached) {
+            const hint = T.highwayS != null ? T.highwayS : car.s;     // (a town s is 500 km down the highway)
+            T.leave("warp");                              // (nothing moves: the highway's road under her again)
+            const n = ctx.world.highway.nearest(car.pos.x, car.pos.z, hint, {});
+            car.s = n.s; car.d = n.d;
+        } else return false;
+    } catch (e) { console.warn("[openworld] ride: across the line", e); return false; }
+    return E.zoneOfPeer(p) === E.zone();
+}
 // the rider's car follows the driver's (after physics: hooks.update runs after the car step)
 hook("update", (dt, P) => {
     if (!RIDE.uid) return;
@@ -114,6 +134,7 @@ hook("update", (dt, P) => {
     H.prompt(`${glyph("interact")} 🚪 Hop out`);
     hideCar(true);
     if (p && E.zoneOfPeer(p) !== E.zone()) {             // they took the exit: come along
+        if (crossWith(p)) { RIDE.lost = 0; return; }
         RIDE.lost += dt;
         if (RIDE.lost > 0.8) { RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); }
         return;
