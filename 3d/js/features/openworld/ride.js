@@ -16,7 +16,7 @@ import { input, glyph, rumble, addTouchButton } from "../../input.js";
 import * as H from "../../hud.js";
 import { tone } from "../parking/sfx.js";
 
-export const RIDE = { uid: null, t: 0, seats: new Map(), lost: 0, hidden: null };
+export const RIDE = { uid: null, t: 0, seats: new Map(), lost: 0, hidden: null, gap: false, ox: 0, oz: 0 };
 /** The rider's own car out of sight (its children: core rewrites car.obj.visible every frame for the i-frame blink). */
 function hideCar(on) {
     const o = ctx.car.obj;
@@ -51,7 +51,7 @@ export function startRide(uid) {
     const p = ctx.party.peer(uid);
     if (!p || !ctx.party.fresh(p)) return "📶 Can't see them right now";
     if (E.zoneOfPeer(p) !== E.zone()) E.warpToFriend(uid);
-    RIDE.uid = uid; RIDE.t = 0; RIDE.lost = 0;
+    RIDE.uid = uid; RIDE.t = 0; RIDE.lost = 0; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; RIDE.last = null;
     E.setRide(uid);
     hideCar(true);
     H.banner(`<b>🚗 Riding with ${E.nameOf(uid)}</b><small>${glyph("interact")} hop out · honk to wave</small>`, 2600, { key: "ow", prio: 2 });
@@ -121,6 +121,16 @@ function crossWith(p) {
     } catch (e) { console.warn("[openworld] ride: across the line", e); return false; }
     return E.zoneOfPeer(p) === E.zone();
 }
+/** The driver's car isn't drawn this frame (its track refilling — a town line, a respawn): her seat rolls on at its speed
+ *  rather than standing still (a frozen picture, then a jump to where the driver got to — qafriends). */
+function roll(dt) {
+    const car = ctx.car, L = RIDE.last;
+    // (from where she was last drawn — the car's own physics step may or may not have moved it this frame)
+    if (L) { car.pos.x = L.x + car.vx * dt; car.pos.z = L.z + car.vz * dt; car.h = L.h; }
+    RIDE.last = { x: car.pos.x, z: car.pos.z, h: car.h };
+    RIDE.gap = true;
+    car.syncObject();
+}
 // the rider's car follows the driver's (after physics: hooks.update runs after the car step)
 hook("update", (dt, P) => {
     if (!RIDE.uid) return;
@@ -134,14 +144,20 @@ hook("update", (dt, P) => {
     H.prompt(`${glyph("interact")} 🚪 Hop out`);
     hideCar(true);
     if (p && E.zoneOfPeer(p) !== E.zone()) {             // they took the exit: come along
-        if (crossWith(p)) { RIDE.lost = 0; return; }
+        if (crossWith(p)) { RIDE.lost = 0; roll(dt); return; }
+        roll(dt);
         RIDE.lost += dt;
-        if (RIDE.lost > 0.8) { RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); }
+        if (RIDE.lost > 0.8) { RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); RIDE.last = null; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; }   // (a warp is a cut: no glide back)
         return;
     }
-    if (!rc || !rc.shown) return;
+    if (!rc || !rc.shown) { roll(dt); return; }
     RIDE.lost = 0;
-    car.pos.set(rc.x, 0, rc.z); car.h = rc.h;
+    // (back from a gap: her seat glides onto the driver's car — never snaps — like a friend's car does, party/remote.js)
+    if (RIDE.gap) { RIDE.gap = false; RIDE.ox = car.pos.x - rc.x; RIDE.oz = car.pos.z - rc.z; if (Math.hypot(RIDE.ox, RIDE.oz) > 40) RIDE.ox = RIDE.oz = 0; }
+    const om = Math.hypot(RIDE.ox, RIDE.oz);
+    if (om > 0.01) { const cut = Math.min(om * (1 - Math.exp(-dt / 0.12)), (8 + 2 * om) * dt), f = (om - cut) / om; RIDE.ox *= f; RIDE.oz *= f; } else RIDE.ox = RIDE.oz = 0;
+    car.pos.set(rc.x + RIDE.ox, 0, rc.z + RIDE.oz); car.h = rc.h;
+    RIDE.last = { x: car.pos.x, z: car.pos.z, h: car.h };
     car.vx = rc.vx; car.vz = rc.vz; car.vF = rc.speed;
     const n = ctx.world.road.nearest(rc.x, rc.z, car.s, {});
     car.s = n.s; car.d = n.d;
