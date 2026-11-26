@@ -913,7 +913,8 @@ on("boot", () => {
     const kvNew = () => (LIFE.live.length - S.readLive > 0 ? LIFE.live.length - S.readLive : null);
     if (ctx.phone && ctx.phone.addPin) {
         try {
-            ctx.phone.addPin({ id: "town", order: 70, visible: kvVisible,
+            ctx.phone.addPin({ id: "town", order: 70, visible: () => false && kvVisible(),      // (ci/hud landing 3: the gossip is out of the phone — the town's own signs + people keep the jokes)
+               
                 row: () => {
                     const L = (S.def || S.lastDef || townFor(0)).lines, top = LIFE.live[0] || L.KVETCH[0];
                     return { icon: "🗞️", color: "#5E35B1", title: L.KVETCH_TITLE || "The Kvetch", sub: top ? top.h : "local news nobody asked for", badge: kvNew() };
@@ -923,7 +924,7 @@ on("boot", () => {
     } else if (ctx.phone && ctx.phone.addApp) {
         try {
             ctx.phone.addApp({ id: "town", icon: "🗞️", name: "Kvetch", order: 70, color: "#5E35B1", color2: "#B39DDB",
-                visible: kvVisible, badge: kvNew,
+                visible: () => false, badge: kvNew,
                 render(el) { S.readLive = LIFE.live.length; el.innerHTML = kvetchHtml(); } });
         } catch (e) { console.warn("[town] phone app", e); }
     }

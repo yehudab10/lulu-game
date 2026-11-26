@@ -27,7 +27,7 @@ import { pause, setControlRow } from "../../core/screens.js";
 import * as H from "../../hud.js";
 import "./style.js";
 import { APPS, PH, PHONE_STATES, addApp, openPhone, closePhone, canOpen, openApp, refresh, buildCorner, refreshCorner, visibleApps, partyOn } from "./ui.js";
-import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines, addPin, pins } from "./inbox.js";
+import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines, addPin, pins, needs, shown } from "./inbox.js";
 import "./apps.js";
 import { ONEGAME } from "../onegame/switches.js";
 
@@ -42,7 +42,7 @@ phone.text = function text(opts = {}) {
     let el = null;
     if (bubble) { try { el = bubble(opts); } catch (e) { console.error("[phone] bubble", e); } }
     else H.toast(`💬 ${m.from}: ${m.msg}`, "pink");
-    if (el && el.addEventListener) {
+    if (el && el.addEventListener && m) {      // (a passing bubble that isn't kept in Messages opens nothing)
         el.style.cursor = "pointer";
         el.title = "Open in Messages";
         el.addEventListener("click", e => { e.stopPropagation(); if (!PH.open) openPhone("messages", { thread: m.k }); });
@@ -57,7 +57,7 @@ Object.assign(phone, {
     apps: () => visibleApps().map(a => a.id),
     /** Pinned rows showing in 💬 Messages now (ids). */
     pins,
-    inbox: { post, unread, threads, markRead, clear: clearInbox, get msgs() { return INBOX.msgs; }, familyLines },
+    inbox: { post, unread, threads, markRead, clear: clearInbox, get msgs() { return INBOX.msgs; }, familyLines, needs, shown },
     _dbg: { PH, APPS, view, canOpen, openApp, refresh },
 });
 Object.defineProperty(phone, "isOpen", { get: () => PH.open, configurable: true });
@@ -91,12 +91,19 @@ hook("hud", () => {
 // ── the corner button + the pause menu + the button guide ─────────────────
 on("boot", () => {
     buildCorner(() => { if (PH.open) closePhone(); else if (!openPhone()) pause(); });
-    refreshCorner(unread(), false);
+    refreshCorner(waiting(), false);
     // a tap outside the handset closes it
     const scr = document.getElementById("screen");
     if (scr) scr.addEventListener("click", e => { if (PH.open && e.target === scr) closePhone(); });
 });
-onInbox(() => refreshCorner(unread()));
+onInbox(() => refreshCorner(waiting()));
+// (the 📱 badge: only what waits for HER — kept messages she hasn't read + friends' requests / asks to join; never news)
+function waiting() {
+    let n = unread();
+    try { const F = ctx.friends; if (F) n += (F.joinAsks() || []).length + ["mp", "party", "code"].reduce((k, c) => k + ((F.incoming(c) || []).length || 0), 0); } catch (e) { /* no friends */ }
+    return n;
+}
+for (const ev of ["friends:asks", "friends:joinAsk", "friends:made"]) on(ev, () => refreshCorner(waiting()));
 on("device", () => refreshCorner(null, keyHint));
 on("state", ({ to }) => {
     document.body.classList.toggle("phone-ok", PHONE_STATES.has(to));
@@ -105,7 +112,7 @@ on("state", ({ to }) => {
 on("photo", ({ open }) => { if (open && PH.open) { PH.open = false; document.body.classList.remove("phone-open"); } });
 addMenuItem("pause", {
     id: "phone", order: 11, group: "tools", short: "Phone",
-    label: () => { const n = unread(); return `📱 Phone${n ? ` <span class="lp-pill">${n}</span>` : ""}`; },
+    label: () => { const n = waiting(); return `📱 Phone${n ? ` <span class="lp-pill">${n}</span>` : ""}`; },
     visible: () => PHONE_STATES.has(ctx.state),
     action: () => openPhone(),
 });

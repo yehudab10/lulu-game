@@ -41,7 +41,7 @@ module.exports = {
 
     t.check("ctx.town service is registered", await g(`!!(ctx.town && ctx.town.enter && ctx.town.leave && ctx.town.blocksSight && ctx.town.copRoute && ctx.town.copSpawn)`));
     t.check("party: the town is ON (not in the OFF set — partyplus tests it)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"town"/.test(m[1]); })`));
-    t.check("the phone has 🗞️ Kvetch (local news) — a pinned row in 💬 Messages, not a 10th app", await g(`!ctx.phone || !ctx.phone.pins || (ctx.phone.pins().includes("town") && !ctx.phone.apps().includes("town"))`));
+    t.check("🗞️ Kvetch (local gossip) is out of the phone (ci/hud: only what's useful to the player)", await g(`!ctx.phone || !ctx.phone.pins || (!ctx.phone.pins().includes("town") && !ctx.phone.apps().includes("town"))`));
     t.check("the town is data: Lakewood's streets come from towns/lakewood.js", await g(`ctx.town.streets.includes("Route 9") && ctx.town.streets.includes("Main St") && !!ctx.town.towns.lakewood`));
 
     // ── 1. busy Cruise baseline (for the perf comparison) ────────────────

@@ -35,7 +35,8 @@ export function addApp(def) {
     return app;
 }
 const shown = a => { try { return !a.visible || !!a.visible(); } catch (e) { return false; } };
-export const visibleApps = () => APPS.filter(shown);
+// (an app with home: false is not on the home screen — another app opens it: 📍 Nearby from 👯 Friends, 🎨 from 💼 Jobs)
+export const visibleApps = () => APPS.filter(a => a.home !== false && shown(a));
 function badgeOf(a) {
     if (!a.badge) return null;
     try { const b = a.badge(); return b === 0 || b == null || b === "" || b === false ? null : b; } catch (e) { return null; }

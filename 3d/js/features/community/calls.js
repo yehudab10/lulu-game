@@ -178,7 +178,7 @@ export function registerApp() {
     if (!ctx.phone || !ctx.phone.addApp) return;
     ctx.phone.addApp({
         // (right after 💬 Messages — where a phone's Phone app sits; the old 🏡 Family app is a contact in here now)
-        id: "community", icon: "📞", name: "Phone", order: 22, color: "#43A047", color2: "#3949AB",
+        id: "community", icon: "📞", name: "Contacts", order: 22, color: "#43A047", color2: "#3949AB",
         visible: () => !(ctx.party && ctx.party.active) || ctx.enabled("community"),
         badge: () => (CM.scene && CM.scene.phase === "wait" ? "!" : null),
         back(api) { if (CM.view) { CM.view = null; api.refresh(); return true; } return false; },

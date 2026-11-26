@@ -238,7 +238,7 @@ export function registerApps(engine) {
     const tryAdd = () => {
         if (!ctx.phone || !ctx.phone.addApp) return false;
         ctx.phone.addApp({
-            id: "owparty", icon: "👯", name: "Friends", order: 15, color: "#7E57C2", color2: "#E91E63",
+            id: "owparty", icon: "👯", name: "Friends", order: 5, color: "#7E57C2", color2: "#E91E63",
             visible: () => E.roam(),
             badge: () => { const g = E.getG(); return g && g.ph === "go" ? "!" : null; },
             render(el, api, arg) {
@@ -251,7 +251,8 @@ export function registerApps(engine) {
             back(api) { if (V.party) { V.party = null; api.open("owparty", null); return true; } return false; },
         });
         ctx.phone.addApp({
-            id: "nearby", icon: "📍", name: "Nearby", order: 25, color: "#039BE5", color2: "#00897B",
+            id: "nearby", icon: "📍", name: "Nearby", order: 25, home: false,      // (ci/hud: opened from 👯 Friends)
+            color: "#039BE5", color2: "#00897B",
             badge: () => (E.pinned ? "•" : null),
             render(el, api, arg) {
                 V.nearby = arg || null;

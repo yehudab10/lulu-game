@@ -69,7 +69,7 @@ export function tick() {
         log({ ev: "doubleBooked", id, n: back });
         saveSoon();
         emit("realestate:owner", { id, from: "lulu", to: null, price: back, why: "doubleBooked", address: h.address, town: h.town });
-        try { ctx.phone.text({ from: "👩‍💼 Your realtor", emoji: "🏘️", msg: `OY. ${o.name} signed for ${h.address} a minute before you. Double-booked! Every coin's back in your pocket — ${back}. Come see me, I'll find you something BETTER. 💕`, dur: 4.6 }); } catch (e) { /* no phone */ }
+        try { ctx.phone.text({ from: "👩‍💼 Your realtor", need: true, emoji: "🏘️", msg: `OY. ${o.name} signed for ${h.address} a minute before you. Double-booked! Every coin's back in your pocket — ${back}. Come see me, I'll find you something BETTER. 💕`, dur: 4.6 }); } catch (e) { /* no phone */ }
         changed = true;
     }
     if (changed) registry.changed({ id: null, why: "friends" });

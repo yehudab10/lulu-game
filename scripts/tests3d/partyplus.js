@@ -320,7 +320,7 @@ async function partyRun(t, guests) {
   const fr1 = await g(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`), fr2 = await A.game(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`);
   t.check("free roam: the seeded rest areas (between interchanges) match on both screens", JSON.stringify(fr1.rests) === JSON.stringify(fr2.rests), JSON.stringify({ fr1, fr2 }));
   t.check("town: the e-bikes ride in a party town", await g(`ctx.town.debug && ctx.town.debug.LIFE ? ctx.town.debug.LIFE.bikes.length > 0 : true`));
-  t.check("town: Kvetch (the local gossip, pinned in 💬 Messages) is on the phone in a party town", await g(`!ctx.phone || !ctx.phone.pins || ctx.phone.pins().includes("town")`));
+  t.check("town: Kvetch (the local gossip) is out of the phone in a party town too (ci/hud)", await g(`!ctx.phone || !ctx.phone.pins || !ctx.phone.pins().includes("town")`));
   await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
   await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 60000);
   // a minivan on its loop: stand 16 m ahead of it on its path (wait for one to be live near her first —

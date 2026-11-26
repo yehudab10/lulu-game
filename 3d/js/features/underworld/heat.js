@@ -41,7 +41,7 @@ export function addHeat(n, why = "") {
 }
 function fixerCool() {
     if (!live() || !ctx.phone || !ctx.phone.text || ctx.state !== "playing") return;
-    try { ctx.phone.text({ from: "THE FIXER", emoji: "🕶️", color: "#455A64", msg: FIXER.cool, thread: "fixer" }); } catch (e) { /* no phone */ }
+    try { ctx.phone.text({ from: "THE FIXER", emoji: "🕶️", color: "#455A64", msg: FIXER.cool, thread: "fixer", need: false }); } catch (e) { /* no phone */ }
 }
 
 // ── what heat does to the law (scaled tuning; restored exactly) ──────────

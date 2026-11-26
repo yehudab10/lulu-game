@@ -80,7 +80,7 @@ function jobsBlock() {
     return null;
 }
 addApp({
-    id: "jobs", icon: "💼", name: "Jobs", order: 40, color: "#FFA000", color2: "#E65100",
+    id: "jobs", icon: "💼", name: "Jobs", order: 15, color: "#FFA000", color2: "#E65100",
     visible: () => !!(ctx.hustle && ctx.hustle.start) && (!partyOn() || ctx.enabled("hustle")),
     badge: () => (ctx.streets && ctx.streets.chop && ctx.streets.chop.job ? "!" : null),
     render(el, api) {
@@ -100,7 +100,12 @@ addApp({
             html += `<p class="lp-fine">…or drive into a ringing ☎️ payphone.</p>`;
         }
         for (const x of JOB_EXTRAS) { try { html += x.html() || ""; } catch (e) { console.error("[phone] jobs extra", x.id, e); } }
+        // (🎨 Paint & Pray: one row here while she's wanted — it isn't an app of its own any more)
+        const paint = ctx.law && ctx.law.wanted > 0 && ctx.streets && ctx.streets.paint && ctx.streets.paint.nearest && !partyOn();
+        if (paint) html += `<button class="btn lp-row" id="lpPaint"><span class="lp-av" style="--c:#EC407A">🎨</span><span class="lp-tx"><b>Paint & Pray</b><small>Wanted? A new colour and the cops lose you.</small></span></button>`;
         el.innerHTML = html;
+        const pb = el.querySelector("#lpPaint");
+        if (pb) pb.addEventListener("click", () => api.open("paint"));
         for (const x of JOB_EXTRAS) { try { if (x.bind) x.bind(el, api); } catch (e) { console.error("[phone] jobs extra", x.id, e); } }
         el.querySelectorAll(".lp-job").forEach(b => b.addEventListener("click", () => {
             if (jobsBlock()) { api.toast(jobsBlock()); return; }
@@ -115,7 +120,8 @@ addApp({
 
 // 🎨 Paint & Pray (streets): where's the nearest booth?
 addApp({
-    id: "paint", icon: "🎨", name: "Paint & Pray", order: 50, color: "#EC407A", color2: "#6A1B9A",
+    id: "paint", icon: "🎨", name: "Paint & Pray", order: 50, home: false,      // (ci/hud: a row in 💼 Jobs while she's wanted, not an app)
+    color: "#EC407A", color2: "#6A1B9A",
     visible: () => !!(ctx.streets && ctx.streets.paint && ctx.streets.paint.nearest) && !partyOn(),
     render(el) {
         const p = ctx.streets.paint;
