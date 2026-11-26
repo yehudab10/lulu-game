@@ -154,9 +154,9 @@ async function body(t, guests) {
   if (await Hp.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "host goes into her house", 60000)) {
     // (roadmap 23 — Ima's house is family only: the guest walks into HER OWN copy at once, nobody waits)
     await A.until(`(() => { const pr = ctx.party.presenceOf(${HU}); return !!pr && pr.label === "at home"; })()`, "guest knows the host is home", 30000);
-    await W.reset(AW);
     const door = await g(`ctx.decor.debug.spotAt("door")`);
     await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
+    await W.reset(AW);          // (after the test's own teleport to the door — the watchdog would call it a jump)
     await A.game(`ctx.decor.enter()`);
     t.check("a friend at Ima's door while the host is inside: straight into her own copy", await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest's own copy", 60000));
     await A.frames(60);
