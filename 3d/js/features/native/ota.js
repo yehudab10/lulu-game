@@ -24,7 +24,7 @@ import * as H from "../../hud.js";
 import { isNative, plugin, call } from "./cap.js";
 
 export const OTA = {
-    manifestUrl: "https://raw.githubusercontent.com/yehudab10/lulu-game/ota/stable.json",
+    manifestUrl: "https://raw.githubusercontent.com/yehudab10/lulu-game/refs/heads/ci/ios-ota-verify/ota-test/broken.json",
     // files may only come from these (every one is SHA-256 checked anyway)
     bases: ["https://raw.githubusercontent.com/yehudab10/lulu-game/", "https://lulu.boats/"],
     firstCheckMs: 20000,       // after the game is up (not during the loading screen)
