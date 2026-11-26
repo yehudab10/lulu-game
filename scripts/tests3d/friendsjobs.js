@@ -145,7 +145,8 @@ async function body(t, pages) {
   t.check("…A gets her once-a-day item coins (as solo)", paid, `${a1} → ${await A.game(COINS)}`);
   // the rest done on A's screen, then home for dinner
   await A.L(`import("./js/features/day/index.js").then(m => { for (const id of m.DAYX.DAY.list) m.DAYX.bump(id, 5); return true; })`);
-  await A.game(`(() => { const P = ctx.places.home.park; ctx.car.place(P.x, P.z, P.h || 0); ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+  // (a teleport inside a town must also set her road position, or the town engine reads the old one and takes her out)
+  await A.game(`(() => { const P = ctx.places.home.park, c = ctx.car, n = ctx.world.road.nearest(P.x, P.z, c.s, {}); c.place(P.x, P.z, P.h || 0); c.s = n.s; c.d = n.d; c.vx = c.vz = 0; c.vF = 0; return true; })()`);
   const home = await A.until(`ctx.day.home`, "A: home for dinner", 30000);
   const hd = await A.game(`(() => { const P = ctx.places.home.park, c = ctx.car; return { d: P ? +Math.hypot(c.pos.x - P.x, c.pos.z - P.z).toFixed(1) : -1, st: ctx.state, sp: +(c.speed || 0).toFixed(2), town: ctx.town.id, zone: ctx.openworld.zone, active: ctx.day.active, done: ctx.day.complete, home: ctx.day.home }; })()`);
   t.check("A pulls into her driveway → home for dinner (and stays in the group)", home && await A.game(`ctx.party.active && ctx.party.activity.k === "roam"`), JSON.stringify(hd));
