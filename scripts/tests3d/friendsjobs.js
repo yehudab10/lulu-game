@@ -145,9 +145,20 @@ async function body(t, pages) {
   t.check("…A gets her once-a-day item coins (as solo)", paid, `${a1} → ${await A.game(COINS)}`);
   // the rest done on A's screen, then home for dinner
   await A.L(`import("./js/features/day/index.js").then(m => { for (const id of m.DAYX.DAY.list) m.DAYX.bump(id, 5); return true; })`);
-  await A.game(`(() => { const P = ctx.places.home.park; ctx.car.place(P.x, P.z, P.h || 0); ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+  // (her home is on its lot in Midwood since ci/hometown: into Midwood first — its models by name — then into the driveway)
+  await A.game(`(ctx.town.load && ctx.town.load("midwood"), true)`);
+  await A.until(`!ctx.town.loaded || ctx.town.loaded("midwood")`, "A: Midwood's models", 120000);
+  if (!await A.game(`ctx.town.active && ctx.town.id === "midwood"`)) {
+    if (await A.game(`ctx.town.active`)) await A.game(`(ctx.town.leave("reset"), true)`);
+    await A.game(`(ctx.town.enter({ town: "midwood", exitS: ctx.town.exitOf ? ctx.town.exitOf("midwood") : undefined, speed: 0 }), true)`);
+  }
+  await A.until(`ctx.town.active && ctx.town.id === "midwood" && !!ctx.places.home.park`, "A: in Midwood, her home's driveway there", 60000);
+  t.check("with friends, her home is there in Midwood (the list can end)", await A.game(`!!ctx.places.home.park && ctx.party.active && ctx.town.id === "midwood"`));
+  // (a teleport inside a town must also set her road position, or the town engine reads the old one and takes her out)
+  await A.game(`(() => { const P = ctx.places.home.park, c = ctx.car, n = ctx.world.road.nearest(P.x, P.z, c.s, {}); c.place(P.x, P.z, P.h || 0); c.s = n.s; c.d = n.d; c.vx = c.vz = 0; c.vF = 0; return true; })()`);
   const home = await A.until(`ctx.day.home`, "A: home for dinner", 30000);
-  t.check("A pulls into her driveway → home for dinner (and stays in the group)", home && await A.game(`ctx.party.active && ctx.party.activity.k === "roam"`));
+  const hd = await A.game(`(() => { const P = ctx.places.home.park, c = ctx.car; return { d: P ? +Math.hypot(c.pos.x - P.x, c.pos.z - P.z).toFixed(1) : -1, st: ctx.state, sp: +(c.speed || 0).toFixed(2), town: ctx.town.id, zone: ctx.openworld.zone, active: ctx.day.active, done: ctx.day.complete, home: ctx.day.home }; })()`);
+  t.check("A pulls into her driveway → home for dinner (and stays in the group)", home && await A.game(`ctx.party.active && ctx.party.activity.k === "roam"`), JSON.stringify(hd));
   t.check("B gets Ima's thank-you at dinner", await B.until(`/Thank you for helping/.test(${BAN})`, "B: the thank-you", 30000));
   t.check("…and no coins for the helper (they're A's)", (await B.game(COINS)) === b1, `${b1} → ${await B.game(COINS)}`);
 }

@@ -50,6 +50,10 @@ app"), a copy that doesn't start is rolled back automatically, and if a bad chan
    `main`). What you should see and the three likely first-time errors: `IOS_BUILD.md` › *Press Start in Codemagic*.
    If it fails, copy the red step's log and paste it to an agent. (From now on Codemagic builds by itself only
    when something *native* changes; game changes go over the air.)
+   **How to tell whether you need to press Start yourself:** in the app, ⚙️ More → 📱 App 2.0.0 (build N) — if it
+   says *"Needs a newer app"*, the game on the server needs a newer build: press **Start new build** (then TestFlight).
+   Also, after an agent says "this change needs a new app build", look at Codemagic's **Builds** list: if no new build
+   started within a few minutes (or it's red), press **Start new build** yourself.
 
 3. **TestFlight on your iPhone.** App Store Connect → TestFlight → the new build → install with the TestFlight app.
    **First thing to check: the game's title screen appears and stays — no flashing or reloading over and over**

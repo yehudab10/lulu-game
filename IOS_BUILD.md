@@ -318,10 +318,43 @@ plugin. Never raise `minNative` for a web-only change — that freezes every ins
 says ready): offline first launch boots; a copy downloads only the changed file and is NOT used until the next
 launch; the next launch boots it; the save is untouched; a corrupted download is rejected; a copy needing a
 newer app is ignored with one note; a copy that never reaches the title is rolled back and never retried. The
-real plugin's native parts (hash checks, the timer) are its own code, read in its source but only testable on a
-device — check them once on TestFlight (see the checklist).
+real plugin's native parts (hash checks, the timer) are its own code.
+
+**Verified on a real iOS runtime (iPhone simulator, iOS 26.5, the REAL plugin — 26 Nov 2026).** The workflow
+`.github/workflows/verify-ota-iphone.yml` lives on the test branch `ci/ios-ota-verify` (push to that branch = a run).
+It builds the app exactly like Codemagic from an old commit (f852b84), with only one change: its updater reads a test
+channel on that branch. Run 45882346316:
+- built-in copy → title in ~10 s → `downloading 20261126.1915-6897d4b (~0.2 MB new)` → `ready for next launch` (2 s);
+- relaunch → `switching to …6897d4b` → `running …6897d4b` (4 s later; "OTA COPY B" on the title);
+- copy B downloads a deliberately broken copy C → relaunch → `switching to …9aac9a7` → the "didn't start" panel is on
+  screen ~20 s later → the plugin's own timer rolls back → `rolled back: …9aac9a7 never reached the title` → copy B's
+  title again;
+- relaunch → still copy B, C never retried.
+An earlier run (45877575841) also showed the REVERT brake working on the phone (`revert: back to the bundled copy`),
+and the game reaching its title BEHIND an unanswered tracking prompt (it never waits for the answer). The app's start
+itself (cold launch + relaunch reach the title) is checked on a test branch with
+`.github/workflows/verify-lulu-iphone.yml` before anything touching the start lands on `main`.
 
 ---
+
+## If the app doesn't start (no silent screens)
+A start that breaks before the game's own code runs can't be fixed over the air, so the pages the app opens guard
+themselves — plain ES5, no imports, inside the app only:
+- **Root `index.html`** (the launcher): counts its own loads in `sessionStorage`; on the 4th within 10 s it stops
+  redirecting and says *"The game keeps restarting before it opens"* with the app + game-copy version, **Try again** and
+  (for a downloaded copy) **Use the built-in copy**. The native test also checks that, in the app, the launcher's
+  target is a FILE that isn't itself (Capacitor iOS answers any folder address with the root page — the Nov 2026
+  TestFlight loop).
+- **`3d/index.html`** (the game page): if the game hasn't reached its first screen and its loading has STOPPED (15 s after it stalls when an error was caught, 90 s with no progress and no error — never just because a first boot is slow), a panel says
+  *"The game didn't start"* with the last errors it caught (scripts / files that failed to load), the app + game-copy
+  version and **Use the built-in copy** (marks that copy bad + resets the updater) · **Try again** · **Keep waiting**.
+  It disappears by itself if the game comes up.
+- **⚙️ More → 📱 App 2.0.0 (build N)** shows the installed build, the game copy, and *"Needs a newer app"* when the
+  stable channel needs a newer native build; tapping it checks for an update now.
+- **When does Codemagic build by itself?** On a push to `main` that changes a native file (`when: changeset` in
+  `codemagic.yaml`) — but only if Codemagic's webhook for this repo is connected, which can only be seen in the
+  Codemagic UI (app → Settings → Webhooks / the Builds list). Agents can't see Codemagic: after a native change,
+  check the Builds list, and press **Start new build** if nothing started.
 
 ## Press Start in Codemagic — the checklist
 

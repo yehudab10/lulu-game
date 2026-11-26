@@ -12,6 +12,8 @@
 // function of (the claim, the clock) like everything else here — and is hers to jack; once she drives off
 // in it, it's gone ("j"). Keys carry the town: "tw:<town>:<loop>:<n>".
 import { ctx, on } from "../../core/ctx.js";
+import { kindSpec } from "../../traffic.js";
+import { models } from "../../models.js";
 
 const LANE = 1.75, R = 5.5, V = 7, BUS_V = 5.6, FAR = 140;
 export const TT = { town: null, seed: 0, loops: [], cars: new Map(), plan: null, claims: new Map(), dead: new Set() };
@@ -164,6 +166,10 @@ export function syncTownTraffic(town, plan, seed) {
         if (TT.dead.has(k.key)) continue;                  // taken for good (jacked)
         let c = TT.cars.get(k.key);
         if (c && tr.cars.includes(c)) continue;
+        // (the town's own models load with the town — an attached town's zone can start before they're in: wait for them,
+        //  a missing model threw in traffic.make every frame — friendsjobs in Midwood, partyplus' loop minivan)
+        const spec = kindSpec(k.kind);
+        if (!spec || !models[spec.model || k.kind]) continue;
         c = tr.add(k.kind, ctx.car.s, LANE, 1, k.v, {
             ai, keep: true, immune: true,
             data: { party: k.key, key: k.key, owTown: true, loop: L, phase: k.phase, v: k.v, at: 0 },

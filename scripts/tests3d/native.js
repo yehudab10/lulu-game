@@ -190,6 +190,24 @@ module.exports = {
         replace: value => { target = new URL(value, url).href; },
       } });
       t.check("launcher preserves the invite from " + from, target === expected + "?party=ABC#join", target);
+      // in the app the target must be a FILE other than the launcher: Capacitor iOS answers any folder address
+      // (no extension) with the root page — that was the TestFlight launch loop
+      if (url.protocol === "capacitor:") {
+        const p = new URL(target).pathname;
+        t.check("launcher (app) never lands back on itself: " + p, /\.html$/.test(p) && p !== "/index.html" && p !== "/");
+      }
+    }
+    // …and if something ever does send it back to itself, it stops after a few rounds and says so (no endless flashing)
+    {
+      const store = {}, sessionStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+      let replaced = 0, noted = false;
+      for (let i = 0; i < 5; i++) {
+        const ctxv = { sessionStorage, location: { protocol: "capacitor:", search: "", hash: "", replace: () => { replaced++; } },
+          document: { addEventListener: (ev) => { if (ev === "DOMContentLoaded") noted = true; } }, window: {} };
+        ctxv.window = ctxv;
+        require("node:vm").runInNewContext(script, ctxv);
+      }
+      t.check("launcher: a loop stops after 3 rounds and shows a note instead", replaced === 3 && noted, `replaced ${replaced}×, note ${noted}`);
     }
 
     await t.page.goto(`${origin}/www${nativeEntry}?test&enable=ads`);
@@ -352,6 +370,19 @@ module.exports = {
         t.check("ota: …it really was tried (and marked failed)", Object.values((await fake()).bundles).some(b => b.version === "test-bad" && b.status === "error"));
         t.check("ota: …and is never tried again", await g(`ctx.native.ota.check()`) === "known bad");
         t.check("ota: the save is still untouched", (await saveNow()) === saveBefore);
+      }
+
+      // the app never shows a silent screen: a copy whose game code doesn't load → after a while a plain panel
+      // (what failed, which copy) with "Use the built-in copy" → back to the bundled game, that copy never retried
+      await t.L(`(() => { const st = JSON.parse(localStorage.getItem("__fakeCapgo")); st.bundles.dead = { version: "test-dead", status: "success", dir: "/www-ota-bad/" }; st.current = "dead"; localStorage.setItem("__fakeCapgo", JSON.stringify(st)); })()`);
+      await t.page.goto(`${origin}/www-ota-bad/3d/?test&stuck=3000`);
+      const panel = await t.until(`!!document.getElementById("nativeStuck") && /test-dead/.test(document.getElementById("nsVer").textContent)`, "stuck: the panel appears", 60000);
+      if (panel) {
+        t.check("stuck: it says the game didn't start + which copy", await t.L(`/didn't start/.test(document.getElementById("nativeStuck").textContent) && /downloaded/.test(document.getElementById("nsVer").textContent)`));
+        t.check("stuck: 'Use the built-in copy' is offered", await t.L(`getComputedStyle(document.getElementById("nsBuilt")).display !== "none"`));
+        await t.L(`document.getElementById("nsBuilt").click()`);
+        const home = await t.until(`location.pathname.startsWith("/www/") && window.__lulu3d && __lulu3d.state === "title"`, "stuck: the built-in copy boots", 120000);
+        if (home) t.check("stuck: …and that copy is never tried again", await g(`ctx.native.ota.debug.state.bad.includes("test-dead")`));
       }
     } finally {
       for (const d of OTA_DIRS) fs.rmSync(d, { recursive: true, force: true });
