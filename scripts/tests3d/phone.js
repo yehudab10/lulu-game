@@ -3,7 +3,7 @@
 // calls still working, party mode, the touch layout (fewer buttons), layouts, frame cost.
 module.exports = {
   name: "phone",
-  query: "&enable=phone",
+  query: "&enable=phone&story=1",     // (story=1: the 🗺️ story map app — hidden for now, onegame/switches.js)
   viewport: { width: 1280, height: 720 },
   async run(t) {
     const g = t.game;
@@ -202,7 +202,7 @@ module.exports = {
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.G.invT = 1e6, true)`);
     await t.key("Tab");
     await clickSel("#lpa_jobs");
-    t.check("in Story the jobs are off (hustle's rules), with a reason", await t.L(`document.querySelectorAll(".lp-job[disabled]").length >= 2 && /Cruise/.test(document.querySelector(".lp-note").textContent)`));
+    t.check("in Story the jobs are off (hustle's rules), with a reason", await t.L(`document.querySelectorAll(".lp-job[disabled]").length >= 2 && /Cruise|driving around/.test(document.querySelector(".lp-note").textContent)`));
     await t.key("Tab");
 
     // ── calls still work while driving ────────────────────────────────────

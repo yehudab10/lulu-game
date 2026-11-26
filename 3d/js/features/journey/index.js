@@ -24,6 +24,7 @@ import "./phone.js";
 import { startStory, J } from "./trip.js";
 import { debug as storyDebug } from "./story.js";
 import { openMap } from "./map.js";
+import { ONEGAME } from "../onegame/switches.js";
 import { imaCall } from "./phone.js";
 
 css("journey-title", `
@@ -73,7 +74,7 @@ function storySub() {
 // (the Story Trip is no longer a title mode: it starts from inside the world — the 🧳 suitcase by the car at home,
 // or a stop on the 📱 phone's 🗺️ Map — features/onegame. Its subtitle html is shared: storySub())
 export { storySub };
-addMenuItem("title", { id: "storyMap", order: 12, group: "book", short: "Map", label: "🗺️ The Road to Vegas (map)", sub: "every stop, postcard and checkpoint", visible: hasProgress, action: () => openMap({ from: "title" }) });
+addMenuItem("title", { id: "storyMap", order: 12, group: "book", short: "Map", label: "🗺️ The Road to Vegas (map)", sub: "every stop, postcard and checkpoint", visible: () => ONEGAME.story && hasProgress(), action: () => openMap({ from: "title" }) });
 on("run:start", ({ mode }) => {
     if (mode === "cruise" && !shared.get().cruisePlayed) shared.update(s => { s.cruisePlayed = true; });
 });

@@ -18,6 +18,7 @@ import {
 } from "./progress.js";
 import { fillPortraits } from "./portraits.js";
 import { models } from "../../models.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 const BASE_TABS = [["🏆", "Badges"], ["🚔", "Record"], ["💜", "Crew"], ["📊", "Stats"]];
 // Other features add a page after the built-in four: addScrapbookTab({ id, icon, name, render(S) → html, wire?(card, rerender) })
@@ -214,7 +215,7 @@ function crewTab(S) {
     const lbl = rel <= 20 ? "😈 Sworn Nemesis" : rel <= 40 ? "😒 Rivals" : rel <= 60 ? "😏 Frenemies" : rel <= 80 ? "😊 Friends" : "💜 Besties";
     const tours = S.storyCycle || 0;
     const fam = [
-        ["bubbe", "👵", "Bubbe", `${(S.postcards || []).length} / 5 postcards`],
+        ["bubbe", "👵", "Bubbe", ONEGAME.story ? `${(S.postcards || []).length} / 5 postcards` : "always has kugel"],
         ["uncle", "👨", "The uncles", `${fmt(stat(S, "uncles3"))} run-ins`],
         ["heshy", "🏊", "Heshy", `${fmt(stat(S, "heshy2"))} pool finds`],
         ["ima", "📞", "Ima", `${fmt(stat(S, "imaCalls"))} calls taken · ${fmt(stat(S, "imaDeclines"))} declined`],
@@ -231,7 +232,7 @@ function crewTab(S) {
       <div class="mb-paper mb-fam nav" id="mbFam">
         <div class="mb-fam-h">👪 FAMILY RUN-INS</div>
         <div class="mb-fam-row">${fam.map(f => `<div class="mb-fam-c">${pic(f[0], f[1])}<b>${f[2]}</b><span>${f[3]}</span></div>`).join("")}</div>
-        <div class="mb-fam-ft">${tours ? `🎲 Road to Vegas finished ${tours}×` : "🎲 Vegas is still out there…"}</div>
+        ${ONEGAME.story ? `<div class="mb-fam-ft">${tours ? `🎲 Road to Vegas finished ${tours}×` : "🎲 Vegas is still out there…"}</div>` : ""}
       </div>`;
 }
 

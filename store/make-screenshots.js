@@ -245,22 +245,24 @@ const SCENES = [
       await P.frames(10);
     },
     async frame(P) { await P.frames(10); } },
-  { id: "08-dina", caption: "Race Dina home from the school bus",
+  { id: "08-cityhall", caption: "Take a number at City Hall",
     async setup(P) {
-      await P.page.evaluate(() => document.getElementById("dina").click());
-      await P.until(`L3.state === "dinaSelect"`);
-      await P.frames(6);
-      await P.page.evaluate(() => document.getElementById("dsDina").click());
-      await P.until(`L3.state === "dinaBus"`);
-      await P.frames(10);
-      await P.page.evaluate(() => import("./js/core/skip.js").then(m => m.skipNow()));
-      await P.until(`L3.state === "dinaRun"`);
-      await P.frames(200);      // (past the first-run controls hint)
-    },
-    async frame(P) {
-      await P.g(`(ctx.dina.debug.spawn("dog", 14), ctx.dina.debug.spawn("hopscotch", 8), true)`);
+      await cruise(P);
+      await town(P, "lakewood");
+      await P.g(`(() => { const sp = ctx.cityhall.spot(), car = ctx.car, x = sp.x + sp.nx * 6, z = sp.z + sp.nz * 6; car.place(x, z, Math.atan2(sp.ux, sp.uz)); car.vx = car.vz = 0; const n = ctx.world.road.nearest(x, z, car.s, {}); car.s = n.s; car.d = n.d; ctx.cam.snap(); return true; })()`);
+      await P.g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await P.until(`L3.state === "footRun"`);
+      await P.g(`(() => { const sp = ctx.cityhall.spot(), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 1.2, 0.05, sp.z + sp.nz * 1.2); F.phase = "walk"; return true; })()`);
       await P.frames(4);
-    } },
+      await P.g(`ctx.cityhall.enter()`);
+      await P.until(`L3.state === "interior" && __interiors.room && __interiors.room.ready && __interiors.room.def.id === "cityhall"`);
+      await P.frames(60);
+      // Lulu at the take-a-number machine (not in the doorway)
+      await P.g(`(() => { const r = window.__interiors.room, h = r.hots.find(h => h.id === "ticket"); if (h) r.lulu.obj.position.set(h.x, 0, h.z); return true; })()`);
+      await P.frames(30);
+    },
+    async frame(P) { await P.frames(10); },
+    clean: { banner: true } },
   { id: "09-airport", caption: "Check the board at JFK's Terminal 4½", enable: "all,airport",
     async setup(P) {
       await cruise(P);

@@ -7,15 +7,16 @@ import { STATIONS, SONGS, JOBS } from "../hustle/data.js";
 import { addApp, esc, partyOn } from "./ui.js";
 import { lapWorld } from "../../world.js";
 import { lapPlaces, drawLap, ahead, miles as lapMiles, myLapM } from "../world/lapmap.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 const inCarNow = () => ctx.state === "playing" && !(ctx.foot && ctx.foot.active);
 const miles = m => `${(Math.max(0, m) / 1609).toFixed(1)} mi`;
 
-// 🗺️ the story map (journey) — over the live run, ○ comes straight back (the Story Trip only: on the one world's lap
-// the 🗺️ is the lap map below)
+// 🗺️ the story map (journey) — over the live run, ○ comes straight back (hidden with the Story Trip: onegame/switches.js;
+// on the one world's lap the 🗺️ is the lap map below)
 addApp({
     id: "map", icon: "🗺️", name: "Map", order: 10, color: "#26A69A", color2: "#00695C",
-    visible: () => !!(ctx.journey && ctx.journey.openMap) && !partyOn() && !lapWorld(),
+    visible: () => ONEGAME.story && !!(ctx.journey && ctx.journey.openMap) && !partyOn() && !lapWorld(),
     open: () => ctx.journey.openMap({ from: "phone" }),
 });
 // 🗺️ 🌍 ONE WORLD (ci/onemap stage 3): the one map of the whole world — the 16 km loop with every place once, you are
