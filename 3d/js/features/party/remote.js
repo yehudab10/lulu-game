@@ -380,6 +380,9 @@ export function updateCars(dt, show, decorate, frameOf) {
 
 // a jump bigger than this between snapshots is a real warp (a town cut, a teleport): snap with a poof
 const WARP_S = 60, WARP_D = 30, HOP = 25;
+// …and never more than this much correction in one frame, however long the frame (the party clock can catch up after a
+// stall: a 0.16 s party step at 40 m/s was a 6.4 m one-frame jump on the passenger's screen)
+const STEP_MAX = 3;
 /** how fast an error is allowed to close (m/s): small ones as before, a big shove as a quick slide */
 const glideRate = e => Math.min(40, 8 + 2 * e);
 export const remoteTune = { WARP_S, WARP_D, HOP, glideRate };
@@ -422,7 +425,7 @@ function step(rc, p, dt, road, cam) {
     // would otherwise apply a whole 15 m correction at once)
     const k = Math.exp(-dt / 0.12), eMag = Math.hypot(st.errS, st.errD);
     if (eMag > 0) {
-        const cut = Math.min(eMag * (1 - k), glideRate(eMag) * dt), f = (eMag - cut) / eMag;
+        const cut = Math.min(eMag * (1 - k), glideRate(eMag) * dt, STEP_MAX), f = (eMag - cut) / eMag;
         st.errS *= f; st.errD *= f;
     }
     if (Math.abs(st.errS) < 1e-4) st.errS = 0;
@@ -430,6 +433,10 @@ function step(rc, p, dt, road, cam) {
     st.rawS = o.s; st.rawD = o.d; st.vS = o.vs; st.vD = o.vd;
     const s = Math.max(0, o.s + st.errS), d = o.d + st.errD;
     road.point(s, d, tmpP);
+    // her road FRAME changed on my screen (the highway ↔ a town's own grid at the town line, a zone switch): the same
+    // (s, d) lands somewhere else — glide from where she was last drawn, like a restart
+    if (!from && st.road && st.road !== road && st.lastAt != null && clock() - st.lastAt < 1500) from = [st.lastX, st.lastZ];
+    st.road = road;
     // a restart close by (≤ HOP m — the town line's new frame, a small rescue) glides there in world space like any other
     // correction; a far one (a real warp) snaps behind a poof
     if (from) {
@@ -439,7 +446,7 @@ function step(rc, p, dt, road, cam) {
     }
     const wMag = Math.hypot(st.wx || 0, st.wz || 0);
     if (wMag > 1e-3) {
-        const cut = Math.min(wMag * (1 - k), glideRate(wMag) * dt), f = (wMag - cut) / wMag;
+        const cut = Math.min(wMag * (1 - k), glideRate(wMag) * dt, STEP_MAX), f = (wMag - cut) / wMag;
         st.wx *= f; st.wz *= f;
         tmpP.x += st.wx; tmpP.z += st.wz;
     } else st.wx = st.wz = 0;
