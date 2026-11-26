@@ -430,6 +430,10 @@ function step(rc, p, dt, road, cam) {
     st.rawS = o.s; st.rawD = o.d; st.vS = o.vs; st.vD = o.vd;
     const s = Math.max(0, o.s + st.errS), d = o.d + st.errD;
     road.point(s, d, tmpP);
+    // her road FRAME changed on my screen (the highway ↔ a town's own grid at the town line, a zone switch): the same
+    // (s, d) lands somewhere else — glide from where she was last drawn, like a restart
+    if (!from && st.road && st.road !== road && st.lastAt != null && clock() - st.lastAt < 1500) from = [st.lastX, st.lastZ];
+    st.road = road;
     // a restart close by (≤ HOP m — the town line's new frame, a small rescue) glides there in world space like any other
     // correction; a far one (a real warp) snaps behind a poof
     if (from) {
