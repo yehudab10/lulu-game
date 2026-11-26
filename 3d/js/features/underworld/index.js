@@ -48,13 +48,13 @@ export function why() {
     const party = inParty();
     if (!live(party ? "pickpocket" : "")) return "off";
     if (UW.enc || UW.loading) return "busy";
-    if (ctx.engaged("underworld")) return "busy";      // (ci/hud: one activity at a time)
     if (UW.runT < SPAWN.firstAfter) return "early";
     if (chasing() || (ctx.law && ctx.law.reported)) return "chase";
     if (calm()) return "calm";
     if (!party && !/^(cruise|story)$/.test(mode())) return "mode";
     if (ctx.hustle && ctx.hustle.job) return "job";
     if (ctx.phone && ctx.phone.busy && ctx.phone.busy()) return "phone";
+    { const e = ctx.engaged("underworld"); if (e) return e; }      // (ci/hud: one activity at a time — a robbery, the 🅿️ challenge…)
     if (ctx.dialogOpen || ctx.paused) return "dialog";
     if (ctx.state === "playing") {
         if (party) return "party";       // (no bad-guy cars with friends: they'd sit in the shared traffic on one screen)
