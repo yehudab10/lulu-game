@@ -362,10 +362,44 @@ module.exports = {
       await route([["Ocean Pkwy", -310, -1.75], ["Ocean Pkwy", -328, -1.75]], 12, 3);
       if (await t.until(`!__lulu3d.ctx.town.active`, "driving south down Ocean Pkwy takes the on-ramp", 30000)) {
         t.check("town:leave fired (Midwood, why: highway)", (await evs()).some(e => e.startsWith("town:leave") && /midwood/.test(e) && /highway/.test(e)));
-        t.check("back on the highway: on the interchange's on-ramp", await g(`ctx.world.road.town !== true && ctx.car.s > ${E} + 180 && ctx.car.s < ${E} + 300 && ctx.car.d > 9`), String(await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1)]`)));
+        t.check("back on the highway: on the interchange's on-ramp", await g(`ctx.world.road.town !== true && ctx.car.s > ${E} + 180 && ctx.car.s < ${E} + 300 && ctx.car.d > 9 && ctx.car.d < 23`), String(await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1)]`)));
         t.check("Midwood's scene is disposed (and the trains with it) — only towns standing at an interchange are left", await g(`!ctx.scene.children.some(o => /^Town:/.test(o.name) && !ctx.town.debug.S.built.some(b => b.T && b.T.root === o))`));
         await g(`(window.__route = null, true)`);
         await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
+      }
+      // ── 10b. …the same out of the Midwood STANDING at its exit (attached — the real game; QA qa14): Ocean Pkwy south ends
+      //    300 m off the highway, so a soft cut puts her on the on-ramp — never a 200 m yank into the fields a frame later
+      //    (core's field fence) ──
+      const sp = await g(`ctx.town.spotOf("midwood", "luluHome", ctx.town.home.exitS)`);
+      if (sp && await g(`ctx.town.warp({ town: "midwood", at: { x: ${sp.drive.x}, z: ${sp.drive.z}, h: ${sp.drive.h} }, quiet: true }) && ctx.town.attached`)) {
+        const E2 = await g(`${D}.S.exitS`);
+        await g(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), ${D}.place("Ocean Pkwy", -290, -1.75, 12, -1))`);
+        await t.frames(2);
+        // (the biggest one-frame move with the town gone on both frames — the frame she's put on the ramp is the cut itself)
+        await t.L(`(() => { const c = __lulu3d.ctx; window.__jmp = 0; let p0 = null, a0 = true; const rec = () => { if (window.__jmp == null) return; const p = c.car.pos, a = c.town.active;
+          if (p0 && !a && !a0) window.__jmp = Math.max(window.__jmp, Math.hypot(p.x - p0.x, p.z - p0.z)); p0 = { x: p.x, z: p.z }; a0 = a; requestAnimationFrame(rec); }; rec(); return true; })()`);
+        await t.hold(7, 0.6);
+        const out2 = await t.until(`!__lulu3d.ctx.town.active`, "south down Ocean Pkwy out of the attached Midwood", 30000);
+        await t.hold(7, 0);
+        await t.until(`!__lulu3d.ctx.town.transitioning`, "the cut clears", 10000);
+        await t.frames(20);
+        t.check("attached Midwood → Ocean Pkwy south → on the interchange's on-ramp", out2 && await g(`ctx.car.s > ${E2} + 150 && ctx.car.s < ${E2} + 320 && ctx.car.d > 9 && ctx.car.d < 23`), String(await g(`[Math.round(ctx.car.s - ${E2}), ctx.car.d.toFixed(1)]`)));
+        const j = await t.L(`(() => { const j = window.__jmp; window.__jmp = null; return j; })()`);
+        t.check("…and nothing yanks the car afterwards (largest one-frame move < 6 m)", j < 6, String(j && j.toFixed(1)));
+        await g(`(ctx.law && ctx.law.hold && ctx.law.hold(0), true)`);
+      }
+      // ── 10c. a lap on (16 km — world.js LAP): her house stands in THAT lap's Midwood too (QA qa14: the lot on E 34th St was
+      //    empty), and back where it was in the first lap's ──
+      const H1 = await g(`ctx.town.home.exitS`), LAP = 16000;
+      const sp1 = await g(`ctx.town.spotOf("midwood", "luluHome", ${H1 + LAP})`);
+      const houseAt = q => g(`ctx.home.ready && !!ctx.home.lot && Math.hypot(ctx.home.lot.door.x - ${q.door.x}, ctx.home.lot.door.z - ${q.door.z}) < 0.5 && ctx.home.near(${q.door.x}, ${q.door.z}, 30)`);
+      if (sp1 && await g(`ctx.town.warp({ town: "midwood", exitS: ${H1 + LAP}, at: { x: ${sp1.drive.x}, z: ${sp1.drive.z}, h: ${sp1.drive.h} }, quiet: true }) && ctx.town.active`)) {
+        await t.frames(5);
+        t.check("a lap on, her house stands on E 34th St in that lap's Midwood", await houseAt(sp1) && await g(`ctx.home.street === "E 34th St"`), JSON.stringify([await g(`ctx.home.lot && ctx.home.lot.door`), sp1.door]));
+        const sp0 = await g(`ctx.town.spotOf("midwood", "luluHome", ${H1})`);
+        await g(`ctx.town.warp({ town: "midwood", exitS: ${H1}, at: { x: ${sp0.drive.x}, z: ${sp0.drive.z}, h: ${sp0.drive.h} }, quiet: true })`);
+        await t.frames(5);
+        t.check("…and back in the first lap's Midwood it's there again", await houseAt(sp0));
       }
       // ── 11. …and Lakewood still works after Midwood ──────────────────────
       await g(`(ctx.town.load("lakewood"), true)`);

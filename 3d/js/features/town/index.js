@@ -171,6 +171,8 @@ function makeChunk(T) {
 // drives up, and becomes the district the moment she crosses the line a few metres past the T (the approach street —
 // plan.js — is the cross road itself, so position, heading and speed carry straight across: no cut). Driving back out
 // past that line hands her to the highway's road again, the town standing where it is until she's left it behind.
+/** Leaving a town by its own wheels / feet further than this off the highway (m): a soft cut to the on-ramp (attachedOut). */
+const FAR_OUT = 55;
 const BUILD_FROM = 900, BUILD_MS = 3, DROP_PAST = ACC1 + 600, BOX_PAD = 20;
 const D_AFTER_T = 6;           // the approach starts this far out past its T-junction's d (the cross road's own centre line)
 /** Where town `def` stands at the interchange at `exitS`, on branch k (its cross road) → { def (attached), at: {x, z, rot}, k, exitS } | null. */
@@ -331,9 +333,17 @@ function attachedOut() {
     if (S.trans || !(ctx.state === "playing" && !(ctx.foot && ctx.foot.active) || footing())) return false;
     const P0 = herPos(), p = localIn(S.att.at, P0.x, P0.z, {}), a = onApproach(S.def, p, {});
     // (hysteresis: in at 4 m past the line / 2 m inside the footprint, out at 2 m / 20 m outside it and 25 m off the approach)
-    const out = (a.lat < 9 && a.along < 2) || (!inBox(S.att.box, p, BOX_PAD) && !(a.lat < 25 && a.along > -6 && a.along < a.len + 4));
-    if (out) leaveTown("highway", { drove: true });
-    return out;
+    const byT = a.lat < 9 && a.along < 2;
+    const out = byT || (!inBox(S.att.box, p, BOX_PAD) && !(a.lat < 25 && a.along > -6 && a.along < a.len + 4));
+    if (!out) return false;
+    // out by the T (or across the fields close by the road): nothing moves, the highway's road is under her again. Out by
+    // a street that ends far off the road (Midwood's Ocean Pkwy south, QA qa14: 300 m out in the fields) the highway can't
+    // take her where she is — core's field fence would yank the car 200+ m in a frame — so a soft cut puts her on the
+    // exit's on-ramp, like leaving a stand-alone town
+    const n = ctx.world.highway.nearest(P0.x, P0.z, S.exitS + S.att.cu, {});
+    if (!byT && Math.abs(n.d) > FAR_OUT) beginTrans("leave");
+    else leaveTown("highway", { drove: true });
+    return true;
 }
 /** Into an attached town on foot (driving in is the update hook's): an always-on actor, it runs while she walks. */
 function attachedFootIn() {
