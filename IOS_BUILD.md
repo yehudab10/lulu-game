@@ -323,6 +323,25 @@ device — check them once on TestFlight (see the checklist).
 
 ---
 
+## If the app doesn't start (no silent screens)
+A start that breaks before the game's own code runs can't be fixed over the air, so the pages the app opens guard
+themselves — plain ES5, no imports, inside the app only:
+- **Root `index.html`** (the launcher): counts its own loads in `sessionStorage`; on the 4th within 10 s it stops
+  redirecting and says *"The game keeps restarting before it opens"* with the app + game-copy version, **Try again** and
+  (for a downloaded copy) **Use the built-in copy**. The native test also checks that, in the app, the launcher's
+  target is a FILE that isn't itself (Capacitor iOS answers any folder address with the root page — the Nov 2026
+  TestFlight loop).
+- **`3d/index.html`** (the game page): if the game hasn't reached its first screen **25 s** after launch, a panel says
+  *"The game didn't start"* with the last errors it caught (scripts / files that failed to load), the app + game-copy
+  version and **Use the built-in copy** (marks that copy bad + resets the updater) · **Try again** · **Keep waiting**.
+  It disappears by itself if the game comes up.
+- **⚙️ More → 📱 App 2.0.0 (build N)** shows the installed build, the game copy, and *"Needs a newer app"* when the
+  stable channel needs a newer native build; tapping it checks for an update now.
+- **When does Codemagic build by itself?** On a push to `main` that changes a native file (`when: changeset` in
+  `codemagic.yaml`) — but only if Codemagic's webhook for this repo is connected, which can only be seen in the
+  Codemagic UI (app → Settings → Webhooks / the Builds list). Agents can't see Codemagic: after a native change,
+  check the Builds list, and press **Start new build** if nothing started.
+
 ## Press Start in Codemagic — the checklist
 
 1. **codemagic.io → Lulu's Road Trip → `ios-capacitor` → Start new build** (branch `main`).

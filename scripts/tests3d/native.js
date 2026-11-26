@@ -190,6 +190,24 @@ module.exports = {
         replace: value => { target = new URL(value, url).href; },
       } });
       t.check("launcher preserves the invite from " + from, target === expected + "?party=ABC#join", target);
+      // in the app the target must be a FILE other than the launcher: Capacitor iOS answers any folder address
+      // (no extension) with the root page — that was the TestFlight launch loop
+      if (url.protocol === "capacitor:") {
+        const p = new URL(target).pathname;
+        t.check("launcher (app) never lands back on itself: " + p, /\.html$/.test(p) && p !== "/index.html" && p !== "/");
+      }
+    }
+    // …and if something ever does send it back to itself, it stops after a few rounds and says so (no endless flashing)
+    {
+      const store = {}, sessionStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+      let replaced = 0, noted = false;
+      for (let i = 0; i < 5; i++) {
+        const ctxv = { sessionStorage, location: { protocol: "capacitor:", search: "", hash: "", replace: () => { replaced++; } },
+          document: { addEventListener: (ev) => { if (ev === "DOMContentLoaded") noted = true; } }, window: {} };
+        ctxv.window = ctxv;
+        require("node:vm").runInNewContext(script, ctxv);
+      }
+      t.check("launcher: a loop stops after 3 rounds and shows a note instead", replaced === 3 && noted, `replaced ${replaced}×, note ${noted}`);
     }
 
     await t.page.goto(`${origin}/www${nativeEntry}?test&enable=ads`);

@@ -18,9 +18,47 @@
     <link rel="icon" href="icon-192.svg" type="image/svg+xml">
     <title>Lulu's Road Trip 2.0</title>
     <script>
-        // Capacitor serves the root page for directory URLs, including /3d/.
+    (function () {
+        // Capacitor serves the root page for directory URLs, including /3d/ — so the app goes to the FILE.
         var gamePage = location.protocol === "capacitor:" ? "/3d/index.html" : "3d/";
+        // Loop guard: if this page keeps landing on itself (a 4th time within 10 s), stop and say so in plain
+        // words instead of flashing forever (the Nov 2026 TestFlight bug). No dependencies on purpose.
+        var n = 0, t = Date.now();
+        try {
+            var g = JSON.parse(sessionStorage.getItem("luluRootHits") || "null");
+            if (g && Date.now() - g.t < 10000) { n = g.n; t = g.t; }
+            sessionStorage.setItem("luluRootHits", JSON.stringify({ n: n + 1, t: t }));
+        } catch (e) { /* no storage: no guard */ }
+        if (n >= 3) { window.__luluLoop = true; document.addEventListener("DOMContentLoaded", loopNote); return; }
         location.replace(gamePage + location.search + location.hash);
+
+        function loopNote() {
+            var cap = window.Capacitor, P = (cap && cap.Plugins) || {};
+            document.body.innerHTML = '<div style="max-width:520px"><h2 style="color:#c2185b;margin:0 0 8px">The game keeps restarting before it opens</h2>' +
+                '<p style="font-weight:400">Something sends it back to this page again and again. Try again, or use the copy built into the app.</p>' +
+                '<p id="lv" style="font-size:14px;font-weight:400;color:#333"></p>' +
+                '<p><button id="lt" style="font:600 16px system-ui;border:0;border-radius:12px;padding:12px 16px;background:#fff">Try again</button> ' +
+                '<button id="lb" style="font:600 16px system-ui;border:0;border-radius:12px;padding:12px 16px;background:#c2185b;color:#fff;display:none">Use the built-in copy</button></p></div>';
+            document.getElementById("lt").onclick = function () { try { sessionStorage.removeItem("luluRootHits"); } catch (e) {} location.replace(gamePage + location.search + location.hash); };
+            var v = [];
+            function paint() { document.getElementById("lv").textContent = v.join(" · "); }
+            try { P.App.getInfo().then(function (i) { v.unshift("App " + i.version + " (build " + i.build + ")"); paint(); }); } catch (e) {}
+            try {
+                P.CapacitorUpdater.current().then(function (c) {
+                    var b = c && c.bundle, own = !b || b.id === "builtin";
+                    v.push(own ? "game copy: built into the app" : "game copy: " + b.version + " (downloaded)"); paint();
+                    if (own) return;
+                    var lb = document.getElementById("lb");
+                    lb.style.display = "";
+                    lb.onclick = function () {
+                        try { var S = JSON.parse(localStorage.getItem("luluOtaV1") || "{}"); S.bad = S.bad || []; if (S.bad.indexOf(b.version) < 0) S.bad.push(b.version); S.pending = S.trying = null; localStorage.setItem("luluOtaV1", JSON.stringify(S)); } catch (e) {}
+                        try { sessionStorage.removeItem("luluRootHits"); } catch (e) {}
+                        P.CapacitorUpdater.reset({ toLastSuccessful: false });
+                    };
+                });
+            } catch (e) { /* not the app, or no updater */ }
+        }
+    })();
     </script>
     <noscript><meta http-equiv="refresh" content="0; url=3d/"></noscript>
     <style>
