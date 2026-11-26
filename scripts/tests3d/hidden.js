@@ -107,7 +107,8 @@ module.exports = {
     await t.shot("dina-door");
     await t.tap(0);
     t.check("…the door asks: 👧 Play as Dina?", await t.until(`!!document.querySelector("#dialog .opt") && /Play as Dina/.test(document.querySelector("#dialog .opt").textContent)`, "the door asks", 30000));
-    await t.frames(20);
+    // (a click while the line is still typing only finishes the line — wait for the options, slow on a CI runner)
+    await t.until(`!!document.querySelector("#dialog .opt") && document.querySelector("#dialog .opt").style.visibility === "visible"`, "the options show", 30000);
     await t.L(`(document.querySelector("#dialog .opt") || { click() { } }).click()`);          // 👧 Play as Dina
     // (her bedroom's models load first — slow on a CI runner)
     t.check("✋ → Dina's bedroom (her mode)", await t.until(`__lulu3d.state === "dinaHome"`, "dinaHome", 90000), await g(`ctx.state`));
