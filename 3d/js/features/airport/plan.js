@@ -17,8 +17,10 @@
 // loop, the fence segments.
 import { ctx } from "../../core/ctx.js";
 import * as LY from "./layout.js";
+import { LAP } from "../../world.js";
 
-export const AIR = { first: 5900, every: 30000, step: 50, tries: 400, townGap: 1500, zonePad: 300 };
+// (every: one lap — 🌍 ci/onemap: JFK comes round once a lap at the same lap metre, world.js LAP)
+export const AIR = { first: 5900, every: LAP, step: 50, tries: 400, townGap: 1500, zonePad: 300 };
 
 /**
  * THE SWITCH-ON MODEL (for after ci/exits2 — the steps: 3d/docs/airport-plan.md › Sync log, AGENTS §7 › Airport).

@@ -16,7 +16,7 @@ import { ctx, on, emit, hook, registerState, setState, pick } from "../../core/c
 import { save3d, store, saveSoon } from "../../core/save.js";
 import { heal, addCoins, addScore } from "../../core/driving.js";
 import { models, ensureModels, cloneWithColors, findNodes } from "../../models.js";
-import { facingRoad } from "../../world.js";
+import { facingRoad, LAP, lapWorld } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
@@ -54,9 +54,10 @@ function luluLine(text) {
 }
 
 // ── fixed spots along Cruise (metres). Kept clear of the family stops and the coast's ocean side. ──
-const GAS_AT = [1300, 6900, 21800, 34000, 44000];
-const LOOK_AT = [2400, 8200, 24800, 38800];
-for (let s = 50000; s < 400000; s += 9000) { GAS_AT.push(s); LOOK_AT.push(s + 4500); }
+// (🌍 ONE WORLD — ci/onemap: each pull-in is ONE place on the highway's lap, met again every lap at the same lap metre)
+const GAS_LAP = [1300, 6900], LOOK_LAP = [2400, 8200];
+const GAS_AT = [], LOOK_AT = [];
+for (let n = 0; n * LAP < 400000; n++) { for (const m of GAS_LAP) GAS_AT.push(n * LAP + m); for (const m of LOOK_LAP) LOOK_AT.push(n * LAP + m); }
 
 // ── building spots as chunks stream in ───────────────────────────────────
 const deadChunks = new WeakSet();
@@ -325,6 +326,9 @@ const FAMILY = {
 };
 function familyStops(mode) {
     if (!roadMode(mode) || !ctx.journey || !ctx.journey.stopS || !ctx.journey.stops) return [];
+    // (🌍 the one world's lap — a Cruise / Free Roam: the family stops are the Story Trip's road; hidden for now, so
+    //  no driveways out here — ci/onemap leaves them room, a later stage puts them on the map)
+    if (lapWorld()) return [];
     const list = ctx.journey.stops.map((st, i) => ({ id: st.id, s: ctx.journey.stopS(i) })).filter(x => FAMILY[x.id]);
     // a party's 🏡 Road Trip ENDS at Bubbe's (the group arrival): no driveways from there on
     if (mode === "party" && ctx.party && ctx.party.activity && ctx.party.activity.k === "trip") return list.filter(x => x.s < ctx.journey.stopS(0) - 200);

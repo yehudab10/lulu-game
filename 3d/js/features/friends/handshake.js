@@ -38,7 +38,9 @@ export async function ask(chan, peer) {
     const k = keyOf(chan, peer);
     const cur = pairs.get(k);
     if (cur && cur.phase !== "done" && Date.now() - cur.at < LIFE) return "pending";
-    const kp = await keyPair();
+    const channel = chans[chan];
+    const kp = await (channel.keyFor ? channel.keyFor(peer) : keyPair());
+    if (channel !== chans[chan]) return null;
     const p = { chan, peer, kp, pub: kp.pub, phase: "ask", at: Date.now(), secret: null, card: null };
     pairs.set(k, p);
     const inc = asks.get(k);
@@ -86,7 +88,8 @@ export async function tick() {
     busy = true;
     try {
         for (const chan of Object.keys(chans)) {
-            const c = chans[chan], mine = c.myId();
+            const c = chans[chan], mine = c?.myId();
+            if (chan === "code") pruneCodeAsks(c);
             if (!mine) continue;
             let changed = false;
             for (const peer of c.peers()) {
@@ -122,17 +125,41 @@ export async function tick() {
         }
     } finally { busy = false; }
 }
+// A resend can acquire a new relay id. Remove the old button as soon as its
+// addressed offer disappears, including across a host reconnect or timeout.
+function currentOffer(channel, a) {
+    const entries = channel?.peers().find(p => p.id === a.peer)?.fr;
+    return Date.now() - a.at < LIFE && Array.isArray(entries) &&
+        entries.some(e => e && e.to === channel.myId() && e.pk === a.pk);
+}
+function pruneCodeAsks(channel) {
+    let changed = false;
+    for (const [k, a] of asks) {
+        if (a.chan !== "code" || currentOffer(channel, a)) continue;
+        asks.delete(k);
+        pairs.delete(k);
+        changed = true;
+    }
+    if (changed) emit("friends:asks", {});
+}
 /** Accept an incoming ask (the ✓). */
 export async function accept(chan, peer) {
     const a = asks.get(keyOf(chan, peer));
     if (!a) return null;
     if (full()) return "full";
-    const kp = await keyPair();
-    const p = { chan, peer, kp, pub: kp.pub, phase: "ask", at: Date.now(), secret: null, card: null };
-    pairs.set(keyOf(chan, peer), p);
-    await answer(p, a.pk);
-    publish(chan);
-    return "accepted";
+    const channel = chans[chan];
+    if (chan === "code" && !currentOffer(channel, a)) return "expired";
+    if (a.accepting || answered(a)) return "pending";
+    a.accepting = true;
+    try {
+        const kp = await (channel.keyFor ? channel.keyFor(peer) : keyPair());
+        if (asks.get(keyOf(chan, peer)) !== a || (chan === "code" && !currentOffer(channel, a))) return "expired";
+        const p = { chan, peer, kp, pub: kp.pub, phase: "ask", at: Date.now(), secret: null, card: null };
+        pairs.set(keyOf(chan, peer), p);
+        await answer(p, a.pk);
+        publish(chan);
+        return "accepted";
+    } finally { a.accepting = false; }
 }
 /** Forget everything on a channel (left the party / the code room closed). */
 export function dropChannel(chan) {

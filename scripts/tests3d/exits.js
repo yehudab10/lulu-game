@@ -362,5 +362,28 @@ module.exports = {
       await t.frames(5);
       t.check("the title clears the rest areas", await g(`ctx.exits.rests.length === 0 && !ctx.exits.debug.LIFE.R`));
     });
+
+    await step("lap", async () => {
+      // 🌍 ONE WORLD (ci/onemap): the highway is a 16 km lap — its bends repeat, and every place comes round at the SAME lap
+      // metre with the same name: Midwood, JFK's zone, Lakewood, both rest areas
+      await g(`L3.startRun({ mode: "cruise" })`);
+      if (!await t.until(`["playing", "footRun"].includes(__lulu3d.state)`, "a cruise (lap)", 20000)) return;
+      const road = await g(`import("./js/world.js").then(W => { const hw = ctx.world.highway, L = W.LAP; let hd = 0, pj = 0;
+          for (let s = 0; s < L; s += 37) hd = Math.max(hd, Math.abs(hw.at(s, {}).h - hw.at(s + L, {}).h));
+          for (let s = L - 900; s < L + 300; s += 2) { const a = hw.at(s, {}), b = hw.at(s + 2, {}); pj = Math.max(pj, Math.hypot(b.x - a.x, b.z - a.z)); }
+          return { L, hd, pj: +pj.toFixed(3) }; })`);
+      t.check("the road repeats every lap (the same bends), no jump at the lap line", road.L === 16000 && road.hd < 1e-9 && road.pj < 2.01, JSON.stringify(road));
+      await g(`(() => { if (ctx.foot.active) ctx.foot.end("test"); if (L3.state !== "playing") L3.setState("playing"); ctx.law.hold(900); return true; })()`);
+      for (let s = 1000; s < 2 * 16000 + 15500; s += 1500) {
+        await g(`(() => { const p = ctx.world.highway.point(${s}, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = 5.25; return true; })()`);
+        await t.frames(4);
+      }
+      const per = await g(`(() => { const L = 16000, by = list => { const o = {}; for (const [k, s] of list) (o[k] = o[k] || new Set()).add(Math.round(s % L)); return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, [...v]])); };
+          return { towns: by(ctx.town.exits.map(e => [e.town, e.s])), rests: by(ctx.exits.debug.RS.list.map(R => [R.name.short, R.s])), laps: Math.floor(ctx.exits.debug.RS.list.slice(-1)[0].s / L) + 1 }; })()`);
+      const one = o => Object.values(o).every(v => v.length === 1);
+      t.check("every town's exit is at the same lap metre every lap", one(per.towns) && Object.keys(per.towns).length === 2, JSON.stringify(per.towns));
+      t.check("…and every rest area: the same name at the same lap metre, lap after lap", one(per.rests) && Object.keys(per.rests).length === 2 && per.laps >= 3, JSON.stringify(per));
+      await g(`L3.setState("title")`);
+    });
   },
 };

@@ -5,6 +5,7 @@
 // needs new block uses or props) teach build.js's layoutFace / the asset modules about them.
 import lakewood from "./lakewood.js";
 import midwood from "./midwood.js";
+import { LAP } from "../../../world.js";
 
 export const TOWNS = { lakewood, midwood };
 /** The default town (tests / debug / `ctx.town.enter()` with no town): Lakewood. Kept for callers that index by k. */
@@ -34,7 +35,9 @@ export const INTERCHANGE = {
  * road — the highway's shape is fixed, so the same metres on every run and on every friend's screen). Home (Lulu's house,
  * ci/hometown) is in Midwood: its exit is the first one.
  */
-export const ROUTE = { period: 8000, stops: [{ town: midwood, at: 3600 }, { town: lakewood, at: 7600 }] };
+// (🌍 ci/onemap: ONE LAP — the period is the highway's lap (world.js LAP), each town once a lap: Midwood (home) at 3.6 km,
+//  JFK at 8.8 (features/airport), Lakewood at ~12 — the same lap metre every lap)
+export const ROUTE = { period: LAP, stops: [{ town: midwood, at: 3600 }, { town: lakewood, at: 12000 }] };
 export function routeAt(k) {
     const n = ROUTE.stops.length, st = ROUTE.stops[((k % n) + n) % n];
     return { k, town: st.town, s: st.at + Math.floor(k / n) * ROUTE.period };

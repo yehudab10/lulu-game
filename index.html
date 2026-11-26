@@ -17,7 +17,11 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon-192.svg" type="image/svg+xml">
     <title>Lulu's Road Trip 2.0</title>
-    <script>location.replace("3d/" + location.search + location.hash);</script>
+    <script>
+        // Capacitor serves the root page for directory URLs, including /3d/.
+        var gamePage = location.protocol === "capacitor:" ? "/3d/index.html" : "3d/";
+        location.replace(gamePage + location.search + location.hash);
+    </script>
     <noscript><meta http-equiv="refresh" content="0; url=3d/"></noscript>
     <style>
         html, body { margin: 0; height: 100%; background: #7fc8f8; color: #1a1a2e; font: 600 18px/1.4 system-ui, sans-serif; }
