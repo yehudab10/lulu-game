@@ -334,7 +334,9 @@ async function partyRun(t, guests) {
   await optIn("kugel", A, "kugel");
   if (!await settle("kugel", "kugel: GO")) return;
   await g(`ctx.party.clock() > ctx.openworld.game.guard`) || await hostUntil(t, `ctx.party.clock() > ctx.openworld.game.guard + 100`, "kugel guard", 10000);
-  const it0 = await g(`ctx.openworld.game.it`);
+  // (the cars may still be touching from the game before, so it can have passed already at the guard: read who holds
+  //  it together with the pass count, and judge the end by how many passes came after)
+  const [it0, itN0] = await g(`[ctx.openworld.game.it, ctx.openworld.game.itN]`);
   const holder = it0 === hostUid ? pages[0] : A, other = holder === A ? pages[0] : A;
   const op = await other.game(CLEAR);
   // (on a crawling runner the bump can miss — a friend's car still gliding in from its old spot: line them up again)
@@ -354,7 +356,7 @@ async function partyRun(t, guests) {
     if (kg && h[0] === a[0] && h[1] === a[1] && kg[1] === h[1]) { kg = h; break; }
     kg = h[0] === a[0] && h[1] === a[1] ? h : null;
   }
-  t.check("kugel: the bump passed it (both screens agree)", !!kg && kg[1] >= 1 && (kg[0] !== it0) === (kg[1] % 2 === 1), JSON.stringify({ it0, kg }));
+  t.check("kugel: the bump passed it (both screens agree)", !!kg && kg[1] >= 1 && (kg[0] !== it0) === ((kg[1] - itN0) % 2 === 1), JSON.stringify({ it0, itN0, kg }));
   await sleep(600);
   await t.shot("kugel");
   await g(`ctx.party.setA(Object.assign({}, ctx.party.activity, { g: Object.assign({}, ctx.openworld.game, { fuse: Math.round(ctx.party.clock() + 300), guard: 1e15 }) }))`);
