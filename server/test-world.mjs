@@ -35,7 +35,7 @@ try {
   // ── kill switches + the server clock over HTTP ──
   const t0 = Date.now();
   const cfg = await fetch(BASE + "/world/config").then((r) => r.json());
-  check("GET /world/config: the flags + the server time", cfg.world && cfg.world.clock === 1 && cfg.world.reliable === 1 && cfg.world.place === 0 && Math.abs(cfg.st - (t0 + Date.now()) / 2) < 5000, JSON.stringify(cfg));
+  check("GET /world/config: the flags + the server time", cfg.world && cfg.world.clock === 1 && cfg.world.reliable === 1 && cfg.world.place === 1 && Math.abs(cfg.st - (t0 + Date.now()) / 2) < 5000, JSON.stringify(cfg));
 
   // ── step 1: the clock ──
   const A = client(room), B = client(room, "Latke Legend");
