@@ -106,7 +106,7 @@ export async function hello(S) {
     return { coins, sold };
 }
 /** A shop's shelf on the relay. → { ok, shop, shelf: [{ s, g, n, p, st, so }], soldOut } | null */
-export async function view(id) { try { const r = await req(`/shops/view?id=${encodeURIComponent(wire(id))}`); return r.st === 200 ? r.j : null; } catch (e) { return null; } }
+export async function view(id) { try { const r = await req(`/shops/view?id=${encodeURIComponent(wire(id))}`); SV.lastView = { id, st: r.st, j: r.j }; return r.st === 200 ? r.j : null; } catch (e) { return null; } }
 /** Buy one from spot `slot` at the price she saw. → { ok, why, g, st, p } */
 export async function buy(id, slot, p) {
     if (!SV.on) return { ok: false, why: "off" };
