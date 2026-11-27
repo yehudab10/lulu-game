@@ -31,8 +31,9 @@ module.exports = {
 
 async function body(t, guests) {
   const g = t.game, Hp = hostPage(t);
-  await t.click(/Friends/);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 👯 — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   await g(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`);
@@ -57,7 +58,7 @@ async function body(t, guests) {
   t.check("guest: sees it as the host's shop (d.x.ps)", await A.until(`ctx.playershops.debug.SHOP_PARTY.cache.some(x => x.id === ${FJ} && x.kind === "kugel" && x.shelf[0] && x.shelf[0].n === 4)`, "the host's shop on the guest's screen", 30000));
   t.check("…not FOR LEASE for the guest", !(await A.game(`ctx.playershops.leasable().some(f => f.id === ${FJ})`)));
   t.check("…the licence counts for both (Lakewood: 3 kugel → 2 left)", await A.game(`ctx.playershops.licencesLeft("lakewood", "kugel")`) === 2);
-  await A.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} + ${F.nx} * 1.0, 0.05, ${F.ap.z} + ${F.nz} * 1.0); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
+  await A.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} - ${F.nx} * 0.4, 0.05, ${F.ap.z} - ${F.nz} * 0.4); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
   await new Promise(r => setTimeout(r, 2000));
   const lab = await A.game(`((ctx.foot.debug.interactables() || {}).label || "")`);
   t.check("guest at the door: ✋ 👀 LOOK ROUND <host>'S SHOP", /LOOK ROUND/.test(lab), lab);

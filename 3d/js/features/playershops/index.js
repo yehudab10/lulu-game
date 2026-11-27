@@ -509,6 +509,14 @@ function goIn(f, mode, friend = null) {
 }
 
 // ── stage 2: the relay (server.js) ──
+/** Her hello: what sold comes off her shelves, the till comes to her phone. */
+function helloNow() {
+    return SVR.hello(S).then(r => {
+        if (r.coins > 0) { wallet.add(r.coins); log("till", { n: r.coins }); text(`🛎️ Your shop${mine().length > 1 ? "s" : ""} sold ${r.sold || "some"} thing${r.sold === 1 ? "" : "s"} while you were out. The till: ${fmt(r.coins)} coins (the town kept its 15 %).`); }
+        if (r.sold) { saveSoon(); W.built = ""; }
+        return r;
+    });
+}
 const SVT = { busy: false };
 function serverTick() {
     if (SVT.busy) return;
@@ -516,10 +524,7 @@ function serverTick() {
     let job = null;
     if (!V.on) { if (t - V.probeAt > (V.probeAt < 0 ? 3 : 600)) job = SVR.probe(); }
     else if (townId() && (V.town !== townId() || t - V.listAt > 120)) job = SVR.list(townId()).then(() => { W.built = ""; });
-    else if ((ctx.state === "playing" || ctx.state === "footRun") && t - V.helloAt > 300 && Object.keys(S.shops).length) job = SVR.hello(S).then(r => {
-        if (r.coins > 0) { wallet.add(r.coins); log("till", { n: r.coins }); text(`🛎️ Your shop${mine().length > 1 ? "s" : ""} sold ${r.sold || "some"} thing${r.sold === 1 ? "" : "s"} while you were out. The till: ${fmt(r.coins)} coins (the town kept its 15 %).`); }
-        if (r.sold) { saveSoon(); W.built = ""; }
-    });
+    else if ((ctx.state === "playing" || ctx.state === "footRun") && t - V.helloAt > 300 && Object.keys(S.shops).length) job = helloNow();
     else job = SVR.pushTick(S);
     if (job && job.then) { SVT.busy = true; job.catch(() => null).finally(() => { SVT.busy = false; }); }
 }
@@ -537,7 +542,7 @@ ctx.playershops = {
         const fs = others().find(x => x.id === id); if (fs) return { state: "player", name: fs.name, kind: fs.kind, owner: fs.uid || "player" };
         return W.forLease.has(id) ? { state: "lease" } : null;
     },
-    debug: { S, W, CL, syncClaims, SVR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
+    debug: { S, W, CL, syncClaims, helloNow, SVR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
 };
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) for (const sp of [leaseSpot, shopSpot, friendSpot, depotSpot]) ctx.foot.addSpot(sp);

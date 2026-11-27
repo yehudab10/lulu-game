@@ -73,7 +73,7 @@ async function body(t, guests) {
   t.check("…not FOR LEASE for B", !(await B.game(`ctx.playershops.leasable().some(f => f.id === ${FJ})`)));
   const tk = await B.L(`__lulu3d.ctx.playershops.debug.SVR.claim(${FJ}, "kugel")`);
   t.check("…B can't take it (the relay: taken)", tk.ok === false && tk.why === "taken", JSON.stringify(tk));
-  await B.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} + ${F.nx} * 1.0, 0.05, ${F.ap.z} + ${F.nz} * 1.0); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
+  await B.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} - ${F.nx} * 0.4, 0.05, ${F.ap.z} - ${F.nz} * 0.4); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
   await sleep(2500);
   const lab = await B.game(`((ctx.foot.debug.interactables() || {}).label || "")`);
   t.check("B at the door: ✋ 🛍️ SHOP AT <A>'S", /SHOP AT/.test(lab) && lab.includes(names.a.toUpperCase()), lab);
@@ -92,7 +92,7 @@ async function body(t, guests) {
   t.check("…the kugel is in her bag (features/houseitems)", await B.game(`ctx.houseitems.bag.some(x => x.id === "kugel")`));
   // A: the next hello — what sold comes off her shelf, the till (85 % of 15 = 12) comes to her phone
   const cA = await A.game(`L3.wallet.coins`);
-  await A.game(`(ctx.playershops.debug.SVR.SV.helloAt = -1e9, true)`);
-  t.check("A's hello: the till (12) comes to her phone", await A.until(`L3.wallet.coins >= ${cA} + 12`, "the till", 30000), `${cA} → ${await A.game(`L3.wallet.coins`)}`);
+  const hr = await A.L(`__lulu3d.ctx.playershops.debug.helloNow()`);
+  t.check("A's hello: the till (12) comes to her phone", (await A.game(`L3.wallet.coins`)) >= cA + 12, `${cA} → ${await A.game(`L3.wallet.coins`)} ${JSON.stringify(hr)}`);
   t.check("…and the one that sold is off her shelf (3 left)", (await A.game(`ctx.playershops.debug.S.shops[${FJ}].shelf[0].n`)) === 3);
 }
