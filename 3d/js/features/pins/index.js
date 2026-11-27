@@ -41,11 +41,18 @@ css("pins", `
 
 // ── the registry ─────────────────────────────────────────────────────────
 export function add(def) {
-    if (!def || !def.id || !def.name) return null;
+    if (!def || !def.id || !(def.name || def.label)) return null;
     const p = Object.assign({ icon: "📍", cat: "town", sub: "" }, def);
+    p.name = p.name || p.label;
     p.group = p.group || p.town || "highway";
     REG.set(p.id, p);
     return p;
+}
+/** Take a place off the map (a pinned one is un-pinned). */
+export function remove(id) {
+    const had = REG.delete(id);
+    if (had && PS.ping === id) clear("removed");
+    return had;
 }
 let seeded = false;
 function ensureSeed() { if (seeded) return; seeded = true; for (const p of seed()) if (!REG.has(p.id)) add(p); }
@@ -271,7 +278,7 @@ addMenuItem("settings", {
 });
 
 ctx.pins = {
-    add, list, get, ping, pingKind, clear, target, groups, lapM, pointerOn, setPointer,
+    add, remove, list, get, ping, pingKind, clear, target, groups, lapM, pointerOn, setPointer,
     get current() { return PS.ping; },
     get from() { return PS.from; },
     debug: { PS, P, tick: dt => tick(dt || 0.2) },

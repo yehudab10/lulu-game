@@ -52,6 +52,9 @@ module.exports = {
     t.check("…grouped by where they are along the lap (Midwood · the highway · JFK · Lakewood)", ["midwood", "highway", "jfk", "lakewood"].every(x => gr.includes(x)), gr.join(" → "));
     await g(`ctx.pins.add({ id: "test:post", name: "Test trooper post", icon: "🚔", cat: "help", lap: 9000, group: "highway" })`);
     t.check("a feature can add a place and it shows by itself", await g(`!!ctx.pins.get("test:post") && ctx.pins.groups().find(x => x.id === "highway").places.some(p => p.id === "test:post")`));
+    t.check("…with a label instead of a name (impound's shape), and remove() takes it off (and un-pins it)", await g(`(() => { const P = ctx.pins; const p = P.add({ id: "test:lbl", icon: "🚗", label: "Your impounded car", town: "midwood", spot: "impound" });
+      const ok1 = !!p && P.get("test:lbl").name === "Your impounded car"; P.ping("test:lbl"); const pinned = P.current === "test:lbl"; P.remove("test:lbl");
+      return ok1 && pinned && !P.get("test:lbl") && P.current == null; })()`));
 
     // ── Midwood: every place reachable ──
     if (!await town("midwood")) return;
