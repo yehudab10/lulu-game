@@ -12,6 +12,7 @@ const fs = require("fs"), path = require("path");
 const LAYOUTS = [["desktop", 1280, 720, false], ["phone-portrait", 390, 844, false], ["phone-landscape", 844, 390, false], ["tv", 1920, 1080, true]];
 module.exports = {
   name: "yeshiva",
+  part: 1,                           // (yeshiva2.js runs part 2: the software-GL runners are slow — one file would pass an hour)
   viewport: { width: 1280, height: 720 },
   query: "&enable=town,law,atmos,seasons",
   save2d: { totalCoins: 2000, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
@@ -69,7 +70,9 @@ module.exports = {
     const onScreen = sel => t.L(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.offsetParent === null) return "absent"; const r = e.getBoundingClientRect(); return r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1; })()`);
     const kinds = { weekday: `ctx.seasons.debug.season("none")`, friday: `ctx.seasons.debug.season("friday")`, shabbos: `ctx.seasons.debug.season("shabbos")`, fast: `ctx.seasons.debug.season("tzomGedaliah")`, purim: `ctx.seasons.debug.season("purim")`, simchas: `ctx.seasons.debug.season("simchasTorah")` };
 
+    const P = this.part || 1;
     // ════ 0. data, wiring, the words ════
+    if (P === 1) {
     t.check("ctx.yeshiva + the interior exist", await g(`!!(ctx.yeshiva && ctx.yeshiva.enter && ctx.interiors.yeshiva)`));
     t.check("the town keeps the room (bank.js TOWN_INTERIORS)", await t.L(`fetch("js/features/heist/bank.js").then(r => r.text()).then(s => /TOWN_INTERIORS = new Set\\(\\[[^\\]]*"yeshiva"/.test(s))`));
     t.check("friends share the room (together/rooms.js SHARED)", await t.L(`fetch("js/features/together/rooms.js").then(r => r.text()).then(s => /SHARED = \\{[\\s\\S]*?\\byeshiva:/.test(s))`));
@@ -86,6 +89,7 @@ module.exports = {
       t.check(`${f}: no contempt in either direction (${mean.slice(0, 5).join(",")})`, mean.length === 0);
     }
 
+    }
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "cruise starts")) return;
     await playing();
@@ -93,7 +97,7 @@ module.exports = {
     await W.install(t);
 
     // ════ 1. the campus outside ════
-    await step("outside", async () => {
+    if (P === 1) await step("outside", async () => {
       if (!await town("lakewood")) return;
       t.check("the campus door is a spot on a sidewalk beside a street", await g(`(() => { const sp = ctx.yeshiva.spot(); if (!sp) return false; const n = ctx.world.road.nearest(sp.x, sp.z, ctx.car.s, {}); return Math.abs(n.d) > 4 && Math.abs(n.d) < 16; })()`));
       t.check("the three campus spots stand (hall, dorm, car park)", await g(`["campus", "campusDorm", "campusLot"].every(k => !!ctx.town.spot(k))`));
@@ -128,7 +132,7 @@ module.exports = {
     });
 
     // ════ 2. THE WAVE: five beats by depth, never thrown out, a fresh start on the next visit ════
-    await step("the wave", async () => {
+    if (P === 1) await step("the wave", async () => {
       await g(`(${kinds.weekday}, ctx.yeshiva.debug.force.hour = 13, true)`);
       if (!await walkIn()) return;
       const V = () => room(`({ beat: r.data.V.beat, buried: r.data.V.stats.buried, staring: r.data.V.stats.staring, settled: r.data.V.settled, mem: r.data.V.mem.length, mash: !!(r.byId.mash && r.byId.mash.p.obj.visible), hider: !!(r.byId.hider && r.byId.hider.p.obj.visible), busy: r.busy, dlg: ctx.dialogOpen })`);
@@ -174,7 +178,7 @@ module.exports = {
     });
 
     // ════ 3. the people, every ✋ line, the parody shiur on its hours ════
-    for (const kind of ["weekday", "shiur", "friday", "shabbos", "fast", "purim"]) {
+    for (const kind of P === 1 ? ["weekday", "shiur", "friday"] : ["shabbos", "fast", "purim"]) {
       await step(`kind ${kind}`, async () => {
         const seasons = kind === "shiur" ? "weekday" : kind;
         await g(`(${kinds[seasons]}, ctx.yeshiva.debug.force.kind = ${kind === "shiur" ? '"shiur"' : "null"}, ctx.yeshiva.debug.force.hour = ${kind === "shiur" ? 10.5 : 13}, true)`);
@@ -226,7 +230,7 @@ module.exports = {
     }
 
     // ════ 4. the shiur's hours (the clock) ════
-    await step("hours", async () => {
+    if (P === 2) await step("hours", async () => {
       const is = async (h, season) => { await g(`(${kinds[season]}, ctx.yeshiva.debug.force.kind = null, ctx.yeshiva.debug.force.hour = ${h}, true)`); return g(`ctx.yeshiva.plan().shiur`); };
       t.check("a weekday 10:30 → the shiur is on", await is(10.5, "weekday"));
       t.check("a weekday 3:30 pm → the shiur is on", await is(15.5, "weekday"));
@@ -237,7 +241,7 @@ module.exports = {
     });
 
     // ════ 5. the errand (a forgotten lunch), the black hat ════
-    await step("errand + hat", async () => {
+    if (P === 2) await step("errand + hat", async () => {
       if (!await town("lakewood")) return;
       await g(`(${kinds.weekday}, ctx.yeshiva.debug.force.hour = 13, ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.05, ctx.yeshiva.debug.SAVE.lunch = "", ctx.yeshiva.debug.SAVE.lunchDay = "", true)`);
       await onFootAt(1.2);
@@ -268,7 +272,7 @@ module.exports = {
     });
 
     // ════ 6. L.S.D.: the staring, the contest, the badge ════
-    await step("L.S.D.", async () => {
+    if (P === 2) await step("L.S.D.", async () => {
       if (!await town("lakewood")) return;
       await onFootAt(3);
       const n0 = await g(`ctx.town.people().length`);
@@ -291,7 +295,7 @@ module.exports = {
     });
 
     // ════ 7. the OTD guys (dusk / night, some evenings) ════
-    await step("OTD", async () => {
+    if (P === 2) await step("OTD", async () => {
       if (!await town("lakewood")) return;
       await onFootAt(3);
       await g(`(ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.9, ctx.yeshiva.debug.ST.npcs.length = 0, true)`);
@@ -313,7 +317,7 @@ module.exports = {
     });
 
     // ════ 8. phone portrait / landscape + TV ════
-    await step("layouts", async () => {
+    if (P === 2) await step("layouts", async () => {
       if (!await town("lakewood")) return;
       await g(`(${kinds.weekday}, ctx.yeshiva.debug.force.hour = 13, true)`);
       if (!await walkIn()) return;
