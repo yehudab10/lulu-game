@@ -31,19 +31,33 @@ module.exports = {
       return t.until(`__lulu3d.state === "footRun"`, "back out on foot", 30000);
     };
     const ROOMS = [
-      ["the pizza shop", `ctx.shops.enterShop("pizza")`],
-      ["Borough Hall", `(() => { const sp = ctx.cityhall.spot(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 1.2, 0.05, sp.z + sp.nz * 1.2); F.phase = "walk"; return ctx.cityhall.enter(); })()`],
-      ["Ima's house", `ctx.decor.enter()`],
+      ["Ima's house", `(ctx.onegame && ctx.onegame.home ? ctx.onegame.home() : 0, true)`, `ctx.decor.enter()`],
+      ["the pizza shop", null, `ctx.shops.enterShop("pizza")`],
+      ["Borough Hall", null, `(() => { const sp = ctx.cityhall.spot(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 1.2, 0.05, sp.z + sp.nz * 1.2); F.phase = "walk"; return ctx.cityhall.enter(); })()`],
     ];
+    // (walking in, someone may greet her — a chat keeps the phone shut, by design: let it finish)
+    const free = async tag => {
+      for (let i = 0; i < 60; i++) {
+        const s = await L(`import("./js/features/phone/ui.js").then(m => ({ free: m.roomFree(), dlg: !!__lulu3d.ctx.dialogOpen }))`);
+        if (s.free && !s.dlg) return true;
+        if (s.dlg) await L(`import("./js/core/dialog.js").then(m => { m.closeDialog && m.closeDialog(); return true; })`);
+        await t.frames(10);
+      }
+      const why = await L(`import("./js/features/interiors/engine.js").then(m => { const r = m.current(); return r ? { ready: r.ready, busy: r.busy, lock: r.lock, leaving: r.leaving, active: !!r.active, mode: !!r.mode, dlg: !!__lulu3d.ctx.dialogOpen } : null; })`);
+      t.check(`${tag}: the room settles (free to use the phone)`, false, JSON.stringify(why));
+      return false;
+    };
     for (const [w, h] of [[412, 915], [667, 375]]) {
       if (w !== 412) { await t.page.setViewportSize({ width: w, height: h }); await L(`(window.dispatchEvent(new Event("touchstart")), 0)`); await t.frames(10); }
-      for (const [name, enter] of ROOMS) {
+      for (const [name, pre, enter] of ROOMS) {
         const tag = `${w}×${h} ${name}`;
         if (!await outOfRoom()) continue;
         await W.moved(t);
+        if (pre) { await g(pre); await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, `${tag}: at home`, 30000); await t.frames(20); }
         await g(enter);
         if (!await t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready`, `${tag}: inside`, 60000)) continue;
         await t.frames(40);
+        if (!await free(tag)) continue;
         await L(`(window.dispatchEvent(new Event("touchstart")), 0)`); await t.frames(2);
         t.check(`${tag}: the corner is 📱, not ❚❚`, await vis("phoneBtn") && !(await vis("pauseBtn")));
         await L(`document.getElementById("phoneBtn").click()`); await t.frames(6);
@@ -67,9 +81,12 @@ module.exports = {
     }
     // a controller in a room: the touchpad opens it, ○ ○ closes it; mid-chat it stays shut
     await outOfRoom();
+    await g(`(ctx.onegame && ctx.onegame.home ? ctx.onegame.home() : 0, true)`);
+    await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "at home (pad)", 30000); await t.frames(20);
     await g(`ctx.decor.enter()`);
     if (await t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready`, "Ima's house (pad)", 60000)) {
       await t.frames(40);
+      await free("pad");
       await t.tap(17); await t.frames(6);
       t.check("🎮 in a room the touchpad opens the phone", await g(`ctx.phone.isOpen`));
       await t.tap(1); await t.frames(4);
