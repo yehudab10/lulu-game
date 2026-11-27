@@ -43,8 +43,9 @@ async function body(t, guests) {
   t.check("ctx.together service", await g(`!!ctx.together && typeof ctx.together.locate === "function"`));
   t.check("solo: no friend map in the phone (the story map keeps the 🗺️ slot)", await g(`!ctx.phone.apps().includes("tgmap")`));
   // ── the host: 👯 Friends → 🌍 Hang out (straight into Free Roam) ──
-  await t.click(/Friends/);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   await g(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
@@ -58,10 +59,14 @@ async function body(t, guests) {
   // ── the map app ──
   t.check("party: the 📱 has the friends 🗺️ Map (and not the story map)", await g(`ctx.phone.apps().includes("tgmap") && !ctx.phone.apps().includes("map")`), JSON.stringify(await g(`ctx.phone.apps()`)));
 
+  // (diag: every car.place / foot start on the guest from here on, with who called it)
+  await A.game(`(() => { const c = ctx.car; if (!c.__pl) { c.__pl = []; const o = c.place.bind(c); c.place = (x, z, h) => { c.__pl.push([L3.frames, Math.round(x), Math.round(z), ctx.state, (new Error().stack || "").split("\\n").slice(2, 6).map(l => l.trim().replace(/^at /, "").replace(/\\(.*\\/js\\//, "(").slice(0, 60)).join(" < ")]); return o(x, z, h); }; } return true; })()`);
   // put the host at s = 400 in the right lane, the guest 230 m ahead
   await g(`ctx.party._debug.place(400, 1.75, 0)`);
   await A.game(`ctx.party._debug.place(630, 1.75, 0)`);
   await t.frames(20);
+  const placeDiag = async () => console.log("   PLACEDIAG guest", JSON.stringify(await A.game(`({ st: ctx.state, foot: ctx.foot.active, car: [Math.round(ctx.car.pos.x), Math.round(ctx.car.pos.z), Math.round(ctx.car.s)], town: ctx.town.active, own: ctx.party.ownRun, pl: (ctx.car.__pl || []).slice(-8) })`)));
+  if (!await Hp.until(`(() => { const l = ctx.together.locate(${GU}); return !!l && l.kind === "here" && l.dist > 180 && l.dist < 280; })()`, "host locates the guest ~230 m ahead (diag)", 60000)) { await placeDiag(); return; }
   if (!await Hp.until(`(() => { const l = ctx.together.locate(${GU}); return !!l && l.kind === "here" && l.dist > 180 && l.dist < 280; })()`, "host locates the guest ~230 m ahead", 60000)) return;
   await Hp.until(`(() => { const p = ${PILL(guestUid)}; return !!p && p.shown; })()`, "a pointer for the guest (far ahead)", 20000);
   let pill = await g(PILL(guestUid));

@@ -39,8 +39,9 @@ module.exports = {
 async function body(t, guests) {
   const g = t.game, Hp = hostPage(t);
   t.check("ctx.partners service", await g(`!!${PZ} && typeof ${PZ}.ring === "function" && ${PZ}.PAY.dare.pot === 30`));
-  await t.click(/Friends/);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
   const A = await guestPage(t, "guest", { totalCoins: 300, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`);
@@ -64,10 +65,12 @@ async function body(t, guests) {
   const calm = () => all(p => p.game(`(() => { const L = ${D}.L; if (L.chase) ctx.law.standDown("test"); L.units.length = 0; L.sus = 0; return true; })()`));
   const warn = (p, c) => p.game(`(${D}.L.grace = 0, ${D}.L.hold = 0, ${D}.L.partyHold = 0, ${D}.L.sus = 0, ctx.law.notice(${JSON.stringify(c)}, { msg: "⚠️" }))`);
 
+  let h0 = 0, g0 = 0;
+  if (process.env.PARTNERS3_ONLY !== "ring") {      // (PARTNERS3_ONLY=ring: just the ring & sneak, for a quick local repro)
   // ── 🎲 DOUBLE DARE: far apart first (nothing), then side by side ──
   await g(`ctx.party._debug.place(400, 1.75, 0)`); await A.game(`ctx.party._debug.place(950, 1.75, 0)`);
   await all(p => p.frames(12));
-  let h0 = await coins(Hp), g0 = await coins(A);
+  h0 = await coins(Hp); g0 = await coins(A);
   await warn(Hp, "RUNNING A STOP SIGN"); await warn(A, "RUNNING A STOP SIGN");
   await all(p => p.frames(60));
   t.check("a dare 550 m apart pays nothing", (await coins(Hp)) === h0 && (await coins(A)) === g0);
@@ -145,6 +148,7 @@ async function body(t, guests) {
   await Hp.until(`ctx.state === "playing" || ctx.state === "footRun"`, "host: out on bail", 60000);
   await calm(); await all(p => p.frames(10));
 
+  }
   // ── 🔔 RING & SNEAK: Lakewood; the guest sneaks into a house, the host rings the bell ──
   for (const p of both) {
     await p.game(`(() => { if (ctx.foot.active) ctx.foot.end("test"); if (ctx.state !== "playing") L3.setState("playing"); return true; })()`);
@@ -156,6 +160,7 @@ async function body(t, guests) {
     await p.game(`ctx.foot.start("parked")`);
     if (!await p.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && ctx.homes.homes().length > 0`, `${p.label}: walking in town`, 60000)) return;
   }
+  await all(p => p.game(`(ctx.party._debug.N.bcLog = [], true)`));
   await all(p => p.game(`(${PZ}.debug.resetCaps(), ctx.homes.debug.scene && ctx.homes.debug.scene("ordinary"), ctx.homes.debug.force.noCatch = true, true)`));   // (everybody home: features/homes' households keep a schedule)
   const hi = 3;
   const key = await A.game(`(() => { const h = ctx.homes.homes()[${hi}]; ctx.foot.debug.F.pos.set(h.ap.x, 0.05, h.ap.z); return h.key; })()`);
@@ -170,5 +175,12 @@ async function body(t, guests) {
   t.check(`…the residents are distracted on HER screen (${await A.L(`window.__rung`)})`, true);
   await A.L(`import("./js/features/interiors/engine.js").then(m => m.current().leave())`);
   const ring = await Promise.all([Hp.until(`${PZ}.debug.R.ring >= 1`, "host: CLEAN JOB", 60000), A.until(`${PZ}.debug.R.ring >= 1`, "guest: CLEAN JOB", 60000)]);
+  if (!ring[0]) {
+    const nd = `(() => { const N = ctx.party._debug.N; return { slim: N.slim | 0, bcBig: N.bcBig | 0, bcLost: N.bcLost | 0, maxLen: N.maxLen | 0, state: ctx.state, mode: ctx.G && ctx.G.mode, xk: Object.keys(N.xk || {}) }; })()`;
+    console.log("   RING bcLog host", JSON.stringify(await g(`(() => { const N = ctx.party._debug.N, p = ctx.party.peer(${GU}); return { log: N.bcLog, peer: p && { bcSeen: p.bcSeen, q: p.q, si: p.si, age: Math.round(performance.now() - p.lastRecv), m: p.m, aid: p.aid }, members: ctx.party.members(), act: ctx.party.activity && ctx.party.activity.k }; })()`)).slice(0, 1500));
+    console.log("   RING bc guest", JSON.stringify(await A.game(`(() => { const N = ctx.party._debug.N; return { nonce: N.bcNonce, bcast: N.bcast.map(b => [b.n, b.k, b.sent]), log: N.bcLog, si: N.si, seq: N.seq }; })()`)).slice(0, 1500));
+    console.log("   RING diag host", JSON.stringify(await g(nd)), JSON.stringify(await g(`(() => { const R = ${PZ}.debug.R; return { rang: R.rang, ring: R.ring }; })()`)));
+    console.log("   RING diag guest", JSON.stringify(await A.game(nd)), JSON.stringify(await A.game(`(() => { const R = ${PZ}.debug.R; return { rung: R.rung, ring: R.ring }; })()`)));
+  }
   if (ring.every(Boolean)) t.check(`RING & SNEAK out clean: 10 + 10 (host +${(await coins(Hp)) - h0}, guest +${(await coins(A)) - g0})`, (await coins(Hp)) - h0 === 10 && (await coins(A)) - g0 === 10);
 }

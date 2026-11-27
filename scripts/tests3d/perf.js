@@ -396,7 +396,6 @@ module.exports = {
       try {
         await g(`(ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
         await t.frames(6);
-        await t.click(/Friends/);
         await g(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more — ci/friends stage 2)
         if (!await t.until(`__lulu3d.state === "partyLobby" && __lulu3d.ctx.party.connected && __lulu3d.ctx.party.isHost`, "host: lobby", 60000)) return;
         const code = await g(`ctx.party.code`);

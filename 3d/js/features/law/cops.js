@@ -338,6 +338,13 @@ function placeRoute(c, u, ch) {
     for (const fn of hooks.copRoute || []) { try { const r = fn(c, u, ch); if (r) return r; } catch (e) { console.error("[law] copRoute", e); } }
     return null;
 }
+/** Her car itself (features/carcare): hook "copLook" () → × how fast a cop's look lands (a dirty car 1.1, a QUIET muffler at
+ *  night 0.85) · hook "copHear" () → × how far they still hear her (a LOUD muffler 1.2). Numbers only; 1 when nobody says. */
+export function copMul(name) {
+    let m = 1;
+    for (const fn of hooks[name] || []) { try { const r = fn(); if (typeof r === "number" && r > 0) m *= r; } catch (e) { console.error("[law] " + name, e); } }
+    return m;
+}
 function placeSight(ax, az, bx, bz) {
     for (const fn of hooks.copSight || []) { try { const r = fn(ax, az, bx, bz); if (r === true || r === false) return r; } catch (e) { console.error("[law] copSight", e); } }
     return undefined;
@@ -554,7 +561,7 @@ function updateTraps(dt, controlsOn) {
         const inView = rel > -70 && rel < 12;
         if (inView) t.near = true;
         if (controlsOn && canPounce() && inView && speeding() && !(t.noticeUntil > ctx.time)) {
-            t.spot += dt;
+            t.spot += dt * copMul("copLook");
             L.radar = Math.max(L.radar, t.spot / 0.65);
             if (t.spot >= 0.65) {
                 t.spot = 0;
@@ -619,7 +626,7 @@ function updatePatrols(dt, controlsOn) {
         const sees = dist < (u.hunter ? 45 : 34) && (dist < 15 || clearLine(c.x, c.z, c.s, c));
         if (fug) continue;                  // the fugitive "recognised" meter handles these
         if (sees && speeding() && !(u.noticeUntil > ctx.time)) {
-            u.spot += dt;
+            u.spot += dt * copMul("copLook");
             if (u.spot > 0.7) {
                 u.spot = 0;
                 // first time: the patrol flashes its lights (a WARNING); she keeps it up — or it's reckless — a chase
@@ -777,7 +784,7 @@ function updateBolo(dt, controlsOn) {
     const hide = hiding();
     b.look -= dt * (hide ? 2 : 1);
     if (unitSees(u, 1, nightness(), !!hide)) {
-        b.seeT += dt;
+        b.seeT += dt * copMul("copLook");
         if (b.seeT >= TUNE.boloSee) {
             const charges = b.charges.slice();
             L.bolo = null;
@@ -901,7 +908,7 @@ function updateChase(dt, controlsOn) {
     if (seen) ch.last = { s: car.s, d: car.d, h: car.h, v: Math.max(0, car.vF), t: ctx.time };     // where they think she's heading
     const wasSearching = ch.searching;
     ch.seen = seen;
-    ch.searching = !seen && gap > (hide ? TUNE.hideGap : TUNE.searchGap);
+    ch.searching = !seen && gap > (hide ? TUNE.hideGap : TUNE.searchGap) * copMul("copHear");
     ch.hiding = ch.searching ? hide : "";
     if (ch.searching && !wasSearching && L.hint < 1 && ch.t > 2) {
         L.hint++;
@@ -1017,7 +1024,7 @@ function updateRandom(dt, controlsOn) {
             && clearLine(u.car.x, u.car.z, u.car.s, u.car));
         const seen = pu || L.traps.find(t => !t.gone && car().s - t.s > -45 && car().s - t.s < 8);
         if (seen) {
-            L.wantedSpot += dt * (speeding() ? 2 : 1);
+            L.wantedSpot += dt * (speeding() ? 2 : 1) * copMul("copLook");
             if (L.wantedSpot > TUNE.warrantSee) {
                 L.wantedSpot = 0;
                 beginChase("OUTSTANDING WARRANT", { msg: "🚨 THAT'S HER — WANTED!", charges: wanted.slice(0, 3), unit: pu || trapUnit(seen) });

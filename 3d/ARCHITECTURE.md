@@ -20,6 +20,7 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/core/platform.js                       PS5 / console / TV detection, TV mode
   js/features/dualsense/                    DualSense light bar + adaptive triggers + heart LEDs (WebHID)
   js/features/native/                       the iOS app (Capacitor): AdMob + ATT, Taptic haptics — a no-op on the web
+  js/features/install/                      📥 install on this PC / phone (optional): registers /sw.js after the title, one quiet ⚙️ row
   js/features/heist/                        🏦 banks in the towns, cartoon robberies to foil, Lulu's own heist, road snatchers, the cops' stun nets + spike strips
   js/features/underworld/                   😈 crooked cops, Velvel's garage, the Fixer's jobs + heat, road-ragers / gang cars / pickpockets
   js/features/seasons/                      🕎 the world follows the real Hebrew calendar: menorahs in the windows, the Purim parade, sukkahs, …
@@ -518,6 +519,31 @@ town's next exit; arriving clears it (a town place within 12 m, a rest area / JF
 it, ✕ Clear in the map. 🛍️ Where to shop (shops/guide.js) marks through it (`pingKind`). With friends: `d.x.pg` = my
 ping's id (the party packet — no relay change); a friend's ping = their beam in their colour + one quiet line for 8 s.
 ⚙️ 📍 Destination pointer (off = no beam, no edge pointer; the map + the line stay). Test `pins`.
+**Discover by walking** (ci/storefronts): the essentials are always on her Map (help, her homes, the highway's + JFK's
+places, City Hall, Ima's house, anything `essential`); every other place shows only once she's been within 28 m of it
+(`ctx.pins.shown(p)`, `discover(id)` · `PS.found`), with a small pink dot in the list until she's seen it there. The
+registry (`list()`) is unchanged — the Map view filters. Tests opt in with `&enable=discover`.
+
+**Storefronts (`features/storefronts`, `ci/storefronts`, 2026-11-27 — the owner: "fill every building and property with
+something … some of them can be under renovation — or closed … I don't necessarily want a bunch of stores repeating
+themselves … this could clutter the map … done smartly"):** every shopfront (town_shop / town_mw_store — Midwood 165,
+Lakewood 19) has ONE state, decided as the town builds: the engine asks `town/fronts.js`' namer (set by
+`storefronts/assign.js`) in build order — deterministic, the same for everyone. The first front showing a named shop IS
+that shop; every later copy becomes its street's next NEW shop (`data.js` › SHOPS rows with a `list`), then a cycle of
+non-shops — so no name shows twice in a town. States: **open** (a one-joke walk-in, `hours` on the device's clock + the
+weekday; Shabbos / Yom Tov from `ctx.seasons.day()` shut everything) · **closed** (outside its hours: a red card on the
+door, ✋ reads its joke + "opens 6:30 am") · **soon** (papered windows + a sign that changes each real week; Midwood's east
+end of Avenue M is kept as one long front for East Midwood Lanes, the bowling alley) · **lease** (FOR LEASE —
+`ctx.storefronts.claim(id, { label, enter })` for ci/playershops) · **use** (saved for a feature: ci/cars' car-care row,
+"BACK IN 5") · office / dentist / gone. The ONE shop room (`room.js`, code-built on the interiors engine like
+places/roadrooms.js) is dressed from the row as she walks in (`dress()`): its colours, its sign, one person, a few lines,
+ONE thing to do — a taste, a browse, a seat, or a 5-coin thing (a coin SINK, `garage/buy.js` › `buyExtra`). The door
+cards + papered windows + FOR LEASE cards are ONE merged mesh per town (a 4-cell texture); the non-shop signs share one
+plain style at a smaller size, and the sign atlas now packs at the largest scale that fits (kit.js: a bisection — Midwood
+0.528, was 0.531). One foot spot is always the nearest front's door (`walkIn` only while open); a 🗺️ STREET DIRECTORY
+board on each shopping street (✋ → today's hours; a tap pings the shop through a HIDDEN pin — one-joke shops never get a
+pin of their own). `ctx.town.fronts` (world coords, build order). heist/bank.js' `TOWN_INTERIORS` lets the shop room play
+inside a town. Data: every shop, hour and line in `storefronts/data.js`. Test `storefronts`.
 
 **📶 Show connection (`features/netping`, ⚙️, OFF by default):** a small "📶 48 ms" pill in the top band by the coins;
 it times the relay heartbeat the game already sends (`multiplayer/net.js › pingRelay()`: "pi" → the relay's "po" →
@@ -747,6 +773,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
 | cityhall 🏛️ | **shared room**; everything else personal / local | `cityhall` is in `together/rooms.js` SHARED (set from `features/cityhall`, the town tells two copies apart): friends in a party's 🌍 Free Roam who walk into the same town's city hall see each other; each screen runs its OWN clerks / secretary / mayor / expediter (which window is "back in 5 minutes" follows each device's clock). The ribbon cuttings and the protests are local + cosmetic (each screen its own, nothing pays). Tax, fees, permits and the lien are each player's own save (billed on THEIR played days). The inspector at her homes and the paving crew (the corruption story) are SOLO (not in a party). Off in a lobby activity and in Dina's mode (the door's `canWalkIn`). |
 | clothes 👗 | **shared room**, personal buys; friends SEE her outfit | The shop is town data (`uses.clothes`) and a room in `together/rooms.js` SHARED (one per town + `"jfk"`: `ctx.clothes.shopNow()`). Trying on / buying / the fitting room / the closet are her own (her wallet, her save). Her outfit rides in the party state as `d.x.ot` (a short comma list of piece ids — `ctx.clothes.encode` / `decode`; old clients ignore it, a client that sends none = the default look); a friend's Lulu is dressed with it on the street (party/remote's walker — not in a disguise / the jumpsuit), in a shared room (together/rooms' Mate, re-dressed in place when it changes), stepping in (together/outside) and in the passenger seat (openworld/ride). Strangers in the EVERYONE room stay plain ghosts (no outfits on crowds). |
+| lanes 🎳 | **shared room + shared games**, personal fees / rewards | One alley (`SHARED.lanes` = `"midwood"`). The games ride in the group state (`d.x.bw`: each player's OWN balls + the owner's roster) — every screen plays the same balls on the same lane; join = an ✋ invitation at that lane, never a pull. The fee, the knish, the shirt, the best score are each player's own. |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -801,6 +828,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.underworld` | underworld | `heat` (0–100) · `level` {i, name} · `addHeat(n, why)` · `enc` (the live bad-guy encounter {kind: rager \| gang \| pickpocket, phase, result, rival, stolen}) · `offer` (Krupnik's cruiser / Velvel's shack up the road {kind, s, done}) · `rivals` · `SPAWN` / `TUNE` (the knobs, `data.js`) · `bustOffer({reason})` (law/bust.js asks at a pull-over) · `live` · `why()` ("" = a bad guy could show up now) · `spawn(kind, opts)` · `debug {UW, SAVE, force: {offer, sting, hot, flat, trap, always, report}, log, shoulderCop, placeShack, fixerOffer, callShomrim, chaverimFlat, shomerAfter, tackle, payOwed, reset}`. Events `underworld:<ev>` (offer, bribe, velvel, hot, encounter, bump, flat, end, shomrim, chaverim, pick, owed, job, fixer, heat); stats `uwBribes`, `uwStings`, `uwVelvelFixes`, `uwVelvelPaints`, `uwVelvelSales`, `uwJobs`, `uwRagers`, `uwGangs`, `uwPickpockets`, `uwBumps`, `uwCopBusts`, `uwShomrimCalls`, `uwShomrimBusts`, `uwTackles`, `uwChaverim`, `uwBadBusts`, `uwBadEscapes` |
 | `ctx.shops` | shops | `guide(back)` (the 🛍️ Where to shop card) · `places()` (rows: id, name, sells, where) · `dest()` / `setDest(id)` (the marked place: `dealer`, `garage`, …) · `openLot(skin)` · `openGarage()` · `debug { dealer, garage, guide, card }`. Buying anywhere: `garage/buy.js` (`buy(kind, id)`, `buyCar`, `buyItem`, `buyHorn`, `buyDecor`, `equipSkin`, `owns`, `countOf`, `priceOf`). Foot helpers it added: `ctx.foot.parkedCar` ({x, z, h, drivable} of her parked car), `ctx.foot.repaintCar()` |
 | `ctx.clothes` | clothes | `current()` (what she wears: `{ top, skirt, tights, shoes, outer, acc }` piece ids) · `owns(id)` · `owned` · `wear(outfit, why)` (ONLY from a closet / a fitting room) · `dress(obj, outfit)` (dress any Lulu model) · `encode` / `decode` (the compact form for other players) · `pieces` / `slots` / `shops` · `enterShop()` / `enterAs(id, {exit})` · `shopNow()` · `placeCloset(rt, opts)` · `outfitOf(partyPlayer)` (a friend's, from `d.x.ot`) |
+| `ctx.lanes` | lanes | `enter({exit}?)` (through the Avenue M door, or straight in) · `game()` (her game: `{lane, gid, frames, owner, roster, balls}` \| null) · `best` · `debug.{S, G, V, LG.force.{trophy, when}, play.{startGame, joinGame, bowl, myTurn, fromSwipe, atLane, endGame}, order, peersHere, freeLane, joinable}` — 🎳 East Midwood Lanes (`features/lanes/`). Events `lanes:start` {lane, frames, vs} · `lanes:join` · `lanes:ball` {lane, down, gutter, frame} · `lanes:over` {total, best, first200} · `lanes:trophy` · `lanes:knish` · `lanes:end`; stats `lanesGames`, `lanesStrikes`, `lanes200`, `lanesTrophy` |
 | `ctx.places` | world | `add(def)` a pull-in place (`{id, name, icon, kind, where(mode) → [s…], d, bay: {half, d0, d1}, model, sign, colliders(spot), host(spot), cam(spot, t, pos, look), dur, beats: [{t, run(spot)}]}` — a town can register its own) · `get(id)` · `list()` · `spots()` (built ones near the car) · `at(id)` (positions this mode) · `visits(id)` · `inside` · `visit(key)` · `home {ready, phase: "parked" \| "arriving", park {x,z,h,s,d}, parked(), depart(), holiday(), decor, extras}` · `debug {clock(v), localClock(date), parkNow(), holiday()}`. Events `world:depart` {mode}, `world:home`, `world:visit` {id, s}, `world:holiday` {id} |
 | `ctx.exits` | exits | `rests` (`[{s, k, name}]` planned this run) · `spans()` (`[{a, b}]` each rest area's signs → accel lane: town's exit planner keeps out) · `inside` (the rest area she's in, or null) · `next` (what the next-exit chip shows) · `dealOfDay` · `debug.{RS, LY, LIFE, restAhead(ahead), pt(i, u, d), actAt(kind), modelsReady()}` — 🛣️ highway exits & 🅿️ rest areas (`features/exits/`). Events `exits:rest` {phase: enter \| leave, s, name}, `exits:talk` {id}, `exits:food` {id, cost}, `exits:restroom` {gag}, `exits:vending` {result}, `exits:souvenir` {id}, `exits:picnic`, `exits:dog`, `exits:pump` {result}, `exits:mechanic` {result}; stats `restStops`, `restMeals`, `restRestrooms`, `restSnacks`, `restKicks`, `restSouvenirs`, `restPicnics`, `restDogPets`, `restTalks`, `restFills`, `restRepairs` |
 | `ctx.unstuck` | unstuck | 🆘 "I'm stuck": `now({ car })` (rescue now — no confirm, no cooldown check; `car: true` on foot brings her parked car too) · `offer()` (is 🆘 in the pause menu now) · `refusal()` (why it'd be refused — a party game, a race, the parking challenge — or null) · `cooldown` (s left) · `spot("car" \| "foot" \| "kerb")` (the nearest surely-normal spot) · `normal(x, z, kind)` (why a spot isn't normal: `collider:<kind>` \| `block` \| `water` \| `car` \| `parked` \| `nan` — or null) · `debug.{U (log, autoOff…), badNow(), clearFades(), carBad(), hatch, button}`. `ctx.pauseHatch` (set by it every 0.5 s): a non-pausable world state that has hung — app.js / `pause()` let Esc / Options / ❚❚ pause it. Event `unstuck` {how, auto, dist}; stat `unstucks`. ARCHITECTURE › I'm stuck |
@@ -814,6 +842,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.moves` | moves | (`features/moves/`) 🏁 the skill moves + the style combo: `on` (get/set — the Moves page switch; off in `?test` unless `&enable=moves`) · `combo` {n, pts, mult, t, distinct, kinds} · `addMove(id, pts, label, {color, foot})` (feed the combo from your feature) · `keepAlive(sec)` (a link: hold the combo open) · `bank(why)` · `break(why)` · `turbo(tier 1–3, src)` (a mini-turbo) · `airBotched()` (play's touchdown asks) · `footMove()` (start the on-foot roll / slide / vault) · `drifting` · `driftTier` · `turboLeft` · `stars(id)` · `list` · `openPage(from)` (📒 › 🏁 Moves) · `debug {D, T, R, DR, W, B, X, TUNE, AIR, FOOT, PERF, LOG, foot(), callout()}`. Events `moves:move` {id, pts, combo, mult} · `moves:bank` {n, mult, pts, total, coins, why} · `moves:break` {n, mult, why} · `moves:turbo` {tier, src} · `moves:drift` {on, dir \| tier} · `moves:pit` {car} · `moves:air` {tricks, flips, rolls, spins, clean}; stats `moves3d`, `movesTurbo1/2/3`, `movesPerfectStart`, `movesSlingshot`, `movesBootleg`, `movesPit`, `movesAirTricks`, `movesCombo3`, best `movesCombo` |
 | `ctx.meta` | meta | `stat(id, n)` / `best(id, v)` · `holiday()` · `calm()` · `openScrapbook(from, tab?)` (tab = an index or an added tab's id) · `openQuests(from)` · `addScrapbookTab({ id, icon, name, render(S) → html, wire?(card, rerender) })` (a page after Badges · Record · Crew · Stats) · `addBadge(def)` (a 3D badge, same shape as `BADGES`) |
 | `ctx.day` | day | 📝 A DAY IN LULU'S LIFE (`features/day/`): a Cruise that starts at home hands Ima's list for today (seeded by the device's local date — the same all day): one errand at a real place (⛽ / 🌄 / 🏡 Bubbe's via `world:visit`, a town via `town:exit`), a side job (`hustle:end` pass), something silly (counted from `stat` events: pets, closeCalls, footChats, footInteriors); a HUD chip (the next thing + how far) and a light column over the target; all done → 🏠 home for dinner (pull into the driveway / walk up): world's `ctx.places.home.comeHome({ line })` plays the ending beat (state `worldHomeBeat`, skippable: parked, she walks up to the porch, Ima waves) and then glides down behind her on her feet at home (`ctx.onegame.home({ camBlend })` — a fresh run; the title without onegame). On a Friday afternoon (`world:homeStart` `friday`) the list waits: Ima asks for the Erev Shabbos Rush instead (walk off and the list is back). Each item pays `PAY.item` (15) once a day, dinner `PAY.home` (40) once a day. `active` · `today` · `list()` · `done(id)` · `complete` · `home` · `imaLine()` (world's door line) · `ITEMS` · `PAY` · `debug.{date(yyyymmdd), target, beacon, chip, activate}`. Events `day:start` {list}, `day:tick` {id, pay}, `day:home` {pay}; stats `dayItems`, `dayDone`. Test: `scripts/tests3d/day.js` |
+| `ctx.install` | install | 📥 INSTALL ON THIS PC / PHONE (roadmap 46, optional): `info()` → `{ sw, registered, killed, kept, canInstall, installed, native }`. The website is an installable app (`/manifest.webmanifest`, linked from `3d/index.html`'s head: start `./3d/`, scope the whole site so Classic 2D is covered too). `features/install/` registers **`/sw.js`** (scope `/`) once the title is up and the browser is idle — never from a boot script, never inside the iOS app (`capacitor:` / `Capacitor.isNativePlatform()`), never on plain http, never under automation (`?test` / `navigator.webdriver`) unless asked (`&enable=install` / `?sw=on`). The worker only keeps files and is never the reason a request fails (any error inside it → a plain `fetch`): pages / code / css / json **network first** (the kept copy only offline — nobody is stuck on an old game); big files (`.glb`, `vendor/`, audio, images) **cache first**, kept as fetched (the first start's own downloads handed over afterwards, from the browser's cache), a day-old copy re-checked in the background, a 150 MB cap (oldest out). **Before every push to main run `node scripts/sw-version.js`** — `/sw.json` `assets` is the key of EVERY cache-first file (whatever sw.js's `BIG_RE` matches, minus docs / store art); the worker reads sw.json beside every start (never holding the page) and drops its kept files when the key changed, so a new model / three.js / texture arrives on the next start (make_assets.py runs it; the Smoke workflow and `install.js` fail while it's stale). No `skipWaiting`: a new sw.js applies on the next start. **Emergency:** `"off": true` in `/sw.json` (the worker removes itself + its caches at the next start, the game unregisters it too) · a player's `?sw=off` · last resort, a sw.js that only skipWaiting()s and unregisters itself (the recipe is in its header). ⚙️ "📥 Install on this PC" / "…on this phone": only after the browser's `beforeinstallprompt` (held back with `preventDefault` — no mini-bar), hidden when installed (display-mode standalone) / in the app; installed on a computer → "⛶ Go full screen". No title tile, no pop-up. Test `scripts/tests3d/install.js` (its own server: offline start, changed page / model, kill switch, the app) |
 | `ctx.ads` | native | (`features/native/ads.js`, the iOS app's AdMob — a port of `src/10c-ads.js`: same ad unit IDs / `isTesting`) `native` (Capacitor + the AdMob plugin) · `ready` (initialized) · `att` (the ATT answer seen) · `rewardedReady` · `rewardedAvailable()` · `showRewarded(onReward)` · `debug.{S, ADMOB, log}`. Launch: ~1.2 s in it asks App Tracking Transparency (only while undetermined) and only THEN `AdMob.initialize` (Apple Guideline 2.1). Placements (owner, 2026-11-20 — AGENTS rule 4b): an interstitial every 2nd BREAK (a knock-out — the `knockout` event — or a `gameover` card; one counter, `interstitialEveryN`, never two within `minGapMs`): a knock-out's starts only once she's back on her feet and WALKING (`calmNow("foot")`, within `KO_WINDOW` s, else dropped); plus ONE per jail stay when the cell is quiet (law/jail.js emits `law:cellQuiet` once a stay; `calmNow("cell")`). The opt-in "📺 WATCH → +50 💰": on a `gameover` card (`#adReward`, one per card) and, after a knock-out, on the ❚❚ pause menu (item `adReward`, one per knock-out, at most `REWARD_KO_MAX` = 3 a run). **While any ad is up the game HOLDS**: `ctx.hold` (app.js skips whole frames — no game time, no state update, no traffic, no world, no render), `A.holdAll` (music paused, AudioContext suspended); released on the plugin's `interstitialAdDismissed` / `onRewardedVideoAdDismissed` / `…FailedToShow` (v8's show() resolves as the ad APPEARS), or after `showWaitMs` if it never appeared / `maxAdMs` if it never closed. `ctx.ads.holding`, `ctx.ads.calmNow(where)`, `debug.{S.holds, interstitial(why), release()}`. Test `scripts/tests3d/adhold.js`. Never mid-drive, in a party or Dina's mode; on the web / in `?test` without `&enable=ads` it never touches anything. Event `ads:ready` {att}; stat `adRewards`. `ctx.native` {active, platform} · `ctx.haptics` {native, debug} (touch-play `rumble()` → `Capacitor.Plugins.Haptics.impact` HEAVY / MEDIUM / LIGHT, throttled per level, off with Settings → 📳 Rumble & haptics). Test: `scripts/tests3d/native.js` (boots the staged `www/3d/` with a fake Capacitor) |
 | `ctx.heist` | heist | `job` (Lulu's heist `{town, plan, bags, lost, phase: inside \| getaway \| pulled, stars}`) · `plan` (a cased bank / the tip `{town \| null, plan, via}`) · `robbery` / `snatcher` / `thief` (the live event) · `busy(except)` · `planHeist(town, planId)` · `cooldownLeft()` · `gear.{fireNet(from, {sure}), laySpikes(ahead, d), ripNet(), flatTyres(dur), netted, flat}` · `store` · `tune` / `pay` / `plans` · `debug.{robbery(opts), endRobbery, schedRobbery(), job, tip, snatch(mode), carTheft, enterBank, bypass(on)}` — 🏦 (`features/heist/`). Events `heist:robbery` {phase: staged \| start \| foiled \| escaped, where, how, pay}, `heist:job` {phase: tip \| plan \| start \| escaped \| busted \| failed}, `heist:snatch` {phase: approach \| dodged \| grab \| caught \| lost, n}, `heist:theft` {phase: warn \| stopped \| stolen \| recovered \| ditched}, `heist:gear` {kind: net \| spikes, phase}; stats `heistFoils`, `heistTackles`, `heistJobs`, `heistJobsClean`, `heistBusted`, `heistCased`, `heistBankVisits`, `heistSnatched`, `heistSnatchDodged`, `heistSnatchCaught`, `heistCarStolen`, `heistCarsRecovered`, `heistTheftStopped`, `heistNetted`, `heistSpiked`, best `heistBestPay` |
 | `ctx.airport` | airport | ✈️ the JFK exit (ON by default; `?airport=0` off; tests `&enable=airport`): `on` · `planned` ({s, no, name} — its exit metre, a pure function of fixed data) · `ready` (built) · `inside` (she's in the fenced landside) · `spans()` ([{a, b}] signs → accel lane: other planners keep out) · `kerb.pickup()` (the ARRIVALS pickup point {x, z, h} in the kerb lane at f 24 — null until it's built; stage 3's taxi runs) · `zones(s0, s1)` ([{s, a, b}] where the airport WILL be, fixed data only — empty until the switch-on; the towns' + rest areas' planners keep out) · stage 2 attaches `terminal` (`enter({door})`, `warm()`, `canEnter()`) on boot · `debug.{S, LY, AIR, BUILD, PLANES, VEH, JOKE, KERB_HIT, SEC, enable(v), party(v), townsKeepOut(v), placeAt(s, {force}), ahead(m), buildNow(), fits(E), findSpot(s), frame(E), world(f, r), local(x, z), roads(), G(), planes(), vehicles(), kerbStats(), route(fx, fz, tx, tz), routes(), pullSpots(), kerbHolds(), KERB_EDGE, netDist(x, z), security(), low(), nearFence(x, z), fenceJoke(force), jokePhase(), perf()}` — ARCHITECTURE › The airport (+ › Polish) |
@@ -1395,6 +1424,23 @@ flamingo flock, Bubbe's portrait…); the 🎤 mystery-singer poster is the only
 `scripts/tests3d/decor.js` (the soft cut in, preview / ask / buy, swap free, can't go below 0, nothing pays out, the mailbox from
 outside, a set, a party refuses, the picker fits phone / TV, reload → still there on the title).
 
+**Friends = the same game (ci/friends, 2026-11-27).** 🌍 Free Roam with friends now rides on each player's OWN
+▶ PLAY run (`G.mode === "cruise"`): no party run, no reset, no lobby. `party/index.js` `lightRoam()` (🌍 + her own run)
+and the service's `ctx.party.inWorld` (a party run OR 🌍 on her own run) / `ctx.party.ownRun`. Hosting from a run keeps
+the run (`hostParty({act: "roam"})` / `hostRoam()` skip `bankSoloRun` + the lobby); joining is a TELEPORT: openworld's
+roam `lightJoin(A)` takes her to the friend with Go-there's soft cut (`warpTo`: on foot beside them / at their door, or
+in her own car just behind them) — the joined friend sees nothing change; from the title her run starts at home first
+(`ctx.onegame.home({via: "group"})`, `P.lightPending`), then the teleport. Leaving is one tap and she stays where she
+is (`ctx.group.leave()`). Lives and the normal rules stay on (the damage hook only blanks hearts in a party RUN — a
+lobby game); a friend's bump is harmless (`bonks`). Missiles + pepper are hers again (her own traffic). What is
+shared on her own run: friends' cars + walkers (publish `m=3`), presence + extras, one sky (atmos uses the party
+clock when `inWorld`), the towns' loop traffic + org cruisers (shared clock — claims work on them too: `claimWorld()`),
+the airport's planes, rooms, missions, crimes for two, the bank job, the law crew. Each screen's OWN: the highway
+traffic and roadside set pieces (like EVERYONE's ghosts) — her traffic follows a friend's car as a lead
+(`traffic.leads`, so it never drives through her from behind). 🚗 Flag & grab's ONE car on her own run: `lightFlag`
+stops a car of hers and broadcasts `"lcl"` [key, kind, paint, x, z, h] → friends within 400 m add the same car
+parked there under the same key (`data.lightClaim`, jackable for 90 s). Party GAMES (race, dash, tag, the Road Trip)
+are still lobby activities with a party run (and the shared seeded highway). Test: `friendsworld`.
 **Open world (openworld):** 🌍 **Free Roam** is a party lobby activity registered through `ctx.party.addActivity("roam", …)`:
 everyone drives the seeded highway and can take the town exits (planned from s = 0 for every friend, all of them up to
 `startS + 1800` at run start so a late joiner's first chunks already have their ramps; `planFirst` makes the party
@@ -1648,6 +1694,35 @@ buy not yet confirmed (`S.pending`) finishes at the next launch, `/wear/mine` re
 twice). Needs an account with a username; offline / the relay down → "come back when you're online", the rest of the shop works.
 Every number + line: `data.js`. Test `clothes`.
 
+**Lanes (lanes, ci/lanes):** 🎳 East Midwood Lanes — a retro bowling alley you walk into and really bowl in, alone, against the
+house bowler or with whoever's in the alley. **Where:** Midwood, the east end of Avenue M, north side — the run of six fronts `ci/storefronts` keeps for it (`BOWLING` in
+`storefronts/data.js`, x 95…165; COMING SOON until claimed). With features/storefronts the alley CLAIMS them
+(`ctx.storefronts.reservedFor("lanes")` + `claim(id, { label, enter })`: storefronts' own ✋ on each front walks in here); without
+it, one ✋ (`door: true`) at the middle of the run (`DOOR` in `lanes/data.js`, local x 130, z −46.6 — the door line of Avenue M's
+north side). 📍 `midwood:lanes` on the Map (`local`). **The room** (`room.js`, the
+interiors engine, built from boxes MERGED BY COLOUR — the room itself is ≈ 35 draws): 4 lanes (one wood canvas), every pin of every
+lane in ONE `InstancedMesh` (a lathe pin, the red neck as vertex colours), the rolling balls in another, a scoreboard canvas over
+each lane (redrawn only when its game changes), Sheldon's counter (shoes — all one size — and a lane: `TUNE.fee`, a sink), Rivky's
+snack bar (one knish a real day: the next 3 balls' power swings slower), the trophy case with the gap where 1994 was (bring the
+stolen trophy — `ctx.houseitems`' `"trophy"`, taken with `ctx.houseitems.take("trophy")` — and it goes back, a badge), the high-games board (her best + her username), Sunday
+League Shimmy (solo: he bowls against her), league night (Tue + Thu 18–23 h: two NPC teams on lanes 3 + 4) and Yossi's birthday
+party (Sundays 10–17 h: lane 4, bumpers up) — the clock + weekday from `homes/life.js › when()`. **The roll** (`pins.js`, pure: node
+runs it): a throw is 4 numbers 0–35 (where she lets go, the aim, the power, the spin); the ball's line (straight, then hooking over
+the last third), the gutter, then the deck — the ball knocks what it touches, a knocked pin flies and knocks what's on its way
+(energy fading, kickbacks off the side boards). The pins that fall are decided ON THE THROWER'S SCREEN and travel with the throw (a
+10-bit mask), so every screen shows the same pins + score. 10-pin scoring (`framesOf`), a 10-frame or a quick 3-frame game.
+**The controls** (`play.js`, a mode at her lane, ○ steps away): touch = a swipe up from the ball (direction = aim, speed = power,
+a bend at the end = curve; a sideways drag first = a step); pad = stick to step, right stick / R1 + stick to turn the arrow, HOLD
+✕ (the power swings) and let go, the stick while holding = curve; keys = ← → / Shift + ← → / hold Space or E. A dotted line shows
+where it goes; the camera sits over her right shoulder down the lane and follows the ball to the pins (the room's `updateCamera`
+wrapped on the instance — no engine change). **Together** (`net.js` + `game.js`): client only — each player publishes ONLY her own
+balls in the group state she already sends (`d.x.bw` = `[lane, gid, frames, owner, roster | "", "her balls (6 chars each)", "the
+house bowler's"]`, ≤ ~140 chars); every screen rebuilds the same order of balls (`order()`: whoever is mid-frame keeps going, else
+the fewest frames done, ties by roster order — a late joiner catches up on her turns) and plays them out on the lane. Another
+player's game is just there on its lane — watch it, or ✋ JOIN (≤ 4; her own lane fee); the owner adds her to the roster; a bowler
+gone > 6 s is skipped; two players taking one lane at once → the bigger id moves over. Nothing pays coins: a first 200+ game →
+the LANES bowling shirt (a `prize` piece in `features/clothes`, `ctx.clothes.give`) + a badge. Test `lanes`.
+
 **City hall (cityhall, ci/cityhall — roadmap 17: "a town that governs (badly)"):** 🏛️ the owner: "Taxes. Banks. Annoying
 government regulation. Mayor. Protests… more corruption. More immersion." `features/cityhall/`, landed in stages.
 **Stage 1 — the building + the mayors.** The building is TOWN DATA: `uses.cityhall` = `cityhallUse(town, { with })`
@@ -1894,7 +1969,26 @@ what she paid); at the end it renews once if not cancelled and she has the coins
 clear (`traffic.laneFree`). Steer / brake / nitro / handbrake take over; it hands back with a chime for a chase, a work
 zone ahead (`roadevents/construction.js` › `zoneAhead`), a 💼 job, a town, getting out, a crash. `ctx.G.selfDriving`
 turns off close calls (`core/driving.js`) and style moves (`moves/common.js` › `addMove`). Quirks (a phantom brake…).
-Not yet: through town to the 📍 Ping (needs ci/hud's ping). `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
+**To the 📍 Ping** (`route.js`): with a place pinged (`features/pins`) it TAKES THE EXIT — ~700 m out it builds one
+world-space path (the right lane, the taper, the decel lane, the branch to that town — `town/exit.js`'s own layout —
+a full STOP at the T, a right turn onto the cross road, on toward town) and a pure-pursuit follower drives it; the attached
+town takes over as she rolls up its approach. IN TOWN it plans a route over `town/plan.js`'s graph (a Dijkstra over
+crossing × the way she came in: never a U-turn, never the wrong way down a one-way) to the block with the door on her
+RIGHT; turns are the town drivers' bezier (`town/cars.js`), the circle is driven round; a full stop at every stop sign
+(`town/life.js` never says she ran one, and the +50 for a full stop isn't paid while self-driving); ≤ 24 mph in town
+(Ocean Pkwy's camera fires above 35), ≤ 14 in a school zone in school hours (`ctx.cameras.debug.inZone`), slow down a
+speed-bump street; it stops for anything in its path (traffic, `LIFE.people` / `geese` / `bikes`, + `route.js` ›
+`SOURCES` for any feature's own walkers) and pulls up double-parked beside the door: "📍 You have arrived. Probably."
+It hands back when it's lost (off its path 3 times), stuck (9 s behind the same thing), nosed across a street ("point it
+down a street first"), or the ping is in another town while she's in this one (it only knows the way IN, for now).
+Tunables: `route.js` › `NAV`. 🌶️ MESHUGA really is (the owner, 2026-11-27): `SUB.modes.meshuga` drives `over` the
+limit (82 mph on the highway, `town` 38 in town, no school-zone slowdown), tailgates (`gap` 9), cuts in (`cut`: a few
+metres behind is enough) and honks (`honk`) — so a speed camera / a trooper can catch it like any speeder (that's the
+price; the tablet says "Tushla is not responsible for Meshuga"); Bubbe + Normal stay ticket-proof. ⚡ NO NITRO in an EV
+(`SKINS[id].ev` → `ctx.G.evCar`: core/driving.js won't light it, `body.ev-car` hides the bar + the touch button). ⏱️
+CRUISE CONTROL on the Mazelatis (`perks.js`): built into the Kvetchtoria, ADAPTIVE on the Machatunim (`acc`: keeps a gap
+that grows with speed), a 700-coin F&I option on the others; ❚❚ › Cruise holds her current speed while she steers (she's
+driving: everything earns as usual); brake, a hard swerve, a chase, a crash or getting out cancel it. `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
 active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
 `dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
@@ -2068,6 +2162,31 @@ driveway); the others stand on Ima's kerb spaces (`kerbSlots`: picked once with 
 — walk up + ✋ GET IN is the picker (the 🔑 MY CARS card in `shops/home.js` steps aside while `cars` is on). A day that starts at
 a house she owns (`ctx.home.startAt`, door id `town:lx:lz`) starts with a car left within `TUNE.atHouse` of it. Tests
 `scripts/tests3d/cars.js` (stages 1–2) + `cars2.js` (tows, Tuvia, the impound, the minivan).
+
+**The car-care row (carcare, `features/carcare` — ci/carcare, roadmap 43 b):** 🧽 storefronts keeps Midwood's Coney Island
+Ave row + both Minivan Washes for us (`NAMED` rows with `reserved: "carcare"`); on the way into a town carcare CLAIMS the
+named ones (`ctx.storefronts.claim(id, { label, enter })` — the ✋ at that door is ours) and stands an attendant at each
+door while she's on foot nearby (≤ 45 m, gone past 60 m). Each car's CONDITION is saved WITH ITS CARS RECORD
+(`ctx.cars.care(key)` → the live object in `cars` › `SAVE.care[key]`, so the 💾 save code carries it): `{ dirt 0..1,
+dents 0..3, tire, tireAt, muf, shine }`. A shop works on her car if it's parked within 35 m (her own stub or one of her
+parked cars — `ctx.cars.props()`); Ima's minivan / a borrowed car get a line instead. The services are `shops/card.js`
+cards through `garage/buy.js` › `buyExtra` (never below 0):
+• 🧽 **wash** 8 — dirt builds with distance (`TUNE.dirtKm` 40 km, × 3 on a wet road, + 0.03 a puddle splash — life's
+  `carSplashes`); it SHOWS (the Body paints toward grime, rougher; `look.js`, re-dressed only when its look changes); a
+  wash = clean + 10 real minutes of sparkle (glossier, twinkles, no dirt meanwhile). Dirty (≥ 0.6): law's `copLook` × 1.1
+  and Ima texts at the door once a real day. Ima's minivan: always a bit dirty (looks only).
+• 🔧 **body shop** — every lost heart in her own car (`damage`) = a dent level (≤ 3; 2 decals each, raycast onto the lulu
+  model's body once); 25 a level, or 🪠 10 to pop them herself (`dents.js`: 20 s, an arrow + a green zone, ✋/tap).
+• 🛞 **tires** — All-season (free) · Sport 60 (grip × 1.12 dry, × 0.92 wet) · Rain 50 (× 1.18 wet, top × 0.98), blended
+  by `ctx.atmos.wet`, fading to 1 over 3 real days; the same set again half price. Applied as `car.mods = { grip, top }`
+  (car.js multiplies them in `step`; null when she isn't in her own car — a ride's / shell's stats stay theirs).
+• 🔊 **mufflers** — Stock · LOUD 30 (pops + a flame puff when she lifts off above 12 m/s; law's `copHear` × 1.2 on the
+  "they still hear her" gap) · QUIET 30 (at night `copLook` × 0.85). Law: `copMul(name)` multiplies the hooks' numbers
+  into the trap / patrol / BOLO / warrant looks and the search gap.
+• ☕ **Gas & Gossip** — free: one TRUE fact about today, picked by the real hour (`gossip.js` reads cityhall's protest
+  hours + topic, the mayor's edict, the parody days, the Ballroom's wedding nights, storefronts' late hours, the cameras).
+  The pump is ci/fuel's. Nothing is sent to friends (the relay only carries the car's model key). Every number + line
+  in `carcare/data.js`. Test `carcare`.
 
 **Speed cameras (cameras, `features/cameras` — ci/cameras, roadmap 36):** 📸 the owner (2026-11-27): "speed cameras… only on
 ocean parkway for now at 25mph and only trigger if going above 35mph… a flash… a few days later it'll come on the mail to one of
