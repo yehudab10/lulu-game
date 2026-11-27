@@ -180,6 +180,7 @@ module.exports = {
     // ════ 3. the people, every ✋ line, the parody shiur on its hours ════
     for (const kind of P === 1 ? ["weekday", "shiur", "friday"] : ["shabbos", "fast", "purim"]) {
       await step(`kind ${kind}`, async () => {
+        if (!await town("lakewood")) return;
         const seasons = kind === "shiur" ? "weekday" : kind;
         await g(`(${kinds[seasons]}, ctx.yeshiva.debug.force.kind = ${kind === "shiur" ? '"shiur"' : "null"}, ctx.yeshiva.debug.force.hour = ${kind === "shiur" ? 10.5 : 13}, true)`);
         if (!await walkIn()) return;
