@@ -341,7 +341,11 @@ async function friends(t) {
       await P.game(`(window.__e = ctx.airport.debug.enterTerminal(), true)`);
       await P.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready && window.__interiors.room.def.id === "terminal"`, `${P.label}: inside the terminal`, 120000);
     }
-    await Hp.until(`ctx.together.debug.room().room === "terminal" && ctx.together.debug.room().mates.some(m => m.uid === ${JSON.stringify(guestUid)})`, "host sees the guest inside the terminal", 90000);
+    if (!await Hp.until(`ctx.together.debug.room().room === "terminal" && ctx.together.debug.room().mates.some(m => m.uid === ${JSON.stringify(guestUid)})`, "host sees the guest inside the terminal", 90000)) {
+      const dg = u => `(() => { const p = ctx.party.peer(${JSON.stringify("")} + ${JSON.stringify(u)}); const N = ctx.party._debug.N; return { net: { maxLen: N.maxLen | 0, slim: N.slim | 0, bcBig: N.bcBig | 0 }, me: { st: ctx.state, mode: ctx.G.mode, m: N.mode, zone: ctx.openworld.zone, room: ctx.together.debug.room() }, peer: p && { m: p.m, aid: p.aid, x: p.x, fresh: ctx.party.fresh(p, 8000) } }; })()`;
+      console.log("   TERMINAL diag host", JSON.stringify(await g(dg(guestUid))).slice(0, 900));
+      console.log("   TERMINAL diag guest", JSON.stringify(await A.game(dg(hostUid))).slice(0, 900));
+    }
     await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${JSON.stringify(hostUid)})`, "guest sees the host inside the terminal", 90000);
     t.check("…one terminal for both (the same instance)", (await g(`ctx.together.debug.room().inst`)) === "jfk" && (await A.game(`ctx.together.debug.room().inst`)) === "jfk");
     t.check("presence: the guest reads ✈️ in the JFK terminal", await g(`(() => { const p = ctx.party.presenceOf(${JSON.stringify(guestUid)}); return !!p && p.icon === "✈️" && /JFK terminal/.test(p.label); })()`), JSON.stringify(await g(`ctx.party.presenceOf(${JSON.stringify(guestUid)})`)));
