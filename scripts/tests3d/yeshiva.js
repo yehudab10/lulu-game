@@ -306,6 +306,9 @@ module.exports = {
       await g(`(ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.9, ctx.yeshiva.debug.ST.npcs.length = 0, true)`);
       await g(`(ctx.yeshiva.debug.scan(99), true)`);
       t.check("at night: Sammy (the lake), Yitzy (the car park) and Mo (his stool) are out", await t.until(`["sammy", "yitzy", "mo"].every(id => __lulu3d.ctx.yeshiva.debug.ST.npcs.some(n => n.id === id))`, "the OTD guys", 14000));
+      const where = await g(`ctx.yeshiva.debug.ST.npcs.filter(n => n.kind === "otd").map(n => { const r = ctx.world.road.nearest(n.x, n.z, ctx.car.s, {}); return { id: n.id, d: r ? +Math.abs(r.d).toFixed(1) : null }; })`);
+      console.log("   OTD where", JSON.stringify(where));
+      t.check("each OTD guy stands on a sidewalk / a kerb, reachable (within 20 m of a street)", where.length === 3 && where.every(w => w.d != null && w.d < 20));
       const c0 = await coins();
       for (const id of ["sammy", "yitzy", "mo"]) {
         // (a still of him: the camera overridden to stand a few metres off, looking at him; she herself stays put)
