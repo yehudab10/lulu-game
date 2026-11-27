@@ -204,6 +204,14 @@ module.exports = {
       }
       t.check("the porch visit at her door: she'll ride shotgun (pending)", (await g(`ctx.family.avigail()`)).pending === true);
       t.check("…the meter thawed (quietly)", (await g(`ctx.avigail.rel()`)) > rel0);
+      // back in her car → Avigail rides shotgun (2×), once a run
+      if (await g(`ctx.foot.debug.getIn()`)) {
+        await t.until(`__lulu3d.state === "playing"`, "back in the car", 30000);
+        t.check("…in the car: Avigail rides shotgun (2× points)", await t.until(`!!__lulu3d.ctx.G.avigailRide`, "the ride", 15000));
+        t.check("…once a run", (await g(`ctx.family.avigail()`)).rode === true);
+        await g(`ctx.foot.start("droveOff", { noIntro: true })`);
+        await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot again", 20000);
+      } else t.check("her car to get back in", false);
       // the hall: a wedding on a Tuesday evening — the bouquet pays once a real day
       await day(2, 19); await t.frames(10);
       t.check("the hall's marquee: TONIGHT — Avigail & Aviel", (await g(`ctx.family.avigail()`)).hall === "wedding");
@@ -211,6 +219,7 @@ module.exports = {
       const wed = async () => {
         await g(`(${V}.hall(), true)`);
         if (!await t.until(`__lulu3d.state === "footWedding"`, "the wedding in the hall", 30000)) return false;
+        await t.frames(60); await t.shot("hall");
         await g(`(() => { for (let i = 0; i < 6; i++) ; return true; })()`);
         for (let k = 0; k < 400 && await g(`ctx.state === "footWedding"`); k++) { await t.tap(0); await t.frames(6); }
         return t.until(`__lulu3d.state === "footRun"`, "back outside the hall", 60000);
