@@ -133,7 +133,7 @@ module.exports = {
       await answer(/Pay the release/);
       await t.frames(6);
       const txt = await t.L(`(document.querySelector("#dialog") || {}).textContent || ""`);
-      t.check("can't afford it: told so (it'll be home by tomorrow), nothing taken", (await coins()) === 10 && /tomorrow|house/i.test(txt), txt.slice(0, 120));
+      t.check("can't afford it: told so (it'll be home by tomorrow), nothing taken", (await coins()) === 10 && await g(`${D}.log.some(e => e.ev === "broke")`) && /You need/i.test(txt), txt.slice(0, 120));
       t.check("…still held", await g(`!!ctx.impound.held`));
       await t.L(`import("./js/core/dialog.js").then(m => { if (m.isOpen()) m.closeDialog(); })`);
       await t.L(`import("./js/core/save.js").then(m => m.wallet.add(${keep - 10}))`);

@@ -1771,6 +1771,29 @@ door menu + `ctx.homes.distract`. Tune `PAY` / `TUNE` in `features/partners/inde
 coins}, `partners:ring`, `partners:rung`, `partners:peel`, `partners:peeled`; stats `partnerJobs`, `partnerPeels`,
 `crewPeelHits`. Test `scripts/tests3d/partners3.js`.
 
+**Getting an impounded car back (impound, `features/impound` — ci/impound, roadmap 30):** 🚗 when the law walks her out of a
+precinct on foot, her car stays behind that town's impound fence (features/places `walkOut(impound)` → `places:out` {car: false} →
+`IM.held = {town}`; `ctx.foot.ownCar === "gone"`). THE LEGAL WAY: one fee (`FEE` in `data.js`: 120, the very first time ever 60 —
+a sink, never below 0) at ONE of: the lot's own window (✋ at its gate — places' gate spot asks `ctx.impound.gate()` first) ·
+City Hall's PERMITS window (`cityhall/lobby.js addWindowHook("permits", …)`, prio 30: "Form VR-7, in triplicate") · 📞 Contacts ›
+City Hall (`cityhall/pay.js CONTACT_EXTRAS`: tap, tap; one `need: true` text). City Hall / the phone give a slip
+(`IM.released`); the gate with it (or paying there) → `release()`: the clone behind the fence goes, her car is placed at the
+kerb in front of the gate (`places/out.js kerbAt`) and foot restarts `droveOff` beside it (ownCar "parked" — ✋ in and away).
+Can't afford it → told, nothing taken, still held: a new run (home) resets it — today's fallback. THE BREAK-IN (`breakin.js`):
+✋ at the loose panel (the front fence, left of the gate) → `ctx.foot.script`: she sneaks inside the 12 × 12 lot (camera-relative
+stick, run = faster + a faster meter; the fence, her car and the two cruisers are solid); Bruno (heist's guard model) paces the
+back with a flashlight cone and a camera sweeps from the front-right post (both drawn as fans on the ground); in a cone the "?"
+meter fills — full = spotted: first his ⚠️ look (`TUNE.lookLife` 25 s), again while that's live → she's put outside the gate and
+`ctx.foot.startChase(gate, { charges: ["GRAND THEFT AUTO (HER OWN CAR)"] })` (its arrest + court lines via `law.addCharge` —
+the victim is the defendant); caught → the usual arrest → out of the precinct on foot, the car back behind the fence, the fee
+still owed. ✋ at her car unseen for `TUNE.hotwire` s → `release("breakin")` (no fee). One try a REAL day (`SAVE.breakDay`):
+after it Bruno is "extra awake" (a wider, longer light that sweeps, no sandwich breaks). Shown on the objective line's LOWEST slot
+(`H.OBJ.info`, `.impound-chip`) and on the 📱 Map via `ctx.pins` when that exists. Gated by `ctx.enabled("impound")` (off → the
+gate says its old line). Friends: each her own car + fee (all local). `ctx.impound { held, released, fee(), pay(where), gate(),
+gateLabel(), release(how), panel(), breakIn(), debug }`; events `impound:<held | paid | broke | release | breakin>`; stats
+`impoundPaid`, `impoundReleases`, `impoundBreakIns`, `impoundBreakOuts`, `impoundBreakClean`, `impoundBreakBusts`. Test
+`scripts/tests3d/impound.js`.
+
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;
 never in a party — friends have Crimes for two — or Dina's mode; `ctx.enabled("crime")`). Each: a spot / a moment in the world →

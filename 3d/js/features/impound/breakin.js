@@ -135,12 +135,12 @@ export function startBreakIn() {
     const R = BR.run = { t: 0, x: start.x, z: start.z, wire: 0, spots: 0 };
     const ok = ctx.foot.script({ update: (dt, P, F) => runTick(dt, P, F, R), abort: why => endRun(why || "abort") });
     if (!ok) { BR.run = null; return false; }
-    const S = SV(); if (S) { S.breakDay = today(); S.breaks = (S.breaks || 0) + 1; saveSoon(); }
     BR.meter = 0;
     const F = ctx.foot.debug && ctx.foot.debug.F;
     if (F) { F.pos.x = R.x; F.pos.z = R.z; F.lulu.obj.position.set(R.x, 0, R.z); }
     sayLulu(pick(L.in));
     logIt("in", { awake: awake() });
+    const S = SV(); if (S) { S.breakDay = today(); S.breaks = (S.breaks || 0) + 1; saveSoon(); }
     emitStat("impoundBreakIns");
     return true;
 }
