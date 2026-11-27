@@ -168,5 +168,10 @@ async function body(t, guests) {
   t.check(`…the residents are distracted on HER screen (${await A.L(`window.__rung`)})`, true);
   await A.L(`import("./js/features/interiors/engine.js").then(m => m.current().leave())`);
   const ring = await Promise.all([Hp.until(`${PZ}.debug.R.ring >= 1`, "host: CLEAN JOB", 60000), A.until(`${PZ}.debug.R.ring >= 1`, "guest: CLEAN JOB", 60000)]);
+  if (!ring[0]) {
+    const nd = `(() => { const N = ctx.party._debug.N; return { slim: N.slim | 0, bcBig: N.bcBig | 0, bcLost: N.bcLost | 0, maxLen: N.maxLen | 0, state: ctx.state, mode: ctx.G && ctx.G.mode, xk: Object.keys(N.xk || {}) }; })()`;
+    console.log("   RING diag host", JSON.stringify(await g(nd)), JSON.stringify(await g(`(() => { const R = ${PZ}.debug.R; return { rang: R.rang, ring: R.ring }; })()`)));
+    console.log("   RING diag guest", JSON.stringify(await A.game(nd)), JSON.stringify(await A.game(`(() => { const R = ${PZ}.debug.R; return { rung: R.rung, ring: R.ring }; })()`)));
+  }
   if (ring.every(Boolean)) t.check(`RING & SNEAK out clean: 10 + 10 (host +${(await coins(Hp)) - h0}, guest +${(await coins(A)) - g0})`, (await coins(Hp)) - h0 === 10 && (await coins(A)) - g0 === 10);
 }

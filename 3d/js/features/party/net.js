@@ -359,7 +359,7 @@ function queueEvent(kind, args) {
 /** Broadcast an ephemeral event to everyone (emote, chat, wave): repeated ~1.5 s, de-duplicated. */
 export function broadcast(kind, ...args) {
     N.bcast.push({ n: ++N.bcNonce, k: kind, a: args, at: now() });
-    if (N.bcast.length > 10) N.bcast.shift();
+    if (N.bcast.length > 10 && !N.bcast.shift().sent) N.bcLost = (N.bcLost | 0) + 1;
     N.urgent = true;
 }
 
@@ -469,7 +469,7 @@ function sendSnap(t) {
     if (N.pending.length) d.ev = N.pending.slice(0, 8).map(e => [e.n, e.k, ...e.a]);
     const live = N.bcast.filter(b => t - b.at < 1500);
     N.bcast = live;
-    if (live.length) d.bc = live.map(b => [b.n, b.k, ...b.a]);
+    if (live.length) d.bc = live.map(b => (b.sent = true, [b.n, b.k, ...b.a]));
     if (N.ping) {
         const ts = now();
         C.pend.set(N.ping, ts);
@@ -483,7 +483,10 @@ function sendSnap(t) {
     }
     let s = JSON.stringify({ t: "s", d });
     if (s.length > 1900 && d.x && hasXk) { d.x = Object.assign({}, N.extra, { pr: xk.pr }); s = JSON.stringify({ t: "s", d }); }   // the bulky extras go first (presence stays)
-    if (s.length > 1900) { delete d.bc; delete d.x; s = JSON.stringify({ t: "s", d }); }
+    // (the one-off broadcasts are the last to go: a ring's "pzs", a claim — repeated extras come back next packet)
+    if (s.length > 1900 && d.x) { delete d.x; s = JSON.stringify({ t: "s", d }); N.slim = (N.slim | 0) + 1; }
+    if (s.length > 1900) { delete d.bc; s = JSON.stringify({ t: "s", d }); N.bcBig = (N.bcBig | 0) + 1; }
+    N.maxLen = Math.max(N.maxLen | 0, s.length);
     try { if (sockOpen()) N.sock.send(s); } catch (e) { /* offline */ }
 }
 
