@@ -145,12 +145,13 @@ module.exports = {
       t.check("hitting a raccoon costs a heart", await g(`ctx.G.hearts`) === h0 - 1);
       await t.frames(6);
       await t.shot("raccoon");
-      // cones: slow = a bonk, fast = a heart
+      // cones: a bonk at any speed — they fly, they never cost a heart (the owner, 2026-11-27)
       s0 = (await S()) + 200;
       await tp(s0, 1.75, 20);
+      const hCone = await g(`ctx.G.hearts`);
       await g(`ctx.roadevents.spawn("cone", { s: ${s0 + 20}, d: 1.75, n: 1 })`);
       await t.frames(30);
-      t.check("a cone at 45 mph costs a heart and goes flying", await g(`ctx.G.hearts`) === 2 && await g(`ctx.G.roadevents.cones`) >= 1, `hearts ${await g(`ctx.G.hearts`)}`);
+      t.check("a cone at 45 mph goes flying and costs NO heart", await g(`ctx.G.hearts`) === hCone && await g(`ctx.G.roadevents.cones`) >= 1, `hearts ${await g(`ctx.G.hearts`)} (before: ${hCone})`);
       await t.shot("cone");
     }
 
