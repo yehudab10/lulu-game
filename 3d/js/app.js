@@ -24,6 +24,7 @@ import { Post } from "./core/post.js";
 import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
 import "./features/index.js";
 
+const _rh = {};          // (scratch: the road heading under her, for the world's streaming direction)
 const MPH = 2.23694;
 
 // ── renderer / scene ────────────────────────────────────────────────────
@@ -202,7 +203,13 @@ function step(dt, P) {
 
     const cur = ctx.states[ctx.state] || def;
     if (!ctx.view && ctx.world) {
-        if (cur && cur.world !== false) ctx.world.update(dt, ctx.car.s, camera.position);
+        if (cur && cur.world !== false) {
+            // (which way she's travelling along the road — the world streams its chunks that way: ci/twoway, the far
+            //  carriageway is drivable both ways; a moment's stop keeps the last direction)
+            const w = ctx.world, c = ctx.car;
+            if (w.road && w.road.at && c && !w.district) { const rh = w.road.at(c.s, _rh).h, v = (c.vx || 0) * Math.sin(rh) + (c.vz || 0) * Math.cos(rh); if (v < -3) w.dir = -1; else if (v > 3) w.dir = 1; }
+            w.update(dt, ctx.car.s, camera.position);
+        }
         try { cam.update(dt); } catch (e) { console.error("Lulu3D camera error", e); }
         placeSun(ctx.car.pos);
     }

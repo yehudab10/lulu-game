@@ -140,6 +140,23 @@ module.exports = {
     await place(780, 1.75, 24);
     await t.frames(3);
     t.check("back in her lane → WRONG WAY move + best time", await G(`(${M}.save.n.wrongway || 0) >= 1 && ${M}.save.best.wrongway >= 1.5`));
+    // (the owner, 2026-11-27: "when driving the other way but the right way, the pop up still says wrong way") — turned
+    // round on the far carriageway, going WITH its traffic, is legal: no callout, no wrong-way time; down the lap on her
+    // OWN side is the wrong way
+    const legalW = async (d, back) => {
+      await G(`(${M}.debug.W.t = 0, true)`);
+      for (let i = 0; i < 6; i++) {
+        await t.frames(12);
+        await G(`(() => { const c = ctx.car, s = c.s, v = 22; const p = ctx.world.road.point(s, ${d}, {}); const h = p.h + (${back} ? Math.PI : 0); c.place(p.x, p.z, h); c.s = s;
+          c.vx = Math.sin(h) * v; c.vz = Math.cos(h) * v; return true; })()`);
+      }
+      return G(`${M}.debug.W.t`);
+    };
+    const withIt = await legalW(-3.5, true);
+    t.check(`turned round on the far side, WITH its traffic: no WRONG WAY (${withIt.toFixed(2)} s)`, withIt === 0);
+    const against = await legalW(3.5, true);
+    t.check(`down the lap on her OWN side: WRONG WAY (${against.toFixed(2)} s)`, against > 0.5);
+    await place(820, 1.75, 24); await t.frames(3);
     await t.hold(7, 0);
     await bankNow(); await t.frames(3);
 
