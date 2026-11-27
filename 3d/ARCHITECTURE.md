@@ -1636,7 +1636,23 @@ street in front of city hall (solo): ✋ 📸 a photo (evidence) · 🤝 a cut (
 (`CONTACT_EXTRAS`): 📰 the local paper (+10) / 🕵️ Internal Affairs (+10) → exposed: the crew gone, the mayor sheepish
 (`MAYOR_LINES`) · 💰 sell it back (+6) → the mayor friendly. Every payout once per town, ≤ 15 a real day; `cityhall:corrupt`
 {who, act}, `cityhall:story` {town, step, how}, `ctx.memory.remember("cityhall", …)`.
-Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`).
+**Roadmap 31 — Midwood's new mayor** (`mayor.js`; owner 2026-11-27). The owner asked for a parody of a real politician
+written as an enemy of Jews; the agents declined THAT part (a real, identifiable person is not written as persecuting a
+community, and no edict is aimed at one) and the coordinator told the owner. What's built is a communist-wannabe planner,
+POLICY satire only. His name is ONE constant (`data.js` › `MIDWOOD_MAYOR`, "Mayor Marxdani" — the owner asked for a name that
+rhymes with a real mayor's; the pun is on politics, never on the person or where a name comes from); a generic young
+politician in a suit; no religion / ethnicity / looks, no real party or quotes, nobody singled out. Pickleman
+lost by 3 votes: his pickle stand on the sidewalk outside Borough Hall (✋ 🥒 PICKLEMAN'S RECOUNT, lines only). `EDICTS`
+(10, every one landing on EVERYONE equally: the People's Grocery's one cabbage, free buses that never come, the rent freeze
+that froze the boilers, a Five-Year Plan for one pothole, one People's Kugel Kitchen, Avenue K-for-Kollective, the People's
+Bench, a ticket quota, one umbrella per block, the People's Loaf) — `todayEdict()` by the real day, skipping struck ones —
+drive Midwood's protest topic (protest.js asks `edictTopic()`), the notice board (`LOBBY_BUILDERS`), a Complaints line
+(`COMPLAINT_EXTRAS`, lobby.js), staff eye-rolls, and a Courtroom 2B case per edict (`cityhall:edict:<id>`, priority 5, one
+hearing a real day, solo): Lulu speaks for the neighbours and the edict is STRUCK DOWN for good (`S.struck`, event
+`cityhall:edict` {phase: "struck"}). Ribbon cuttings in Midwood are "the People's ___"; the paving story's Midwood crew is
+"The People's Paving Collective"; Kugelman is delighted by comparison. Nothing pays or charges; no new pop-ups / texts.
+`ctx.cityhall.mayor31` = `{ today, topic, strike, addCase, standStart, standStop, MY }`.
+Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`), `cityhall4` (roadmap 31).
 
 **Shops (shops, ci/shops): the shop moved into the world** (the owner, 2026-11-20: "the shop button … seems pretty hidden
 for the average person … move the shop to places in game"). `features/shops/`: the places you buy things at, one buying

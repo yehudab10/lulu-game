@@ -27,6 +27,8 @@ export const WIN_LABELS = {};
  *  boxes are baked (info: { town, LB, MO, WN, bz }). MAYOR_LINES.push(town → a line | null): what he says first. */
 export const LOBBY_BUILDERS = [];
 export const MAYOR_LINES = [];
+/** More complaints for the Complaints window: COMPLAINT_EXTRAS.push(town → [{ opt, reply }] | null). */
+export const COMPLAINT_EXTRAS = [];
 
 const secLine = pool(SECRETARY), closedLine = pool(CLOSED);
 const clerkPools = {}; for (const w of WINDOWS) clerkPools[w.id] = pool(CLERKS[w.id]);
@@ -175,12 +177,14 @@ async function windowTalk(rt, w, shut) {
         if (rt.disposed) return;
     }
     if (w.id === "complaints") {
-        const opts = COMPLAINTS.map(c => c.opt).concat(["💬 Just looking"]);
+        const list = COMPLAINTS.slice();
+        for (const f of COMPLAINT_EXTRAS) { try { const x = f(rt.data.V.town); if (x) list.unshift(...x); } catch (e) { /* none */ } }
+        const opts = list.map(c => c.opt).concat(["💬 Just looking"]);
         const i = await rt.choose(L.name, clerkPools.complaints(), opts, { emoji: L.emoji, person: who });
-        if (i >= 0 && i < COMPLAINTS.length && !rt.disposed) {
+        if (i >= 0 && i < list.length && !rt.disposed) {
             stat("cityhallComplaints");
-            emit("cityhall:complaint", { about: COMPLAINTS[i].opt });
-            await rt.say(L.name, COMPLAINTS[i].reply, { emoji: L.emoji, person: who });
+            emit("cityhall:complaint", { about: list[i].opt });
+            await rt.say(L.name, list[i].reply, { emoji: L.emoji, person: who });
         }
         return;
     }
