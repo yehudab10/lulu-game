@@ -48,6 +48,7 @@ function pinGeometry() {
         col.set(red ? [0.8, 0.05, 0.08] : [0.97, 0.96, 0.93], i * 3);
     }
     g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    g.scale(1.3, 1.3, 1.3);                // (a touch bigger than life: they read from the foul line on a phone)
     return g;
 }
 

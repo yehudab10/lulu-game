@@ -288,6 +288,7 @@ function hint(rt, g, o) {
     let line = "";
     if (G.joining) line = "Joining the lane…";
     else if (myTurn()) line = input.device === "touch" ? `${fr} — swipe up to bowl` : input.device === "gamepad" ? `${fr} — hold ${glyph("confirm")}, let go to bowl` : `${fr} — hold Space, let go to bowl`;
+    else if (o.next === me) line = `${fr} — you're up`;
     else if (o.next) line = `${fr} — ${esc(o.next === BOT ? "Shimmy" : (ctx.party && ctx.party.displayName ? ctx.party.displayName(o.next) : "a friend"))} is up`;
     if (rt.extraEl.dataset.k !== line) { rt.extraEl.dataset.k = line; rt.extraEl.innerHTML = line; }
 }
