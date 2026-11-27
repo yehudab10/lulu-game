@@ -44,11 +44,11 @@ module.exports = {
       t.check("📞 Phone is on the phone on the highway", apps.includes("community"), apps.join(","));
       t.check("…right after 💬 Messages (where a Phone app sits)", apps.indexOf("community") === apps.indexOf("messages") + 1, apps.join(","));
       t.check("…and the phone is still one 3 × 3 screen (🏡 Family is a contact, not an app)", apps.length <= 9 && !apps.includes("family"), `${apps.length}: ${apps.join(",")}`);
-      t.check("the app is called Phone", await g(`ctx.phone._dbg.APPS.find(a => a.id === "community").name`) === "Phone");
+      t.check("the app is called Contacts (ci/hud: 📱 is the Phone)", await g(`ctx.phone._dbg.APPS.find(a => a.id === "community").name`) === "Contacts");
       await stopCar();
       await appOpen();
       const home = await appText();
-      t.check("contacts: Chaverim · Hatzalah · Shomrim · 911 · Ima · Family & places", ["Chaverim", "Hatzalah", "Shomrim", "911", "Ima", "Family & places"].every(n => home.includes(n)), home.slice(0, 300));
+      t.check("contacts: Chaverim · Hatzalah · Shomrim · 911 · Ima (🏡 Family & places only with the Story Trip — ci/hud)", ["Chaverim", "Hatzalah", "Shomrim", "911", "Ima"].every(n => home.includes(n)) && !home.includes("Family & places"), home.slice(0, 300));
       t.check("…headed 'On the road'", /On the road/.test(home), home.slice(0, 80));
       await t.shot("phone-highway");
       await appOpen({ org: "shomrim" });
@@ -56,11 +56,6 @@ module.exports = {
       await appOpen({ org: "chaverim" });
       const chv = await appText();
       t.check("Chaverim on the highway: I'm stuck (a tow) + I'm out of gas", /I'm stuck/.test(chv) && /out of gas/.test(chv), chv.slice(0, 240));
-      await t.click(/‹ Contacts/);
-      await t.frames(2);
-      await t.click(/Family & places/);
-      await t.frames(3);
-      t.check("🏡 Family & places opens inside the Phone app", /Bubbe/.test(await appText()));
       await close();
 
       // Hatzalah drives up behind her car parked on the shoulder: +❤️

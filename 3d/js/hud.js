@@ -357,6 +357,9 @@ export function objective(e, opts = {}) {
     o.home = opts.home ? hudSlot(opts.home) : e.parentElement && e.parentElement !== OB.main ? e.parentElement : o.home || hudSlot("center");
     e.dataset.obj = opts.id || String(e.className || "chip").split(" ")[0];
     OB.dirty = true;
+    // (a chip that turns on / changes between two layout passes is placed at once — never a moment full-size in its slot)
+    if (!OB.mo && typeof MutationObserver === "function") OB.mo = new MutationObserver(() => { if (!OB.q) { OB.q = true; queueMicrotask(() => { OB.q = false; if (!el.hud.classList.contains("hidden")) layoutObjectives(); }); } });
+    if (OB.mo) OB.mo.observe(e, { childList: true, attributes: true, attributeFilter: ["class", "hidden"] });
     return e;
 }
 /** What the line shows now: { main: [ids], badges: [ids], phone } (tests, calm). */
@@ -435,8 +438,10 @@ function layoutObjectives() {
     if (trip) trip.classList.toggle("obj-folded", phone && full.length > 0);
     line.classList.toggle("under-trip", tripWins);
     if (phone) placeLine(line, trip);
+    if (OB.mo) OB.mo.takeRecords();       // (its own class changes are not news)
     else { line.style.top = line.style.left = line.style.right = ""; if (trip) trip.style.top = ""; }
     fitMain();
+    if (OB.mo) OB.mo.takeRecords();
     OB.dirty = false;
 }
 /** The phone's line: under the top band upright; between the pills and the 📱 on its side. The trip bar shares the spot. */
