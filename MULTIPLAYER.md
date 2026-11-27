@@ -207,6 +207,9 @@ verbatim-relayed `d` packet). **No server change.** What it adds on the wire:
   group still work: they publish the same pose / extras; an old client hosting Free Roam still starts a party run on
   its own screen. The highway traffic is each screen's own (a friend's car is a lead for it); the towns' loop traffic
   and the sky stay on the shared party clock.
+- **Broadcasts** (`d.bc`, party/net.js): each rides in my snapshots for 1.5 s from the FIRST packet it goes out in
+  (not from when it was made: a long frame on a slow phone let a one-off expire unsent); an oversize packet (> 1.9 KB)
+  drops the extras before the broadcasts.
 - `d.x = { z, ex }` — my extras (the party's existing `N.extra` slot): `z` = the zone I'm in (`""` the
   highway, else a town id like `"lakewood"`), `ex` = that town's highway exit s (for warps / late joins). ~25 bytes.
 - `d.p` (pose) in a town is published in a **flat frame**: `s = world z + 20000`, `d = −world x`, heading
