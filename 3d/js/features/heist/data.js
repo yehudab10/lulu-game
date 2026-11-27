@@ -19,6 +19,7 @@ export const PAY = {
     foilClean: 20,           // …without losing a heart doing it
     tackle: 35,              // …on foot: a flying tackle before he reaches the car (on top of foil)
     snatchBonus: 15,         // caught the moped snatcher: the coins back + this
+    snatchBonusDay: 3,       // …that bonus at most this many times a REAL day
     carBonus: 20,            // yanked the car thief out of her car: + this
 };
 export const HEIST = {
