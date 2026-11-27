@@ -240,7 +240,8 @@ function colliders(R, F) {
     const out = [], add = (x, z, r) => { const p = toW(F, x, z); out.push({ x: p.x, z: p.z, r, kind: "building" }); };
     for (const [x0, x1, z0, z1] of FOOT[R.id]) {
         const w = x1 - x0, d = z1 - z0, thin = Math.min(w, d);
-        const r = Math.min(0.6, Math.max(0.3, thin / 2)), step = r * 1.6;
+        // (r 0.8: the foot camera only stops at colliders ≥ 0.8 m — foot/jump.js camClip — so it never sits inside a wall)
+        const r = 0.8, step = r * 1.6;
         const ax0 = x0 + Math.min(r, w / 2), ax1 = x1 - Math.min(r, w / 2), az0 = z0 + Math.min(r, d / 2), az1 = z1 - Math.min(r, d / 2);
         const edge = (xa, za, xb, zb) => { const n = Math.max(1, Math.ceil(Math.hypot(xb - xa, zb - za) / step)); for (let i = 0; i <= n; i++) add(xa + (xb - xa) * i / n, za + (zb - za) * i / n, r); };
         edge(ax0, az0, ax1, az0);
