@@ -49,6 +49,7 @@ import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget
 import "./shul/index.js";         // 🕍 shul: a walk-in shul in each town (the Lakewood yeshiva's front door, Midwood's Young Israel) — the women's section, a lobby with a hundred black hats, the kiddush room; follows the weekday / Friday / Shabbos / fast / Chanukah
 import "./shops/index.js";        // 🛍️ shops: the shop moved into the world — 🚗 Uncle Refael's Pre-Loved Cars in each town (look, test drive, buy), 🔑 pick your car in your garage at home, 🛍️ Where to shop (directions, not a store)
 import "./dealers/index.js";      // 🏎️ dealers: Mazelati of Monsey (luxury, Sal's haggle + F&I, real perks) + ⚡ Tushla (EVs + Full Schlep Driving)
+import "./fuel/index.js";         // ⛽ fuel: every car has a tank (the Mazelatis drink more); fill up at Gas 'n' Go, the rest areas, the towns' interchange stations
 import "./clothes/index.js";      // 👗 clothing shops (Midwood: Avenue J'adore · Lakewood: Simcha's Classic Clothing) — racks, the fitting room (try on: a curtain + a spin), buy at the counter; outfits on Lulu herself
 import "./pins/index.js";         // 📍 places on the 📱 🗺️ Map + one PING (a beam, one edge pointer, the objective line's lowest slot); friends see it in their colour
 import "./netping/index.js";      // 📶 ⚙️ Show connection (ping): an optional, off-by-default readout of the relay round trip

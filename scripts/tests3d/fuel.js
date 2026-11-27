@@ -1,0 +1,116 @@
+// ⛽ FUEL (features/fuel, step 1 — the owner approved the plan 2026-11-27: "a real necessary thing but doesn't become a
+// huge burden"):
+//   • every car has a tank; an old save / a car never driven yet is FULL; the ranges per class (the Mazelatis drink more)
+//   • it drains with distance only (a highway stretch ≈ its km of a 64 km tank), not standing still; nitro burns 3×
+//   • the gauge under the speedo, amber + one quiet objective-line badge when low
+//   • filling: a pump's visit (Gas 'n' Go / the rest areas) or the pad at a town interchange's gas station → full, paid
+//     pro rata; short of coins → what she can pay for; at 0 coins a quarter tank on account (one IOU), paid off next time
+//   • the pumps are on the 📱 Map
+module.exports = {
+  name: "fuel",
+  viewport: { width: 1280, height: 720 },
+  query: "&enable=world",
+  save2d: { totalCoins: 500, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink" },
+  save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
+  async run(t) {
+    const g = t.game;
+    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
+    const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    if (!await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "a run starts", 60000)) return;
+    if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); }
+    if (await g(`L3.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); }
+    await g(`(ctx.law.hold(99999), ctx.traffic.clear(), true)`);
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; m.on("fuel:fill", e => __ev.push(e)); })`);
+    const place = (s, d = 5.25, v = 0) => g(`(() => { const s = ${s}, p = ctx.world.road.point(s, ${d}, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = ${d}; ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+
+    await step("tanks", async () => {
+      t.check("ctx.fuel is up; her car (an old save) starts FULL", await g(`!!ctx.fuel && ctx.fuel.key() === "pink" && ctx.fuel.level() === 1`));
+      const R = await g(`["pink", "shabbatino", "machatunim", "tushla_nu", "tushla_oy", "tushla_kugel"].map(k => ctx.fuel.range(k))`);
+      t.check("ranges: Refael's 64 km · a Mazelati 48 (the Machatunim 44) · Tushlas 72–80 (the Kugeltruck 60)", JSON.stringify(R) === JSON.stringify([64, 48, 44, 72, 80, 60]), JSON.stringify(R));
+      t.check("a car she's never driven is full (a new car from a dealer)", await g(`ctx.fuel.level("geltspyder") === 1`));
+      await t.frames(12);
+      const gz = await g(`ctx.fuel.gauge`);
+      t.check("the gauge under the speedo: ⛽, full", gz && gz.icon === "⛽" && gz.w === "100%" && gz.cls === "", JSON.stringify(gz));
+    });
+
+    await step("drain", async () => {
+      await g(`(ctx.fuel.set("pink", 0.8), true)`);
+      await t.frames(40);
+      t.check("standing still costs nothing", Math.abs(await g(`ctx.fuel.level()`) - 0.8) < 1e-4);
+      const s0 = await g(`ctx.car.s`);
+      await place(`ctx.car.s + 50`, 5.25, 28);
+      await t.L(`import("./js/core/driving.js").then(m => import("./js/core/ctx.js").then(c => { window.__auto = true; c.hook("controls", (ctl, dt) => { if (window.__auto) Object.assign(ctl, m.autoDrive(dt, 5.25, 28)); }, 999); }))`);
+      const a0 = await g(`({ s: ctx.car.s, v: ctx.fuel.level() })`);
+      await t.frames(300);
+      const a1 = await g(`({ s: ctx.car.s, v: ctx.fuel.level() })`);
+      const km = (a1.s - a0.s) / 1000, drop = a0.v - a1.v, want = km / 64;
+      t.check("driving drains it by distance: ≈ the km driven of a 64 km tank", km > 0.15 && Math.abs(drop - want) < want * 0.2, `${(km * 1000).toFixed(0)} m → −${(drop * 100).toFixed(3)} % (want −${(want * 100).toFixed(3)} %)`);
+      // nitro: 3× while it's lit
+      await g(`(ctx.G.boost = 1, true)`);
+      const b0 = await g(`({ s: ctx.car.s, v: ctx.fuel.level() })`);
+      await t.hold(5, 1); await t.frames(45); await t.hold(5, 0);
+      const b1 = await g(`({ s: ctx.car.s, v: ctx.fuel.level() })`);
+      const perM0 = drop / (a1.s - a0.s), perM1 = (b0.v - b1.v) / (b1.s - b0.s);
+      t.check("🔥 nitro burns more (≈ 3× a metre while it's lit)", perM1 > perM0 * 1.8, `${(perM1 / perM0).toFixed(2)}×`);
+      await g(`(window.__auto = false, true)`);
+    });
+
+    await step("low", async () => {
+      await g(`(ctx.fuel.set("pink", 0.1), true)`);
+      await t.frames(20);
+      const gz = await g(`ctx.fuel.gauge`);
+      const chip = await t.L(`(document.querySelector(".fuel-chip") || {}).textContent || ""`);
+      t.check("low: the gauge turns amber + one quiet badge (no toast)", gz.cls === "low" && /Low fuel/.test(chip) && /km left/.test(chip), `${JSON.stringify(gz)} · ${chip}`);
+    });
+
+    await step("fill", async () => {
+      await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, ctx.fuel.set("pink", 0.5), true)`);
+      const c0 = await coins();
+      const r = await g(`ctx.fuel.fill("test")`);
+      t.check("a fill from half: pro rata — 15 of a 30-coin tank", r.ok && r.cost === 15 && c0 - await coins() === 15, JSON.stringify(r));
+      await t.frames(150);
+      t.check("…the gauge climbs to full in a few seconds", Math.abs(await g(`ctx.fuel.level()`) - 1) < 1e-3);
+      t.check("already full: nothing charged", (await g(`ctx.fuel.fill("test")`)).ok === false && await coins() === c0 - 15);
+      // the existing drive-up bays fill her up through their visit
+      await g(`(ctx.fuel.set("pink", 0.2), true)`);
+      await t.L(`import("./js/core/ctx.js").then(m => m.emit("world:visit", { id: "gas", s: 0 }))`);
+      await t.frames(4);
+      t.check("Yanky's Gas 'n' Go visit fills the tank", (await t.L(`window.__ev`)).some(e => e.why === "gas" && e.to === 1));
+      await g(`(ctx.fuel.set("pink", 0.6), true)`);
+      await t.L(`import("./js/core/ctx.js").then(m => m.emit("world:visit", { id: "exits_pump", s: 0 }))`);
+      await t.frames(4);
+      t.check("…and so does the rest areas' pump", (await t.L(`window.__ev`)).some(e => e.why === "exits_pump"));
+    });
+
+    await step("broke", async () => {
+      await t.frames(130);
+      await t.L(`import("./js/core/save.js").then(m => m.wallet.spend(m.wallet.coins))`);
+      await g(`(ctx.fuel.set("pink", 0.1), true)`);
+      const r = await g(`ctx.fuel.fill("test")`);
+      t.check("0 coins: a quarter tank on account (never below 0)", r.ok && r.cost === 0 && r.iou === 8 && await coins() === 0, JSON.stringify(r));
+      await t.frames(130);
+      t.check("…the tank got it", Math.abs(await g(`ctx.fuel.level()`) - 0.35) < 0.01);
+      t.check("one IOU at a time: no second tab", (await g(`ctx.fuel.fill("test")`)).ok === false);
+      await t.L(`import("./js/core/save.js").then(m => m.wallet.add(7))`); await t.frames(40);
+      const r2 = await g(`ctx.fuel.fill("test")`);
+      t.check("short of coins: what she can pay for (7 coins ≈ 23 %)", r2.ok && r2.cost === 7 && await coins() === 0 && Math.abs(r2.to - (0.35 + 7 / 30)) < 0.01, JSON.stringify(r2));
+      await t.frames(130);
+      await t.L(`import("./js/core/save.js").then(m => m.wallet.add(100))`); await t.frames(40);
+      const r3 = await g(`ctx.fuel.fill("test")`);
+      t.check("next paid fill pays the IOU off too", r3.ok && await g(`ctx.fuel.debug.FS.iou`) === 0 && 100 - await coins() === r3.cost + 8, `${JSON.stringify(r3)} · ${await coins()}`);
+    });
+
+    await step("town pump", async () => {
+      await t.frames(130);
+      await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 0`, "an exit is planned", 15000);
+      await g(`(() => { const P = ctx.fuel.debug.pads(-1.85)[0]; ctx.world.prebuild(P.s + 180); ctx.car.place(P.x, P.z, P.h); ctx.car.s = P.hs; ctx.car.d = P.hd; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+      await g(`(ctx.fuel.set("pink", 0.3), true)`);
+      await t.frames(60);
+      t.check("⛽ stopped by the gas station at a town's interchange: it fills", (await t.L(`window.__ev`)).some(e => e.why === "town"),
+        JSON.stringify(await g(`({ car: [ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, ctx.car.d], P: ctx.fuel.debug.pads(-1.85)[0], pad: ctx.fuel.debug.townPad(), v: ctx.car.speed, st: L3.state, town: ctx.town.active, key: ctx.fuel.key(), F: { armed: ctx.fuel.debug.F.pad.armed, t: ctx.fuel.debug.F.pad.t }, pads: ctx.fuel.debug.pads().map(p => Math.round(p.s)) })`)));
+    });
+
+    t.check("⛽ the pumps are on the 📱 Map (help: always shown)", await g(`["hw:fuel:gng0", "hw:fuel:rest0", "hw:fuel:midwood"].every(id => { const p = ctx.pins.get(id); return p && p.cat === "help"; })`));
+  },
+};

@@ -1817,6 +1817,21 @@ driving: everything earns as usual); brake, a hard swerve, a chase, a crash or g
 active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
 `dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
+**⛽ Fuel + 🔋 charging** (`features/fuel`, ci/fuel; the owner approved the plan 2026-11-27: "a real necessary thing but
+doesn't become a huge burden"). EVERY number is in `fuel/data.js`. Step 1 (landed): every car she owns has a tank in the
+3D save (`fuel.cars[skinKey]`, 0..1; a car never seen = FULL — old saves and a new car from any dealer start full); a
+borrowed / hotwired ride (`ctx.streets.ride`) gets a random `BORROWED` level for that ride; Dina's mode, the minigames,
+Ima's minivan (`NO_GAUGE`): no gauge. It drains with DISTANCE only (`RANGE` km a tank: Refael's 64, a Mazelati 48, the
+Machatunim 44, Tushlas 60–80; nitro ×`NITRO_BURN`); parked / idling / walking cost nothing. The gauge is a thin bar under
+the speedo (⛽ / 🔋), amber below `LOW` + one quiet objective-line chip. FILLING: the existing drive-up bays fill her up
+through their visit (`world:visit` ids in `PUMPS.bays`: Yanky's Gas 'n' Go, the rest areas' pumps), and each town
+interchange's gas station has a pad on the paved cross road alongside it (`PUMPS.towns`) — stop there; full in
+`TIME.fill` s, paid pro rata (`PRICE`, via `garage/buy.js` › `buyExtra`); short of coins → what she can pay for; 0 coins
+→ a quarter tank on account (`IOU`, one at a time, paid off at the next paid fill) — never below 0. The pumps are ⛽
+"help" pins on the 📱 Map. Next: chargers + the home charger (2), then running dry — the reserve, coasting, the jerrycan,
+Chaverim / Tuvia, the job warnings, self-drive to a pump (3). `ctx.fuel` = { level(key?), set, range(key?), key(), fill };
+event `fuel:fill`.
+
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at
 Courtroom 2B "⚖️ Sit in on the hearing" → state **`placesHearing`** (⏭ skippable, a soft cut both ways): a spectator scene
