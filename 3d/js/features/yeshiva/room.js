@@ -33,9 +33,9 @@ export function plan() {
     if (d) {
         const fast = d.ids.some(id => ["tzomGedaliah", "asaraBTeves", "taanisEsther", "tamuz17", "tishaBav", "yomKippur"].includes(id));
         if (fast) kind = "fast";
+        else if (d.ids.includes("simchasTorah")) kind = "simchas";
         else if (d.shabbos || d.yomtov) kind = "shabbos";
         else if (d.ids.includes("purim")) kind = "purim";
-        else if (d.ids.includes("simchasTorah")) kind = "simchas";
         else if (d.erev) kind = "friday";
     }
     const shiurOn = (kind === "weekday" || kind === "purim") && ((h >= 10 && h < 11.5) || (h >= 15 && h < 16.5));
@@ -295,7 +295,8 @@ async function mashgiachAsks(rt, V) {
     const mg = rt.byId.mash, P = V.P, carrying = !!SAVE.lunch;
     rt.busy = true;
     try {
-        const i = await rt.choose("The mashgiach", D.MASHGIACH.hello, D.MASHGIACH.options, { person: mg, emoji: "📋", color: "#4E342E" });
+        const asked = rt.choose("The mashgiach", D.MASHGIACH.hello, D.MASHGIACH.options, { person: mg, emoji: "📋", color: "#4E342E" });
+        const i = force.answer != null ? force.answer : await asked;        // (force.answer: tests pick an option)
         if (i === 0) { await rt.say("The mashgiach", carrying ? D.MASHGIACH.lunch : D.MASHGIACH.noLunch, { person: mg, emoji: "📋" }); }
         else if (i === 1) await rt.say("The mashgiach", D.MASHGIACH.look, { person: mg, emoji: "📋" });
         else if (i === 2) await rt.say("The mashgiach", D.MASHGIACH.entrance, { person: mg, emoji: "📋" });

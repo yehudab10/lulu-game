@@ -8,7 +8,7 @@
 //    emits "yeshiva:lunch" — Ima's list picks it up when it's on today's list; no coins from here).
 //  OTD guys (Sammy by the lake, Yitzy at the back of the campus lot, Mo on his stool): dusk / night, some evenings — funny, warm,
 //    sharp, they know everyone in the yeshiva by name and ask how So-and-so is doing. No cautionary tale, no contempt.
-import { ctx, on, emit, addActor } from "../../core/ctx.js";
+import { ctx, on, emit, addActor, hook } from "../../core/ctx.js";
 import { shared, saveSoon } from "../../core/save.js";
 import { spawnPerson } from "../../core/people.js";
 import { say } from "../../core/dialog.js";
@@ -102,7 +102,7 @@ let scanT = 99;
 function scan(dt) {
     if (!lakewood()) { if (ST.npcs.length) clearNpcs(); return; }
     scanT += dt;
-    if (scanT < 6) return; scanT = 0;
+    if (scanT < 3) return; scanT = 0;
     const want = wanted();
     for (const n of ST.npcs.slice()) if (!want.includes(n.id)) { if (n.p.obj.parent) n.p.obj.parent.remove(n.p.obj); ST.npcs.splice(ST.npcs.indexOf(n), 1); }
     for (const id of want) {
@@ -144,7 +144,15 @@ on("boot", () => {
     if (ctx.day && ctx.day.addItem) ctx.day.addItem("errand", { id: "yeshivaLunch", icon: "🥪", text: "Take Yossi's forgotten lunch to the big yeshiva (row nine)", kind: "event", ev: "yeshiva:lunch" });
 });
 const nearStarerSafe = () => (lakewood() && LIFE.on && herPos() ? nearestStarer() : null);
-on("boot", () => addActor({ foot: true, update: dt => { try { staring(dt); scan(dt); } catch (e) { console.error("[yeshiva] street", e); } return true; } }));
+// (one actor, driving AND on foot; a run start clears the actor list, so it's re-added — the community / crime pattern)
+let actor = null;
+function ensureActor() {
+    if (actor && ctx.actors.includes(actor)) return;
+    actor = addActor({ foot: true, update: dt => { try { staring(dt); scan(dt); } catch (e) { console.error("[yeshiva] street", e); } return true; } });
+}
+hook("runStart", () => { actor = null; ensureActor(); }, 5);
+hook("update", () => { if (!actor || !ctx.actors.includes(actor)) ensureActor(); });
+on("boot", () => ensureActor());
 on("town:leave", () => { clearNpcs(); ST.n = 0; for (const r of LIFE.people) { r.y0 = null; r.starer = false; } scanT = 99; });
 on("town:enter", () => { scanT = 99; });
-export { PASS, talk, contest, nearNpc };
+export { PASS, talk, contest, nearNpc, wanted, scan };

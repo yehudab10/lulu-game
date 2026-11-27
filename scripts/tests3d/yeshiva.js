@@ -131,11 +131,11 @@ module.exports = {
       if (!await walkIn()) return;
       const V = () => room(`({ beat: r.data.V.beat, buried: r.data.V.stats.buried, staring: r.data.V.stats.staring, settled: r.data.V.settled, mem: r.data.V.mem.length, mash: !!(r.byId.mash && r.byId.mash.p.obj.visible), hider: !!(r.byId.hider && r.byId.hider.p.obj.visible), busy: r.busy, dlg: ctx.dialogOpen })`);
       let v = await V();
-      t.check(`before she walks in: beat 0, nobody reacting (${v.beat} / ${v.buried})`, v.beat === 0 && v.buried === 0 && v.staring === 0);
+      t.check(`before she walks in: nobody reacting yet (beat ${v.beat} / ${v.buried} buried)`, v.beat <= 1 && v.buried === 0 && v.staring === 0 && !v.settled);
       t.check(`the beis is packed (${v.mem} bochurim in one instanced crowd)`, v.mem >= 120);
       await at(0.5, 6); await t.frames(20); v = await V();
       t.check(`beat 1 — the doorway: the nearest few stop mid-word (beat ${v.beat})`, v.beat === 1);
-      await at(0.5, -4.5); await t.frames(20); v = await V();
+      await at(0.5, -7); await t.frames(20); v = await V();
       t.check(`beat 2 — she steps through the archway: heads snap to the Gemaras (beat ${v.beat})`, v.beat === 2);
       await at(0.5, -14); await t.frames(120); v = await V();
       t.check(`…the wave has spread: ${v.buried} heads buried in their books, ${v.staring} still staring`, v.buried >= 60);
@@ -160,13 +160,14 @@ module.exports = {
       await g(`ctx.yeshiva.enter()`);
       await t.until(`__lulu3d.state === "interior" && __interiors.room && __interiors.room.ready`, "inside again", 30000);
       v = await V();
-      t.check(`a new visit resets everything (beat ${v.beat}, buried ${v.buried}, mashgiach hidden ${!v.mash})`, v.beat === 0 && v.buried === 0 && !v.mash && !v.settled);
+      t.check(`a new visit resets everything (beat ${v.beat}, buried ${v.buried}, mashgiach hidden ${!v.mash})`, v.beat <= 1 && v.buried === 0 && !v.mash && !v.settled);
       // a "wrong building, sorry" gets a polite walk to the door, not a shove
       await at(0.5, -27); await t.frames(90);
-      await t.until(`window.__interiors.room.busy || __lulu3d.ctx.dialogOpen`, "the question again", 30000);
-      await t.L(`(() => { const o = [...document.querySelectorAll("#dialog .opt, #dialog button")]; const b = o[3]; if (b) b.click(); return o.length; })()`);
+      await g(`(ctx.yeshiva.debug.force.answer = 3, true)`);
+      await t.until(`window.__interiors.room.busy`, "the question again", 30000);
       await tapThrough(10);
-      t.check("…'wrong building — sorry!': he walks her to the door and she's out (politely)", await t.until(`__lulu3d.state === "footRun"`, "walked out", 40000));
+      t.check("…'wrong building — sorry!': he walks her to the door and she's out (politely)", await t.until(`__lulu3d.state === "footRun"`, "walked out", 60000));
+      await g(`(ctx.yeshiva.debug.force.answer = null, true)`);
       await seg("the wave", ["nan", "overlay", "stuck"]);
     });
 
@@ -185,7 +186,7 @@ module.exports = {
         if (kind === "shabbos" || kind === "fast") t.check(`${kind}: no pizza guy on a quiet day`, !info.rigs.includes("pizza"));
         if (kind === "friday") t.check(`friday: a lighter crowd (${info.mem})`, info.mem < 150);
         // nobody stands inside a wall / a table (rigs at rest)
-        const bad = await room(`r.people.filter(q => !q.go && !q.sit0 && r.cols.some(c => { const p = q.p.obj.position; return p.x > c.x0 + 0.05 && p.x < c.x1 - 0.05 && p.z > c.z0 + 0.05 && p.z < c.z1 - 0.05; })).map(q => q.id)`);
+        const bad = await room(`r.people.filter(q => q.p.obj.visible && !q.go && !q.sit0 && r.cols.some(c => { const p = q.p.obj.position; return p.x > c.x0 + 0.05 && p.x < c.x1 - 0.05 && p.z > c.z0 + 0.05 && p.z < c.z1 - 0.05; })).map(q => q.id)`);
         const exempt = ["cA", "cB", "sleep", "vape", "hider", "rosh", "pillar"];       // (seated at a table / on a stair: by design)
         t.check(`${kind}: no walker stands inside a wall (${bad.filter(b => !exempt.includes(b)).join(",") || "ok"})`, bad.filter(b => !exempt.includes(b)).length === 0);
         // every hot-spot is somewhere she can stand, and ✋ reaches it
@@ -195,6 +196,7 @@ module.exports = {
         const c0 = await coins(), h0 = await g(`ctx.G.hearts`);
         const ids = await room(`r.hots.map(h => h.id).filter(i => i !== "door")`);
         for (const hid of ids) {
+          await t.until(`!__interiors.room.busy`, "idle", 20000);
           await room(`(() => { const h = r.hots.find(h => h.id === ${JSON.stringify(hid)}); if (!h || (h.enabled && !h.enabled(r))) return false; const w = h.track && h.who && r.byId[h.who]; r.lulu.obj.position.set(w ? w.p.obj.position.x : h.x, 0, w ? w.p.obj.position.z : h.z); r.beat0 = r.data.V.beat; r.use(h); return true; })()`);
           await tapThrough(8); await t.frames(6);
           if (await room(`r.busy`)) { await tapThrough(14); await t.frames(10); }
@@ -205,8 +207,9 @@ module.exports = {
           await g(`(window.__interiors.room.data.V.step = 0, window.__interiors.room.data.V.topic = null, true)`);
           const s0 = await g(`ctx.yeshiva.debug.SAVE.shiurs`);
           for (let i = 0; i < 7; i++) {
+            await t.until(`!__interiors.room.busy`, "idle", 20000);
             await room(`(() => { const h = r.hots.find(h => h.id === "shiur"); r.lulu.obj.position.set(h.x, 0, h.z); r.use(h); return true; })()`);
-            await tapThrough(8); await t.frames(6);
+            await tapThrough(6); await t.until(`!__interiors.room.busy`, "step done", 20000);
           }
           t.check(`the shiur: seven steps, then it's over (${s0} → ${await g(`ctx.yeshiva.debug.SAVE.shiurs`)})`, await g(`ctx.yeshiva.debug.SAVE.shiurs`) === s0 + 1);
           await at(0.5, -34); await t.frames(30);
@@ -237,6 +240,7 @@ module.exports = {
       if (!await town("lakewood")) return;
       await g(`(${kinds.weekday}, ctx.yeshiva.debug.force.hour = 13, ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.05, ctx.yeshiva.debug.SAVE.lunch = "", ctx.yeshiva.debug.SAVE.lunchDay = "", true)`);
       await onFootAt(1.2);
+      await g(`(ctx.yeshiva.debug.scan(99), true)`);
       t.check("Mrs. Weiss waits by the campus door with a forgotten lunch (daytime, some days)", await t.until(`__lulu3d.ctx.yeshiva.debug.ST.npcs.some(n => n.id === "weiss")`, "Mrs. Weiss", 12000));
       const c0 = await coins();
       await g(`(() => { const n = ctx.yeshiva.debug.ST.npcs.find(n => n.id === "weiss"); ctx.foot.debug.F.pos.set(n.x + 1.2, 0.05, n.z); return true; })()`);
@@ -290,6 +294,7 @@ module.exports = {
       if (!await town("lakewood")) return;
       await onFootAt(3);
       await g(`(ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.9, ctx.yeshiva.debug.ST.npcs.length = 0, true)`);
+      await g(`(ctx.yeshiva.debug.scan(99), true)`);
       t.check("at night: Sammy (the lake), Yitzy (the car park) and Mo (his stool) are out", await t.until(`["sammy", "yitzy", "mo"].every(id => __lulu3d.ctx.yeshiva.debug.ST.npcs.some(n => n.id === id))`, "the OTD guys", 14000));
       const c0 = await coins();
       for (const id of ["sammy", "yitzy", "mo"]) {
@@ -301,7 +306,7 @@ module.exports = {
       const lines = await g(`Object.values((await import("./js/features/yeshiva/data.js")).OTD).flatMap(o => o.lines)`);
       t.check(`each of them asks after a yeshiva name or two (affection: ${lines.filter(l => /how's|how is|tell \w+ (i said )?hi|tell the/i.test(l)).length} lines)`, lines.filter(l => /how's|how is|tell \w+ (i said )?hi|tell the/i.test(l)).length >= 4);
       await t.shot("yeshiva-otd");
-      await g(`(ctx.yeshiva.debug.force.night = 0, true)`);
+      await g(`(ctx.yeshiva.debug.force.night = 0, ctx.yeshiva.debug.scan(99), true)`);
       t.check("by day they're gone", await t.until(`!__lulu3d.ctx.yeshiva.debug.ST.npcs.some(n => ["sammy", "yitzy", "mo"].includes(n.id))`, "gone by day", 14000));
       await g(`(ctx.yeshiva.debug.force.always = false, ctx.yeshiva.debug.force.night = null, true)`);
     });

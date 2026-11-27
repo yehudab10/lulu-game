@@ -10,7 +10,7 @@ import { ctx, on, emit, hook, setState } from "../../core/ctx.js";
 import "./models.js";
 import { yeshivaDef, plan, force, SAVE } from "./room.js";
 import { NAMES, PASS } from "./data.js";
-import { ST, talk, contest, nearNpc } from "./street.js";
+import { ST, talk, contest, nearNpc, scan, wanted } from "./street.js";
 
 const inTown = () => !!(ctx.town && ctx.town.active);
 const here = () => inTown() && ctx.town.id === "lakewood";
@@ -80,5 +80,5 @@ ctx.yeshiva = {
     spot, enter, plan,
     get here() { return !!spot(); },
     get staring() { return ST.n; },
-    debug: { force, SAVE, C, def: yeshivaDef, ST, talk, contest, nearNpc },
+    debug: { force, SAVE, C, def: yeshivaDef, ST, talk, contest, nearNpc, scan, wanted },
 };
