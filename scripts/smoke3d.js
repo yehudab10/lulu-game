@@ -76,6 +76,19 @@ function fastPage(page, on) {
     await cdp.send("Animation.setPlaybackRate", { playbackRate: FAST_CFG.anim });
     page.on("framenavigated", f => { if (f === page.mainFrame()) cdp.send("Animation.setPlaybackRate", { playbackRate: FAST_CFG.anim }).catch(() => { }); });
   }).catch(() => { });
+  // a test that boots / navigates AGAIN cancels the first page's lazy model downloads ("[foot] shop models: Failed to
+  // fetch"): the old clock's slow frames always let them finish first — so let what's in flight finish (≤ 20 s)
+  let inflight = 0;
+  const counts = r => !/^(websocket|eventsource)$/.test(r.resourceType());
+  page.on("request", r => { if (counts(r)) inflight++; });
+  page.on("requestfinished", r => { if (counts(r)) inflight = Math.max(0, inflight - 1); });
+  page.on("requestfailed", r => { if (counts(r)) inflight = Math.max(0, inflight - 1); });
+  const goto0 = page.goto.bind(page);
+  page.goto = async (...a) => {
+    if (/\/3d\//.test(page.url())) for (const cap = Date.now() + 20000; inflight > 0 && Date.now() < cap;) await new Promise(r => setTimeout(r, 50));
+    inflight = 0;
+    return goto0(...a);
+  };
   const shot = page.screenshot.bind(page);
   page.screenshot = async (...a) => {
     await page.evaluate(() => window.__lulu3d && window.__lulu3d.realFrame && window.__lulu3d.realFrame()).catch(() => { });
