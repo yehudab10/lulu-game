@@ -31,6 +31,27 @@ Every `run:start` reset re-arms whatever was capped "per run". So any COIN rewar
 | 14 | The family & places card said home is "Lakewood · the cul-de-sac" — her house is on Midwood's E 34th St now. | `world/map.js` | **fixed** |
 | 5 | `wallet.spend(-n)` PAID her n coins; `wallet.spend(NaN)` / `wallet.add(Infinity)` could write a non-number. No caller does it today, but a bad sum anywhere would. | `core/save.js` | **fixed** — spend refuses negative / non-finite (0 is free), add ignores non-finite |
 
+## Checked and fine (no change)
+
+- The law: getting out of the car mid-chase is refused (`foot/index.js` `chaseActive`); a foot cop's chase is suspended
+  (not dropped) while she's inside a room, so a door isn't a free escape; places / City Hall / realtor / airport refuse
+  entry mid-chase; jail / serving / fugitive survive a refresh and always end (serve the days; lay low 100 s); an
+  impounded car with no coins → Ima's minivan, nobody is stranded; a side job fails cleanly on an arrest (`hustle/jobs.js`).
+- Real estate: buy → sell always loses ≥ 3 % (market drift ±3.5 %, 10 % fee); rent once per played day with a pile cap.
+- The 2D-shared fields the 3D game reads are all written somewhere (3D or Classic); no other localStorage keys, so the
+  💾 save code carries everything (except the iOS update state, by design).
+- Every per-day cap uses the device's LOCAL date (`y-m-d`), except the daily streak + weekly quests (UTC, shared with 2D).
+- Weekly quest stats are all still emitted in 3D (escapes2, parks3, uncles3, missiles8, honks10, heshy2, tolls4, avigail3,
+  footDist). Ima's list's silly / job items all have live events.
+- An old save (a full Classic 2D save + a first-week 3D save) boots, keeps its coins and plays (sweeplogic).
+
+## For other branches / later
+
+- `playershops` (landed 2026-11-27 night, just after this audit started): its till pays into the wallet
+  (`playershops/index.js` ~515) — worth checking against the same "a new run / a reload refills it" pattern.
+- `dealers/data.js` `TUNE.tradeIn` (25 %) is defined but nothing reads it.
+- Midwood's locals say "You came from LAKEWOOD?" (midwood-lines / shops data) though her home is in Midwood — flavour, left.
+
 ## Judgment calls — owner may want to tune
 
 - Combo coin daily cap 200, per-kind 3 (`COMBO_COINS` in `moves/common.js`).
