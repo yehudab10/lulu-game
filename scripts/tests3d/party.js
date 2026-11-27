@@ -282,6 +282,7 @@ async function body(t, guests) {
     JSON.stringify(skies.map(x => x && [x.m, +x.c.toFixed(4), x.w])));
 
   // ── BONK: guest A pulls up right beside the host (both stop) ──
+  console.log("   RACE before BONK", JSON.stringify(await t.game(`({ st: ctx.state, ph: ctx.party.activity.ph, fin: ctx.party.activity.fin, el: Math.round((ctx.party.clock() - ctx.party.activity.t0) / 1000), s: Math.round(ctx.car.s) })`)), JSON.stringify(await A.game(`({ st: ctx.state, s: Math.round(ctx.car.s) })`)), JSON.stringify(await B.game(`({ st: ctx.state, s: Math.round(ctx.car.s) })`)));
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   await sleep(2500);
   const hs = await t.game(`({ s: ctx.car.s, d: ctx.car.d })`);
