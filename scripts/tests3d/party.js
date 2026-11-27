@@ -289,15 +289,14 @@ async function body(t, guests) {
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   await sleep(2500);
   const hs = await t.game(`({ s: ctx.car.s, d: ctx.car.d })`);
-  // (A pulls up by DRIVING, as a friend would: put 8 m behind, wait till the host's screen shows her there — a short
+  // (A pulls up by DRIVING, as a friend would: put 8 m behind in the host's lane, wait till the host's screen shows her there — a short
   //  respawn hop glides in on a friend's screen, it doesn't snap — then she rolls forward into the host's side)
-  await A.game(`(ctx.banter.autopilot = null, ctx.party._debug.place(${(hs.s - 8).toFixed(2)}, ${(hs.d + 1.3).toFixed(2)}, 0))`);
-  await A.game(`(ctx.banter.autopilot = { d: ${(hs.d + 1.3).toFixed(2)}, speed: 0 }, true)`);
+  await A.game(`(ctx.banter.autopilot = null, ctx.party._debug.place(${(hs.s - 8).toFixed(2)}, ${hs.d.toFixed(2)}, 0))`);
+  await A.game(`(ctx.banter.autopilot = { d: ${hs.d.toFixed(2)}, speed: 0 }, true)`);
   const AU = JSON.stringify(await A.game(`ctx.party.uid`));
   await hostUntil(t, `(() => { const rc = ctx.party.remoteCar(${AU}); return !!rc && rc.shown && Math.abs(rc.s - ${(hs.s - 8).toFixed(2)}) < 1.5; })()`, "the host sees A pulled up behind", 30000);
-  await A.game(`(ctx.banter.autopilot = { d: ${(hs.d + 1.3).toFixed(2)}, speed: 3 }, true)`);
+  await A.game(`(ctx.banter.autopilot = { d: ${hs.d.toFixed(2)}, speed: 3 }, true)`);     // (a rear-end bump: a long overlap on both screens)
   await hostUntil(t, `ctx.party._debug.P.bonks > 0`, "BONK on the host's screen", 30000);
-  console.log("   RACE after BONK wait", JSON.stringify(await t.game(`(() => { const A = ctx.party.activity; return { st: ctx.state, ph: A.ph, fin: A.fin, ps: A.ps, el: Math.round((ctx.party.clock() - A.t0) / 1000), end: A.endAt ? Math.round((A.endAt - A.t0) / 1000) : null, s: Math.round(ctx.car.s) }; })()`)), JSON.stringify(await A.game(`({ st: ctx.state, s: Math.round(ctx.car.s), u: ctx.party.uid })`)), JSON.stringify(await B.game(`({ st: ctx.state, s: Math.round(ctx.car.s), u: ctx.party.uid })`)));
   await A.until(`ctx.party._debug.P.bonks > 0`, "BONK on the friend's screen", 30000);
   t.check("BONK! symmetric — both screens bounced", await t.game(`ctx.party._debug.P.bonks > 0`) && await A.game(`ctx.party._debug.P.bonks > 0`));
   t.check("a bump costs no hearts", await t.game(`ctx.G.hearts === 3`) && await A.game(`ctx.G.hearts === 3`));
