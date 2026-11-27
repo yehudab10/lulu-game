@@ -976,6 +976,8 @@ ctx.town = {
     /** The houses people live in (features/homes): [{ key (model), x, z (model origin), rot, ux, uz, nx (toward the street), nz, lotX, lotZ, w, dark, face }]
      *  and the driveway minivans [{ x, z, rot }] — WORLD coords, in build order (stable per town). */
     get homes() { return S.active && S.T && S.T.homes ? S.T.homes.map(h => spotWorld(h)) : []; },
+    /** The plain storefronts of the copy she's in (features/playershops, ci/storefronts): world coords, `lx` / `lz` = local (the id). */
+    get stores() { return S.active && S.T && S.T.stores ? S.T.stores.map(h => { const o = spotWorld(h); if (h.anchor) { const v = toWorld(h.anchor.x, h.anchor.z, {}); o.anchor = { x: v.x, y: h.anchor.y, z: v.z }; } return o; }) : []; },
     get drives() { return S.active && S.T && S.T.drives ? S.T.drives.map(d => { const w = toWorld(d.x, d.z, {}); return { x: w.x, z: w.z, rot: wH(d.rot) }; }) : []; },
     /** The townsfolk you can talk to: [{id, name, x, z}] (world). */
     people: () => S.active ? LIFE.people.filter(r => r.lines).map(r => ({ id: r.id, name: r.name, x: r.p.obj.position.x, z: r.p.obj.position.z })) : [],

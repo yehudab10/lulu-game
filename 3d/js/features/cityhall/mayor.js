@@ -36,6 +36,8 @@ export function edictTopic() {
     const e = todayEdict();
     return e ? { id: "edict:" + e.id, at: "cityhall", signs: e.signs, chant: e.chant, about: e.about } : null;
 }
+/** Has the court struck this edict down? (features/playershops: the Retail Fairness Edict → Midwood allows two shops) */
+export const isStruck = id => !!(S.struck && S.struck[id]);
 /** Strike an edict down (the court's ruling). → bool */
 export function strike(id) {
     if (!id || S.struck[id]) return false;

@@ -257,6 +257,7 @@ export const CONTACT = { name: "City Hall", tag: "Pay property tax and fees" };
 // An unpermitted thing just makes the inspector's visit a bit more likely (a tiny finding fee, within the fee cap).
 export const PERMITS = {
     tenant: { form: "Form 12-T", what: "renting out your home", why: "You got a tenant! Lovely. The town has a form for that." },
+    shop: { form: "Form 40-S", what: "opening a shop", why: "A shop! Commerce! The town LOVES commerce. The town also loves forms about commerce." },
     porch: { form: "Form 14-C", what: "changing your porch", why: "Your porch looks different. The town noticed. The town always notices." },
     door: { form: "Form 9-D", what: "a new front door", why: "A new front door! Doors need permits. Ask anyone. Ask the door." },
     mailbox: { form: "Form 2-M", what: "a new mailbox", why: "A new mailbox. The post office is fine with it. The town is not. Yet." },
@@ -418,6 +419,9 @@ export const EDICTS = [
     { id: "bread", title: "The People's Loaf", notice: "📜 EDICT 10: All bread in the borough will now be one standard shape: the People's Loaf (a brick).",
         signs: ["BREAD SHOULD NOT BE A BRICK", "LET BAKERS BAKE", "SHAPES ARE GOOD"], chant: ["WHAT DO WE WANT?", "SHAPES!", "WHAT DO WE GET?", "BRICKS!"],
         about: "Every bakery now has to bake the same shape: a brick. The bakers are furious. The bread is also furious." },
+    { id: "shops", title: "The People's Retail Fairness Edict", notice: "📜 EDICT: The People's Retail Fairness Edict. ONE shop per person. Two shops is a chain. Chains are how it starts.",
+        signs: ["LET ME OPEN A SECOND KUGEL SHOP", "ONE SHOP IS NOT A CHAIN", "TWO IS NOT A CHAIN EITHER"], chant: ["HOW MANY SHOPS?", "MORE THAN ONE!", "IS IT A CHAIN?", "IT'S TWO!"],
+        about: "One shop per person, says the Edict (features/playershops: Midwood's cap). Strike it down in court and Midwood lets you run two." },
 ];
 export const MAYOR31 = {
     complaint: { opt: "📜 The mayor's latest edict", reply: e => `About "${e.title}"? You and the whole neighbourhood. This window got four hundred today. I'm filing them in a big pile labelled THE PEOPLE.` },
