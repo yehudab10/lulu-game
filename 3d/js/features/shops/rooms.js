@@ -183,8 +183,8 @@ export function enterShop(kind) {
 }
 on("boot", () => {
     if (!ctx.foot || !ctx.foot.addSpot) return;
-    ctx.foot.addSpot({ pos: () => doorPos("pizza"), r: 2.4, door: true, short: "PIZZA", label: () => `🍕 GO INTO ${((ROOMS.pizza[townId()] || ROOMS.pizza.lakewood).name).toUpperCase()}`, act: () => enterShop("pizza") });
-    ctx.foot.addSpot({ pos: () => doorPos("bakery"), r: 2.4, door: true, short: "BAKERY", label: () => `🥖 GO INTO ${((ROOMS.bakery[townId()] || {}).name || "THE BAKERY").toUpperCase()}`, act: () => enterShop("bakery") });
+    ctx.foot.addSpot({ pos: () => doorPos("pizza"), r: 2.4, door: true, walkIn: { id: DOORS.pizza.def.id }, short: "PIZZA", label: () => `🍕 GO INTO ${((ROOMS.pizza[townId()] || ROOMS.pizza.lakewood).name).toUpperCase()}`, act: () => enterShop("pizza") });
+    ctx.foot.addSpot({ pos: () => doorPos("bakery"), r: 2.4, door: true, walkIn: { id: DOORS.bakery.def.id }, short: "BAKERY", label: () => `🥖 GO INTO ${((ROOMS.bakery[townId()] || {}).name || "THE BAKERY").toUpperCase()}`, act: () => enterShop("bakery") });
 });
 on("run:start", () => { if (ctx.G) ctx.G.shopsSnack = false; });
 

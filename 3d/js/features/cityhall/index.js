@@ -87,7 +87,7 @@ export function enter() {
 // ── wiring ───────────────────────────────────────────────────────────────
 on("boot", () => {
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
-    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: doorPos, r: 2.6, door: true, label: () => `🏛️ ENTER ${(TOWNS[townId()] || TOWNS.lakewood).short.toUpperCase()}`, short: "CITY HALL", act: () => enter() });
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: doorPos, r: 2.6, door: true, walkIn: { id: "cityhall" }, label: () => `🏛️ ENTER ${(TOWNS[townId()] || TOWNS.lakewood).short.toUpperCase()}`, short: "CITY HALL", act: () => enter() });
 });
 on("interior:exit", e => { if (e && e.id === "cityhall") { const p = herPos(); C.doorsAt = ctx.time + 8; C.outAt = p ? { x: p.x, z: p.z } : null; C.said = true; } });
 on("town:enter", () => { C.said = false; nameLobby(townId()); });

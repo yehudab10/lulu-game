@@ -138,7 +138,7 @@ export function enterBank() {
 }
 on("boot", () => {
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
-    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: door, r: 2.6, door: true, label: () => `🏦 ENTER ${((BANK[townId()] || BANK.lakewood).name).toUpperCase()}`, short: "BANK", act: enterBank });
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: door, r: 2.6, door: true, walkIn: { id: "bank" }, label: () => `🏦 ENTER ${((BANK[townId()] || BANK.lakewood).name).toUpperCase()}`, short: "BANK", act: enterBank });
 });
 // only the town's own buildings play inside a town — the bank and a house (features/homes' "home": its families
 // live on these streets) — any other interior there still sends her back to the highway (the old way)

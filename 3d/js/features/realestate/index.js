@@ -224,7 +224,7 @@ const friendSpot = {
 const friendInside = f => !!(ctx.together && ctx.together.friendIn && ctx.together.friendIn("realestateHouse", f.id));
 // the realtor's office door
 const officeSpot = {
-    r: 2.6, door: true, short: "REALTOR",
+    r: 2.6, door: true, walkIn: { id: "realty" }, short: "REALTOR",
     pos() {
         if (!canAct() || locked()) return null;
         const sp = ctx.town.spot && ctx.town.spot("realty"), p = herPos();

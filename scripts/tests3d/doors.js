@@ -132,6 +132,48 @@ module.exports = {
       }
     }
 
+    // 🚶‍♀️ stage 2 — NO CUT: walking into a public doorway is going in (no ✋, no fade, no black), walking back out of the
+    // room's door is coming out (on the pavement, facing away, still walking). A probe on the frames: the soft-cut
+    // overlay / the fades never show, and the picture never goes black.
+    const curtain = () => t.L(`(() => { const o = []; for (const id of ["softCut", "townFade", "intFade", "lawFade", "cameosFade"]) { const e = document.getElementById(id); if (e && e.offsetParent !== null && +getComputedStyle(e).opacity > 0.05) o.push(id); } return o.join(","); })()`);
+    const WALK_IN = ["shul", "pizza", "bank", "cityhall", "precinct"];
+    if (await town("midwood")) {
+      await onFoot();
+      const doors = (await findDoors()).filter(d => WALK_IN.includes(d.name));
+      for (const d of doors) {
+        await onFoot();
+        await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 0.6, 0.05, a.z + a.nz * 0.6); F.vel.set(0, 0, 0);
+          F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); F.camFree = true; ctx.cam.free.yaw = Math.atan2(-a.nx, -a.nz); return true; })()`);
+        await t.frames(30);          // (standing by the door: the room is warmed)
+        await t.until(`(() => { const s = __lulu3d.ctx.foot.spots()[${d.i}]; const r = __lulu3d.ctx.interiors[s.walkIn.id]; return r.ready(); })()`, `${d.name}: the room is ready before she reaches the door`, 60000);
+        await t.stick(0, -1);
+        let seen = "", went = false;
+        for (let k = 0; k < 90 && !went; k++) { await t.frames(2); const c = await curtain(); if (c) seen = c; went = await st() === "interior"; }
+        await t.stick(0, 0);
+        t.check(`midwood ${d.name}: walking into the doorway goes in (no ✋)`, went);
+        t.check(`midwood ${d.name}: no fade / curtain on the way in`, !seen, seen);
+        if (!went) continue;
+        await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, `${d.name}: inside`, 20000);
+        // …and out: walk away from the door 2.5 m (arms it), then back into it
+        const out = await room(`(() => { const ds = r.spots.door; return ds && r.out ? { x: ds.x, z: ds.z, ox: r.out.x, oz: r.out.z } : null; })()`);
+        t.check(`midwood ${d.name}: the room knows its way out`, !!out);
+        if (!out) { await g(`(__interiors.room.leave(), true)`); await t.until(`__lulu3d.state === "footRun"`, "out", 30000); continue; }
+        await room(`(r.lulu.obj.position.set(${out.x} - ${out.ox} * 2.6, 0, ${out.z} - ${out.oz} * 2.6), r.lulu.obj.rotation.y = Math.atan2(${out.ox}, ${out.oz}), ctx.cam.free.yaw = Math.atan2(${out.ox}, ${out.oz}), true)`);
+        await t.frames(6);
+        await t.stick(0, -1);
+        seen = ""; went = false;
+        for (let k = 0; k < 120 && !went; k++) { await t.frames(2); const c = await curtain(); if (c) seen = c; went = await st() === "footRun"; }
+        t.check(`midwood ${d.name}: walking out of the door comes out`, went);
+        t.check(`midwood ${d.name}: no fade / curtain on the way out`, !seen, seen);
+        if (!went) { await t.stick(0, 0); await g(`(window.__interiors.room && __interiors.room.leave(), true)`); await t.until(`__lulu3d.state === "footRun"`, "out", 30000); continue; }
+        await t.frames(4);
+        const o = await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; return { sp: Math.hypot(F.vel.x, F.vel.z), n: (F.pos.x - a.x) * a.nx + (F.pos.z - a.z) * a.nz, face: Math.sin(F.lulu.obj.rotation.y) * a.nx + Math.cos(F.lulu.obj.rotation.y) * a.nz }; })()`);
+        await t.stick(0, 0);
+        t.check(`midwood ${d.name}: out on the pavement, facing away from the door, walking (${JSON.stringify(o)})`, o.face > 0.5 && o.sp > 0.5 && o.n > -2.6);
+        await t.frames(30);
+      }
+    }
+
     // the ✋ button on a phone: big, and nothing on top of it
     for (const [name, w, h] of [["phone", 412, 915], ["phone-land", 667, 375]]) {
       await t.page.setViewportSize({ width: w, height: h });

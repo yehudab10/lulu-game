@@ -130,7 +130,7 @@ on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) {
         for (const kind of Object.keys(DOORS)) {
             const D = DOORS[kind];
-            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, door: true, label: D.label, short: D.short, act: () => enter(kind) });
+            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, door: true, walkIn: { id: D.id }, label: D.label, short: D.short, act: () => enter(kind) });
         }
         ctx.foot.addSpot({ pos: gatePos, r: 2.4, door: { w: 2.4 }, label: () => impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT", short: "IMPOUND", act: gate });
     }

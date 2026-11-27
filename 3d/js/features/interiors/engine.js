@@ -145,6 +145,15 @@ function enterInterior(def, opts) {
     if (cur) { console.warn("[interiors] already inside", cur.def.id); return false; }
     cur = new Room(def, opts || {});
     const room = cur;
+    // ci/doors stage 2: she WALKED into the doorway (features/foot walkIn) and the room is built-ready → no fade at all:
+    // the swap happens on this frame, the free camera carried over (same pitch; behind her, as she faces in)
+    if (ctx.foot && ctx.foot.walkingIn && ctx.interiors[def.id].ready()) {
+        room.walked = true;
+        setState("interior", { id: def.id });
+        if (room.loadNow() || room.disposed) return true;
+        room.load();
+        return true;
+    }
     // Everything's loaded (the door warmed it): a SOFT CUT — the frame of the street melts into the room, no black.
     if (!ctx.skipping && ctx.interiors[def.id].ready()) {
         let ok = false;
@@ -313,8 +322,16 @@ export class Room {
             this.hot({ id: "door", spot: "door", r: 1.5, label: `🚪 Leave ${def.short || def.name}`, action: rt => rt.leave() });
         }
         if (def.music) A.setMusic(def.music);
-        // (the free camera starts behind her as she comes in through the door — ci/doors)
-        if (this.orbitOn() && ctx.cam && ctx.cam.free) { ctx.cam.free.reset(this.lulu.obj.rotation.y); ctx.cam.free.release(); }
+        // (the free camera starts behind her as she comes in through the door, at the pitch it had outside — ci/doors)
+        if (this.orbitOn() && ctx.cam && ctx.cam.free) { ctx.cam.free.yaw = this.lulu.obj.rotation.y; ctx.cam.free.release(); }
+        // the way out (stage 2): walking back into the door spot, heading out, IS leaving — armed once she's stepped in
+        const dsp = this.spots.door;
+        if (dsp) {
+            const B = this.bounds, cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2, ox = dsp.x - cx, oz = dsp.z - cz;
+            // (out = from the middle of the room toward the door, along the wall's axis)
+            this.out = Math.abs(ox) / Math.max(1, B.x1 - B.x0) > Math.abs(oz) / Math.max(1, B.z1 - B.z0) ? { x: Math.sign(ox), z: 0 } : { x: 0, z: Math.sign(oz) || 1 };
+            this.outArmed = false;
+        }
         this.updateCamera(0, true);
         H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200);
     }
@@ -471,10 +488,11 @@ export class Room {
     finishLeave() {
         if (this.disposed) return;
         const cb = this.opts.exit;
+        if (this.walkOut && this.opts.from === "foot" && ctx.foot && ctx.foot.stepOut) ctx.foot.stepOut();
         const id = this.def.id;
         if (cur === this) cur = null;
         this.dispose();
-        if (this.soft) setFade(0, ""); else { setFade(1); fadeAway(); }
+        if (this.soft || this.walkOut) setFade(0, ""); else { setFade(1); fadeAway(); }
         if (ctx.G) ctx.G.invT = Math.max(ctx.G.invT || 0, 2.0);   // 2D: a 2 s shield back on the street
         emit("interior:exit", { id });
         if (typeof cb === "function") {
@@ -512,6 +530,8 @@ export class Room {
         }
         if (this.t > 8 && this.chip) { const h = this.chip.querySelector(".int-hint"); if (h && !h.classList.contains("gone")) h.classList.add("gone"); }
         if (this.leaving) {
+            // (she WALKED out of the door: the street, this frame — no fade; ci/doors)
+            if (this.walkOut) { this.finishLeave(); return; }
             // (she came in by a soft cut: the room melts back into the street the same way)
             if (this.soft && !ctx.skipping) { dissolve(() => this.finishLeave()); return; }
             this.leaveT += dt;
@@ -527,6 +547,7 @@ export class Room {
         }
         this.updateLulu(dt);
         if (P.recentre && this.orbiting) ctx.cam.free.recentre(this.lulu.obj.rotation.y);     // (R3 / V: behind her, as outside)
+        this.checkWalkOut();
         // input → hotspot / leave
         const free = !this.busy && !ctx.dialogOpen && !this.mode && !this.lock && !this.auto;
         this.near = free ? this.findNear() : null;
@@ -560,6 +581,15 @@ export class Room {
         this.updateCamera(dt, false);
     }
 
+    /** ci/doors stage 2: walking out through the room's door = leaving (no question, no fade). */
+    checkWalkOut() {
+        const dsp = this.spots.door;
+        if (!dsp || !this.out || this.leaving || this.busy || this.mode || this.lock || this.auto || ctx.dialogOpen || this.def.noWalkOut) return;
+        const L = this.lulu.obj.position, d = Math.hypot(L.x - dsp.x, L.z - dsp.z);
+        if (!this.outArmed) { if (d > 1.8) this.outArmed = true; return; }
+        const v = this.vel.x * this.out.x + this.vel.z * this.out.z;
+        if (d < 1.0 && v > 1.2) { this.walkOut = true; this.leave(); }
+    }
     use(h) {
         this.busy = true;
         this.active = h;
