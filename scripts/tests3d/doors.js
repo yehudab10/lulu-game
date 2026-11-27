@@ -117,7 +117,6 @@ module.exports = {
       return { bad, moved: V.moved || [], rooms: rooms.map(x => x.type).join("+") };
     })()`);
     const houseRun = async (label, setup, id) => {
-      console.log(`  · ${label}: from ${await st()}`);
       // (the real way in: on foot in town, through foot's hand-off — the same path the homes / real estate doors use)
       await onFoot();
       await g(`Promise.resolve(${setup}).then(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff(${JSON.stringify(id)}, { id: ${JSON.stringify(id)}, s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })`);
@@ -133,11 +132,13 @@ module.exports = {
     const tail = [];
     t.page.on("console", m => { tail.push(`${m.type()}: ${m.text().slice(0, 160)}`); if (tail.length > 12) tail.shift(); });
     t.page.on("framenavigated", f => { if (f === t.page.mainFrame()) console.log(`  · NAVIGATED → ${f.url()}\n    last console: ${tail.join("\n      ")}`); });
+    // (the house builders' modules, once: importing them from inside each call lost the page's context on CI)
+    await t.L(`Promise.all([import("./js/features/homes/house.js"), import("./js/features/family/data.js"), import("./js/features/realestate/house.js")]).then(([homes, fam, re]) => { window.__dm = { homes, fam, re }; return true; })`);
     const offenders = new Map();
     const CASTS = [["dad", "mom"], ["dad", "mom", "boy"], ["bubbe", "dad", "mom", "baby"], ["zeidy", "girl"]];
     for (const cast of CASTS) for (let seed = 1; seed <= 10; seed++) {
       const home = { name: "Test", key: `test:${seed}:${cast.join("")}`, cast, seed: seed * 7919 };
-      const f = await houseRun(`house ${cast.join(",")} #${seed}`, `import("./js/features/homes/house.js").then(m => m.prepare(${JSON.stringify({ home, mode: "guest", via: "door", cast, noCatch: true })}))`, "home");
+      const f = await houseRun(`house ${cast.join(",")} #${seed}`, `window.__dm.homes.prepare(${JSON.stringify({ home, mode: "guest", via: "door", cast, noCatch: true })})`, "home");
       if (!f) continue;
       for (const m of f.moved) offenders.set(`${m} (${f.rooms})`, (offenders.get(`${m} (${f.rooms})`) || 0) + 1);
       t.check(`house ${f.rooms} [${cast.join(",")}] seed ${seed}: every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
@@ -145,8 +146,8 @@ module.exports = {
     // Fayge's basement (features/family: the homes builder with a fixed layout) + a neighbour family's house
     for (const [label, extra] of [["Fayge's basement", "fayge"], ["the neighbours", "neighbour"]]) for (let seed = 1; seed <= 3; seed++) {
       const setup = extra === "fayge"
-        ? `import("./js/features/family/data.js").then(d => import("./js/features/homes/house.js").then(m => m.prepare({ home: { name: d.FAYGE.name, key: "test:fayge" + ${seed}, cast: d.FAYGE.cast.slice(), seed: ${seed * 131}, rooms: d.FAYGE.rooms, palette: d.FAYGE.palette, basement: true, names: Object.assign({}, d.FAYGE.names) }, mode: "guest", via: "door", cast: d.FAYGE.cast.slice(), noCatch: true })))`
-        : `import("./js/features/homes/house.js").then(m => m.prepare(${JSON.stringify({ home: { name: "Neighbour", key: "test:nb" + seed, cast: ["dad", "mom", "girl", "boy"], seed: seed * 313, neighbour: true, traits: ["hosts", "bakers"] }, mode: "guest", via: "door", cast: ["dad", "mom", "girl", "boy"], noCatch: true })}))`;
+        ? `((d, m) => m.prepare({ home: { name: d.FAYGE.name, key: "test:fayge" + ${seed}, cast: d.FAYGE.cast.slice(), seed: ${seed * 131}, rooms: d.FAYGE.rooms, palette: d.FAYGE.palette, basement: true, names: Object.assign({}, d.FAYGE.names) }, mode: "guest", via: "door", cast: d.FAYGE.cast.slice(), noCatch: true }))(window.__dm.fam, window.__dm.homes)`
+        : `window.__dm.homes.prepare(${JSON.stringify({ home: { name: "Neighbour", key: "test:nb" + seed, cast: ["dad", "mom", "girl", "boy"], seed: seed * 313, neighbour: true, traits: ["hosts", "bakers"] }, mode: "guest", via: "door", cast: ["dad", "mom", "girl", "boy"], noCatch: true })})`;
       const f = await houseRun(`${label} #${seed}`, setup, "home");
       if (!f) continue;
       for (const m of f.moved) offenders.set(`${m} (${label}: ${f.rooms})`, (offenders.get(`${m} (${label}: ${f.rooms})`) || 0) + 1);
@@ -154,7 +155,7 @@ module.exports = {
     }
     for (const n of [2, 3]) for (const mode of ["viewing", "owner"]) {
       const rec = { id: `test:re${n}`, rooms: n, address: "1 Test St" };
-      const f = await houseRun(`her home ${n} rooms (${mode})`, `import("./js/features/realestate/house.js").then(m => m.nameHouse(${JSON.stringify(rec)}, ${JSON.stringify(mode)}))`, "realestateHouse");
+      const f = await houseRun(`her home ${n} rooms (${mode})`, `window.__dm.re.nameHouse(${JSON.stringify(rec)}, ${JSON.stringify(mode)})`, "realestateHouse");
       if (f) t.check(`real estate ${n} rooms (${mode}): every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
     }
     {
