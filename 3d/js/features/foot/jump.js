@@ -149,7 +149,7 @@ const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, 
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;
-    let best = D, under = false;
+    let best = D, under = false, outOf = 0;
     const T = ctx.town, pl = T && T.active && T.plan;
     // (in a town the BLOCK outlines below are the houses' real front line — the ring of circles round a block stands
     //  ~1 m out in front of it, and hugging a wall the camera behind her kept catching those)
@@ -164,6 +164,9 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 if (c.r >= 0.8) {
                     const ox = tgt.x - c.x, oz = tgt.z - c.z, R = c.r + 0.15, cc = ox * ox + oz * oz - R * R, b = ox * dx + oz * dz;
                     if (cc > 0 && b < 0) { const disc = b * b - h2 * cc; if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2); }
+                    // (the pivot INSIDE the trunk — shouldn't happen, she's pushed out every frame; if it does, the camera goes
+                    //  out along its line to where it leaves the trunk, never sits in it — ci/qa's "camera in a tree")
+                    else if (cc <= 0) outOf = Math.max(outOf, (-b + Math.sqrt(Math.max(0, b * b - h2 * cc))) / h2 + 0.1);
                 }
                 // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
                 // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
@@ -216,6 +219,7 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             if (tgt.y + dy * t0 < 8) best = t0;
         }
     }
+    if (outOf > 0 && best < outOf) best = Math.min(D, outOf);      // (out of the trunk she's inside, whatever else clipped)
     const d = best >= D ? D : Math.max(CAM_MIN, best);
     // (under a tree, a camera pulled in close must not rise over her head — that's up into the leaves)
     return under ? { d, noLift: true } : d;
