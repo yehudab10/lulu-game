@@ -53,6 +53,11 @@ function loadOne(key) {
         pending.delete(key);
         warmShaders(models[key]);
         return models[key];
+    }, e => {
+        // (a failed download — offline, a dropped connection — is forgotten, so the next ensureModels tries again
+        //  instead of handing back the same failure forever)
+        pending.delete(key);
+        throw e;
     });
     pending.set(key, p);
     return p;

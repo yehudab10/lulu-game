@@ -257,6 +257,7 @@ registerState("title", {
 
 // core title items (features add Shop, Scrapbook, 👯 Friends, 👧 Dina…)
 // ▶ PLAY — the open world (a "cruise" run under the hood): she starts at home on foot, Ima at the door. Never locked.
+// (ctx.playGate — features/onegame/playgate.js — waits on the title, with a progress line, until the home start is ready)
 // Features add to its subtitle with addMenuItem("titleInfo", { for: "play", label }) (or a `playSub` hook: (parts) => void).
 const playSubs = [];
 /** A feature's live line under ▶ PLAY: fn() → html | "" (first non-empty wins, by priority — higher first). */
@@ -265,7 +266,7 @@ function playSub() {
     for (const p of playSubs) { try { const s = p.fn(); if (s) return s; } catch (e) { console.error("[title] play sub", e); } }
     return "Start at home and go anywhere.";
 }
-addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶ PLAY ${glyph("confirm")}`, sub: playSub, action: () => startRun({ mode: "cruise" }) });
+addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶ PLAY ${glyph("confirm")}`, sub: playSub, action: () => { const go = () => startRun({ mode: "cruise" }); if (ctx.playGate) ctx.playGate(go); else go(); } });
 addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
     sub: () => { const n = ownedSkins().length; return n > 1 ? `You have ${n} cars. ${glyph("confirm")} to switch.` : "Buy more at Uncle Refael's in town"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
