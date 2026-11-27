@@ -12,6 +12,7 @@ const W = require("../lib/qawatch.js");
 module.exports = {
   name: "dealers",
   viewport: { width: 1280, height: 720 },
+  query: "&enable=world,law",
   save2d: { totalCoins: 50000, ownedSkins: ["pink", "ninja"], selectedSkin: "pink" },
   async run(t) {
     try { await this.body(t); } finally { W.dropRelayErrors(t); }
@@ -130,7 +131,7 @@ module.exports = {
       const s = await save();
       t.check("the shared save: owned + selected (like any car)", s.ownedSkins.includes("geltspyder") && s.selectedSkin === "geltspyder");
       t.check("her car out front is the Gelt Spyder (+ the Mazelati kit)", await g(`ctx.car.skinKey === "geltspyder" && !!ctx.car.model.getObjectByName("Kit_mazelati")`));
-      t.check("the options are remembered per car, the nonsense too", await g(`(() => { const DS = ctx.dealers.debug.DS; return DS.opts.geltspyder.join() === "tank,fridge" && DS.fell.undercoat === 1 && DS.deals === 1 && DS.walked === 1; })()`));
+      t.check("the options are remembered per car, the nonsense too", await g(`(() => { const DS = ctx.dealers.debug.DS; return DS.opts.geltspyder.join() === "tank,fridge" && DS.fell.undercoat === 1 && DS.deals === 1 && DS.walked === 2; })()`));
       t.check("Sal remembers what she fell for", /undercoating/i.test(await t.L(`import("./js/features/dealers/haggle.js").then(m => m.remembered())`)));
       t.check("events: deal, 2 options, 1 package", (await evs(/dealers:haggle.*deal/)).length === 1 && (await evs(/dealers:option/)).length === 2 && (await evs(/dealers:nonsense/)).length === 1);
     });
