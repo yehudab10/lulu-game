@@ -87,6 +87,12 @@ const _cf = new THREE.Vector3(), _cl = new THREE.Vector3();
 const tmp = {}, tmpA = {}, poseArr = [0, 0, 0, 0, 0, 0, 0, 0];
 const PARTY_STATES = new Set(["partyLobby", "partyGrid", "partyWait", "partySpectate", "partyResults"]);
 const inPartyRun = () => N.want && ctx.G.mode === "party";
+// 🌍 a group's Free Roam rides on her OWN normal run (ci/friends, the owner 2026-11-27: "friends = the same game, one world"):
+// no party run, no reseed — her hearts, coins, car, errand, cops, the ER as when alone; her friends drawn in her world.
+// Joining = a teleport to the friend (openworld's roam lightJoin), leaving = she stays where she is. Only an opt-in GAME
+// (race, dash, cop tag, road trip) still starts a party run with its own shared world + rules.
+const openRun = () => !!ctx.G && ctx.G.mode === "cruise" && !ctx.G.ended && (ctx.state === "playing" || ctx.state === "footRun");
+const lightRoam = () => N.want && !!N.A && N.A.k === "roam" && !!ctx.G && ctx.G.mode === "cruise";
 const driving = () => N.want && (ctx.state === "partyGrid" || ctx.state === "partyWait" || (ctx.state === "playing" && ctx.G.mode === "party"));
 const tripEnd = () => { try { if (ctx.journey && ctx.journey.stopS) return ctx.journey.stopS(0); } catch (e) { /* fall back */ } return 4800; };
 
@@ -268,13 +274,14 @@ function playerInfo(uid) {
 function hostParty(opts = {}) {
     if (!NET.allowed()) { H.toast("Parties need an internet connection", "red"); return false; }
     leaveFriendRoom();
-    bankSoloRun();
+    const keep = !!(opts && opts.act === "roam") && openRun();     // (🌍 from the middle of her run: she keeps it)
+    if (!keep) bankSoloRun();
     const code = NET.newCode();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, true);
     P.ready = false; P.actId = N.A.id;
     P.autoAct = opts && opts.act && ACTS[opts.act] ? opts.act : null;
-    setState("partyLobby");
+    if (!keep) setState("partyLobby");
     return code;
 }
 /** 🌍 Hang out: host straight into Free Roam (friends who open the link land right next to you). */
@@ -283,11 +290,12 @@ function joinParty(code) {
     code = String(code || "").toUpperCase();
     if (!NET.allowed() || !NET.validCode(code)) return false;
     leaveFriendRoom();
-    bankSoloRun();
+    const keep = openRun();                            // (joining from the middle of her run: she keeps it — a teleport)
+    if (!keep) bankSoloRun();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, false);
     P.ready = false; P.actId = -1;
-    setState("partyLobby");
+    if (!keep) setState("partyLobby");
     return true;
 }
 function leave(toTitle = true) {
@@ -449,12 +457,13 @@ function hostTick() {
 }
 
 // ── following the host's activity state ──────────────────────────────────
-function inFlow() { return N.want && (PARTY_STATES.has(ctx.state) || ((ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party") || ctx.state === "intro"); }
+function inFlow() { return N.want && (PARTY_STATES.has(ctx.state) || ((ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party") || openRun() || ctx.state === "intro"); }
 function followActivity() {
     const A = N.A;
     if (!A || !N.connected || !inFlow() || ctx.dialogOpen) return;
     if (!N.host) return;                               // no host heard yet
     if (A.k === "lobby") {
+        if (openRun()) { P.actId = A.id; return; }    // (her own run: never pulled into a lobby screen — a game is an invitation)
         if (ctx.state !== "partyLobby") goLobby();
         P.actId = A.id;
         return;
@@ -488,6 +497,14 @@ function enterActivity(A) {
     const idx = (A.ps || []).indexOf(N.uid);
     const late = idx < 0 || clock() > A.t0 + 1500;
     P.me = { finished: false, arrived: false, late, coins: 0, place: 0, pend: {}, tagSent: -1 };
+    if (A.k === "roam" && ACTS.roam && ACTS.roam.lightJoin) {
+        if (openRun()) { lightEnter(A); return; }
+        // (from the title / the lobby screen / a game's results: her own run starts at home first, then the teleport)
+        P.lightPending = A;
+        closeRun("party"); clearProps(); bbClear(); T.releaseTraffic();
+        if (ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "group" });
+        return;
+    }
     XP.jk.length = 0; NET.setX("jk", null);
     XC.length = 0; NET.setX("cl", null);
     P.copN = A.n;
@@ -510,6 +527,13 @@ function enterActivity(A) {
     setState("partyGrid");
 }
 
+/** 🌍 with friends on her own run: in the group, the traffic hers, then (a joiner) off to the friend. */
+function lightEnter(A) {
+    P.lightPending = null;
+    if (ctx.traffic) ctx.traffic.config.enabled = true;
+    NET.sendEvent("in", A.id);
+    try { ACTS.roam.lightJoin(A); } catch (e) { console.error("[party] join", e); }
+}
 /** A fresh party run at (s, d): seeded world, our props, the car placed (rolling at `speed`). */
 function beginRun(s, d, speed) {
     PK.seen.clear();
@@ -905,7 +929,7 @@ on("state", ({ from, to }) => {
 hook("damage", () => (inPartyRun() ? false : undefined), 90);
 
 hook("update", (dt, P_, controlsOn) => {
-    if (!inPartyRun()) return;
+    if (!inPartyRun()) { if (lightRoam() && ctx.state === "playing") bonks(dt); return; }      // (friends bump harmlessly on her own run too)
     P_.fire = false; P_.item = false;                  // missiles / pepper would hit traffic on ONE screen only
     const car = ctx.car, A = N.A, t = clock();
     const own = ACTS[A.k] && ACTS[A.k].ownTraffic && ACTS[A.k].ownTraffic();
@@ -1405,11 +1429,11 @@ function publish() {
     const pr = N.profile;
     pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.rd = P.ready ? 1 : 0;
     let m = N.mode;
-    const run = ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby";
+    const run = (ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby") || lightRoam();
     const foot = st === "footRun" && run && ctx.foot && ctx.foot.active && !!ctx.foot.pos;
     if (st === "partyLobby") m = 1;
     else if (st === "partyGrid") m = 2;
-    else if ((st === "playing" && ctx.G.mode === "party") || foot) m = 3;
+    else if ((st === "playing" && (ctx.G.mode === "party" || lightRoam())) || foot) m = 3;
     else if (st === "partyWait") m = 4;
     else if (st === "partySpectate") m = 5;
     else if (st === "partyResults") m = N.A.k === "trip" ? 4 : 6;
@@ -1757,6 +1781,8 @@ function frame() {
         // hosted straight into an activity (🌍 Hang out): start it the moment we're the connected host
         if (P.autoAct && N.isHost && N.connected && N.A && N.A.k === "lobby" && NET.clockSynced()) { const k = P.autoAct; P.autoAct = null; hostStart(k); }
         followActivity();
+        // (joined from the title / after a game: her own run just started at home — now the teleport to the friend)
+        if (P.lightPending && openRun() && N.A && N.A.id === P.lightPending.id) lightEnter(P.lightPending);
         // full? (the host's roster has no room for us)
         if (N.connected && N.host && !N.isHost && N.roster.length >= NET.MAX_PLAYERS && !N.roster.includes(N.uid) && performance.now() - N.connectedAt > 4000) {
             leave(); H.toast("😕 That party is full (8 friends max)", "red"); return;
@@ -1785,7 +1811,7 @@ let onRoad = false;
 /** Draw this friend on the road? (same activity, actually driving / parked, and we're looking at the road) */
 function showCar(p) { const act = ACTS[N.A.k]; return onRoad && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip") && (!act || !act.show || act.show(p)); }
 /** Is this friend in my world (same activity + zone, I'm looking at the road) — for their parked car, cops, tags. */
-function sameWorld(p) { const act = ACTS[N.A.k]; return onRoad && ctx.G && ctx.G.mode === "party" && p.aid === N.A.id && (p.m === 7 || (p.m >= 2 && p.m <= 4)) && (!act || !act.show || act.show(p)); }
+function sameWorld(p) { const act = ACTS[N.A.k]; return onRoad && ctx.G && (ctx.G.mode === "party" || lightRoam()) && p.aid === N.A.id && (p.m === 7 || (p.m >= 2 && p.m <= 4)) && (!act || !act.show || act.show(p)); }
 function frameOf(p) { const act = ACTS[N.A.k]; return act && act.frame ? act.frame(p) : null; }
 function decorate(rc, p) {
     rc.tag.set(displayName(p.uid), R.skinHex(p.sk), { host: p.uid === N.host, status: R.status(p) || PS.presenceBadge(p) });
