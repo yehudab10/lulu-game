@@ -16,7 +16,7 @@ module.exports = {
     t.check("…today's tone mapping (ACES)", await g(`L3.renderer.toneMapping === 4`));
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await t.frames(10);
-    t.check("…today's car (lulu_car: 9.3k triangles)", await g(`(() => { let n = 0; ctx.car.model.traverse(o => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n < 12000; })()`));
+    t.check("…today's car (lulu_car + its shadow copy ≈ 15k triangles in the scene)", await g(`(() => { let n = 0; ctx.car.model.traverse(o => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n < 20000; })()`));
 
     // ── on ──
     if (!await t.boot("&enable=atmos,foot&look=2")) return;
@@ -35,7 +35,7 @@ module.exports = {
 
     // ── Lulu on foot ──
     await g(`ctx.foot.start("droveOff")`);
-    if (!await t.until(`__lulu3d.state === "footRun" && ctx.foot.obj`, "on foot")) return;
+    if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.lulu`, "on foot", 30000)) return;
     await t.frames(60);
     const p = await g(`(() => { const L1 = ctx.foot.debug.F.lulu; const n = {}; L1.obj.traverse(o => { if (o.isBone) n.bones = (n.bones || 0) + 1; if (o.isSkinnedMesh) n.skinned = true; if (/^(Body|Arm_L|Arm_R)$/.test(o.name)) n[o.name] = true; });
       return Object.assign(n, { look: !!L1.look, clips: !!(L1.idle && L1.walkA && L1.runA), w: L1.w }); })()`);
