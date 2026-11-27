@@ -60,8 +60,10 @@ async function body(t, guests) {
   t.check("…the licence counts for both (Lakewood: 3 kugel → 2 left)", await A.game(`ctx.playershops.licencesLeft("lakewood", "kugel")`) === 2);
   await A.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} - ${F.nx} * 0.4, 0.05, ${F.ap.z} - ${F.nz} * 0.4); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
   await new Promise(r => setTimeout(r, 2000));
-  const lab = await A.game(`((ctx.foot.debug.interactables() || {}).label || "")`);
-  t.check("guest at the door: ✋ 👀 LOOK ROUND <host>'S SHOP", /LOOK ROUND/.test(lab), lab);
+  // (the host's own front, as the storefronts ✋ labels it on the guest's screen — next door may be FOR LEASE)
+  const lab = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return f && f.sid && ctx.storefronts ? String(ctx.storefronts.debug.label(f.sid) || "") : ((ctx.foot.debug.interactables() || {}).label || ""); })()`);
+  const why = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return { sid: f && f.sid, cl: f && f.sid ? P.CL.get(f.sid) : null, near: (ctx.foot.debug.interactables() || {}).label || "" }; })()`);
+  t.check("guest: the host's front says ✋ 👀 LOOK ROUND <host>'S SHOP", /LOOK ROUND/.test(lab), lab + " " + JSON.stringify(why));
   await A.game(`(ctx.playershops.debug.enterShop(ctx.playershops.debug.frontById(${FJ}), "visit", ctx.playershops.debug.SHOP_PARTY.cache.find(x => x.id === ${FJ})), true)`);
   if (await A.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "guest inside the host's shop", 30000)) {
     const R = await A.game(`(() => { const r = window.__interiors.room; return { hots: r.hots.map(h => h.id), goods: r.data.V.slots.length }; })()`);
