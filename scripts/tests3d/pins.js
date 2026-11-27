@@ -69,7 +69,7 @@ module.exports = {
     const dots = await g(`import("./js/features/pins/map.js").then(m => m.mapDebug.pts().length)`).catch(() => 0) || await t.L(`import("./js/features/pins/map.js").then(m => m.mapDebug.pts().length)`);
     t.check("…in town, the picture has the town's places on it", dots >= 10, dots);
     await t.L(`document.querySelector('#lpApp [data-pcat="shops"]').click()`); await t.frames(3);
-    const shopsOnly = await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].every(b => /^(midwood|lakewood):(dealer|bling|makolet|clothes|pizza|bakery|van)$|^jfk:gelt$/.test(b.dataset.pin))`);
+    const shopsOnly = await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].every(b => /^(midwood|lakewood):(dealer|bling|makolet|clothes|pizza|bakery|van)$|^jfk:gelt$|^hw:(mazelati|tushla)$/.test(b.dataset.pin))`);
     t.check("🛍️ Shops filter: only shops", shopsOnly);
     await t.shot("map-shops");
     await t.L(`document.querySelector('#lpApp [data-pin="midwood:clothes"]').click()`); await t.frames(3);

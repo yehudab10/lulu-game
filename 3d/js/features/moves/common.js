@@ -108,6 +108,7 @@ function multOf() { return Math.min(12, 1 + 0.5 * (C.n - 1) + 0.5 * (C.distinct 
 /** A move landed: add it to the chain (repeats are worth less, new kinds raise the multiplier faster). */
 export function addMove(id, pts, label, opts = {}) {
     if (!live()) return 0;
+    if (ctx.G && ctx.G.selfDriving) return 0;          // (the self-driving car earns no style — features/dealers)
     if (id === C.last) C.rep++; else C.rep = 0;
     C.last = id;
     pts = Math.round(pts * Math.pow(0.72, Math.min(4, C.rep)));

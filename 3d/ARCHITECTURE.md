@@ -761,7 +761,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.law` | law | `startChase(reason, {heat, msg, at: {x, z} (the witness who saw it leads the chase)})` · **heat before a chase** (cops.js `notice` / `callIn` / `changeLook`): `notice(charge, {msg, warn, witness, src, amount})` a PETTY offense a cop saw — the first is a ⚠️ WARNING (`suspicion` 0–1, drains ~22 s of clean driving), another while it is live (or `amount` 1: reckless — nitro / > 92 mph) is the chase · `callIn(charge, {msg, delay})` a witness phoned it in: 📞 `reported`, after 8–14 s one unlit cruiser prowls up the road looking for the car she is in (sees her ~1 s → chase; she switches cars / paints / ditches it / keeps out of its way 35 s → called off) · `changeLook(how)` a new car / paint / disguise unseen: drops a call-in + the warning, and `lowKey` — the warrant file does not know her this run (`wanted` 0) · `copSees(x, z, r)` a cop with a clear line of sight (crimes only count when SEEN) · `hiding` mid-chase she is stopped (≤ 4 m/s) + tucked away while they search (`cops.js hideInfo()`): "lot" (a rest area's lot) / "verge" (> 9.2 m off the highway's centre line) / "town" (`ctx.town.hideSpot`: at the kerb among parked cars, or off the street surface — never a travel lane, a crossing or an empty kerb); verge + town also need no chasing cruiser with a clear line of sight within `tune.hideSeen` (25 m). Hidden, cruisers only spot her within 10 m and the LOSING THEM meter runs 2×; stopped somewhere that does not count, the HUD hint says why ("not hidden — park at the kerb or get out of sight"). Searching cruisers drive on to where she was heading (in a town: `ctx.town.searchPoint`, then crossing to crossing with `prowlPoint` — they do not know where she is) · `lose(how)` (unseen: she got away — `town:enter` while they search does it) · events `law:warning` {charge, heat}, `law:bolo` {active, charge | why}, `law:look` {how, had} · `arrest(charges[], opts)` · `wanted` (0–5) · `chasing` · `searching` (lost sight of her: the stars flash) · `searchProgress` 0–1 · `clearHeat(msg)` · `copNear(x, z, r)` · `addWarrant(charges)` · `hold(sec)` · `crew` (🔗 partners in crime with friends — `law/crew.js`: `current()` · `partners(uids, why)` · `wanted(n, reason)` · `bust(charges)` · `leave()` · `friendsInside()` · `bailOut(uid)` · `springOut(uid)`; see Partners in crime) · `spot(sec)` (a tip-off — features/community's Shomrim radio: mid-chase she counts as SEEN for `sec`) · `trap(ahead, side)` (park a hidden speed trap up the road — another feature wants a cop around) · `clearWarning()` (wipe a live ⚠️) · `addCharge({key, name, weight, cop, lulu, defense, court, nudge})` (a feature's charge gets its own arrest lines, the lawyer's argument and a courtroom event that always plays — `chargeEvent(charges)`) · the pull-over asks `ctx.underworld.bustOffer()` before her tactics · `lightBar(obj)` → `{set(on, t)}` · `tune` (the pursuit table: cop speed × her top speed, sight range, search time by ★ — tuned with the streets chase lab)  **Releases follow her wheels:** `service.js` `captureRide()` notes at the arrest whether she was in her own intact car (`own`), a `stolen` ride, a `wrecked` car or none (`impounded`); bail / a fine / dismissal / a jailbreak hand back only her own car — otherwise she walks out (copWalk / the jumpsuit jailbreak on foot); served time always walks. The ER does the same (`discharged`). · for a 🎉 party: `partyUnits(n)` (her lit cruisers as `[x×10, z×10, h×1000, …]` for friends' puppets) · `standDown(why)` (a pursuit winds down — law/index.js does it during party races and Free Roam games) |
 | `ctx.streets` | streets | `carjack(car?)` (on foot) · `ride` {kind, color} · `jacking` · `canBail()` / `bail()` · `bailHint()` · `rides` (jackable kinds + handling — features/rides adds its fleet here) · `cams` (ride model key → {d, h}: a roomier chase cam for big rides) · `roadblock(ahead, {gap, spikes})` · `spikes(s, d)` · `flat` / `puncture()` / `repairTyres()` · `paint.{cost(), nearest(), enter(), repaint(color), color}` · `damage` ($ this drive) · `smashNear(x, z, r)` · `chop.{request(), job}` · `debug.sim({stars, seed, bot, gap})` (the chase lab) |
 | `ctx.er` | cameos | `admit(reason)` — the ER visit (now and then after a knock-out; its bill instead of the tow fee; a patch-up leaves 2 hearts, a bonus 3). In a town (or, solo Cruise, the nearest town) it's that town's hospital and she walks out of its door (features/places) |
-| `ctx.civic` | places | the civic buildings (precinct, courthouse, hospital, impound lot): `spot(kind)` (the door, world coords; `cx/cz` the model centre) · `here` · `names()` · `enter(kind)` (walk in) · `place` (where she's being taken: `{kind: law \| er, id, exitS, here}`) · `claim(kind)` · `tick()` · `ready()` · `walkOut({door, car, reason, impound, soft})` · `arrive({charges, sResume})` (the `placesArrive` beat) · `clear()` · `debug.{impoundedCar(), STAY}`. ARCHITECTURE › Places |
+| `ctx.civic` | places | the civic buildings (precinct, courthouse, hospital, impound lot): `spot(kind)` (the door, world coords; `cx/cz` the model centre) · `here` · `names()` · `enter(kind)` (walk in) · `place` (where she's being taken: `{kind: law \| er, id, exitS, here}`) · `claim(kind)` · `tick()` · `ready()` · `walkOut({door, car, reason, impound, soft})` · `arrive({charges, sResume})` (the `placesArrive` beat) · `clear()` · `roadside` · `nearest(kind, lapM?)` (THE rule, ci/roadside) · `judgeLine()` · `debug.{impoundedCar(), STAY}`. ARCHITECTURE › Places, › Roadside places |
 | `ctx.crime` | crime | 🦹 town crimes (solo): `active` (in a town with the feature on) · `PAY` / `TUNE` (data.js — every cap and knob) · `paidToday(kind)` · `start(kind)` (`"cart"` beside the cart on foot · `"park"` stopped double-parked · `"air"` at the stand · `"herring"` at the kiddush table) · `corruption.{who(id), list(), evidence}` (for `ci/cityhall`: Malka / Tuvia / Pinchas — mood friendly · bribed · partner · nervous · gone) · `debug.{CR, SAVE, CART, JAY, PARK, force: {cop: true \| false}, settleJay(), parkEnd(), today(), day (a Date: tests), log}`. Events `crime:<ev>` (pay, warn, chase, cart, jaywalk, park, monte, watch, porch, tags, herring, air, malka, scene, evidence, hush, ia, cop) + `crime:corrupt` {who, act: bribe · cut · hush · exposed · wink} + `crime:porch` {id, fam, phase: back · kept · gone} (features/homes); stats `crimeCartRides`, `crimeCartMeters`, `crimeJaywalks`, `crimeJaywalkSprees`, `crimeDoubleParks`, `crimeChases`. ARCHITECTURE › Town crimes |
 | `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
 | `ctx.phone` | journey + phone | journey: `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car call card (Ima's calls use it) · `text({ from, emoji, color, msg, dur, thread? })` · `active` / `talking` / `busy()` / `hangUp()` / `prop(on, pose)`. phone (`features/phone/`): the 📱 phone screen + apps — see **Lulu's phone** below |
@@ -915,7 +915,9 @@ Free Roam). `Road.headingFn` repeats every lap — the first lap is the old endl
 seed by lap chunk (`k % (LAP / CHUNK)`: the same trees every lap). `s` keeps counting (distance, score, chases); every
 PLACE comes round once a lap at a FIXED lap metre — the same place, not a copy: Midwood's exit 3600 (home, E 34th St) ·
 rest area 5700 · JFK 8800 (`airport/plan.js` › `AIR.every = LAP`) · Lakewood 12000 (`towns/index.js` › `ROUTE`, period
-`LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · Gas 'n' Go 1300 / 6900 +
+`LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · the roadside places
+(ci/roadside): Trooper Post 7 + the Highway Traffic Court 6800 (`hw:trooper`, `hw:court`), Hatzalah 10700 (`hw:hatzalah`),
+the Weigh Station + Doc-in-a-Box 15700 (`hw:weigh`, `hw:clinic`) · Gas 'n' Go 1300 / 6900 +
 the Lookout 2400 / 8200 (`world/places.js`) · the roadside storefront blocks (`foot/street.js`: the first lap's, repeated).
 The Story Trip's family stops (Bubbe's, the beach…) are its own road: not built on the lap (Story is hidden for now).
 Test `exits` › "lap". **ADDRESSES (stage 2):** a place's identity is a fixed string — the same every lap, every run, every
@@ -1378,6 +1380,21 @@ beside one → ✕ prompt; the card lists who's around + the games; solo it star
 touch button) — on foot (solo + party: ↑ has no other job on foot) and in a party car (↑ is blanked there); my pose is posed on
 top of foot's in a `hud` hook (`person.update(0, pose)`), moving off cancels it. Test: `scripts/tests3d/partyhang.js`.
 
+**Roadside places (places/roadside.js, ci/roadside; the owner 2026-11-27: "more hospitals and different prisons/jails/courts
+to the highway so people don't end up back in the city")**: three short pull-offs, once a lap at fixed lap metres where they
+halve the gaps between the towns, code-built (one model each, shared materials), each with a sign 190 m before and a hello if
+she stops in the bay (world/places `addPlace`, kind `roadside`): 🚔 **Trooper Post 7** 6800 (`hw:trooper`: the barracks —
+Sgt. Feldman, Lenny in the two-bunk cell — its first-aid room with Trooper Ruthie, its impound yard; and `hw:court`: the
+**Highway Traffic Court** in a double-wide next door, Judge Kessler with a tee time), 🚑 **Hatzalah Highway Station** 10700
+(`hw:hatzalah`: the garage, the ambulance, Yossi), ⚖️ **the Weigh Station** 15700 (`hw:weigh`: a scale house with a one-bunk
+lock-up, Officer Dot, Judge Pfeffer on a video screen from Boca, an impound corner; and `hw:clinic`: **Doc-in-a-Box** next
+door). The judges' openers: `ctx.civic.judgeLine` (law/court.js). Worst distance from anywhere on the lap: a jail / court
+2.6 km (inside JFK's zone), a hospital / clinic 1.95 km (the towns alone: 4.2 km). `ctx.civic.spot(door)` on the highway is
+the roadside door (`hwSpot`: `sp.hw`, `sp.addr`, `sp.kerbAt(ahead)` its stalls, `sp.car` the impound bay); walking in → their
+own rooms (`places/roadrooms.js`, code-built on the interiors engine, lines only); the scenes are law's / the ER's unchanged
+(same fines, bail, bills). A 🎉 party on the highway keeps the old flow (as for towns). On the 📱 🗺️ map (lapmap `kind:
+roadside`). Test `roadside`.
+
 **Places (places): jail, court and the ER are real places in town** (roadmap 4). **The buildings are town DATA**: each
 town's `uses.civic` (`places_precinct` + — its `with` entries are landmarks too, build.js `layoutFace` — `places_court` and
 `places_impound`, sharing ONE block face: the towns are tight) and `uses.hospital` (`places_hospital`, an ambulance in its
@@ -1394,7 +1411,9 @@ Courtroom 2B, the fountain; lines only, nothing pays); titles per town (`data.js
 keeps them in town; she walks back out of the same door. Not in a chase / a party / while ✋ is a tackle. Walking past:
 one Lulu line per building per visit. **Being taken there** (`places/out.js`, `ctx.civic`): `claim(kind)` at the arrest
 (law/arrest.js enter, `law.arrest({skipCinematic})`) or the admission (cameos/er.js `admit`) decides WHERE: in a town that
-town (`here`); on the highway in a SOLO Cruise the nearest planned interchange's town (`ctx.town.exits` + `placeOf`);
+town (`here`); on the highway in a SOLO Cruise **the nearest place of that kind ALONG THE LAP, either way round, towns and
+roadside places alike** (ci/roadside, `places/roadside.js` › `nearest(kind)` = `ctx.civic.nearest`; the same answer on every
+lap — a town: its copy nearest her, `exitOf(id, s − LAP/2)`; a roadside place: `{kind, id, hw, s}` at its copy on THIS lap);
 otherwise null = the old flow (the stand-in precinct set, back on the highway; Story / Shabbos / a 🎉 party / the tests that
 don't enable town). In town the arrest plays on the street (no `leave("quiet")`), the cruiser pulls away, then
 **`placesArrive`** (⏭, a soft cut): a cruiser rolls up to the kerb in front of THAT precinct and she's walked up its steps
@@ -1757,6 +1776,45 @@ stopping on the shoulder still gets her out and walking) — with it the Shared 
 card, so no ad. Test: `scripts/tests3d/parking.js` (`PARKING_PART=basic,levels,layouts`; `debug.autopark()` — a real reverse
 parallel park with the car's physics, both directions, and the pull-out between levels — parks all ten levels).
 
+**Car dealerships off the highway** (`features/dealers`, ci/dealers; the owner, 2026-11-27: "a car dealership for real good
+luxury cars somewhere near the highway … a sales man and with real negotiating and upselling packages. And real luxuries for
+certain cars"). Both stand at **lap metre 800** (`data.js` › `LAP_M`), once a lap, the same place for every friend.
+**Mazelati of Monsey** ("hand-built in Monsey, Italy"): a `world/places.js` pull-off on the right (d 30; `reserve` 766–834,
+`paved` 2 for the forecourt), a code-built glass showroom (`models.js` › `dealers_mazelati`: one merged vertex-coloured
+mesh + the glass + the fascia; `SHOW` = its layout), four cars on pedestals out front (real car clones + the kit, spawned
+only within ~110 m of her — `index.js`) and Sal Mazel at the door. The cars are new car ids registered at import into
+`car.js` › `SKINS` (stats over Uncle Refael's best + `nitro`, `perks`, `kit: "mazelati"`) and `garage/data.js` ›
+`SKIN_SHOP` / `SKIN_KEYS` (price, flavour, `where`); `car.js` › `KITS[sk.kit](model, anchors, sk)` hangs a few parts on the
+one convertible (a hood ornament, chrome). Old clients don't know the ids and draw the pink car; the classic 2D game falls
+back to pink too. On foot: ✋ at a car → the card (`shops/card.js`; the stat bars on their own longer scale) → 🤝 Sal:
+**the haggle** (`haggle.js`, the numbers in `data.js` › `HAGGLE`): a counter (−5 / −10 %) meets her halfway and costs his
+patience 1, "final offer" (≈ −12 %, floor −15 %) costs 2; out of patience → back to the sticker, take it or leave it ("you
+lost the deal, not your coins"); walking toward the door with a counter on the table → "let me talk to my manager" once
+(5 % more off, never under the floor). The deal is paid through `garage/buy.js` › `buyCar(id, { price })` (clamped to
+85–100 % of the sticker; never below 0). Then **the F&I office**: one card per option her car can still take (they work —
+`perks.js`: 🚀 launch control, 🔋 a bigger nitro tank (`ctx.G.nitroTank`, read by `core/driving.js`), 💆 massage seats
+(+1 ♥ once a run), 🥂 the fridge (a nitro sip once a run), 🛎️ the concierge horn) and the nonsense (undercoating,
+nitrogen, VIN etching, Platinum Peace of Mind — a joke, remembered: `remembered()`), paid with `buyExtra`. The Machatunim
+GT's 🅿️ self-park: ❚❚ › "Let the car park itself" in a Parking Challenge level (`ctx.parking.selfPark()`, once a level,
+★ and no level bonus). Nothing here pays coins. 3D save `dealers` (options per car, the nonsense, deals / walk-outs).
+`ctx.dealers` = { open(id), haggle(id), perks(id), has(k), debug }; events `dealers:haggle` / `dealers:option` /
+`dealers:nonsense` / `dealers:perk`. 📱 Map: `ctx.pins.add` (when ci/hud's registry exists). Test: `dealers`.
+**Tushla Motors** (stage 2, `ev.js`): across the highway at the same lap metre — a LEFT pull-off (d −30, `reserve` side −1),
+reached by crossing the oncoming lanes like any left turn (never driving along them the wrong way). White, minimalist, no
+salesmen: a tablet kiosk (✋ → the card: four EVs at a fixed price, two taps to buy; acceleration off Refael's chart) and
+the founder, Reb Zev Volt, who posts too much (toasts while she's there). **⚡ Full Schlep Driving** (`schlep.js`, the
+numbers in `data.js` › `SUB`): 100 coins per 30 REAL days, "renews in N days"; cancel any time (it runs to the end of
+what she paid); at the end it renews once if not cancelled and she has the coins, else it lapses quietly — never a debt
+(`buyExtra`). In a Tushla on the highway, ❚❚ › "⚡ Let the car drive": a `controls` hook (after `core/driving.js` ›
+`autoDrive`) holds a lane of OUR side at the mode's speed — 👵 Bubbe 50 mph / 🙂 Normal / 🌶️ Meshuga at the limit
+(`law/data.js` › `SPEED_LIMIT` − 1 mph: a radar never flags it), a gap to the car ahead, overtakes when the next lane is
+clear (`traffic.laneFree`). Steer / brake / nitro / handbrake take over; it hands back with a chime for a chase, a work
+zone ahead (`roadevents/construction.js` › `zoneAhead`), a 💼 job, a town, getting out, a crash. `ctx.G.selfDriving`
+turns off close calls (`core/driving.js`) and style moves (`moves/common.js` › `addMove`). Quirks (a phantom brake…).
+Not yet: through town to the 📍 Ping (needs ci/hud's ping). `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
+active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
+`dealers:ev`. Tests move the clock with `ctx.schlepNow`.
+
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at
 Courtroom 2B "⚖️ Sit in on the hearing" → state **`placesHearing`** (⏭ skippable, a soft cut both ways): a spectator scene
@@ -1876,6 +1934,39 @@ gate says its old line). Friends: each her own car + fee (all local). `ctx.impou
 gateLabel(), release(how), panel(), breakIn(), debug }`; events `impound:<held | paid | broke | release | breakin>`; stats
 `impoundPaid`, `impoundReleases`, `impoundBreakIns`, `impoundBreakOuts`, `impoundBreakClean`, `impoundBreakBusts`. Test
 `scripts/tests3d/impound.js`.
+
+**Speed cameras (cameras, `features/cameras` — ci/cameras, roadmap 36):** 📸 the owner (2026-11-27): "speed cameras… only on
+ocean parkway for now at 25mph and only trigger if going above 35mph… a flash… a few days later it'll come on the mail to one of
+lulus houses with the pic attached and the fine… court or cops will come after her… speed cameras to all schools as well with
+maybe a 15mph limit for that block". THE POLES (built on the town tick, keyed by town id + ORIGIN so a town placed somewhere new
+gets new poles; disposed on `town:leave` / title; one baked mesh + a canvas sign each, school ones + a beacon): Ocean Parkway
+(Midwood) — `PKWY.at` local z 95 + 200 (between the avenues), on the sidewalk (`st.outer + 1`); the zone is the whole boulevard
+(|lx − c| < outer + 1, ±6 m along). Every school block — town spots `school` / `yeshiva` / `baisyaakov`: the same street as the
+spot (`road.nearest`) within `SCHOOL.reach` m; only in school hours (device clock, `SCHOOL_HOURS`: Sun–Thu 7:30–16:30, Fri to 13:00,
+never Shabbos) — the beacon blinks then. Numbers (all in `data.js`): parkway limit 25, fires ONLY above 35, fine 40; school limit
+15, fires above 25, fine 60. One ticket per pass (re-armed `TUNE.rearm` m past the pole), ≤ `TUNE.dayCap` (3) a REAL day, never in
+a chase / as a fugitive, never outside cruise / story mode, never a self-driving car. THE FLASH (`fire()`): a white overlay pop
+(`#camFlash`; reduced motion → a fainter, slower fade), a point light on the car for 0.15 s, Lulu's one bubble line (banter, only
+when `H.bubbleOk`) — no toast; and THE PICTURE: the scene rendered from the pole into a 192 × 112 target (a pale clear colour for
+the sky), gamma-fixed, a caption strip (mph · limit · where) → a ~5 kB JPEG data URL kept on the ticket (≤ `TUNE.photos`; the
+oldest closed ticket's picture goes first). THE LADDER runs on `cityhall:day` (City Hall's played-day clock, `tax.ledger.played` —
+playing rarely never misses a step, not playing can't dodge one): `mailAfter` (2) played days after the flash → `addLine("fine",
+…)` on City Hall's ledger (paid at the Taxes window / 📞 Contacts › City Hall like the property tax, `cityhall:paid` closes the
+ticket), the notice is unread, ONE `need: true` 💬 line ("📬 Mail from the Borough of Midwood"), Ima's one line when the day
+starts at the family house, and "📬 You have mail" on the objective line's LOWEST slot (`H.OBJ.info`, `.cam-chip`) until she reads
+it; + `dueAfter` (3) unpaid → a late fee (`TUNE.lateFee` 20, another line) + a SECOND NOTICE; + `summonsAfter` (3) → a SUMMONS: a
+case `cameras:<id>` in that town's Courtroom 2B (`ctx.civic.courts.addCase`, the Borough Attorney, three defences; `rule()`:
+dismissed `TUNE.dismiss` → its lines waived, else upheld → she pays what she has, the rest stays owed, never below 0); an
+unanswered summons `warrantAfter` (3) played days, or `warrantUnpaid` (3) OVERDUE tickets at once → a BENCH WARRANT on law's own
+file (`ctx.law.addWarrant("UNPAID SPEED CAMERA TICKETS")` — a cop who gets a good look at her lights her up; only a judge clears
+it; the charge's cop / Lulu / court lines via `law.addCharge`); `law:arrest` while it's on → the warrant's served (its open
+tickets closed). Licence points: none. THE MAILBOX: where her day starts — `ctx.home.startAt.door` (her own house, realestate's
+"🏠 Start my day here") or the family house's mailbox (house-local 3.0, 12.4 — decor/props.js); a `ctx.foot.addSpot` (`first`,
+"📬 MAIL FROM THE CITY") while anything's unread → `read()`: one `H.showScreen` card, every notice with its photo, where, the speed,
+the fine owed and the pay-by. 📱 Map: a "Pay tickets here" pin (`ctx.pins`, cat mine) at the city hall of the town she owes in.
+`ctx.cameras { cams, tickets(), unread(), mailbox(), read(), schoolHours(), warrant, debug }`; events `cameras:<built | flash |
+capped | skip | mail | late | summons | ruled | paid | warrant | served | read>`; stats `camFlashes`, `camPaid`, `camDismissed`,
+`camUpheld`, `camWarrants`. Test `scripts/tests3d/cameras.js` (tests set `debug.CM.force.manual` and drive `check()` themselves).
 
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;

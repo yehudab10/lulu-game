@@ -11,7 +11,8 @@ let chain = Promise.resolve();
 
 /** → Promise<dataURL | null>. key = a model key (luluPerson, avigailPerson, bubbe…). */
 export function portrait(key, { colors = null, size = 168, yaw = 0.32, frame = 0.26 } = {}) {
-    const id = key + "|" + JSON.stringify(colors || {}) + "|" + size + "|" + yaw;
+    const her = String(key).startsWith("luluPerson") && !(colors && colors.Top) && ctx.clothes;    // (her outfit: features/clothes)
+    const id = key + "|" + JSON.stringify(colors || {}) + "|" + size + "|" + yaw + (her ? "|" + ctx.clothes.encode(ctx.clothes.current()) : "");
     if (cache.has(id)) return cache.get(id);
     const p = (chain = chain.then(() => render(key, colors, size, yaw, frame)).catch(e => { console.warn("[meta] portrait", key, e); return null; }));
     cache.set(id, p);
@@ -30,6 +31,7 @@ async function render(key, colors, size, yaw, frame) {
     rim.position.set(2.2, 2.4, -2.4);
     scene.add(keyL, keyL.target, rim);
     const obj = cloneWithColors(models[key], colors);
+    if (String(key).startsWith("luluPerson") && !(colors && colors.Top) && ctx.clothes) { try { ctx.clothes.dress(obj); } catch (e) { /* plain */ } }
     scene.add(obj);
     obj.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(obj);

@@ -19,24 +19,46 @@ import { NAMES, PASS, IMPOUND_GATE, IMPOUND_MINE } from "./data.js";
 import { STAY, claim, clear, tick, ready, walkOut, arrive, impoundedCar, showImpounded } from "./out.js";
 import { dissolving } from "../../core/transition.js";
 import { counsel, courtsDebug, hearingToday, caseDone, addCase, caseById, caseIn, progress } from "./courts.js";
+import { ROADSIDE, BY_ID, hwSpot, hwNames, nearest as nearestPlace } from "./roadside.js";
+import { roomFor } from "./roadrooms.js";
 
 const MODELS = ["places_precinct", "places_court", "places_hospital", "places_impound"];
 registerModels(Object.fromEntries(MODELS.map(k => [k, k])));
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const JUDGE_HW = ["I've got a tee time at two. Let's make this quick. QUICK. *bangs a putter*",
+    "Welcome to the Highway Traffic Court. Yes, it's a trailer. No, the gavel's not a putter. …It's a putter.",
+    "Order! In this trailer! I'm the judge, the bailiff's at lunch, and the clock says 1:40."];
+const JUDGE_VIDEO = ["*on a video screen, from Boca* Can you hear me? You're on mute. No — I'M on mute. Order!",
+    "*the screen freezes, then* …and that's why I'm in Boca. Now: YOUR case. Dot, which one is she?",
+    "*a visor, a palm tree behind him* The Weigh Station Court is in session. Make it quick, the pool closes at five."];
 const inTown = () => !!(ctx.town && ctx.town.active);
 const townId = () => (inTown() && ctx.town.id) || "lakewood";
-const names = () => NAMES[townId()] || NAMES.lakewood;
+/** The names of the buildings she's at / taken to: a roadside place's (roadside.js) or the town's. */
+function names() {
+    const P = STAY.place, R = P && P.hw ? BY_ID[P.hw] : null;
+    if (R) return Object.assign({}, NAMES.lakewood, R.names);
+    return NAMES[townId()] || NAMES.lakewood;
+}
+/** What a door is called right where she stands (on the highway: the roadside place's own name). */
+function nameAt(kind) {
+    if (!inTown()) { const sp = hwSpot(kind), n = sp && hwNames(sp.hw); if (n && n[kind]) return n[kind].name; }
+    return (names()[kind] || {}).name || "";
+}
 const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
 
-/** A building's door (world coords) in the town she's in: { x, z, rot, nx, nz, ux, uz, cx, cz, … } | null. */
-function spot(kind) { return inTown() && ctx.town.spot ? ctx.town.spot(kind) : null; }
+/** A building's door (world coords) in the town she's in — or, on the highway, at the roadside place she's taken to / near
+ *  (roadside.js): { x, z, rot, nx, nz, ux, uz, cx, cz, … } | null. */
+function spot(kind) {
+    if (inTown()) return ctx.town.spot ? ctx.town.spot(kind) : null;
+    return hwSpot(kind, STAY.place && STAY.place.hw ? STAY.place : null);
+}
 
 // ── walking in: one ✋ spot per door ─────────────────────────────────────
 const DOORS = {
-    precinct: { id: "police", icon: "🚓", label: () => `🚓 ENTER ${names().precinct.name.toUpperCase()}`, short: "POLICE" },
-    court: { id: "courthouse", icon: "⚖️", label: () => "⚖️ ENTER THE COURTHOUSE", short: "COURT" },
-    hospital: { id: "hospital", icon: "🏥", label: () => `🏥 ENTER ${names().hospital.name.toUpperCase()}`, short: "HOSPITAL" },
+    precinct: { id: "police", icon: "🚓", label: () => `🚓 ENTER ${nameAt("precinct").toUpperCase()}`, short: "POLICE" },
+    court: { id: "courthouse", icon: "⚖️", label: () => inTown() ? "⚖️ ENTER THE COURTHOUSE" : `⚖️ ENTER ${nameAt("court").toUpperCase()}`, short: "COURT" },
+    hospital: { id: "hospital", icon: "🏥", label: () => `🏥 ENTER ${nameAt("hospital").toUpperCase()}`, short: "HOSPITAL" },
 };
 /** Is walking in possible right now (not mid-chase, not in a party outside Free Roam, nothing more urgent on ✋)? */
 function canWalkIn() {
@@ -49,18 +71,21 @@ function canWalkIn() {
     }
     // (with friends: only in 🌍 Free Roam — walking in is a visit, and friends inside see each other: features/together)
     const party = !!(ctx.party && ctx.party.active), roam = party && !!(ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
-    if (!inTown() || (party && !roam) || !ctx.interiors) return false;
+    // (in a town; or on the highway at a roadside place — roadside.js — in a Cruise / Free Roam)
+    const hwOk = !inTown() && !!ctx.G && (ctx.G.mode === "cruise" || roam);
+    if (!(inTown() || hwOk) || (party && !roam) || !ctx.interiors) return false;
     if ((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing)) return false;
     if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return false;
     return true;
 }
+/** The interior a door opens here: the town's (DOORS) or the roadside place's own room (roadrooms.js). */
+const roomId = (kind, sp) => (sp && sp.hw ? roomFor(sp.hw, kind) : DOORS[kind].id);
 function doorPos(kind) {
-    const D = DOORS[kind];
-    if (!canWalkIn() || !ctx.interiors[D.id]) return null;
-    const sp = spot(kind), p = herPos();
-    if (!sp || !p) return null;
+    if (!canWalkIn()) return null;
+    const sp = spot(kind), p = herPos(), id = roomId(kind, sp);
+    if (!sp || !p || !id || !ctx.interiors[id]) return null;
     // (walking up to it: the inside starts loading now, so the step in is a soft cut)
-    if (ctx.interiors[D.id].warm && Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors[D.id].warm();
+    if (ctx.interiors[id].warm && Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors[id].warm();
     return { x: sp.x, z: sp.z };
 }
 /** Dress the interiors for this town (their names / titles). */
@@ -79,21 +104,21 @@ function doorRef(kind, sp) {
 }
 /** Walk in through `kind`'s front door (precinct | court | hospital). → bool */
 export function enter(kind) {
-    const D = DOORS[kind], sp = spot(kind);
-    if (!D || !sp || !ctx.interiors || !ctx.interiors[D.id]) return false;
-    nameInteriors();
+    const D = DOORS[kind], sp = spot(kind), id = roomId(kind, sp);
+    if (!D || !sp || !id || !ctx.interiors || !ctx.interiors[id]) return false;
+    if (inTown()) nameInteriors();
     const dr = doorRef(kind, sp);
     emit("stat", { id: "placesVisits", n: 1 });
-    emit("places:enter", { kind, town: townId() });
+    emit("places:enter", { kind, town: inTown() ? townId() : null, hw: sp.hw || null });
     const exit = () => { if (ctx.foot && ctx.foot.active !== undefined) setState("footRun", { resume: "interior", door: dr }); };
-    return ctx.interiors[D.id].enter({ exit, door: D.id, from: "foot" });
+    return ctx.interiors[id].enter({ exit, door: id, from: "foot" });
 }
 
 // ── the impound gate ─────────────────────────────────────────────────────
 /** Her own car is in the impound right now (law impounded it / it was towed): shown behind the fence. */
 const impounded = () => !!(ctx.foot && ctx.foot.active && ctx.foot.ownCar === "gone" && impoundedCar());
 function gatePos() {
-    if (!inTown()) return null;
+    if (!inTown() && !(ctx.G && ctx.G.mode === "cruise")) return null;
     const sp = spot("impound");
     return sp ? { x: sp.x, z: sp.z } : null;
 }
@@ -157,7 +182,8 @@ ctx.civic = {
     /** Fetch the models a town's buildings need (towns load them with their own; this is for tests). */
     load: () => ensureModels(MODELS),
     // ── being taken there + walking out (out.js) ──
-    /** Where she's being taken right now (law's arrest / the ER): { kind, id, exitS, here } | null. */
+    /** Where she's being taken right now (law's arrest / the ER): { kind, id, exitS, here } (a town) or
+     *  { kind, id, hw, s } (a roadside place on the highway, roadside.js) | null. */
     get place() { return STAY.place; },
     claim, clear, tick, ready, walkOut, arrive,
     // ── the courthouses' own stories (courts.js) ──
@@ -166,6 +192,11 @@ ctx.civic = {
     /** Courtroom 2B's cases (data — `addCase(def)`, see courts.js) + Shloime's: `hearingToday(c?)`, `caseDone(c?)` (default Shloime's). */
     courts: { addCase, caseById, caseIn, progress, hearingToday, caseDone, debug: courtsDebug },
     dissolving,
+    /** 🚔🚑 the roadside places (roadside.js): their data, and THE rule — nearest(kind = law | er, lapMetre?) →
+     *  { town } | { hw } along the lap, either way round. */
+    roadside: ROADSIDE, nearest: (kind, m) => nearestPlace(kind, m),
+    /** Judge Kessler's opener in the Highway Traffic Court (law/court.js), else null. */
+    judgeLine: () => (STAY.place && STAY.place.hw === "trooper" ? pick(JUDGE_HW) : STAY.place && STAY.place.hw === "weigh" ? pick(JUDGE_VIDEO) : null),
     /** Her impounded car behind the lot's fence (features/impound): show(on) puts it there in the town she's in · car() the Object3D or null. */
     impound: { show: showImpounded, car: impoundedCar },
     debug: { C, DOORS, lobbyDef, STAY, impoundedCar },
