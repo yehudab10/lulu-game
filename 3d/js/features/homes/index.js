@@ -36,7 +36,7 @@ import { current as currentRoom } from "../interiors/engine.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
 import { identity, sceneFor, presentCast, when, opinion, OPINION_LINE, byName, LIFE, clockFor, rngOf as lifeRng, hash as lifeHash, TRAITS } from "./life.js";
 import { SCENES } from "./scenes.js";
-import { JOBS, DAY_CAP, initVisits, ledger, offerFor, offerHint, offerLabel, askLines, markDone, startDelivery, delivery, deliveryFor, deliveryLabel, finishDelivery, thanksLines,
+import { JOBS, DAY_CAP, payJob, initVisits, ledger, offerFor, offerHint, offerLabel, askLines, markDone, startDelivery, delivery, deliveryFor, deliveryLabel, finishDelivery, thanksLines,
     cancelDelivery, porchHook, invited, useInvite, VISITS } from "./visits.js";
 import { HOOKS as CROWD_HOOKS } from "./crowd.js";
 
@@ -116,7 +116,21 @@ function buildDoors() {
     });
     if (mig) { (S.mig = S.mig || {})[def.id] = 1; saveSoon(); }
     markNeighbours();
+    // households other features bring (features/family: Fayge's basement) — their own door, cast, scenes and door menu
+    for (const fn of SPECIAL) {
+        let list = [];
+        try { list = fn(def.id, t) || []; } catch (e) { console.warn("[homes] household", e); }
+        for (const x of list) {
+            if (!x || !x.key || HS.byId.has(x.key)) continue;
+            const home = Object.assign({ i: HS.homes.length, house: -1, j: 0, id: x.key, model: "special", w: 3, lightY: 2.2, town: def.id, dark: false,
+                traits: ["hosts", "bakers"], seed: hash(x.key), names: {} }, x);
+            HS.homes.push(home); HS.byId.set(home.key, home);
+        }
+    }
 }
+/** Households other features add: fn(townId, ctx.town) → [{ key, name, cast, names, colors?, door, ap, lot, nx, nz, ux, uz,
+ *  label?, scenes? ({id: scene def}), scene?(w, home) → a scene id, menu?(api) — its own ✋ door menu, talk?(kind, V) → a line }]. */
+const SPECIAL = [];
 /** Lulu's next-door neighbours (ci/hometown: her family's house is the "luluHome" spot): the doors either side on her
  *  street + across it are THE NEIGHBOURS — hosts + bakers who know her name from day one. */
 function markNeighbours() {
@@ -148,7 +162,7 @@ function isLulus(h) {
 }
 const lived = h => !claimOf(h);
 /** The crowd + its porch scenes only at doors a family lives behind (re-run when a claim changes). */
-function crowdHomes() { return HS.homes.filter(lived); }
+function crowdHomes() { return HS.homes.filter(h => lived(h) && !h.special); }
 
 // ── town in / out ────────────────────────────────────────────────────────
 on("town:enter", () => {
@@ -201,11 +215,12 @@ const doorSpot = {
     label() {
         if (!nearHome) return null;
         const n = plural(nearHome.name).toUpperCase();
+        if (nearHome.label) return typeof nearHome.label === "function" ? nearHome.label(nearHome) : nearHome.label;
         return deliveryFor(nearHome) ? `${JOBS[deliveryFor(nearHome).type].emoji} THE ${n} — DELIVER` : invited(nearHome) ? `🙋 THE ${n} — WAVING YOU IN` : `🏠 THE ${n}`;
     },
     act() { if (nearHome) doorMenu(nearHome); },
 };
-initVisits({ S, lived: h => lived(h), homes: () => HS.homes, byId: k => HS.byId.get(k), rec: h => rec0(h) });
+initVisits({ S, lived: h => lived(h) && !h.special, homes: () => HS.homes.filter(h => !h.special), byId: k => HS.byId.get(k), rec: h => rec0(h) });
 CROWD_HOOKS.porch = (p, d) => { try { return porchHook(p, d); } catch (e) { return null; } };
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) { ctx.foot.addSpot(doorSpot); ctx.foot.addSpot(crowdTalkSpot); }
@@ -270,6 +285,7 @@ async function doorMenu(home) {
     const sc = doorstep(home);
     try {
         if (!sc) return;
+        if (home.menu) { await specialMenu(home, sc); return; }
         const rec = S.fam[home.key];
         const scn = sceneNow(home);
         HS.doorScene = { key: home.key, sc: scn };
@@ -306,6 +322,24 @@ async function doorMenu(home) {
         await opts[i].fn();
     } catch (e) { console.error("[homes] door", e); if (sc) sc.done = true; }
     finally { HS.busy = false; }
+}
+/** A household with its own door menu (features/family): homes keeps the doorstep, the answer at the door, the way in. */
+async function specialMenu(home, sc) {
+    const scn = sceneNow(home);
+    HS.doorScene = { key: home.key, sc: scn };
+    const dlv = deliveryFor(home);
+    const api = {
+        home, scene: scn, here: presentCast(home, scn, scn.w), delivery: dlv, rec: rec0(home),
+        deliver: () => deliverAt(home, sc, dlv),
+        finish: () => finishDelivery(home),
+        knock: async () => { sc.knock = true; sc.t = 0; for (let k = 0; k < 3; k++) tone(170, 0.07, "triangle", 0.18, 0, k * 0.18); emit("stat", { id: "homesKnocks", n: 1 }); rec0(home).knocks = (rec0(home).knocks | 0) + 1; await waitGame(sc, 1.1); return !sc.done; },
+        answer: kind => answerAt(sc, home, kind),
+        wait: sec => waitGame(sc, sec),
+        go: (scene = null, job = null) => { sc.go = { home, mode: "guest", via: "door", scene: scene ? sceneFor(home, scn.w, scene) : scn, job }; },
+        get done() { return sc.done; },
+    };
+    await home.menu(api);
+    if (!sc.go) { clearAns(sc); sc.done = true; }
 }
 /** 🤝 She offers a hand: someone comes to the door and explains; inside jobs go in as a guest with the job. */
 async function offerHand(home, sc, scn, job) {
@@ -397,6 +431,7 @@ function sceneNow(home) {
     // a house real estate has LISTED: the family's still there, packing (it gives the door up once it sells — a claim)
     if (!force) { try { if (ctx.realestate && ctx.realestate.claims && ctx.realestate.claims(home.key) === "listed") force = "forSale"; } catch (e) { /* no real estate */ } }
     const w = when();
+    if (!force && home.scene) { try { force = home.scene(w, home) || null; } catch (e) { force = null; } }
     let mask = null;
     if (!force) { const f = friendScene(home); if (f) { force = f[1]; if (typeof f[2] === "number") w.hour = f[2] / 10; if (typeof f[3] === "number") mask = f[3]; } }
     const sc = sceneFor(home, w, force);
@@ -411,7 +446,7 @@ function friendScene(home) {
         for (const uid of ctx.party.members()) {
             if (uid === ctx.party.uid) continue;
             const p = ctx.party.peer(uid), a = p && p.x && p.x.hs;
-            if (Array.isArray(a) && a[0] === home.key && SCENES[a[1]] && ctx.party.fresh(p, 8000)) return a;
+            if (Array.isArray(a) && a[0] === home.key && (SCENES[a[1]] || (home.scenes && home.scenes[a[1]])) && ctx.party.fresh(p, 8000)) return a;
         }
     } catch (e) { /* no party */ }
     return null;
@@ -546,6 +581,15 @@ ctx.homes = {
     livedIn: id => { const h = HS.byId.get(id); return !!h && lived(h); },
     /** Mark doors as someone else's: fn(id, home) → null (the family's) | a status string ("mine", "listed", "packing",
      *  "empty", "rented", "friend"…). Homes gives those doors up entirely. Returns an unregister function. */
+    /** Another feature's small jobs on homes' ledger (features/family): add({ type: { emoji, name, pay, cap, deliver? } }),
+     *  pay(type) → coins actually paid (inside the job's cap + homes' DAY_CAP), errand({ type, to, fromName, label }) → a
+     *  delivery to door `to` (the beacon + its ✋ menu). */
+    jobsAdd(o) { for (const [k, v] of Object.entries(o || {})) if (!JOBS[k]) JOBS[k] = v; return true; },
+    pay: (type, factor = 1) => (JOBS[type] ? payJob(type, factor) : 0),
+    paid: type => (ledger().n[type] | 0),
+    errand(job) { if (!job || !JOBS[job.type] || delivery()) return false; const to = HS.byId.get(job.to); startDelivery({ key: `errand:${job.type}`, name: job.fromName || "" }, Object.assign({ from: `errand:${job.type}`, toName: to ? to.name : "" }, job)); return true; },
+    /** A household another feature brings (features/family) — see SPECIAL above; the town's doors are rebuilt. */
+    addHousehold(fn) { if (typeof fn !== "function") return () => { }; SPECIAL.push(fn); if (ctx.town && ctx.town.active) buildDoors(); return () => { const k = SPECIAL.indexOf(fn); if (k >= 0) SPECIAL.splice(k, 1); }; },
     claim(fn) { if (typeof fn !== "function") return () => { }; CLAIM.fns.push(fn); return () => { const k = CLAIM.fns.indexOf(fn); if (k >= 0) CLAIM.fns.splice(k, 1); }; },
     /** A claim changed (a house bought / sold / listed): the porch scenes follow on the next town visit, the ✋ at once. */
     refresh() { if (CR.on && ctx.town && ctx.town.active) { stopCrowd(); startCrowd(null, ctx.town.def, crowdHomes(), { drives: ctx.town.drives || [] }); crowdActor(); } return true; },
