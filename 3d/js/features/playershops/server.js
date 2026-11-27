@@ -89,11 +89,11 @@ export async function pushTick(S) {
 /** Now and then out in the world: say hello (her shops stay hers), see what sold, bring the till home. → { coins, sold } */
 export async function hello(S) {
     SV.helloAt = now();
-    if (!SV.on || !Object.keys(S.shops).length) return { coins: 0, sold: 0 };
+    if (!SV.on || !Object.keys(S.shops).length) { log("hello", { skip: !SV.on ? "off" : "no shops" }); return { coins: 0, sold: 0 }; }
     let coins = 0, sold = 0;
     try {
         const r = await req("/shops/hello", {});
-        if (!(r.st === 200 && r.j)) return { coins: 0, sold: 0 };
+        if (!(r.st === 200 && r.j)) { log("hello", { st: r.st, why: r.j && (r.j.why || r.j.error) }); return { coins: 0, sold: 0 }; }
         for (const id of Object.keys(S.shops)) {
             const v = await view(id);
             if (!v || !v.ok) continue;
