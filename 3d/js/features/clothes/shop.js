@@ -17,7 +17,7 @@ import { openCard, cardTick, closeCard, cardOpen, cardSay, repaint } from "../sh
 import { buyClothes } from "../garage/buy.js";
 import { SHOPS, PIECES, LULU, ANIM, pieceById, SLOTS } from "./data.js";
 import { S, current, owns, wear, addOwned, dress, clean } from "./wear.js";
-import { changeAnim, mirrorOn, setCurtain } from "./stage.js";
+import { changeAnim, mirrorOn, setCurtain, walkPath, lastChange } from "./stage.js";
 import { isLimited, tagOf as limitedTag, buyLimited, hasAccount, refresh as refreshStock } from "./limited.js";
 
 const fmt = n => Math.round(n).toLocaleString("en-US");
@@ -200,9 +200,20 @@ async function browse(rt, items, title) {
     return buyAtCounter(rt, next.p, true);
 }
 
+/** The cubicle (room metres): between the divider and the right wall, behind the curtain line. */
+export const CUBICLE = { x0: FIT.x - 1.05 + 0.15, x1: W / 2 - 0.2, z0: -D / 2 + 0.2, z1: -1.6 - 0.15 };
+export const inCubicle = p => p.x > CUBICLE.x0 && p.x < CUBICLE.x1 && p.z > CUBICLE.z0 && p.z < CUBICLE.z1;
 async function intoFitting(rt) {
-    await rt.walkTo(FIT.x, FIT.z + 0.2, 3);
+    // around the racks / the table / the mannequin / people — not a straight line that stops at the first one
+    await walkPath(rt, FIT.x, FIT.z + 0.2, 6);
     if (rt.disposed) return false;
+    const o = rt.lulu.obj.position;
+    if (!inCubicle(o)) {
+        // (something was truly in the way: behind the curtain first, THEN the change — never out on the shop floor)
+        setCurtain(rt, 1);
+        o.set(FIT.x, o.y, FIT.z + 0.2);
+        rt.vel && rt.vel.set(0, 0, 0);
+    }
     rt.faceTo = { x: FIT.x, z: FIT.z + 5 };
     rt.lulu.obj.rotation.y = 0;
     return true;
@@ -210,7 +221,7 @@ async function intoFitting(rt) {
 async function outOfFitting(rt) {
     mirrorOn(rt, false);
     rt.faceTo = null;
-    if (!rt.disposed) await rt.walkTo(FIT.x, -0.6, 2);
+    if (!rt.disposed) await walkPath(rt, FIT.x, -0.6, 3);
 }
 
 /** Try a piece on (free): into the fitting room → change → the mirror → buy it / wear it / take it off. */
@@ -240,7 +251,7 @@ async function tryOn(rt, p) {
 async function buyAtCounter(rt, p, offerWear = true, putOn = null) {
     if (!p || rt.disposed) return;
     const R = shopOf(rt.data.shop), clerk = rt.byId.clerk;
-    await rt.walkTo(COUNTER.x + 0.3, COUNTER.z + 0.15, 3);
+    await walkPath(rt, COUNTER.x + 0.3, COUNTER.z + 0.15, 6);
     if (rt.disposed) return;
     rt.faceTo = { x: COUNTER.x, z: COUNTER.z - 2 };
     if (owns(p.id)) { if (clerk) rt.bubble(pick(R.owned), clerk.p.obj, 2.6); return; }
@@ -404,4 +415,4 @@ export function addDoors() {
 
 on("clothes:stock", () => { if (cardOpen()) repaint(); });     // (the world's numbers arrived while the card is up)
 
-export const shopDebug = { shopNow: () => SHOP, browse, tryOn, buyAtCounter, fittingRoom, FIT, COUNTER, doorPos, canWalkIn, setCurtain, SLOTS, clean };
+export const shopDebug = { shopNow: () => SHOP, lastChange, inCubicle, CUBICLE, browse, tryOn, buyAtCounter, fittingRoom, FIT, COUNTER, doorPos, canWalkIn, setCurtain, SLOTS, clean };

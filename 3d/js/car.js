@@ -18,6 +18,10 @@ export const SKINS = {
     ninja:  { name: "Black Ninja",  body: "#212121", light: "#616161", dark: "#000000", top: 1.18, acc: 1.15, grip: 1.18, brake: 1.15 },
 };
 
+/** Body kits by name (features/dealers registers its marques' — chrome, a hood ornament, a light bar…): fn(model, anchors, skin)
+ *  adds a few small parts to a car whose skin says `kit: "<name>"`. The same convertible underneath: cheap on phones. */
+export const KITS = {};
+
 /** The skin selected in the 2D game (same origin → same localStorage). */
 export function skinFrom2D() {
     try {
@@ -88,6 +92,7 @@ export class PlayerCar {
         // head (Lulu's head — hats), dash, passenger, mirrorL, mirrorR.
         this.anchors = {};
         this.model.traverse(o => { if (o.name && o.name.startsWith("Anchor_")) this.anchors[o.name.slice(7).replace(/\d+$/, "")] = o; });
+        if (sk.kit && KITS[sk.kit]) { try { KITS[sk.kit](this.model, this.anchors, sk); } catch (e) { console.error("[car] kit", sk.kit, e); } }
         this.driver = findNodes(this.model, "Driver")[0] || null;
         this.hairs = findNodes(this.model, "Hair_");
         // per-car hair material so the salon can recolour it

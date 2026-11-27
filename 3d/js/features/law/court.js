@@ -249,7 +249,7 @@ async function trial(f, data) {
         : tierD === 2 ? ` ${worst} — the sheer AUDACITY, your honor!${more ? " (Also: " + listStr + ".)" : ""}`
         : tierD === 1 ? ` The charges: ${listStr}.`
         : ` ...just ${listStr}. *barely looks up* 🥱`;
-    await say(f, "judge", tierD >= 3 ? "A case like THIS in MY court?! *SLAMS gavel*" : (courtLineFor(cl, "judge") || pick(JUDGE_INTROS)));
+    await say(f, "judge", tierD >= 3 ? "A case like THIS in MY court?! *SLAMS gavel*" : ((ctx.civic && ctx.civic.judgeLine && ctx.civic.judgeLine()) || courtLineFor(cl, "judge") || pick(JUDGE_INTROS)));
     if (tierD >= 3) bang(2);
     await say(f, "prosecutor", (courtLineFor(cl, "prosecutor") || pick(PROSECUTOR_LINES)) + flourish);
     if (tierD >= 2) {

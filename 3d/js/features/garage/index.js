@@ -41,7 +41,7 @@ function nextRideHtml() {
     if (!next) return "All the shops are in town now";
     const sk = SKINS[next], price = SKIN_SHOP[next].price, have = wallet.coins;
     const f = Math.max(0, Math.min(1, have / price));
-    return `<span class="gx-next"><span>Next car: <b>${sk.name}</b> · ${f >= 1 ? `you can buy it at Uncle Refael's!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
+    return `<span class="gx-next"><span>Next car: <b>${sk.name}</b> · ${f >= 1 ? `you can buy it at ${SKIN_SHOP[next].where || "Uncle Refael's"}!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
         <span class="gx-nbar"><i style="width:${(f * 100).toFixed(0)}%;background:linear-gradient(90deg, ${sk.dark}, ${sk.body})"></i></span></span>`;
 }
 

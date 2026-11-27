@@ -722,6 +722,7 @@ on("chunk:build", ({ chunk, world, rnd, s0, s1 }) => {
                 const s = s0 + rnd() * (s1 - s0), sh = shoreAt(s);
                 if (sh > 80 || Math.abs(s - stopS(2, m)) < 90) continue;
                 const d = 13 + rnd() * Math.max(2, sh - 20);
+                if (ctx.world && ctx.world.isReserved && ctx.world.isReserved(s, d, 3)) continue;      // (a showroom's forecourt, a pull-off: kept clear)
                 const p = road.point(s, d, {});
                 list.push({ x: p.x, z: p.z, r: rnd() * 6.28, c: ["#EF5350", "#42A5F5", "#FFCA28", "#AB47BC", "#26A69A"][Math.floor(rnd() * 5)] });
             }
