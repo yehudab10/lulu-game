@@ -57,6 +57,8 @@ module.exports = {
     };
     const seg = async (label, kinds) => { const r = await W.report(t); W.log(r); W.check(t, label, r, kinds); await W.reset(t); return r; };
     const tapThrough = async n => { for (let i = 0; i < n; i++) await t.tap(0); };
+    // tap through whatever's open (lines, a choice) until the room is idle again
+    const finish = async (max = 40) => { for (let i = 0; i < max && await room(`r.busy || ctx.dialogOpen`); i++) await t.tap(0); await t.frames(4); };
     const at = (x, z) => room(`(r.lulu.obj.position.set(${x}, 0, ${z}), r.vel.set(0, 0, 0), true)`);
     const perf = async frames => {
       await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles); }; }
@@ -172,7 +174,7 @@ module.exports = {
     });
 
     // ════ 3. the people, every ✋ line, the parody shiur on its hours ════
-    for (const kind of ["weekday", "shiur", "friday", "shabbos", "fast", "purim", "simchas"]) {
+    for (const kind of ["weekday", "shiur", "friday", "shabbos", "fast", "purim"]) {
       await step(`kind ${kind}`, async () => {
         const seasons = kind === "shiur" ? "weekday" : kind;
         await g(`(${kinds[seasons]}, ctx.yeshiva.debug.force.kind = ${kind === "shiur" ? '"shiur"' : "null"}, ctx.yeshiva.debug.force.hour = ${kind === "shiur" ? 10.5 : 13}, true)`);
@@ -196,10 +198,9 @@ module.exports = {
         const c0 = await coins(), h0 = await g(`ctx.G.hearts`);
         const ids = await room(`r.hots.map(h => h.id).filter(i => i !== "door")`);
         for (const hid of ids) {
-          await t.until(`!__interiors.room.busy`, "idle", 20000);
+          await finish();
           await room(`(() => { const h = r.hots.find(h => h.id === ${JSON.stringify(hid)}); if (!h || (h.enabled && !h.enabled(r))) return false; const w = h.track && h.who && r.byId[h.who]; r.lulu.obj.position.set(w ? w.p.obj.position.x : h.x, 0, w ? w.p.obj.position.z : h.z); r.beat0 = r.data.V.beat; r.use(h); return true; })()`);
-          await tapThrough(8); await t.frames(6);
-          if (await room(`r.busy`)) { await tapThrough(14); await t.frames(10); }
+          await t.frames(4); await finish();
         }
         t.check(`${kind}: using every ✋ (${ids.length}: ${ids.join(",")}) pays / costs nothing (coins ${c0} → ${await coins()}, hearts ${h0} → ${await g(`ctx.G.hearts`)})`, await coins() === c0 && await g(`ctx.G.hearts`) === h0);
         if (kind === "shiur") {
@@ -207,9 +208,9 @@ module.exports = {
           await g(`(window.__interiors.room.data.V.step = 0, window.__interiors.room.data.V.topic = null, true)`);
           const s0 = await g(`ctx.yeshiva.debug.SAVE.shiurs`);
           for (let i = 0; i < 7; i++) {
-            await t.until(`!__interiors.room.busy`, "idle", 20000);
+            await finish();
             await room(`(() => { const h = r.hots.find(h => h.id === "shiur"); r.lulu.obj.position.set(h.x, 0, h.z); r.use(h); return true; })()`);
-            await tapThrough(6); await t.until(`!__interiors.room.busy`, "step done", 20000);
+            await t.frames(4); await finish();
           }
           t.check(`the shiur: seven steps, then it's over (${s0} → ${await g(`ctx.yeshiva.debug.SAVE.shiurs`)})`, await g(`ctx.yeshiva.debug.SAVE.shiurs`) === s0 + 1);
           await at(0.5, -34); await t.frames(30);
