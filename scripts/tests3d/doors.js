@@ -93,6 +93,59 @@ module.exports = {
     await playing();
     await g(`(ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
 
+    // 🛋️ HOUSES: nothing blocks a way in (the owner: "a tv blocks some of the entrances to some rooms"). Every house
+    // shape × many seeds — strangers' / neighbours' houses (features/homes), her own homes + viewings (features/realestate,
+    // 2 and 3 rooms, viewing + owner), Ima's house (features/decor) — is built, then a probe floods the floor from the
+    // front door (her size, the room's own collisions, nobody standing in the way): every room and every ✋ spot must be
+    // reached. The pieces the clear-doorway rule had to slide are logged (the offenders).
+    const flood = () => g(`(() => {
+      const r = window.__interiors.room, B = r.bounds, ppl = r.people; r.people = [];
+      const S = 0.15, nx = Math.ceil((B.x1 - B.x0) / S) + 1, nz = Math.ceil((B.z1 - B.z0) / S) + 1;
+      const ok = (x, z) => { const p = { x, z }; r.collide(p, 0.32); return Math.hypot(p.x - x, p.z - z) < 0.02; };
+      const st = new Int8Array(nx * nz).fill(-1), at = (i, k) => st[i * nz + k] < 0 ? (st[i * nz + k] = ok(B.x0 + i * S, B.z0 + k * S) ? 1 : 0) : st[i * nz + k];
+      const seen = new Uint8Array(nx * nz), q = [];
+      const d = r.spots.door; let si = Math.round((d.x - B.x0) / S), sk = Math.round((Math.min(d.z, B.z1) - B.z0) / S);
+      for (let tries = 0; tries < 40 && !at(si, sk); tries++) sk--;
+      if (at(si, sk)) { seen[si * nz + sk] = 1; q.push([si, sk]); }
+      while (q.length) { const [i, k] = q.pop(); for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const i2 = i + a, k2 = k + b; if (i2 < 0 || k2 < 0 || i2 >= nx || k2 >= nz || seen[i2 * nz + k2] || !at(i2, k2)) continue; seen[i2 * nz + k2] = 1; q.push([i2, k2]); } }
+      const near = (x, z, rad) => { for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) if (seen[i * nz + k] && Math.hypot(B.x0 + i * S - x, B.z0 + k * S - z) <= rad) return true; return false; };
+      const bad = [];
+      for (const h of r.hots) { const who = h.track && h.who && r.byId[h.who], x = who ? who.p.obj.position.x : h.x, z = who ? who.p.obj.position.z : h.z; if (!near(x, z, Math.max(0.35, h.r - 0.05))) bad.push("✋" + h.id); }
+      const V = r.data.V || {}, rooms = V.rooms || (V.cx ? V.cx.map((c, i) => ({ type: (V.kinds || [])[i] || "room" + i, x0: c - 3.1, x1: c + 3.1 })) : []);
+      for (const rm of rooms) { let hit = false; for (let i = 0; i < nx && !hit; i++) { const x = B.x0 + i * S; if (x < rm.x0 + 0.4 || x > rm.x1 - 0.4) continue; for (let k = 0; k < nz; k++) if (seen[i * nz + k]) { hit = true; break; } } if (!hit) bad.push("room " + rm.type); }
+      r.people = ppl;
+      return { bad, moved: V.moved || [], rooms: rooms.map(x => x.type).join("+") };
+    })()`);
+    const houseRun = async (label, setup, id) => {
+      await g(`Promise.resolve(${setup}).then(() => (ctx.interiors[${JSON.stringify(id)}].enter({ exit: () => L3.setState("playing") }), true))`);
+      if (!await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, `${label}: built`, 60000)) return null;
+      await t.frames(2);
+      const f = await flood();
+      await g(`(__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "playing"`, `${label}: out`, 20000);
+      return f;
+    };
+    const offenders = new Map();
+    const CASTS = [["dad", "mom"], ["dad", "mom", "boy"], ["bubbe", "dad", "mom", "baby"], ["zeidy", "girl"]];
+    for (const cast of CASTS) for (let seed = 1; seed <= 10; seed++) {
+      const home = { name: "Test", key: `test:${seed}:${cast.join("")}`, cast, seed: seed * 7919 };
+      const f = await houseRun(`house ${cast.join(",")} #${seed}`, `import("./js/features/homes/house.js").then(m => m.prepare(${JSON.stringify({ home, mode: "guest", via: "door", cast, noCatch: true })}))`, "home");
+      if (!f) continue;
+      for (const m of f.moved) offenders.set(`${m} (${f.rooms})`, (offenders.get(`${m} (${f.rooms})`) || 0) + 1);
+      t.check(`house ${f.rooms} [${cast.join(",")}] seed ${seed}: every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
+    }
+    for (const n of [2, 3]) for (const mode of ["viewing", "owner"]) {
+      const rec = { id: `test:re${n}`, rooms: n, address: "1 Test St" };
+      const f = await houseRun(`her home ${n} rooms (${mode})`, `import("./js/features/realestate/house.js").then(m => m.nameHouse(${JSON.stringify(rec)}, ${JSON.stringify(mode)}))`, "realestateHouse");
+      if (f) t.check(`real estate ${n} rooms (${mode}): every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
+    }
+    {
+      const f = await houseRun("Ima's house", `0`, "luluHome");
+      if (f) t.check(`Ima's house: every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
+    }
+    console.log("  · the clear-doorway rule slid: " + ([...offenders].map(([k, v]) => `${k} ×${v}`).join(" · ") || "nothing"));
+    if (process.env.DOORS_ONLY === "houses") return;
+
     const ROOMS = new Set(["precinct", "court", "hospital", "shul", "cityhall", "bank", "pizza", "bakery", "clothes", "realty"]);
     for (const id of ["midwood", "lakewood"]) {
       if (!await town(id)) continue;

@@ -24,6 +24,7 @@ import { anchors, stageScene, buildProps, heldProp, catchFor, CATCH, ANIMALS } f
 import { linesFor } from "./scenes.js";
 import { setupJob, jobHud } from "./jobs.js";
 import { payJob } from "./visits.js";
+import { doorZones, fit, roomLim } from "../interiors/clear.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
 /** "Goldberg" → "Goldbergs", "Schwartz" → "Schwartzes". */
@@ -135,14 +136,23 @@ function build(rt) {
         V.windows.push({ x: wx, z: -D / 2 + 0.75, room: r.type });
     }
     // ── furniture (+ colliders: tall pieces block a resident's view; low ones only hide her while she crouches) ──
+    // (nothing solid in a doorway / the strip inside the front door — interiors/clear.js; the owner: "a tv blocks some
+    //  of the entrances")
+    const zones = doorZones({ xs: rooms.slice(1).map(r => r.x0), doorX, D });
+    V.clearZones = zones;
     const put = (name, x, z, ry = 0, colW = 0, colD = 0, view = "") => {
-        const o = kit(name); o.position.set(x, 0, z); o.rotation.y = ry; rt.add(o);
-        o.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
+        let hw = 0, hd = 0;
         if (colW) {
             const sw = Math.abs(Math.cos(ry)) > 0.5;
-            const hw = (sw ? colW : colD) / 2, hd = (sw ? colD : colW) / 2;
-            rt.cols.push({ id: name, x0: x - hw, x1: x + hw, z0: z - hd, z1: z + hd, on: true, view });
+            hw = (sw ? colW : colD) / 2; hd = (sw ? colD : colW) / 2;
+            const f = fit(zones, x, z, hw, hd, roomLim(x, x0, W, n, D));
+            if (!f) return null;
+            if (f.moved) { V.moved = V.moved || []; V.moved.push(name); }
+            x = f.x; z = f.z;
         }
+        const o = kit(name); o.position.set(x, 0, z); o.rotation.y = ry; rt.add(o);
+        o.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
+        if (colW) rt.cols.push({ id: name, x0: x - hw, x1: x + hw, z0: z - hd, z1: z + hd, on: true, view });
         return o;
     };
     const onWall = (name, x, y) => { const o = kit(name); o.position.set(x, y, -D / 2); rt.add(o); return o; };
@@ -189,13 +199,13 @@ function build(rt) {
         } else if (r.type === "kids") {
             put("BunkBed", cx - 1.65, bz + 0.6, 0, 2.0, 0.95, "tall");
             put("ToyBox", cx + 0.7, bz + 0.45, 0, 0.8, 0.5, "low");
-            put("Desk", cx + 2.3, 0.6, -Math.PI / 2, 1.0, 0.55, "low");
+            const desk = put("Desk", cx + 2.3, 0.6, -Math.PI / 2, 1.0, 0.55, "low");
             put("BeanBag", cx + 0.3, 1.2, 0, 0.7, 0.7);
             if (cast.includes("baby") && !room("kitchen")) put("Crib", cx - 2.2, 1.4, Math.PI / 2, 0.65, 1.2, "low");
             onWall("Poster", cx + 1.9, 1.6);
             surf.toybox = { x: cx + 0.7, z: bz + 0.45, y: 0.55 };
             surf.bunk = { x: cx - 1.65, z: bz + 0.6, y: 0.62 };
-            surf.desk = { x: cx + 2.3, z: 0.6, y: 0.72 };
+            if (desk) surf.desk = { x: desk.position.x, z: desk.position.z, y: 0.72 };      // (where the desk really went)
         }
     }
     V.surf = surf;
