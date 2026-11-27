@@ -71,6 +71,7 @@ module.exports = {
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 30000)) {
       await t.frames(20);
+      t.check("run coins: addCoins(NaN / Infinity) leaves the HUD's count a number", await g(`(L3.addCoins(NaN, "t"), L3.addCoins(Infinity, "t"), Number.isFinite(ctx.G.coins))`));
       const r = await t.L(`import("./js/features/moves/common.js").then(m => {
         const out = {};
         const chain = ids => { for (const id of ids) m.addMove(id, 100, id); return m.bank("test"); };
