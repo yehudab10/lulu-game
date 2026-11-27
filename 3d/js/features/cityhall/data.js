@@ -1,5 +1,6 @@
 // features/cityhall — the words and the numbers. Cartoon, wholesome + silly (12+). No real politicians, no real parties,
 // no real-world politics: the mayors are made up and every issue is a LOCAL, absurd one.
+// (The one exception: roadmap 38's two parodies at the end of this file — the owner's request, with its guardrails.)
 
 export const ID = "cityhall";
 
@@ -454,4 +455,124 @@ export const EDICT_COURT = {
     ruling: e => `The court strikes down "${e.title}". The neighbourhood may go home. Single file is NOT required.`,
     lulu: "We won! Small win. Still a win.",
     allStruck: "📋 2B — every edict is struck down this week. The mayor is drafting new ones. Rest while you can.",
+};
+
+// ══ roadmap 38 — the owner's two requested parodies (2026-11-27). The ONE exception to "never real-world politics", with
+//    guardrails written in (ARCHITECTURE › City hall): the joke is the BEHAVIOUR — blaming a neighbourhood shop for a foreign
+//    conflict; conspiracy cranks at a town meeting — never a people. No ethnic, national or religious markers on anyone; no
+//    flags; no real slogans; nothing about any war; nobody is "the enemy"; nothing pays; no pop-ups. Rates are ONE number each.
+/** 🪧 "THE WRONG ADDRESS" — Midwood, lunchtime: a small, confused crowd has decided a shop "sells land in Israel". */
+export const WRONG_ADDRESS = {
+    rate: 0.5,                          // ← the share of eligible real days it happens on (the owner: about 1 day in 2)
+    hours: [11.5, 15], town: "midwood",
+    leaveEvery: 45,                     // s (while she's within 60 m): one more protester gives up and buys lunch
+    shops: {
+        pizza: { spot: "pizza", name: "Slice of Sinai", kind: "PIZZA PLACE", owner: "Moishe", emoji: "🍕", goods: "pizza", sample: "a garlic knot",
+            item: "a slice", price: 3, after: "(after this slice)", chant: "A SLICE!", crowd: 4.2, counter: -10.5 },
+        bakery: { spot: "bakery", name: "Challah-Day Inn", kind: "BAKERY", owner: "Mrs. Feldman", emoji: "🥐", goods: "challah and babka", sample: "a piece of babka",
+            item: "a babka", price: 4, after: "(after this babka)", chant: "BABKA!", crowd: 4.2, counter: 8.8 },
+        makolet: { spot: "makolet", name: "Yanky's makolet", kind: "MAKOLET", owner: "Yanky", emoji: "🥒", goods: "pickles, milk and lottery tickets", sample: "a pickle",
+            item: "a pickle", price: 1, after: "(after this pickle)", chant: "PICKLES!", crowd: -4.2, counter: 5.2 },
+    },
+    // the premise: the crowd's own photocopied flyer (the only place the subject appears; nothing argues it either way)
+    flyer: [["THIS SHOP SELLS", "LAND IN ISRAEL"], ["THIS SHOP SELLS LAND", "…PICKLES? (?)"]],
+    signs: [
+        ["BOYCOTT THIS {KIND}", "{AFTER}"], ["I DROVE 2 HOURS", "TO YELL AT A {KIND}"], ["REAL ESTATE OUT OF OUR…", "wait, is this a {KIND}?"],
+        ["DOWN WITH", "(see other side)"], ["SHAME ON THE", "MANAGMENT ^E"], ["HONK IF YOU KNOW", "WHERE WE ARE"], ["I'M ONLY HERE", "FOR THE SAMPLES"],
+        ["WE WILL NOT BE MOVED", "(until 3 — dentist)"], ["NO JUSTICE, NO…", "what was the rest?"], ["MY OTHER SIGN", "IS ALSO CONFUSED"],
+        ["WHAT DO WE WANT?", "STILL DECIDING"], ["SOLIDARITY WITH", "[marker ran out]"], ["HANDS OFF OUR…", "{GOODS}?"], ["THIS IS A", "PEACEFUL LUNCH"],
+    ],
+    // archetypes — never an ethnicity, a nationality or a religion: just the people every protest has
+    people: {
+        clipboard: { name: "The Clipboard", look: "woman", colors: { Top: "#5C6BC0", Bottom: "#37474F", Hair: "#4E342E" }, lines: [
+            "Sign the petition! It's against… hold on, page two.", "We have four signatures. Two are mine. One is a dog.", "I'm doing this for credit. For a class. About protests."] },
+        regular: { name: "The Regular", look: "man", colors: { Top: "#8D6E63", Bottom: "#263238", Hair: "#9E9E9E" }, lines: [
+            "Yesterday it was the library. Tuesday, the weather. I'm consistent.", "I protest everything. Equally. It's a lifestyle.", "Four hundred protests. This one smells the best."] },
+        lost: { name: "Lady Who Thought This Was The Line", look: "woman", colors: { Top: "#F06292", Bottom: "#455A64", Hair: "#6D4C41" }, lines: [
+            "Is this the line for {SHOP}? No? Then why does everyone have a sign?", "I just wanted {ITEM}. Now I'm in a movement.", "Somebody handed me a sign. I'm too polite to put it down."] },
+        streamer: { name: "The Livestreamer", look: "man", colors: { Top: "#00ACC1", Bottom: "#212121", Hair: "#3E2723" }, lines: [
+            "Chat, we are LIVE. Hi Mom. …Just Mom. Hi Mom.", "Smash that like button. Mom? Mom, smash it.", "Zero viewers. The algorithm is SCARED of us."] },
+        megaphone: { name: "Megaphone Guy", look: "man", colors: { Top: "#FB8C00", Bottom: "#37474F", Hair: "#212121" }, lines: [
+            "*tap tap* Is this on? The batteries are in the car. The car is in Jersey.", "WHAT DO WE WANT? …Guys? Guys.", "My megaphone is louder than THEIR megaphone. When it works."] },
+        fixer: { name: "The Sign Fixer", look: "woman", colors: { Top: "#43A047", Bottom: "#263238", Hair: "#212121" }, lines: [
+            "Hold still, I'm fixing the E.", "Who spelled 'management' with one E? …Me. It was me.", "I brought markers for everyone. Nobody asked what for."] },
+        hungry: { name: "Guy Who Smelled The Kitchen", look: "man", colors: { Top: "#E53935", Bottom: "#3E2723", Hair: "#5D4037" }, lines: [
+            "I came to boycott. Then I smelled the oven.", "Is it a boycott if I'm just reading the menu?", "Asking for a friend: do they deliver to protests?"] },
+        retiree: { name: "Retired Protester", look: "woman", colors: { Top: "#8E24AA", Bottom: "#424242", Hair: "#E0E0E0" }, lines: [
+            "In my day we protested the RIGHT store. I don't remember which one.", "I've got a thermos and nowhere to be.", "My grandson made the sign. I didn't read it."] },
+    },
+    owner: ["Free sample! {SAMPLE}! Anybody?", "You're blocking the menu. Here — take a menu.", "Protest all you want. Just not in front of the door.",
+        "I sell {GOODS}. That's the whole business. {GOODS}.", "You want land? I have a parking spot. Sixty a month."],
+    leave: ["…okay, ONE {ITEMBARE}.", "I'm not giving up. I'm getting lunch.", "Fine. But I'm eating it ANGRILY.", "This counts as research."],
+    counter: {
+        banner: ["COUNTER-PROTEST", "WE BROUGHT SNACKS"],
+        people: [{ name: "Counter-Protester", look: "man", colors: { Top: "#1E88E5", Bottom: "#263238", Hair: "#3E2723" } },
+            { name: "Counter-Protester", look: "woman", colors: { Top: "#FDD835", Bottom: "#37474F", Hair: "#212121" } }],
+        lines: ["Our megaphone is bigger.", "It's not bigger, you're standing closer.", "We're counter… against… we brought SNACKS!", "Anybody want a pretzel? You, with the sign?",
+            "We protest their protest. Respectfully. With dip.", "Our sign is spelled right. Just saying."],
+        bubbe: { name: "Somebody's Bubbe", lines: ["Rugelach? Rugelach for everybody. You too, with the sign.", "You're too thin to protest. Eat.", "Chocolate or cinnamon? Don't make a face, pick one.",
+            "Both sides, eat. Then argue. That's how it's done."] },
+        end: "Nobody remembers the chant. Everybody has rugelach.",
+    },
+    lulu: { walkBy: ["…they're picketing {SHOP}? It sells {GOODS}.", "Is that a protest or the lunch line?", "Somebody should tell them it's a {KINDLOW}."],
+        explainQ: "📢 What's this about?", explain: "Our flyer says this shop sells land in Israel.", ownerAnswer: "I sell {GOODS}. The only land in here is the floor. I mop it.",
+        explainLulu: "So… you're protesting {GOODS}.", photo: "📸 Got it: \"DOWN WITH (see other side)\" in front of a {KINDLOW}. Scrapbook gold.",
+        buyOk: "One {ITEMBARE}, for the lady who didn't bring a sign! Thank you, sweetheart.", buyNo: "Not enough coins for {ITEM}. The protest nods sympathetically.",
+        packed: "They ran out of samples. The protest is… out to lunch." },
+    chant: ["WHAT DO WE WANT?", "{CHANT}", "WHEN DO WE WANT IT?", "LUNCH!"],
+    chantEnd: { great: ["…honestly? Same.", "The crowd is chanting for lunch now.", "She's right. {CHANT}"], ok: ["Half the crowd joins in. The other half is ordering.", "A slow clap. From the counter-protest."], bad: ["Nobody knows the words. Including her.", "The livestreamer got it. Mom liked it."] },
+    opts: ["📢 Start your own chant", "💬 Talk to someone", "📢 What's this about?", "🛒 Buy {ITEM} ({PRICE} coins)", "📸 Take a picture", "🚶‍♀️ Walk on"],
+    honk: ["*eye roll*", "Was that a honk FOR us or AT us?", "*sighs in clipboard*"],
+    spot: "🪧 THE… PROTEST?", counterSpot: "🥨 THE COUNTER-PROTEST",
+};
+/** 🎤 "PUBLIC COMMENT NIGHT" — Lakewood City Hall, evenings: the agenda is one pothole; two cranks give the "they're taking
+ *  over" speech and it collapses under its own evidence; their own neighbours sit them down; the vote is deferred. */
+export const COMMENT_NIGHT = {
+    rate: 0.5,                          // ← the share of eligible real days (the owner: about 1 day in 2)
+    hours: [18, 21.5], town: "lakewood",
+    beat: 6.5,                          // s between lines of the meeting (only while she's in the room)
+    agenda: ["PUBLIC COMMENT NIGHT", "ITEM 1: THE POTHOLE", "ON MINIVAN WAY"],
+    clerk: { open: "Item one: the pothole on Minivan Way. Public comment is open.",
+        redirect: ["Sir. The item is the pothole.", "Ma'am. The pothole.", "We're on item ONE. There is only item one.", "Please keep it to the pothole. Or near the pothole."] },
+    mayor: ["Zzz…", "…motion to… zzz…", "*snore* …ribbon…"],
+    cranks: {
+        gary: { name: "Gary", look: "man", colors: { Top: "#795548", Bottom: "#37474F", Hair: "#BDBDBD" }, lines: [
+            ["They bought the house next to mine. And then — get this — they MOVED IN."],
+            ["There are more shuls in this town than I have fingers. I counted. Twice."],
+            ["My neighbour's kids say 'good morning' to me EVERY morning. What are they planning?"],
+            ["They keep bringing food over. Kugel. Cholent. It's a strategy. I've gained eleven pounds."],
+            ["They opened a bakery on Clifton. Now I have to drive past challah. Every. Friday."],
+        ], sit: ["…fine. But the kugel thing is real.", "…the cholent WAS good."] },
+        darlene: { name: "Darlene", look: "woman", colors: { Top: "#AD1457", Bottom: "#263238", Hair: "#FFB74D" }, lines: [
+            ["I've prepared a pie chart. As you can see, it adds up to a hundred and forty percent."],
+            ["According to my research — and by research I mean the group chat —", "Ma'am, is there a point?", "…the group chat was very upset."],
+            ["Point four: the traffic on Route 9. Point five: ALSO the traffic on Route 9."],
+            ["I have a graph. It goes up. I'm not sure what it measures, but it goes UP."],
+        ], sit: ["My chart was very pink, at least.", "…I'll update the chart."] },
+        ron: { name: "Ron", look: "man", colors: { Top: "#546E7A", Bottom: "#212121", Hair: "#5D4037" }, lines: [
+            ["They're buying up the infrastructure!", "Which infrastructure?", "…I was told there was a bridge."],
+            ["I heard they bought the water tower. Has anyone CHECKED the water tower?"],
+            ["My cousin's friend says they own the streetlights now. The streetlights are ON. Coincidence?"],
+            ["First the houses. Then the stores. Next? The POTHOLE. Mark my words."],
+        ], sit: ["…is the bridge thing not real?", "…I'll check with my cousin's friend."] },
+    },
+    // their own neighbours sit them down — a normal town with a couple of cranks, never two sides
+    neighbours: {
+        linda: { name: "Linda (Gary's neighbour)", look: "woman", colors: { Top: "#26A69A", Bottom: "#37474F", Hair: "#8D6E63" }, seat: 0,
+            to: { gary: ["Gary. The Goldbergs shovelled your driveway all winter. Sit.", "Gary, you had three plates at their kiddush. Sit down.", "Gary. The 'plan' is they're nice to you. Sit."],
+                darlene: ["Darlene, your pie chart has a slice that just says 'vibes'."], ron: ["Ron, the water tower is owned by the water department. I work there."] } },
+        tom: { name: "Tom from Pine St", look: "man", colors: { Top: "#3949AB", Bottom: "#263238", Hair: "#212121" }, seat: 1,
+            to: { darlene: ["Darlene. The 'bridge' is the overpass. The STATE owns it.", "Darlene, hon. The Weissmans fixed your fence. For free. Sit."],
+                ron: ["Ron. The streetlights are owned by the electric company. They're on because it's NIGHT.", "Ron, your cousin's friend also said the moon was a lamp."],
+                gary: ["Gary, they said 'good morning'. That's the whole plan. Sit."] } },
+    },
+    regular: { name: "Pothole Phil", look: "man", colors: { Top: "#F9A825", Bottom: "#424242", Hair: "#9E9E9E" }, lines: [
+        "I'd like to talk about the pothole. It ate my hubcap.", "I have photos of the pothole. Eleven. It's grown.", "That pothole's been here longer than my car. Fix it."] },
+    mic: { spot: "🎤 Public comment — your turn", prompt: "State your name and your comment. On the pothole, please.",
+        opts: ["📏 Read out the pothole's dimensions", "🕳️ Yield my time to the pothole", "🍲 Ask Gary how the Goldbergs' cholent was", "👋 Never mind"],
+        replies: [["Lulu", "Four feet by two. Eleven inches deep. It has its own ecosystem. I'd like it gone."], ["Lulu", "…"], ["Gary", "…it was very good cholent. Fine. FINE."], null],
+        after: ["Pothole Phil", "Finally. Someone said it."], yield: "The room is silent. Out of respect. For the pothole.",
+        vote: ["All in favour of fixing the pothole?", "…Opposed?", "The motion is deferred. To next month. Again."], lulu: "Of course it is." },
+    lulu: { walkIn: "Public comment night. Somebody always brings a chart.", agendaRead: "ITEM 1: THE POTHOLE. There is no item 2." },
+    agendaSpot: "📋 Tonight's agenda",
 };
