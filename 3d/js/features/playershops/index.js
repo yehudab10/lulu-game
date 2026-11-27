@@ -109,7 +109,7 @@ function syncClaims() {
         const spec = what === "mine" ? { get label() { const n = S.car.length && carNear(f) ? Math.min(HANDS, S.car.length) : 0; return n ? `🏪 YOUR SHOP — CARRY ${n} BOX${n === 1 ? "" : "ES"} IN` : "🏪 YOUR SHOP — GO IN"; }, enter: () => goIn(f, "owner") }
             : what === "lease" ? { label: `🪧 FOR LEASE — ${f.address}`, enter: () => { landlord(f); return true; } }
             : x.z ? { label: "🚧 UNDER RENOVATION", enter: () => { if (ctx.foot && ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "Under renovation. The owner hasn't been by in weeks.", 2.6); return true; } }
-            : { get label() { return x.server && SVR.SV.on ? `🛍️ SHOP AT ${(x.shopName || x.name + "'S").toUpperCase()}` : `👀 LOOK ROUND ${x.name.toUpperCase()}'S SHOP`; }, enter: () => { visitShop(f, x); return true; } };
+            : { get label() { const y = others().find(o => o.id === x.id) || x, nm = (y.shopName || y.name + "'S").toUpperCase(); return y.server && SVR.SV.on ? (y.op === false ? `🔒 ${nm} — CLOSED (back soon)` : `🛍️ SHOP AT ${nm}${y.at ? " — SHE'S IN!" : ""}`) : `👀 LOOK ROUND ${y.name.toUpperCase()}'S SHOP`; }, enter: () => { visitShop(f, others().find(o => o.id === x.id) || x); return true; } };
         SF.claim(sid, spec); CL.set(sid, what);
     }
 }
@@ -118,7 +118,7 @@ export const mine = () => Object.entries(S.shops).map(([id, s]) => Object.assign
 /** Other players' shops here: friends in a party (d.x.ps) + everyone's on the relay (stage 2). [{ id, town, kind, name, server?, z?, shelf? }] */
 export function others() {
     const out = friendShops().slice();
-    for (const [id, x] of SVR.SV.list) if (!S.shops[id] && !out.some(o => o.id === id)) out.push({ id, town: id.split(":")[1], kind: x.k, name: x.o || "A neighbour", shopName: x.n, server: true, z: x.z, t: x.t });
+    for (const [id, x] of SVR.SV.list) if (!S.shops[id] && !out.some(o => o.id === id)) out.push({ id, town: id.split(":")[1], kind: x.k, name: x.o || "A neighbour", shopName: x.n, server: true, z: x.z, t: x.t, op: x.op, at: x.at, c: x.c });
     return out;
 }
 export const owns = id => !!S.shops[id];
@@ -488,10 +488,11 @@ const friendSpot = {
 async function visitShop(f, x) {
     if (x.server && SVR.SV.on) {
         const v = await SVR.view(f.id);
+        if (v && v.ok && v.shop && v.shop.op === 0) { if (ctx.foot && ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, `Locked. A note: "Back soon! — ${v.shop.o || "the owner"}". No clerk either.`, 2.8); return; }
         if (!v || !v.ok) { if (ctx.foot && ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "Closed. The sign says 'back in 5 minutes'. It always says that.", 2.6); return; }
         const shelf = new Array(SHELF.slots).fill(null);
         for (const it of v.shelf || []) if (it.s >= 0 && it.s < SHELF.slots && GOODS[it.g]) shelf[it.s] = { g: it.g, n: it.n, price: it.p, stars: it.st, so: !!it.so };
-        return enterShop(f, "shop", { id: f.id, name: v.shop.o || x.name, shopName: v.shop.n, kind: v.shop.k, shelf, thumbs: v.shop.t | 0 });
+        return enterShop(f, "shop", { id: f.id, name: v.shop.o || x.name, shopName: v.shop.n, kind: v.shop.k, shelf, thumbs: v.shop.t | 0, at: !!v.shop.at, clerk: !!v.shop.c });
     }
     return goIn(f, "visit", x);
 }
@@ -506,6 +507,24 @@ function goIn(f, mode, friend = null) {
         if (n && ctx.foot && ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, `${n} box${n === 1 ? "" : "es"} in. ${S.car.length ? S.car.length + " still in the car." : "That's the lot!"}`, 2.6);
     }
     return enterShop(f, mode, friend);
+}
+
+// ── 📍 the Map (ctx.pins): her shops (always shown) + everyone's she's walked past, with their 👍 ──
+const PIN = { key: "", ids: new Set() };
+function pinTick() {
+    const P = ctx.pins;
+    if (!P || !P.add) return;
+    const rows = mine().map(sh => ({ id: "pshop:" + sh.id, town: sh.town, local: sh.id.split(":").slice(2).map(Number), cat: "mine", icon: (KINDS[sh.kind] || KINDS.kugel).emoji,
+        name: sh.name, sub: `${sh.how === "lease" ? "your shop (leased)" : "your shop"}${sh.thumbs ? " · " + sh.thumbs + " 👍" : ""}`, group: sh.town }));
+    for (const [id, x] of SVR.SV.list) if (!S.shops[id] && !x.z) rows.push({ id: "pshop:" + id, town: id.split(":")[1], local: id.split(":").slice(2).map(Number), cat: "shops",
+        icon: (KINDS[x.k] || KINDS.kugel).emoji, name: x.n || `${x.o || "A neighbour"}'s ${(KINDS[x.k] || KINDS.kugel).name}`, sub: `${x.t ? x.t + " 👍 · " : ""}${x.op === false ? "closed right now" : "open"}`, group: id.split(":")[1] });
+    const key = rows.map(r => r.id + r.sub + r.name).join("|");
+    if (key === PIN.key) return;
+    PIN.key = key;
+    const now = new Set(rows.map(r => r.id));
+    for (const id of PIN.ids) if (!now.has(id)) P.remove(id);
+    for (const r of rows) P.add(r);
+    PIN.ids = now;
 }
 
 // ── stage 2: the relay (server.js) ──
@@ -561,4 +580,5 @@ hook("hud", dt => {
     if (townId()) { step("layout", layout); step("claims", syncClaims); } else { step("clear", () => { if (W.group) clearSigns(); if (CL.size) dropClaims(); }); }
     step("depot", depotTick);
     step("server", serverTick);
+    step("pins", pinTick);
 });
