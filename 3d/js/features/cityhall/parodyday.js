@@ -5,9 +5,26 @@
 import { hebrewOf, classify, isYomTov, DAYS } from "../seasons/calendar.js";
 import { WRONG_ADDRESS as WA, COMMENT_NIGHT as CN } from "./data.js";
 
-/** Test knobs: { date (ISO / Date: "now"), wa / pcn (true / false: force on / off), hour (a fractional hour) }. */
-export const PD = { force: {} };
-export const now = () => (PD.force.date ? new Date(PD.force.date) : new Date());
+/** Test knobs: { date (ISO / Date: "now"), wa / pcn (true / false: force on / off), hour (a fractional hour), shop }.
+ *  dayOff: step the line-up through the rotation (days). */
+export const PD = { force: {}, dayOff: 0 };
+/** 👀 A PREVIEW for this page load only (like seasons' ?season=…; never saved): ?parody=address | comment forces that one on
+ *  whatever the date and the hour; &day=N steps through the rotation (who's there, which signs / lines); &shop=pizza |
+ *  bakery | makolet picks the wrong address's shop. → what it set (tests call it with a string). */
+export function fromQuery(q) {
+    const Q = new URLSearchParams(q || ""), k = (Q.get("parody") || "").toLowerCase(), out = {};
+    if (k === "address" || k === "wa" || k === "both") out.wa = true;
+    if (k === "comment" || k === "pcn" || k === "both") out.pcn = true;
+    if (!out.wa && !out.pcn) return null;
+    Object.assign(PD.force, out);
+    const n = parseInt(Q.get("day") || "0", 10);
+    if (isFinite(n)) PD.dayOff = n;
+    const shop = (Q.get("shop") || "").toLowerCase();
+    if (shop && WA.shops[shop]) PD.force.shop = shop;
+    return Object.assign(out, { day: PD.dayOff, shop: PD.force.shop || null });
+}
+try { if (typeof location !== "undefined") fromQuery(location.search); } catch (e) { /* none */ }
+export const now = () => { const d = PD.force.date ? new Date(PD.force.date) : new Date(); if (PD.dayOff) d.setDate(d.getDate() + PD.dayOff); return d; };
 export const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 /** The hour, fractional (11:30 = 11.5). */
 export const fhour = (d = now()) => (PD.force.hour != null ? PD.force.hour : d.getHours() + d.getMinutes() / 60);

@@ -145,7 +145,7 @@ ctx.cityhall = {
     /** Roadmap 38 — the owner's two parodies (guardrails in data.js): 🪧 the wrong address (Midwood, lunchtime) + 🎤 public
      *  comment night (Lakewood City Hall, evenings). Pure day rules in parodyday.js (PD.force for tests). */
     parody: { waPlan: WRONG.waPlan, waStart: WRONG.waStart, waStop: WRONG.waStop, leaveOne: WRONG.leaveOne, buy: WRONG.buy, chant: WRONG.startChant, talk: WRONG.talk, WAS: WRONG.WAS, fill: WRONG.fill,
-        pcnPlan: COMMENT.pcnPlan, mic: COMMENT.mic, CNS: COMMENT.CNS, dayOn: PDAY.dayOn, onNow: PDAY.onNow, quietDay: PDAY.quietDay, PD: PDAY.PD },
+        pcnPlan: COMMENT.pcnPlan, mic: COMMENT.mic, CNS: COMMENT.CNS, dayOn: PDAY.dayOn, onNow: PDAY.onNow, quietDay: PDAY.quietDay, fromQuery: PDAY.fromQuery, PD: PDAY.PD },
     /** Stage 5 — the corruption thread (story.js). */
     story: { state: STORYM.story, crewStart: STORYM.crewStart, crewStop: STORYM.crewStop, usePhoto: STORYM.usePhoto, pay: STORYM.payStory, ST: STORYM.ST },
     debug: { S, RUN, force, C, RB, def: LOBBY_DEF, startRibbon, endRibbon },

@@ -1715,7 +1715,7 @@ was flagged to the owner. WHEN (`parodyday.js`, pure functions of the date): `da
 for every friend) below `WRONG_ADDRESS.rate` / `COMMENT_NIGHT.rate` (0.5 each — the owner asked for 5× the proposed 1-in-10),
 never on a Friday, Shabbos, Yom Tov or a fast / solemn day (the evening one also never on the eve of one: after sunset it's
 that day — `quietDay(date, evening)` reads seasons' `calendar.js`); `onNow` adds the hours (11:30–15:00 · 18:00–21:30);
-`PD.force` for tests. Each day's line-up is a seeded shuffle of the date (`waPlan` / `pcnPlan`), so a week doesn't repeat.
+`PD.force` for tests; 👀 a PREVIEW for one page load (never saved, like seasons' `?season=`): `?parody=address` / `?parody=comment` (or `both`) forces it on whatever the date and the hour, `&day=N` steps through the rotation, `&shop=pizza|bakery|makolet` picks the shop (`fromQuery`). Each day's line-up is a seeded shuffle of the date (`waPlan` / `pcnPlan`), so a week doesn't repeat.
 🪧 THE WRONG ADDRESS (Midwood, lunchtime): 4–5 archetypes (the clipboard, the man at every protest, the lady who thought it
 was the lunch line, a livestreamer with no viewers, megaphone guy, the sign fixer…) on the sidewalk on one side of today's
 shop (Slice of Sinai / the bakery / Yanky's makolet — `shops[].crowd`, the door kept ≥ 2 m clear), homes' instanced rigs +
