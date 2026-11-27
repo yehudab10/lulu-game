@@ -549,6 +549,9 @@ registerState("footRun", {
         hot.classList.add("hidden");
         showBubbles(false);
         if (!F) return;
+        // (the 6 s "Find a car to borrow" hint from climbing out is the street's: walked straight into a room, it sat at
+        //  the bottom of the hospital / the shul / Borough Hall for the whole visit — only the street's frames clear it)
+        if (F.hintT > 0 && ctx.G) { F.hintT = 0; ctx.G.hint = null; }
         if (F.handoff) { F.suspended = F.handoff; return; }
         if (["title", "gameover", "intro", "playing"].includes(next)) end(next);
         else F.suspended = next;     // somebody else's cutscene; we'll pick up where we left off

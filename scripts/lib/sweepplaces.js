@@ -12,6 +12,7 @@ const SHOTS = path.resolve(__dirname, "..", "..", "smoke-shots", "sweep");
 function make(t) {
   const g = t.game;
   const BOUGHT = new Set(), BUYS = [];
+  let PENDING = null;
   const st = () => g(`L3.state`);
   const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
   const log = (...a) => console.log("   ·", ...a);
@@ -134,7 +135,9 @@ function make(t) {
       const c2 = await coins();
       buy = `bought ${cheap.name} @${cheap.price}: first press ${cMid - c0}, paid ${c0 - c1}, now ${st1}, again ${c1 - c2}`;
       if (cMid !== c0) fit.bad.push(`one press already charged (${cheap.name})`);
-      if (c0 - c1 !== cheap.price) fit.bad.push(`price shown ${cheap.price} ≠ charged ${c0 - c1} (${cheap.name})`);
+      // (a card that hands over to a question first — the clothes' "Put it on now?" — charges when that's answered)
+      if (st1 === "gone" && c1 === c0) PENDING = { name: cheap.name, price: cheap.price, c0 };
+      else if (c0 - c1 !== cheap.price) fit.bad.push(`price shown ${cheap.price} ≠ charged ${c0 - c1} (${cheap.name})`);
       if (st1 !== "buy" && c1 !== c2) fit.bad.push(`a one-off charged twice (${cheap.name}: ${c1 - c2})`);
       BUYS.push({ where, title: fit.title, id: cheap.id, name: cheap.name, price: cheap.price, after: st1 });
     }
@@ -156,16 +159,17 @@ function make(t) {
     const seen = [], fits = [];
     let k = 0, modeB = 0, cardB = 0;
     for (; k < max; k++) {
-      const s = await room(`({ busy: r.busy, mode: !!r.mode, dlg: !!__lulu3d.ctx.dialogOpen, leaving: r.leaving, auto: !!r.auto,
-        scr: (() => { const c = document.getElementById("screenCard"); return !!(c && c.offsetParent !== null && c.getBoundingClientRect().width > 0); })() })`);
+      const s = await g(`(() => { const r = (window.__interiors && __interiors.room) || { busy: false, mode: null, leaving: false, auto: null }; return ({ busy: r.busy, mode: !!r.mode, dlg: !!__lulu3d.ctx.dialogOpen, leaving: r.leaving, auto: !!r.auto,
+        scr: (() => { const c = document.getElementById("screenCard"); return !!(c && c.offsetParent !== null && c.getBoundingClientRect().width > 0); })() }); })()`);
       if (!s) return { steps: k, seen, fits, left: true };
       if (s.scr && !s.dlg) {
         // a card on screen (a shop's buy card, a picker): it fits the phone? a real buy if it sells something, then ○ / B
         if (!cardB) {
+          await t.frames(10);
+          await shot(`${where}-card`);
           const c = await cardCheck(where);
           seen.push(`CARD «${c.title}» ${c.tiles}${c.buy ? " · " + c.buy : ""}`);
           for (const x of c.bad) fits.push(`card ${c.title}: ${x}`);
-          await shot(`${where}-card`);
         }
         cardB++;
         await t.tap(1); await t.frames(6);
@@ -215,6 +219,11 @@ function make(t) {
     if (!f) { out.problems.push("no room"); return out; }
     log(`${where}: room ${f.id} "${f.name}" · ✋ ${f.hots.map(h => `${h.id}${h.en === true ? "" : "(off)"}`).join(", ")} · people ${f.people.map(p => p.id).join(", ")}`);
     await shot(`${where}-in`);
+    // nothing of the street's left on screen: foot's walk hint, its speech bubbles
+    const street = await t.L(`(() => { const r = document.getElementById("footBubbles"), vis = r && getComputedStyle(r).display !== "none" ? [...r.children].filter(e => getComputedStyle(e).display !== "none").map(e => e.textContent) : [];
+      const G = __lulu3d.ctx.G; return { hint: G && G.hint || "", bubbles: vis }; })()`);
+    if (/borrow/.test(street.hint)) out.problems.push(`the street's hint at the bottom: ${street.hint.slice(0, 40)}`);
+    if (street.bubbles.length) out.problems.push(`the street's bubbles over the room: ${street.bubbles.join(" | ").slice(0, 80)}`);
     // people standing inside furniture / outside the room
     for (const p of f.people) {
       if (p.inCol && !p.sit) out.problems.push(`${p.id} stands inside ${p.inCol}`);
@@ -241,9 +250,14 @@ function make(t) {
         continue;
       }
       const d = await drive(`${where} ${h.id}`, { pick });
+      // the room's speech bubbles (interiors/fx.js Bubbles): shown = it did something; none wider than the screen
+      const bub = await room(`(() => { const cam = r.set.camera; return r.bubbles.list.map(b => { const d = cam.position.distanceTo(b.sp.position), vw = 2 * d * Math.tan(cam.fov * Math.PI / 360) * cam.aspect;
+        return { text: b.text || "?", frac: +(b.sp.scale.x * (b.fill || 1) / vw).toFixed(2) }; }); })()`) || [];
+      for (const b of bub) { d.seen.push(`💬 ${b.text.slice(0, 50)} (${Math.round(b.frac * 100)}% wide)`); if (b.frac > 0.95) d.fits.push(`bubble ${Math.round(b.frac * 100)}% of the screen wide: ${b.text.slice(0, 40)}`); }
       const c1 = await coins();
       const did = d.seen.length > 0 || c1 !== c0;
       log(`  ✋ ${h.id} «${h.label}» → ${d.seen.join(" ⇒ ").slice(0, 400) || "(nothing shown)"}${c1 !== c0 ? ` [coins ${c1 - c0}]` : ""}${d.stuck ? " STUCK " + d.stuck : ""}`);
+      if (PENDING) { if (c0 - c1 !== PENDING.price) out.problems.push(`✋ ${h.id}: ${PENDING.name} shown ${PENDING.price}, charged ${c0 - c1}`); PENDING = null; }
       for (const x of d.fits) out.problems.push(`✋ ${h.id}: dialog doesn't fit — ${x}`);
       if (d.stuck) out.problems.push(`✋ ${h.id}: stuck (${d.stuck})`);
       if (d.left) { log(`  (✋ ${h.id} took her out of the room)`); break; }
@@ -254,16 +268,35 @@ function make(t) {
     return out;
   };
 
+  // the audit's findings: the hard ones fail the test, the judgement calls (someone close to furniture, two ✋ close
+  // together, a ✋ that only shows a bubble) are logged for a person to look at
+  const HARD = /street's|% of the screen wide|doesn't fit|charged|without the coins|stuck|throws|can't be reached|the prompt is/;
+  const report = (where, a) => { for (const p of a.problems) { if (HARD.test(p)) t.check(`${where}: ${p}`, false); else console.log(`   ✗? ${where}: ${p}`); } };
+
   /** Into a door from the street with the real ✋; → true when the room is up. */
   const enter = async (d, where) => {
     await onFoot();
-    await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); return true; })()`);
+    await W.moved(t);
+    await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); ctx.cam.snap(); return true; })()`);
     await t.frames(6);
     const pr = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr ? { label: pr.label, mine: pr.ent === ctx.foot.spots()[${d.i}] } : null; })()`);
     if (!pr || !pr.mine) { t.check(`${where}: at its door the ✋ is the door`, false, JSON.stringify(pr)); return false; }
     await t.tap(0);
-    const went = await t.until(`__lulu3d.state !== "footRun"`, `${where}: ✋ goes in (${pr.label})`, 60000);
+    // (a counter on the street — the makolet, Bling Bay, the impound gate — opens its card right there, no room)
+    const scr = `(() => { const c = document.getElementById("screenCard"); return !!(c && c.offsetParent !== null && c.getBoundingClientRect().width > 0); })()`;
+    const went = await t.until(`__lulu3d.state !== "footRun" || ${scr} || __lulu3d.ctx.dialogOpen`, `${where}: ✋ goes in (${pr.label})`, 60000);
     if (!went) return false;
+    if (await st() === "footRun") {
+      await t.frames(10);
+      await shot(`${where}-card`);
+      const c = await t.L(scr) ? await cardCheck(where) : null;
+      if (c) { log(`${where}: ✋ «${pr.label}» → CARD «${c.title}» ${c.tiles} · ${c.buy}`); for (const x of c.bad) t.check(`${where}: card — ${x}`, false); }
+      const dl = await drive(where).catch(() => null);
+      if (dl && dl.seen.length) log(`${where}: ${dl.seen.join(" ⇒ ").slice(0, 300)}`);
+      for (let k = 0; k < 6 && await t.L(scr); k++) { await t.tap(1); await t.frames(8); }
+      t.check(`${where}: the counter's card closes with B`, !await t.L(scr));
+      return "card";
+    }
     if (await st() !== "interior") { log(`${where}: ✋ went to state ${await st()} (not a room)`); return "other"; }
     return t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, `${where}: the room is up`, 60000);
   };
@@ -285,32 +318,35 @@ function make(t) {
     await t.frames(20);
     const o = await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}, c = ctx.car.pos;
       return { dist: +Math.hypot(F.pos.x - a.x, F.pos.z - a.z).toFixed(2), n: +((F.pos.x - a.x) * a.nx + (F.pos.z - a.z) * a.nz).toFixed(2),
-        face: +(Math.sin(F.lulu.obj.rotation.y) * a.nx + Math.cos(F.lulu.obj.rotation.y) * a.nz).toFixed(2), car: [+c.x.toFixed(1), +c.z.toFixed(1)], town: ctx.town.active }; })()`);
+        face: +(Math.sin(F.lulu.obj.rotation.y) * a.nx + Math.cos(F.lulu.obj.rotation.y) * a.nz).toFixed(2), town: ctx.town.active }; })()`);
+    o.car = await carPos();
     t.check(`${where}: out at the same door (${o.dist} m), on the street side (${o.n})`, o.dist < 4 && o.n > -0.3, JSON.stringify(o));
     t.check(`${where}: …facing out (${o.face})`, o.face > 0.3, JSON.stringify(o));
-    if (car0) t.check(`${where}: …her car where she left it`, Math.hypot(o.car[0] - car0[0], o.car[1] - car0[1]) < 0.5, JSON.stringify({ car0, now: o.car }));
+    if (car0 && o.car) t.check(`${where}: …her car where she left it`, Math.hypot(o.car[0] - car0[0], o.car[1] - car0[1]) < 0.5, JSON.stringify({ car0, now: o.car }));
   };
 
-  const carPos = () => g(`[+ctx.car.pos.x.toFixed(1), +ctx.car.pos.z.toFixed(1)]`);
+  // where her parked car stands (on foot ctx.car.pos is only an anchor under her feet: the stub is the real car)
+  const carPos = () => g(`(() => { const c = ctx.foot.debug.F && ctx.foot.debug.F.car && ctx.foot.debug.F.car.stub; return c ? [+c.x.toFixed(1), +c.z.toFixed(1)] : null; })()`);
 
   /** Visit every door-like room in a town (filter by name): in, audit, out. */
   const sweepTown = async (id, { only = null, skipNames = [], skipHots = {}, prefix = "" } = {}) => {
     if (!await town(id)) return [];
     await onFoot();
     await t.frames(20);
-    const car0 = await carPos();
     const doors = (await findDoors()).filter(d => (!only || only.includes(d.name)) && !skipNames.includes(d.name));
     log(`${id}: ${doors.length} doors — ${doors.map(d => `${d.name}(${d.short || d.label})`).join(", ")}`);
     const res = [];
     for (const d of doors) {
       const where = `${prefix}${id}-${d.name}`;
       await W.reset(t);
+      const car0 = await carPos();
       const ok = await enter(d, where);
+      if (ok === "card") continue;
       if (ok === "other") { await shot(`${where}-other`); await playing(); await onFoot(); continue; }
       if (!ok) { await playing(); await onFoot(); continue; }
       const a = await audit(where, { skip: skipHots[d.name] || [] });
       res.push(a);
-      for (const p of a.problems) console.log(`   ✗? ${where}: ${p}`);
+      report(where, a);
       if (await g(`!!(window.__interiors && __interiors.room && __interiors.room.ready)`)) {
         await shot(`${where}-end`);
         await leave(d, where, car0);
@@ -319,6 +355,42 @@ function make(t) {
       await onFoot();
     }
     return res;
+  };
+
+  /** The town's shopfronts (features/storefronts): every claimed front (the lanes…) + a few open ones (one shared room,
+   *  dressed per shop) + what a closed one says. */
+  const sweepFronts = async (id, { open = 4 } = {}) => {
+    if (!await town(id)) return;
+    await onFoot();
+    await t.frames(20);
+    const car0 = await carPos();
+    const fronts = await g(`(() => { const SF = ctx.storefronts, F = SF.debug.F; return F.list.map(f => ({ id: f.id, name: f.name, st: SF.stateOf(f), label: SF.debug.label(f),
+      at: f.door ? { x: f.door.x, z: f.door.z, nx: f.nx, nz: f.nz, ux: f.ux, uz: f.uz } : null })).filter(f => f.at); })()`);
+    const by = s => fronts.filter(f => f.st === s);
+    log(`${id}: ${fronts.length} fronts — ${["open", "claimed", "closed", "soon", "lease", "use", "gone", "office", "dentist"].map(s => `${s} ${by(s).length}`).join(", ")}`);
+    for (const f of by("closed").slice(0, 3)) {
+      await onFoot();
+      await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(f.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); return true; })()`);
+      await t.frames(8);
+      const pr = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr ? pr.label : "nothing"; })()`);
+      log(`  closed ${f.name}: ✋ «${pr}»`);
+    }
+    const pickOpen = by("open").filter((f, k, a) => k % Math.max(1, Math.floor(a.length / open)) === 0).slice(0, open);
+    for (const f of [...by("claimed"), ...pickOpen]) {
+      const where = `${id}-front-${f.name}`;
+      await onFoot();
+      await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(f.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); return true; })()`);
+      await t.frames(8);
+      const i = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr && pr.ent ? ctx.foot.spots().indexOf(pr.ent) : -1; })()`);
+      const d = { name: f.name, i, at: f.at };
+      await W.reset(t);
+      const ok = await enter(d, where);
+      if (ok !== true) { await playing(); continue; }
+      const a = await audit(where);
+      report(where, a);
+      if (await g(`!!(window.__interiors && __interiors.room && __interiors.room.ready)`)) await leave(d, where, car0); else await playing();
+      const r = await W.report(t); W.log(r); W.check(t, `${where}: in + out`, r); await W.reset(t);
+    }
   };
 
   /** Everything bought in the sweep (the one-offs) is in the save, and still there after a reload. */
@@ -335,7 +407,7 @@ function make(t) {
     oneOffs.forEach((x, k) => t.check(`bought ${x.name} (${x.where}) is in the save (${a[k]}) and survives a reload (${b[k]})`, a[k] && b[k]));
   };
 
-  return { persisted, BUYS, g, st, coins, log, shot, playing, start, town, onFoot, findDoors, room, dialogFit, flood, facts, drive, useHot, audit, enter, leave, carPos, sweepTown };
+  return { sweepFronts, persisted, BUYS, g, st, coins, log, shot, playing, start, town, onFoot, findDoors, room, dialogFit, flood, facts, drive, useHot, audit, enter, leave, carPos, sweepTown };
 }
 
 module.exports = { make, W };

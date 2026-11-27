@@ -135,7 +135,7 @@ export class Bubbles {
         sp.scale.set(sw, sw * c.height / W, 1);
         sp.renderOrder = 10;
         this.set.add(sp);
-        this.list.push({ sp, mat, tex, at, t: secs, yOff, life: secs });
+        this.list.push({ sp, mat, tex, at, t: secs, yOff, life: secs, w: sw, h: sw * c.height / W, fill: tw / W, text: String(text).slice(0, 80) });
     }
     update(dt) {
         for (let i = this.list.length - 1; i >= 0; i--) {
@@ -144,6 +144,15 @@ export class Bubbles {
             const p = b.at.isVector3 ? b.at : b.at.position;
             const rise = Math.min(1, (b.life - b.t) * 6);
             b.sp.position.set(p.x, p.y + b.yOff + rise * 0.15, p.z);
+            // (the on-foot camera indoors sits close to the walls — ci/doors — and a phone held upright sees a narrow
+            //  slice: a bubble near the lens filled the screen in giant letters. Never wider than ~90 % of the view /
+            //  taller than a third of it at its distance: the same readable size it has across the room.)
+            const cam = this.set.camera;
+            if (cam && cam.isPerspectiveCamera) {
+                const d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vh = 2 * d * Math.tan(cam.fov * Math.PI / 360), vw = vh * cam.aspect;
+                const k = Math.min(1, (vw * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
+                b.sp.scale.set(b.w * k, b.h * k, 1);
+            }
             b.mat.opacity = Math.min(1, b.t * 4) * Math.min(1, rise * 1.5);
             if (b.t <= 0) { this.set.scene.remove(b.sp); b.mat.dispose(); b.tex.dispose(); this.list.splice(i, 1); }
         }

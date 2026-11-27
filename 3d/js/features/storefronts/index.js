@@ -98,10 +98,13 @@ function label(f) {
     if (f.st && f.st.bowling) return "🎳 COMING SOON: EAST MIDWOOD LANES";
     return { soon: "🚧 COMING SOON", lease: "🏷️ FOR LEASE", use: `🔧 ${name.toUpperCase()}: BACK IN 5`, office: "🏢 OFFICES UPSTAIRS", dentist: "🦷 UPSTAIRS", gone: "🪧 CLOSED FOR GOOD" }[s] || "🏪";
 }
+const hunted = () => !!((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing));
 function say(text) { const o = ctx.foot && ctx.foot.obj; if (o && ctx.foot.say) ctx.foot.say(o, text, 3.4); }
 function act(f) {
     if (!f) return false;
     const s = stateOf(f), R = rowOf(f);
+    // (every other door in town is shut to her while the police are after her — a shop isn't a hiding place either)
+    if ((s === "open" || s === "claimed") && hunted()) { say("Not with the police right behind her!"); return true; }
     if (s === "open") return enter(f);
     if (s === "claimed") { const c = F.claims.get(f.id); try { return c && c.enter ? c.enter(f) : false; } catch (e) { console.error("[storefronts] claim", e); return false; } }
     if (s === "closed") { say(`"${R.shut || "CLOSED"}"${nextOpen(R.hours) ? " — " + nextOpen(R.hours) : ""}`); return true; }
@@ -126,7 +129,7 @@ const doorSpot = {
     r: 2.6, short: "SHOP",
     pos() { const f = nearFront(); return f ? doorOf(f) : null; },
     get door() { const f = F.near; return !!f && stateOf(f) === "open"; },
-    get walkIn() { const f = F.near; return f && stateOf(f) === "open" ? { id: ROOM_ID } : null; },
+    get walkIn() { const f = F.near; return f && stateOf(f) === "open" && !hunted() ? { id: ROOM_ID } : null; },
     label: () => label(F.near),
     act: () => act(F.near),
 };
