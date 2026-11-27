@@ -98,4 +98,51 @@ KITS.mazelati = (model, anchors, sk) => {
     model.add(g);
 };
 
+/** The EV showroom's layout (model-local): a white glass box, four cars on flat pads, the tablet kiosk by the door. */
+export const EVSHOW = {
+    w: 22, d: 10, h: 5.2, z0: -3,
+    pads: [{ x: -8, z: 4.5 }, { x: -2.7, z: 4.5 }, { x: 2.7, z: 4.5 }, { x: 8, z: 4.5 }],
+    tablet: { x: 0, z: -0.6 },
+};
+function buildTushla() {
+    const g = new THREE.Group();
+    g.name = "dealers_tushla";
+    const S = EVSHOW, W = S.w, D = S.d, H = S.h, zf = S.z0, zc = zf - D / 2;
+    const solid = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.05 });
+    const WHITE = "#FAFAFA", GREY = "#CFD8DC", DARK = "#263238", CONC = "#B0B7BB", RED = "#D32F2F";
+    const P = [];
+    P.push([box(32, 0.06, 18, 0, 0.03, 5), CONC]);
+    P.push([box(W, 0.1, D, 0, 0.05, zc), WHITE]);
+    P.push([box(W, H, 0.3, 0, H / 2, zf - D + 0.15), WHITE]);
+    for (const sx of [-1, 1]) P.push([box(0.3, H, D, sx * (W / 2 - 0.15), H / 2, zc), WHITE]);
+    P.push([box(W + 0.4, 0.35, D + 0.4, 0, H + 0.17, zc), WHITE]);
+    for (let x = -W / 2; x <= W / 2 + 0.01; x += W / 4) P.push([box(0.08, H, 0.08, x, H / 2, zf), GREY]);
+    // the pads (flat, pale) + the chargers (a slim white post each, a red light)
+    for (const p of S.pads) { P.push([box(4.6, 0.05, 6.2, p.x, 0.085, p.z), GREY]); P.push([box(0.3, 1.4, 0.3, p.x + 2.6, 0.7, p.z - 2.4), WHITE], [box(0.32, 0.08, 0.32, p.x + 2.6, 1.2, p.z - 2.4), RED]); }
+    // the tablet kiosk (a white stalk, a dark slab)
+    P.push([box(0.12, 1.1, 0.12, S.tablet.x, 0.55, S.tablet.z), WHITE], [box(0.8, 0.55, 0.06, S.tablet.x, 1.25, S.tablet.z + 0.05), DARK]);
+    g.add(merged(P, solid, "Solid"));
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.06), new THREE.MeshStandardMaterial({ color: "#E3F2FD", roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.25, depthWrite: false }));
+    glass.position.set(0, H / 2, zf); glass.name = "Glass"; g.add(glass);
+    const tex = canvasTex(1024, 128, (c, w, h) => {
+        c.fillStyle = "#FAFAFA"; c.fillRect(0, 0, w, h);
+        c.fillStyle = "#111111"; c.font = "300 78px Helvetica, Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+        c.fillText("T U S H L A", w / 2, h / 2 + 4);
+    }, false);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.25), new THREE.MeshBasicMaterial({ map: tex }));
+    sign.position.set(0, H + 0.17, zf + 0.42); sign.name = "Fascia"; g.add(sign);
+    return g;
+}
+// the EVs' kit: flush, smooth — a black glass roof strip + a light bar across the back
+KITS.tushla = (model, anchors, sk) => {
+    const black = km("evglass", { color: "#0B0B0B", metalness: 0.6, roughness: 0.1 });
+    const bar = km("evbar", { color: "#FF5252", emissive: "#FF1744", emissiveIntensity: 0.6 });
+    const g = new THREE.Group(); g.name = "Kit_tushla";
+    const lb = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.04), bar); lb.position.set(0, 0.78, -2.06);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.1, 0.05), black); nose.position.set(0, 0.56, 2.12);
+    g.add(lb, nose);
+    model.add(g);
+};
+
 if (!models.dealers_mazelati) models.dealers_mazelati = buildMazelati();
+if (!models.dealers_tushla) models.dealers_tushla = buildTushla();

@@ -1697,6 +1697,21 @@ GT's 🅿️ self-park: ❚❚ › "Let the car park itself" in a Parking Challe
 ★ and no level bonus). Nothing here pays coins. 3D save `dealers` (options per car, the nonsense, deals / walk-outs).
 `ctx.dealers` = { open(id), haggle(id), perks(id), has(k), debug }; events `dealers:haggle` / `dealers:option` /
 `dealers:nonsense` / `dealers:perk`. 📱 Map: `ctx.pins.add` (when ci/hud's registry exists). Test: `dealers`.
+**Tushla Motors** (stage 2, `ev.js`): across the highway at the same lap metre — a LEFT pull-off (d −30, `reserve` side −1),
+reached by crossing the oncoming lanes like any left turn (never driving along them the wrong way). White, minimalist, no
+salesmen: a tablet kiosk (✋ → the card: four EVs at a fixed price, two taps to buy; acceleration off Refael's chart) and
+the founder, Reb Zev Volt, who posts too much (toasts while she's there). **⚡ Full Schlep Driving** (`schlep.js`, the
+numbers in `data.js` › `SUB`): 100 coins per 30 REAL days, "renews in N days"; cancel any time (it runs to the end of
+what she paid); at the end it renews once if not cancelled and she has the coins, else it lapses quietly — never a debt
+(`buyExtra`). In a Tushla on the highway, ❚❚ › "⚡ Let the car drive": a `controls` hook (after `core/driving.js` ›
+`autoDrive`) holds a lane of OUR side at the mode's speed — 👵 Bubbe 50 mph / 🙂 Normal / 🌶️ Meshuga at the limit
+(`law/data.js` › `SPEED_LIMIT` − 1 mph: a radar never flags it), a gap to the car ahead, overtakes when the next lane is
+clear (`traffic.laneFree`). Steer / brake / nitro / handbrake take over; it hands back with a chime for a chase, a work
+zone ahead (`roadevents/construction.js` › `zoneAhead`), a 💼 job, a town, getting out, a crash. `ctx.G.selfDriving`
+turns off close calls (`core/driving.js`) and style moves (`moves/common.js` › `addMove`). Quirks (a phantom brake…).
+Not yet: through town to the 📍 Ping (needs ci/hud's ping). `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
+active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
+`dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at

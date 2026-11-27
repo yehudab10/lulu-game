@@ -6,6 +6,8 @@
 //   • the haggle: walking out (the manager, once), losing his patience (back to the sticker), a deal below the sticker,
 //     can't afford it (nothing taken); the F&I office: real options (they work) + nonsense (Sal remembers)
 //   • a working perk (launch control, the bigger tank, the fridge); never below 0 coins; the watchdog is quiet
+//   • stage 2: Tushla across the highway (a left pull-off), the tablet (two taps to buy), ⚡ Full Schlep Driving: subscribe /
+//     cancel / lapse / renew (a moved clock), the self-drive holds our lane under the limit, pays nothing, hands back
 const W = require("../lib/qawatch.js");
 module.exports = {
   name: "dealers",
@@ -171,6 +173,80 @@ module.exports = {
       t.check("…only once", (await evs(/dealers:perk.*fridge/)).length === 1);
       t.check("no coins from any perk", await coins() === cP, `${cP} → ${await coins()}`);
     });
-    { const r = await W.report(t); W.log(r); W.check(t, "Mazelati (the showroom, the haggle, the perks)", r); }
+    { const r = await W.report(t); W.log(r); W.check(t, "Mazelati (the showroom, the haggle, the perks)", r); await W.reset(t); }
+
+    // ══ stage 2: ⚡ Tushla across the highway + Full Schlep Driving ══
+    const D = `__lulu3d.ctx.dealers`;
+    await step("ev", async () => {
+      t.check("Tushla is built across the highway (a left pull-off at the same lap metre)", await t.until(`${D}.debug.ev.E.spots.some(s => Math.abs(s.s - 16800) < 1 && s.place.side === -1)`, "Tushla built", 30000));
+      t.check("…its pull-off is paved on the left, the trees kept off", await t.L(`import("./js/world.js").then(m => m.pavedAt(16800, -20) >= 2 && __lulu3d.ctx.world.reserved.some(r => r.s0 <= 16790 && r.s1 >= 16810 && r.side === -1))`));
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
+      await W.pause(t, false);
+      await g(`(() => { const E = ctx.dealers.debug.ev.E, sp = E.spots.find(s => Math.abs(s.s - 16800) < 1); const F = ctx.foot.debug.F; const c = Math.cos(sp.rot), si = Math.sin(sp.rot); F.pos.set(sp.x + 0 * c + 0.9 * si, 0.05, sp.z + 0.9 * c); F.phase = "walk"; return true; })()`);
+      await t.frames(6); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`); await t.frames(6); await W.pause(t, true); await W.moved(t);
+      t.check("four EVs out front (+ the tablet)", await t.until(`${D}.debug.ev.E.cars.length === 4`, "EVs", 8000));
+      t.check("✋ the tablet", /TUSHLA TABLET/.test(await t.L(`(document.querySelector(".prompt") || {}).textContent || ""`)), await t.L(`(document.querySelector(".prompt") || {}).textContent || ""`));
+      await t.shot("tushla");
+      await g(`(ctx.dealers.tablet("tushla_nu"), true)`); await t.frames(4);
+      const card = await t.L(`(document.querySelector("#screenCard") || {}).textContent || ""`);
+      t.check("the tablet card: the cars + ⚡ Full Schlep Driving", /Tushla Motors/.test(card) && /Tushla Nu/.test(card) && /Full Schlep Driving/.test(card), card.slice(0, 200));
+      await t.shot("tablet");
+      const c0 = await coins();
+      await g(`ctx.dealers.debug.ev.buyHere("tushla_nu")`);
+      t.check("one tap doesn't buy (the price is the price — two taps)", await coins() === c0 && !(await save()).ownedSkins.includes("tushla_nu"));
+      await g(`ctx.dealers.debug.ev.buyHere("tushla_nu")`);
+      t.check("…the second buys it: 4,000, no haggling", c0 - await coins() === 4000 && (await save()).ownedSkins.includes("tushla_nu") && await g(`ctx.car.skinKey`) === "tushla_nu");
+      t.check("its acceleration beats every Mazelati", await t.L(`import("./js/car.js").then(m => m.SKINS.tushla_nu.acc > m.SKINS.machatunim.acc)`));
+    });
+    await step("sub", async () => {
+      const c0 = await coins();
+      await g(`ctx.dealers.debug.ev.subHere()`); await g(`ctx.dealers.debug.ev.subHere()`);
+      t.check("subscribe: 100 coins, 30 days", c0 - await coins() === 100 && await g(`ctx.dealers.schlep.active() && ctx.dealers.schlep.daysLeft() === 30`));
+      t.check("the card says 'renews in 30 days'", /renews in 30 days/.test(await t.L(`document.querySelector("#screenCard").textContent`)) || /30 days left/.test(await t.L(`document.querySelector("#screenCard").textContent`)));
+      await g(`ctx.dealers.debug.ev.subHere()`); await g(`ctx.dealers.debug.ev.subHere()`);
+      t.check("cancel: still works to the end of what she paid", await g(`ctx.dealers.debug.DS.sub.cancelled === true && ctx.dealers.schlep.active()`));
+      await g(`(ctx.schlepNow = () => Date.now() + 31 * 86400000, ctx.dealers.schlep.renewCheck(), true)`);
+      t.check("…after 30 days a cancelled one lapses quietly: no charge, no debt", !await g(`ctx.dealers.schlep.active()`) && c0 - await coins() === 100);
+      await g(`(ctx.schlepNow = null, true)`);
+      t.check("subscribe again", await g(`ctx.dealers.schlep.subscribe().ok`) && c0 - await coins() === 200);
+      await g(`(ctx.schlepNow = () => Date.now() + 31 * 86400000, ctx.dealers.schlep.renewCheck(), true)`);
+      t.check("not cancelled → it renews once (100) at the end", await g(`ctx.dealers.schlep.active()`) && c0 - await coins() === 300);
+      await g(`(ctx.schlepNow = null, true)`);
+      await t.L(`import("./js/features/shops/card.js").then(m => m.closeCard(true))`);
+      await t.frames(3);
+    });
+    await step("selfdrive", async () => {
+      await g(`(ctx.foot.active && ctx.foot.end("test"), true)`);
+      await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
+      await W.pause(t, false);
+      await g(`(() => { const s = ctx.car.s + 300, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+      await t.frames(6); await W.pause(t, true); await W.moved(t);
+      const c0 = await coins(), cc0 = await g(`ctx.G.closeCalls`), s0 = await g(`ctx.car.s`);
+      t.check("❚❚ offers ⚡ Let the car drive (in a Tushla, subscribed)", await t.L(`import("./js/core/ctx.js").then(m => m.menuItems("pause").some(i => i.id === "schlepOn"))`));
+      t.check("engage", await g(`ctx.dealers.schlep.engage()`) && await g(`ctx.G.selfDriving === true`));
+      await t.L(`(window.__sd = { max: 0, dev: 0, n: 0 }, true)`);
+      for (let i = 0; i < 24; i++) {
+        await t.frames(25);
+        await t.L(`(() => { const c = __lulu3d.ctx.car, S = window.__sd, L = [1.75, 5.25]; S.max = Math.max(S.max, c.speed * 2.23694); S.dev = Math.max(S.dev, Math.min(...L.map(l => Math.abs(c.d - l)))); S.n++; })()`);
+        if (!await g(`ctx.dealers.schlep.on`)) break;
+      }
+      const SDv = await t.L(`window.__sd`);
+      t.check("it drives itself down our side, in a lane", await g(`ctx.dealers.schlep.on`) && await g(`ctx.car.s`) - s0 > 150 && SDv.dev < 1.4 && await g(`ctx.car.d > 0`), `${JSON.stringify(SDv)} · ${(await g(`ctx.car.s`) - s0).toFixed(0)} m · last ${await g(`ctx.dealers.schlep.debug.last`)}`);
+      t.check("it never goes over the limit (70 mph)", SDv.max <= 70.5 && SDv.max > 40, SDv.max.toFixed(1));
+      t.check("…no close-call bonus, no coins", await g(`ctx.G.closeCalls`) === cc0 && await coins() === c0);
+      await g(`(ctx.dealers.schlep.setMode("bubbe"), true)`); await t.frames(200);
+      t.check("👵 Bubbe mode slows to 50", await g(`ctx.car.speed * 2.23694`) < 52, String(await g(`ctx.car.speed * 2.23694`)));
+      await g(`(ctx.dealers.schlep.setMode("normal"), true)`);
+      await t.stick(0.8); await t.frames(4); await t.stick(0); await t.frames(2);
+      t.check("steering takes the wheel back (a chime)", !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "you" && !await g(`ctx.G.selfDriving`));
+      await t.frames(10);
+      await g(`ctx.dealers.schlep.engage()`); await t.frames(20);
+      await g(`(ctx.law.startChase("SPEEDING"), true)`); await t.frames(6);
+      t.check("a chase hands the wheel back", !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "chase");
+      t.check("…and it won't start again while she's wanted", !await g(`ctx.dealers.schlep.engage()`));
+      await g(`(ctx.law.lose && ctx.law.lose("lost"), true)`);
+    });
+    { const r = await W.report(t); W.log(r); W.check(t, "Tushla + Full Schlep Driving", r); }
   },
 };

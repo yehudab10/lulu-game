@@ -34,6 +34,8 @@ import { LUX, LUX_CARS, LUX_IDS, LAP_M, SAL, OPTIONS, BUILT_IN } from "./data.js
 import { SHOW } from "./models.js";
 import { haggle, remembered } from "./haggle.js";
 import { DS, perksOf, hasPerk, perksDebug } from "./perks.js";
+import { openTablet, evDebug } from "./ev.js";
+import { schlep } from "./schlep.js";
 
 // ── the cars join the game's car list (before the car is made: app.js imports features first) ──
 for (const [id, c] of Object.entries(LUX_CARS)) {
@@ -215,5 +217,7 @@ hook("hud", () => {
 
 ctx.dealers = {
     open: openShowroom, haggle, perks: perksOf, has: hasPerk,
-    debug: { D, DS, LUX_AT, nearSpot, padWorld, talk, perks: perksDebug },
+    /** ⚡ Tushla's tablet (stage 2) + Full Schlep Driving (the subscription + the self-driving). */
+    tablet: openTablet, schlep,
+    debug: { D, DS, LUX_AT, nearSpot, padWorld, talk, perks: perksDebug, ev: evDebug },
 };

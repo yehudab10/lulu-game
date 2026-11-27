@@ -96,3 +96,67 @@ export const HAGGLE = {
     managerBonus: 0.05,           // walking toward the door with a counter on the table → "let me talk to my manager": 5 % more off (once; bounded by the floor)
     tradeIn: 0.25,                // a trade-in is worth 25 % of what she paid (never a profit)
 };
+
+// ── stage 2: TUSHLA, across the highway (the EV showroom: white, minimalist, no salesmen — a tablet) ──
+export const EV = {
+    id: "tushla", addr: "hw:tushla", name: "Tushla", full: "Tushla Motors", emoji: "⚡", d: -30,
+    tagline: "No engine. No salesmen. No problem.",
+    sign: { bg: "#F5F5F5", fg: "#111111", lines: ["TUSHLA", "THE FUTURE · LEFT"] },
+};
+/** The EV cars: huge acceleration (instant torque), the rest good. All carry the "schlep" hardware (the subscription). */
+export const EV_CARS = {
+    tushla_nu: {
+        name: "Tushla Nu", price: 4000,
+        body: "#ECEFF1", light: "#FFFFFF", dark: "#90A4AE", stripe: "#111111",
+        top: 1.10, acc: 1.50, grip: 1.10, brake: 1.15, nitro: 1, perks: [],
+        flavor: "The cheap one. 'Nu' as in 'nu, so you bought the cheap one'.",
+    },
+    tushla_oy: {
+        name: "Tushla Oy", price: 9000,
+        body: "#B71C1C", light: "#E57373", dark: "#5D0F0F", stripe: "#ECEFF1",
+        top: 1.20, acc: 1.65, grip: 1.20, brake: 1.20, nitro: 1.1, perks: [],
+        flavor: "Doors that open UP. Like eyebrows. At your parking.",
+    },
+    tushla_shh: {
+        name: "Tushla Shh", price: 16000,
+        body: "#111111", light: "#424242", dark: "#000000", stripe: "#ECEFF1",
+        top: 1.35, acc: 1.80, grip: 1.25, brake: 1.25, nitro: 1.2, perks: [],
+        flavor: "Pastrami Mode: 0–60 before the mustard. Silent. Bubbe still hears it.",
+    },
+    tushla_kugel: {
+        name: "Kugeltruck", price: 24000,
+        body: "#9E9E9E", light: "#CFD8DC", dark: "#616161", stripe: "#111111",
+        top: 1.20, acc: 1.45, grip: 1.50, brake: 1.30, nitro: 1.2, perks: [],
+        flavor: "Built like a kugel: square, heavy, and nobody asked for it. Shatterproof*. (*Shatters.)",
+    },
+};
+export const EV_IDS = Object.keys(EV_CARS);
+/** The founder (posts too much). His posts scroll on the showroom's screen + land in the 📱 now and then. */
+export const ZEV = {
+    name: "Reb Zev Volt", emoji: "🧑‍🚀",
+    posts: [
+        "Full Schlep Driving next month. Definitely. 100 %. (This month's next month.)",
+        "Who needs salesmen when you have a TABLET. 🙃",
+        "Kugeltruck pre-orders: 1,000,000. Deliveries: 3. Working on it.",
+        "Our cars update overnight. Last night it learned to kvetch.",
+        "Funding secured. (My Bubbe said yes.)",
+        "The Nu is 0–60 in 'nu, already'.",
+    ],
+};
+/** FULL SCHLEP DRIVING™ (not a real product name — a parody): the subscription. 100 coins per 30 REAL days; cancel any
+ *  time (it runs to the end of what she paid); it lapses quietly — never a debt. Only Tushla cars can use it. */
+export const SUB = {
+    price: 100, days: 30,
+    modes: {
+        bubbe:   { name: "👵 Bubbe", mph: 50, gap: 40, lanes: false, desc: "50 mph, a big gap, never changes lanes. Signals for a full minute." },
+        normal:  { name: "🙂 Normal", mph: 0, gap: 25, lanes: true, desc: "The limit, overtakes when it's clear." },
+        meshuga: { name: "🌶️ Meshuga", mph: 0, gap: 14, lanes: true, desc: "The limit (still!), tight gaps, eager lane changes. Mutters." },
+    },
+    quirks: [
+        "🤖 Phantom brake! …It was a plastic bag. It's fine. It's FINE.",
+        "🤖 “I see a pedestrian.” (It's a fire hydrant.)",
+        "🤖 Lane-change signal on… for a while… still on…",
+        "🤖 It honked at a pigeon. Politely.",
+        "🤖 “Recalculating.” (Nothing changed.)",
+    ],
+};
