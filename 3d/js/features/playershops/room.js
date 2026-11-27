@@ -177,7 +177,11 @@ function tick(rt, dt) {
     refreshShelves(rt); refreshStock(rt);
     // (she's in her own shop: she's at the counter — a visitor can tip her; the relay's mark lasts 90 s, pinged every 60)
     const c = ROOM.cur;
-    if (c && c.mode === "owner" && API && API.SVR && API.SVR.SV.on && (rt.data.V.ping = (rt.data.V.ping || 60) + (dt || 0)) >= 60) { rt.data.V.ping = 0; API.SVR.counter(c.id); }
+    if (c && c.mode === "owner" && API && API.SVR && API.SVR.SV.on) {
+        const V = rt.data.V;
+        V.ping = (V.ping == null ? 60 : V.ping) + (dt || 0);         // (the first tick pings at once; then once a minute — NOT `|| 60`: 0 is a real value)
+        if (V.ping >= 60) { V.ping = 0; V.pings = (V.pings || 0) + 1; API.SVR.counter(c.id); }
+    }
 }
 
 // ── owner: shelving by hand ──────────────────────────────────────────────────────────────────────────────────────

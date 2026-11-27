@@ -101,6 +101,7 @@ async function body(t, guests) {
   let atCounter = false;
   for (let k = 0; k < 30 && !atCounter; k++) { atCounter = await A.L(`fetch(${JSON.stringify(RELAY)} + "/shops/view?id=" + ${JSON.stringify(F.id.replace(/^shop:/, ""))}, { cache: "no-store" }).then(r => r.json()).then(j => j.shop.at === 1)`); if (!atCounter) await sleep(1000); }
   t.check("A inside her shop: the relay says she's at the counter", atCounter);
+  t.check("…pinged once, not every frame", (await A.game(`window.__interiors.room.data.V.pings`)) <= 2, String(await A.game(`window.__interiors.room.data.V.pings`)));
   await B.game(`(window.__interiors.room && window.__interiors.room.leave(), true)`);
   await B.until(`ctx.state === "footRun"`, "B out", 15000);
   const cB2 = await B.game(`L3.wallet.coins`);
