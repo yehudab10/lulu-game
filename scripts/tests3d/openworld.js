@@ -275,7 +275,10 @@ async function partyRun(t, guests) {
   await g(`ctx.phone.closePhone()`);
 
   // 🚗 ride along: the guest hops into the host's passenger seat
-  t.check("ride: the guest hops in", (await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`)) === "");
+  // (a slow runner: the host's snapshots can be a moment stale right after the phone — a player would tap again)
+  let rideWhy = await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`);
+  for (let i = 0; i < 5 && rideWhy && /Can't see them/.test(rideWhy); i++) { await A.frames(30); rideWhy = await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`); }
+  t.check("ride: the guest hops in", rideWhy === "", rideWhy);
   // (in GAME frames: on a slow runner her riding pose reaches the host a beat late)
   t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await waitOn(t.page, `!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`, 30000));
   const rideSt = await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return { riding: ctx.openworld.riding, shown: !!rc && rc.shown, vis: ctx.car.obj.children.some(c => c.visible), d: rc ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(2) : -1, st: ctx.state }; })()`);
