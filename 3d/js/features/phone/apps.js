@@ -4,7 +4,7 @@
 // apps (Map, Jobs, Paint) also hide in a 🎉 party, where those features are off.
 import { ctx } from "../../core/ctx.js";
 import { STATIONS, SONGS, JOBS } from "../hustle/data.js";
-import { addApp, esc, partyOn } from "./ui.js";
+import { addApp, esc, partyOn, roomHere } from "./ui.js";
 import { lapWorld } from "../../world.js";
 import { drawLap, myLapM } from "../world/lapmap.js";
 import { ONEGAME } from "../onegame/switches.js";
@@ -36,7 +36,7 @@ addApp({
         const me = myLapM();
         const inTown = ctx.town && ctx.town.active ? ctx.town.def && ctx.town.def.name : "";
         el.innerHTML = `<div class="lp-card" style="padding:0;overflow:hidden;border-radius:16px"><canvas class="lp-lapmap pin-map" width="600" height="420" style="display:block;width:100%;height:auto"></canvas></div>
-            ${inTown ? `<p class="lp-note">📍 You're in ${esc(inTown)}.</p>` : ""}
+            ${roomHere() ? `<p class="lp-note">📍 You're inside ${esc(roomHere().name)}${inTown ? `, ${esc(inTown)}` : ""}.</p>` : inTown ? `<p class="lp-note">📍 You're in ${esc(inTown)}.</p>` : ""}
             ${MAP_EXTRAS.map(x => { try { return x.html() || ""; } catch (e) { console.error("[phone] map extra", x.id, e); return ""; } }).join("")}
             ${PINS.html()}
             <p class="lp-fine">One loop, every place once — keep driving and you're back where you started.</p>`;
