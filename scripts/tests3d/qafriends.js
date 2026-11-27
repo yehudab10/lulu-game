@@ -15,6 +15,7 @@ const Q0 = `&enable=party,foot,town,atmos,openworld,homes,places,law&mpurl=${enc
 
 module.exports = {
   name: "qafriends",
+  fast: false,     // (two pages on the relay, which keep a REAL performance.now: flaky on the fast clock — 1 red in 2 full runs — the old clock)
   viewport: { width: 960, height: 540 },
   query: Q0,
   save2d: { totalCoins: 500, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid" },
