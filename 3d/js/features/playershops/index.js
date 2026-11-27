@@ -557,8 +557,8 @@ hook("hud", dt => {
     // (each step on its own: one failing never stops the others — the claims must follow the party / the relay)
     const step = (name, fn) => { try { fn(); } catch (e) { W.err = `${name}: ${e && e.message}`; console.error("[playershops] " + name, e); } };
     if (ctx.state === "playing" || ctx.state === "footRun") { step("day", dayTick); step("pay", payTick); }
+    step("party", publish);            // (first: friends' shops as they are NOW, then the signs + claims follow them)
     if (townId()) { step("layout", layout); step("claims", syncClaims); } else { step("clear", () => { if (W.group) clearSigns(); if (CL.size) dropClaims(); }); }
     step("depot", depotTick);
-    step("party", publish);
     step("server", serverTick);
 });

@@ -59,10 +59,10 @@ async function body(t, guests) {
   t.check("…not FOR LEASE for the guest", !(await A.game(`ctx.playershops.leasable().some(f => f.id === ${FJ})`)));
   t.check("…the licence counts for both (Lakewood: 3 kugel → 2 left)", await A.game(`ctx.playershops.licencesLeft("lakewood", "kugel")`) === 2);
   await A.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} - ${F.nx} * 0.4, 0.05, ${F.ap.z} - ${F.nz} * 0.4); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
-  await new Promise(r => setTimeout(r, 2000));
+  await A.until(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return !!(f && f.sid && /^other:/.test(P.CL.get(f.sid) || "")); })()`, "the guest's storefront ✋ follows the host's shop", 20000);
   // (the host's own front, as the storefronts ✋ labels it on the guest's screen — next door may be FOR LEASE)
   const lab = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return f && f.sid && ctx.storefronts ? String(ctx.storefronts.debug.label(f.sid) || "") : ((ctx.foot.debug.interactables() || {}).label || ""); })()`);
-  const why = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); let err = null; try { P.syncClaims(); } catch (e) { err = String(e && e.stack || e).slice(0, 300); } return { sid: f && f.sid, cl: f && f.sid ? P.CL.get(f.sid) : null, err, tickErr: P.W.err || null, oth: ctx.playershops.others().map(o => o.id), near: (ctx.foot.debug.interactables() || {}).label || "" }; })()`);
+  const why = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); let err = null; return { sid: f && f.sid, cl: f && f.sid ? P.CL.get(f.sid) : null, err, tickErr: P.W.err || null, oth: ctx.playershops.others().map(o => o.id), near: (ctx.foot.debug.interactables() || {}).label || "" }; })()`);
   t.check("guest: the host's front says ✋ 👀 LOOK ROUND <host>'S SHOP", /LOOK ROUND/.test(lab), lab + " " + JSON.stringify(why));
   await A.game(`(ctx.playershops.debug.enterShop(ctx.playershops.debug.frontById(${FJ}), "visit", ctx.playershops.debug.SHOP_PARTY.cache.find(x => x.id === ${FJ})), true)`);
   if (await A.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "guest inside the host's shop", 30000)) {
