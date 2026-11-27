@@ -74,7 +74,9 @@ async function partyRun(t, guests) {
   t.check("the hub's first choice is 🌍 Hang out (Free Roam)", await t.L(`(() => { const b = document.querySelector("#screenCard button"); return !!b && b.id === "pt_roam"; })()`));
   await t.L(`(() => { window.__states = []; import("./js/core/ctx.js").then(m => m.on("state", e => window.__states.push(e.to))); return true; })()`);
   await t.L(`document.getElementById("pt_roam").click()`);
-  if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.G.mode === "party"`, "🌍 Hang out → driving in Free Roam", 120000)) return;
+  if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "🌍 Hang out → driving in Free Roam", 120000)) return;
+  // (friends = the same game: 🌍 Free Roam rides on her OWN run — a normal ▶ PLAY run, no party run)
+  t.check("…on her own run (no party run)", await g(`ctx.G.mode === "cruise" && ctx.party.ownRun`));
   const hostStates = await t.L(`window.__states.slice()`);
   t.check("no 3-2-1 grid on the way into Free Roam", !hostStates.includes("partyGrid"), hostStates.join(">"));
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);

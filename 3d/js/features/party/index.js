@@ -182,7 +182,7 @@ ctx.party = {
     _debug: { lightFlag: (c, L = 10) => lightFlag(c, L), N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
         P.trace = on ? [] : null; for (const rc of R.cars.values()) rc.trace = on ? [] : null; return true; },
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
-        place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
+        place(s, d = 1.75, speed = 0) { if (lightRoam() && ctx.town && ctx.town.active) ctx.town.leave("highway"); placeCar(s, d, speed); return true; },   // (🌍 on her own run she may start in her home town)
         stageCars: () => STG.carCount(),
         claims: () => [...T.PT.claims].map(([k, c]) => ({ key: k, T0: c.T0, L: c.L, dS: c.dS, by: c.by, mine: c.mine, hail: c.hail, dead: T.PT.dead.has(k) })),
         claimCool: () => { CLAIM.cool = 0; return true; },
@@ -1521,10 +1521,12 @@ const HWY = {
 };
 function claimHandler(key) { const k = String(key), i = k.indexOf(":"); return (i > 0 && CLAIM.H.get(k.slice(0, i))) || HWY; }
 /** Claims are a carjack thing: a 🏡 Road Trip / 🌍 Free Roam run (not a race / dash / tag) with streets on. */
-function claimRunOk() { const A = N.A; return inPartyRun() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
+/** (🌍 on her own run the town's loop minivans are still the shared ones — openworld/towntraffic — so they claim the same way) */
+const claimWorld = () => inPartyRun() || lightRoam();
+function claimRunOk() { const A = N.A; return claimWorld() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
 function canClaim(c) {
     const key = c && c.data && c.data.party;
-    return typeof key === "string" && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
+    return typeof key === "string" && !c.data.lightClaim && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
         !(claimHandler(key).claimed && claimHandler(key).claimed(key)) && !!(ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind]);
 }
 function claimShared(c, opts = {}) {
@@ -1553,7 +1555,7 @@ function applyClaims(p, a) {
         claimHandler(key).add(key, T0, L, dS, p.uid, false, !!a[i + 4]);
     }
 }
-on("party:bc", ({ p, k, a }) => { if (k === "cl" && inPartyRun() && p.aid === N.A.id) applyClaims(p, a); });
+on("party:bc", ({ p, k, a }) => { if (k === "cl" && claimWorld() && p.aid === N.A.id) applyClaims(p, a); });
 function claimFeedback(c, how) {
     const msg = how === "step" ? "🛑 SCREEEECH — it stopped for you!" : how === "ram" ? "💥 They're pulling over… go get it!" : how === "hail" ? "✋ They're pulling over for you!" : "🚨 Pulling over…";
     H.toast(msg, "gold");
@@ -1750,7 +1752,7 @@ function dropShared(key) {
     for (const c of tr.cars.slice()) if (c.data && (c.data.party === key || c.data.partyClaim === key)) { if (!claimed) sparkle(c.x, c.z); tr.remove(c); }
     T.PT.cars.delete(key);
 }
-on("party:bc", ({ p, k, a }) => { if (k === "j" && inPartyRun() && p.aid === N.A.id) for (const key of a) dropShared(key); });
+on("party:bc", ({ p, k, a }) => { if (k === "j" && claimWorld() && p.aid === N.A.id) for (const key of a) dropShared(key); });
 // the jack of a car I'd claimed went through: now it's gone for everyone
 on("streets:carjack", () => {
     const pd = CLAIM.pending;
@@ -1847,12 +1849,13 @@ function frame() {
         onRoad = !ctx.view && N.A.k !== "lobby";
         R.updateCars(dt, showCar, decorate, frameOf);
         PS.tick(dt, sameWorld, displayName);
-        if (inPartyRun()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x) {
+        if (claimWorld()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x) {
             if (Array.isArray(p.x.cl)) applyClaims(p, p.x.cl);
             if (Array.isArray(p.x.jk)) for (const key of p.x.jk) dropShared(key);
         }
         if (CLAIM.cool > 0) CLAIM.cool -= dt;
         if (ctx.state === "footRun" && inPartyRun() && ctx.foot && ctx.foot.active) footTick(dt);
+        else if (ctx.state === "footRun" && lightRoam() && ctx.foot && ctx.foot.active && ctx.foot.pos && !ctx.paused) claimStepTick(ctx.foot.pos);   // (her own run: her own traffic, the town's shared minivans)
         hornsNearby();
         farewells();
         dashTick(dt);

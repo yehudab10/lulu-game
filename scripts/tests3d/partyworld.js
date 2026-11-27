@@ -253,23 +253,10 @@ async function freeRoam(t, guests) {
   const rp = [];
   for (const p of pages) rp.push(await p.game(`ctx.party.road.list(0, 24000).map(s => ({ key: s.key, id: s.id, s: +s.s.toFixed(2) }))`));
   t.check("free roam plan: identical on both screens, every feature gets slots", JSON.stringify(rp[0]) === JSON.stringify(rp[1]) && ["roadevents", "cameos", "hustle"].every(i => rp[0].some(x => x.id === i)), `${rp[0].length} slots`);
-  const big = ["roadevents", "hustle"].map(i => rp[0].find(x => x.id === i)).filter(Boolean);
-  for (const v of big) {
-    for (const [i, p] of pages.entries()) await p.game(`ctx.party._debug.place(${(v.s - (v.id === "hustle" ? 420 : 200)).toFixed(2)}, ${i ? 1.75 : 5.25}, 0)`);
-    await sleep(2500);
-  }
-  await sleep(2500);
-  for (const v of big) {
-    const got = [];
-    for (const p of pages) got.push(await p.game(v.id === "hustle" ? `ctx.hustle._dbg.party.log.filter(x => x.key === ${JSON.stringify(v.key)}).map(x => x.key + "@" + x.s + "=" + x.job + ":" + x.built)` : `ctx.roadevents.party.log.filter(x => x.key === ${JSON.stringify(v.key)}).map(x => x.key + "@" + x.s)`));
-    t.check(`same ${v.id} set piece on both screens: ${v.key}`, got[0].length === 1 && JSON.stringify(got[0]) === JSON.stringify(got[1]), got.map(x => x.join(" ")).join(" | "));
-  }
-  if (big.length) { await t.shot("setpiece-host"); await A.shot("setpiece-guest"); }
-  const mk = await g(`ctx.hustle.marker`);
-  // (built for her = up for her: with an early slot it was built at the start and the set-piece hops above may have carried her past it)
-  const hv = big.find(v => v.id === "hustle");
-  const built = hv ? await g(`ctx.hustle._dbg.party.log.some(x => x.key === ${JSON.stringify(hv ? hv.key : "")} && x.built)`) : true;
-  t.check("a seeded payphone / job board is up for the host", !hv || !!mk || built, JSON.stringify(mk));
+  // (friends = the same game: 🌍 Free Roam rides on each one's OWN run now — her own highway set pieces, payphones and
+  //  traffic, like solo; the seeded road plan is the 🏡 Road Trip's, checked above. What's shared in Free Roam: the towns'
+  //  loop traffic + the org cruisers below, the claims, the friends themselves.)
+  for (const p of pages) t.check(`${p.label}: Free Roam on her own run (no party run)`, await p.game(`ctx.G.mode === "cruise" && ctx.party.ownRun`));
   // each town its own exit, in the route's fixed order: the same metres on both screens (planned from fixed data only)
   const ex = [];
   for (const p of pages) ex.push(await p.game(`(["midwood", "lakewood", "midwood"].reduce((a, id) => { const s = ctx.town.exitOf(id, a.s); return { s: s + 1, out: a.out.concat(id + "@" + Math.round(s)) }; }, { s: 20000, out: [] }).out.join(","))`));
