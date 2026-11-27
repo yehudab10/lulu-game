@@ -64,7 +64,7 @@ const COUNTERS = {
         frame() {
             const sp = makoletSpot();
             if (!sp) return null;
-            return { me: { x: sp.x, z: sp.z }, keeper: { x: sp.x - sp.nx * 1.3 + sp.ux * 1.4, z: sp.z - sp.nz * 1.3 + sp.uz * 1.4, h: Math.atan2(sp.nx, sp.nz) },
+            return { me: { x: sp.x, z: sp.z, ux: sp.ux, uz: sp.uz, nx: sp.nx, nz: sp.nz }, keeper: { x: sp.x - sp.nx * 1.3 + sp.ux * 1.4, z: sp.z - sp.nz * 1.3 + sp.uz * 1.4, h: Math.atan2(sp.nx, sp.nz) },
                 stand: { x: sp.x - sp.nx * 0.9 - sp.ux * 1.2, y: 1.05, z: sp.z - sp.nz * 0.9 - sp.uz * 1.2 }, n: [sp.nx, sp.nz], u: [sp.ux, sp.uz], look: { x: sp.x - sp.nx * 1.5, z: sp.z - sp.nz * 1.5 } };
         },
         label: () => `🛒 ${(MAKOLET[townId()] || MAKOLET.lakewood).name.toUpperCase()}`,
@@ -243,6 +243,7 @@ function counterSpot(id) {
     const C = COUNTERS[id];
     return {
         r: id === "black" ? 2.2 : 2.0, short: id === "black" ? "PSST" : "SHOP",
+        door: true,         // (the makolet's front: the ✋ reaches across the shopfront — ci/doors; the van's spot has no axes → as before)
         pos() {
             if (!canShop() || cardOpen()) return null;
             const f = C.frame();

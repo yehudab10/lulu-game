@@ -9,7 +9,8 @@
 //
 // def = {
 //   id, name, short, emoji, title, model, models: [...], music, light, sky, fog,
-//   bounds: { x0, x1, z0, z1 }, cam: { dist, height }, ground?(x, z) → y,
+//   bounds: { x0, x1, z0, z1 }, cam: { dist, height } (ci/doors: only a HINT now — see the camera below; cam.fixed:
+//   true keeps the old from-above follow), ceil (m, the camera stays under it; default 3.0), ground?(x, z) → y,
 //   build(rt), tick?(rt, dt), beforeLeave?(rt) → Promise (e.g. the precinct sneak-out)
 // }
 import * as THREE from "three";
@@ -144,6 +145,15 @@ function enterInterior(def, opts) {
     if (cur) { console.warn("[interiors] already inside", cur.def.id); return false; }
     cur = new Room(def, opts || {});
     const room = cur;
+    // ci/doors stage 2: she WALKED into the doorway (features/foot walkIn) and the room is built-ready → no fade at all:
+    // the swap happens on this frame, the free camera carried over (same pitch; behind her, as she faces in)
+    if (ctx.foot && ctx.foot.walkingIn && ctx.interiors[def.id].ready()) {
+        room.walked = true;
+        setState("interior", { id: def.id });
+        if (room.loadNow() || room.disposed) return true;
+        room.load();
+        return true;
+    }
     // Everything's loaded (the door warmed it): a SOFT CUT — the frame of the street melts into the room, no black.
     if (!ctx.skipping && ctx.interiors[def.id].ready()) {
         let ok = false;
@@ -176,6 +186,21 @@ registerState("interior", {
 
 // ── the Room ─────────────────────────────────────────────────────────────
 const V = new THREE.Vector3(), V2 = new THREE.Vector3();
+/**
+ * 🎥 THE SAME CAMERA INSIDE AS OUTSIDE (ci/doors stage 1; the owner: "make all buildings walkable like in the same pov
+ * as it is now on foot rather then the above pov"). Every room is seen and steered exactly as on foot outdoors: the free
+ * third-person rig of core/camera.js (`ctx.cam.orbit` on the room's own camera — the same yaw / pitch, look speed,
+ * invert, stick directions; up on the stick = away from the camera; run = the boost / a full push). Done ONCE here, so
+ * no room def changes:
+ *   • the camera never leaves the room: clipped to the room's box (bounds + the wall's thickness) and under its ceiling,
+ *     pulled in toward her rather than through a wall (no lift over her head — there's a ceiling);
+ *   • anything small enough to be furniture / a partition / a pillar that stands between the camera and her fades out
+ *     (a ray from her head to the lens every other frame; the room's big shell meshes are never faded);
+ *   • a chat / a look-at (rt.active, rt.focusAt) turns the camera gently over her shoulder toward who she talks to;
+ *   • a mini-game (rt.mode) and `def.cam.fixed` keep the old from-above follow (their framing is part of the game).
+ */
+const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.6, fadeTo: 0.18 };
+const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();
 
 export class Room {
     constructor(def, opts) {
@@ -297,6 +322,16 @@ export class Room {
             this.hot({ id: "door", spot: "door", r: 1.5, label: `🚪 Leave ${def.short || def.name}`, action: rt => rt.leave() });
         }
         if (def.music) A.setMusic(def.music);
+        // (the free camera starts behind her as she comes in through the door, at the pitch it had outside — ci/doors)
+        if (this.orbitOn() && ctx.cam && ctx.cam.free) { ctx.cam.free.yaw = this.lulu.obj.rotation.y; ctx.cam.free.release(); }
+        // the way out (stage 2): walking back into the door spot, heading out, IS leaving — armed once she's stepped in
+        const dsp = this.spots.door;
+        if (dsp) {
+            const B = this.bounds, cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2, ox = dsp.x - cx, oz = dsp.z - cz;
+            // (out = from the middle of the room toward the door, along the wall's axis)
+            this.out = Math.abs(ox) / Math.max(1, B.x1 - B.x0) > Math.abs(oz) / Math.max(1, B.z1 - B.z0) ? { x: Math.sign(ox), z: 0 } : { x: 0, z: Math.sign(oz) || 1 };
+            this.outArmed = false;
+        }
         this.updateCamera(0, true);
         H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200);
     }
@@ -453,10 +488,11 @@ export class Room {
     finishLeave() {
         if (this.disposed) return;
         const cb = this.opts.exit;
+        if (this.walkOut && this.opts.from === "foot" && ctx.foot && ctx.foot.stepOut) ctx.foot.stepOut();
         const id = this.def.id;
         if (cur === this) cur = null;
         this.dispose();
-        if (this.soft) setFade(0, ""); else { setFade(1); fadeAway(); }
+        if (this.soft || this.walkOut) setFade(0, ""); else { setFade(1); fadeAway(); }
         if (ctx.G) ctx.G.invT = Math.max(ctx.G.invT || 0, 2.0);   // 2D: a 2 s shield back on the street
         emit("interior:exit", { id });
         if (typeof cb === "function") {
@@ -474,6 +510,8 @@ export class Room {
         H.prompt("");
         if (dialogIsOpen()) closeDialog();   // never strand a half-read line on the next screen
         if (this.bubbles) this.bubbles.clear();
+        if (this.faded) { for (const [o, f] of this.faded) { o.material = f.m0; for (const m of f.ms) m.dispose(); } this.faded.clear(); }
+        if (this.orbiting && ctx.cam && ctx.cam.free) ctx.cam.free.release();      // (outside, the street's rig starts fresh)
         if (this.set) {
             this.set.scene.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
             this.set.dispose();
@@ -492,6 +530,8 @@ export class Room {
         }
         if (this.t > 8 && this.chip) { const h = this.chip.querySelector(".int-hint"); if (h && !h.classList.contains("gone")) h.classList.add("gone"); }
         if (this.leaving) {
+            // (she WALKED out of the door: the street, this frame — no fade; ci/doors)
+            if (this.walkOut) { this.finishLeave(); return; }
             // (she came in by a soft cut: the room melts back into the street the same way)
             if (this.soft && !ctx.skipping) { dissolve(() => this.finishLeave()); return; }
             this.leaveT += dt;
@@ -506,6 +546,8 @@ export class Room {
             P = {};
         }
         this.updateLulu(dt);
+        if (P.recentre && this.orbiting) ctx.cam.free.recentre(this.lulu.obj.rotation.y);     // (R3 / V: behind her, as outside)
+        this.checkWalkOut();
         // input → hotspot / leave
         const free = !this.busy && !ctx.dialogOpen && !this.mode && !this.lock && !this.auto;
         this.near = free ? this.findNear() : null;
@@ -539,6 +581,15 @@ export class Room {
         this.updateCamera(dt, false);
     }
 
+    /** ci/doors stage 2: walking out through the room's door = leaving (no question, no fade). */
+    checkWalkOut() {
+        const dsp = this.spots.door;
+        if (!dsp || !this.out || this.leaving || this.busy || this.mode || this.lock || this.auto || ctx.dialogOpen || this.def.noWalkOut) return;
+        const L = this.lulu.obj.position, d = Math.hypot(L.x - dsp.x, L.z - dsp.z);
+        if (!this.outArmed) { if (d > 1.8) this.outArmed = true; return; }
+        const v = this.vel.x * this.out.x + this.vel.z * this.out.z;
+        if (d < 1.0 && v > 1.2) { this.walkOut = true; this.leave(); }
+    }
     use(h) {
         this.busy = true;
         this.active = h;
@@ -580,9 +631,16 @@ export class Room {
             else { mx = dx / d; mz = dz / d; run = Math.min(1, d * 2); }
         } else if (canMove) {
             const ix = input.moveX, iy = input.moveY;
-            const c = Math.cos(this.yaw), s = Math.sin(this.yaw);
-            mx = c * ix + s * iy;
-            mz = -s * ix + c * iy;
+            if (this.orbiting) {
+                // (as on foot: relative to the free camera — up = away from it; a full push / the boost = a run)
+                const h = ctx.cam.free.yaw, fx = Math.sin(h), fz = Math.cos(h);
+                mx = fx * -iy - fz * ix; mz = fz * -iy + fx * ix;
+                if (input.boost || (input.device === "touch" && Math.hypot(ix, iy) > 0.9)) run = 1.45;
+            } else {
+                const c = Math.cos(this.yaw), s = Math.sin(this.yaw);
+                mx = c * ix + s * iy;
+                mz = -s * ix + c * iy;
+            }
             const m = Math.hypot(mx, mz);
             if (m > 1) { mx /= m; mz /= m; }
         }
@@ -632,7 +690,99 @@ export class Room {
         p.z = clamp(p.z, B.z0, B.z1);
     }
 
+    /** The free on-foot camera in this room right now (not a mini-game, not a fixed-camera room)? */
+    orbitOn() { return !(this.def.cam && this.def.cam.fixed) && !this.mode && !!(ctx.cam && ctx.cam.orbit && ctx.cam.free); }
+    /** How far the camera may sit from `tgt` along (dx, dy, dz): inside the room's box + under its ceiling. */
+    camClip(tgt, dx, dy, dz, D) {
+        const B = this.bounds, C = this.def.cam || {}, w = C.wall != null ? C.wall : ORBIT.wall;
+        const ceil = (this.def.ceil || C.ceil || ORBIT.ceil) - 0.25;
+        let t = D;
+        if (dx > 1e-4) t = Math.min(t, (B.x1 + w - tgt.x) / dx); else if (dx < -1e-4) t = Math.min(t, (B.x0 - w - tgt.x) / dx);
+        if (dz > 1e-4) t = Math.min(t, (B.z1 + w - tgt.z) / dz); else if (dz < -1e-4) t = Math.min(t, (B.z0 - w - tgt.z) / dz);
+        if (dy > 1e-4) t = Math.min(t, (ceil - tgt.y) / dy);
+        // …and the room's own walls (its big shell meshes: a set's walls don't always sit on its walking bounds)
+        if (this.root && t > 0.6) {
+            RAY.set(RV.set(tgt.x, tgt.y, tgt.z), RD.set(dx, dy, dz).normalize()); RAY.near = 0.2; RAY.far = t + 0.3;
+            for (const h of RAY.intersectObject(this.root, true)) {
+                if (!h.object.isMesh || this.fadeable(h.object)) continue;
+                t = Math.min(t, h.distance - 0.3);
+                break;
+            }
+        }
+        // (tight: the rig may rise over her head — still under the ceiling, ORBIT.ceil leaves it the room)
+        return { d: Math.max(0.6, t), noLift: false };
+    }
+    /** Small enough to be furniture / a partition (faded when it's in the way), not the room's shell (clipped to). */
+    fadeable(o) {
+        if (o.userData.fadeOk == null) {
+            if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+            RS.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+            o.userData.fadeOk = RS.radius < ORBIT.fadeR;
+        }
+        return o.userData.fadeOk;
+    }
+    /** Fade whatever furniture-sized thing stands between the lens and her (restored once it's clear). */
+    fadeOccluders() {
+        if (!this.root || (this.fadeTick = (this.fadeTick || 0) + 1) % 2) return;
+        const cam = this.set.camera, L = this.lulu.obj.position;
+        const faded = this.faded || (this.faded = new Map()), hit = new Set();
+        RV.set(L.x, L.y + 1.1, L.z);
+        RD.copy(cam.position).sub(RV);
+        const far = RD.length() - 0.05;
+        if (far > 0.2) {
+            RAY.set(RV, RD.normalize()); RAY.near = 0.35; RAY.far = far;
+            for (const h of RAY.intersectObject(this.root, true)) {
+                const o = h.object;
+                if (!o.isMesh || hit.has(o)) continue;
+                if (this.fadeable(o)) hit.add(o);        // (the room's shell: never — the camera is clipped to it)
+            }
+        }
+        for (const o of hit) if (!faded.has(o)) {
+            const m0 = o.material, ms = (Array.isArray(m0) ? m0 : [m0]).map(m => { const c = m.clone(); c.transparent = true; c.depthWrite = false; return c; });
+            faded.set(o, { m0, ms, a: 1 });
+            o.material = Array.isArray(m0) ? ms : ms[0];
+        }
+        for (const [o, f] of faded) {
+            const want = hit.has(o) ? ORBIT.fadeTo : 1;
+            f.a += (want - f.a) * 0.35;
+            if (want === 1 && f.a > 0.97) { o.material = f.m0; for (const m of f.ms) m.dispose(); faded.delete(o); continue; }
+            for (const m of f.ms) m.opacity = f.a;
+        }
+    }
+    /** Tests: the first opaque room mesh between the lens and her chest ("" = a clear view). */
+    debugBlocked() {
+        const cam = this.set.camera, L = this.lulu.obj.position;
+        RV.copy(cam.position); RD.set(L.x, L.y + 1.0, L.z).sub(RV);
+        const far = RD.length() - 0.3;
+        RAY.set(RV, RD.normalize()); RAY.near = 0; RAY.far = far;
+        for (const h of RAY.intersectObject(this.root, true)) {
+            const m = h.object.material, op = Array.isArray(m) ? m[0].opacity : m.opacity;
+            if (h.object.isMesh && h.object.visible && !(op < 0.5)) return `${h.object.name || "mesh"} @${h.distance.toFixed(2)}`;
+        }
+        return "";
+    }
+    orbitCamera(dt, snap) {
+        const cam = this.set.camera, C = this.def.cam || {}, F = ctx.cam.free, L = this.lulu.obj.position;
+        if (!this.orbiting) {
+            // (back from a mini-game's fixed shot: the rig takes over from the picture on screen, no swing)
+            if (!snap) F.fromCamera(cam);
+            this.orbiting = true;
+            snap = true;
+        }
+        if (snap) F.release();          // (a snap: the rig's follow point jumps to her this frame)
+        // a chat / a look-at: over her shoulder toward them (only while the player leaves the look alone)
+        let auto = null, dist = C.orbitDist || ORBIT.dist;
+        const who = this.active && this.active.who && this.byId[this.active.who];
+        const at = this.focusAt || (who ? who.p.obj.position : this.active ? this.active : null);
+        if (at && Math.hypot(at.x - L.x, at.z - L.z) > 0.3) { auto = { yaw: Math.atan2(at.x - L.x, at.z - L.z), k: 3 }; dist *= 0.85; }
+        ctx.cam.orbit(this.lulu.obj, { camera: cam, dist, look: ORBIT.look, fov: this.def.fov || ORBIT.fov, auto,
+            clip: (tgt, dx, dy, dz, D) => this.camClip(tgt, dx, dy, dz, D) }, snap ? 0 : dt);
+        this.fadeOccluders();
+    }
+
     updateCamera(dt, snap) {
+        if (this.orbitOn()) return this.orbitCamera(dt, snap);
+        if (this.orbiting) { this.orbiting = false; if (ctx.cam && ctx.cam.free) ctx.cam.free.release(); }
         const cam = this.set.camera, L = this.lulu.obj.position, C = this.def.cam || {};
         const aspect = window.innerWidth / Math.max(1, window.innerHeight);
         const k = aspect < 0.7 ? 1.6 : aspect < 1.05 ? 1.3 : 1;

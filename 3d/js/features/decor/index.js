@@ -209,8 +209,12 @@ const doorSpot = {
         // (the house loads while she's on the porch — but not in the run's first seconds: the camera's still gliding in)
         const reg = ctx.interiors && ctx.interiors[HOUSE_ID];
         if (reg && reg.warm && ctx.time - FT.t > 1.6) { const p = ctx.foot.pos; if ((p.x - w.x) ** 2 + (p.z - w.z) ** 2 < 9 * 9) reg.warm(); }
-        return { x: w.x, z: w.z };
+        // (+ the house's axes: the ✋ reaches across the door and down the porch steps — ci/doors)
+        const x = w.x, z = w.z, n = at(DOOR.x, DOOR.z + 1), k = Math.hypot(n.x - x, n.z - z) || 1, nx = (n.x - x) / k, nz = (n.z - z) / k;
+        return { x, z, ux: nz, uz: -nx, nx, nz };
     },
+    door: { w: 0.9, inn: 0.3, out: 0.9 },     // (not down to the bottom of the steps: the run starts there, ✋ = her car)
+    walkIn: { id: HOUSE_ID, n: 0.7 },        // (her family's door: walk up the steps into it — ci/doors stage 2)
     // (always HER OWN copy — with friends too: nobody waits, nobody visits; moveout.js has Ima's joke for a friend beside her)
     label: () => "🏠 GO INSIDE",
     act() { enter(); },

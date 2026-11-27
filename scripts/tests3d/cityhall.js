@@ -90,7 +90,7 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "cruise starts")) return;
     await playing();
     await g(`(ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
-    await g(`(ctx.cityhall.debug.force.noDing = true, ctx.cityhall.debug.RB.next = 1e9, true)`);
+    await g(`(ctx.cityhall.debug.force.noDing = true, ctx.cityhall.debug.RB.next = 1e9, ctx.cityhall.debug.force.hour = 9, true)`);      // (9:00: the mayor isn't at lunch — a CI run at noon found him out)
     await W.install(t);
 
     for (const id of ["lakewood", "midwood"]) {

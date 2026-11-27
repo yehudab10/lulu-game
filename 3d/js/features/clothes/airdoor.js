@@ -61,6 +61,6 @@ export function enterMaison() {
     return enterAs("jfk", { exit: () => { setState("footRun", { resume: "interior" }); D.outAt = at; D.outT = ctx.time + 8; } });
 }
 on("boot", () => {
-    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, short: "MAISON", label: () => `👜 GO INTO ${SHOPS.jfk.name.toUpperCase()}`, act: () => enterMaison() });
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: () => doorPos(), r: 3.0, short: "MAISON", label: () => `👜 GO INTO ${SHOPS.jfk.name.toUpperCase()}`, act: () => enterMaison() });
 });
 export const airDebug = { D, AT, OPEN, tick, doorPos, enterMaison };

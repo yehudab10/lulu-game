@@ -574,8 +574,9 @@ function resume(data) {
         rd.point(dr.s, dr.side * (Math.abs(dr.d) - 1.4), _p);
         F.pos.set(_p.x, 0.05, _p.z);
         F.lulu.obj.rotation.y = Math.atan2(-Math.cos(_p.h) * -dr.side, Math.sin(_p.h) * -dr.side);
-        bubble(F.lulu.obj, pick(L.FOOT_EXIT_QUIPS), 2.2);
+        if (!F.stepOut) bubble(F.lulu.obj, pick(L.FOOT_EXIT_QUIPS), 2.2);
     }
+    const stepOut = F.stepOut && kind === "interior"; F.stepOut = false;
     F.phase = "walk"; F.phaseT = 0; F.enter = null;
     F.vel.set(0, 0, 0);
     F.y = 0; F.vy = 0; F.air = false; F.launch = null;
@@ -583,6 +584,15 @@ function resume(data) {
     F.lulu.obj.position.copy(F.pos);
     G.invT = Math.max(G.invT || 0, 2.0); G.invSoft = true;   // shield on re-entry to the road
     wash.style.opacity = "0";
+    // (ci/doors: she WALKED out — on the pavement, facing away from the door, still walking; the camera right behind)
+    if (stepOut) {
+        const W0 = F.walkInAt;
+        if (W0 && W0.town === (ctx.town && ctx.town.active ? ctx.town.id : null) && Math.hypot(W0.x - F.pos.x, W0.z - F.pos.z) < 12) {
+            F.pos.set(W0.x, 0.05, W0.z); F.lulu.obj.position.copy(F.pos); F.lulu.obj.rotation.y = Math.atan2(W0.nx, W0.nz);
+        }
+        const y = F.lulu.obj.rotation.y; F.vel.set(Math.sin(y) * WALK, 0, Math.cos(y) * WALK); F.camFree = true;
+    }
+    F.walkInAt = null;
     if (ctx.cam) { ctx.cam.snap(); if (ctx.cam.free) ctx.cam.free.yaw = F.lulu.obj.rotation.y; }
 }
 
@@ -641,7 +651,7 @@ function footUpdate(dt, P) {
         if (!F) return;
         B.update(F, dt);
         if (!F) return;
-        if (F.phase === "walk") interact(P);
+        if (F.phase === "walk") interact(P, dt);
         if (!F) return;
         chatter(dt);
         arrivedOnFoot();
@@ -1380,7 +1390,7 @@ function meetAvigail(outcome) {
     const w = F.walker;
     F.avigailDone = true;
     const rel = avigailRel();
-    const wedCh = rel >= 65 ? 0.25 : 0.10;
+    const wedCh = 0;          // (ci/family: no random wedding — it plays at the hall on Kings Hwy, when she walks in)
     const r = Math.random();
     const forced = outcome || ctx.foot.force.avigail;
     const res = forced || (r < wedCh ? "wedding" : r < wedCh + 0.2 ? "busy" : "join");
@@ -1408,14 +1418,16 @@ function meetAvigail(outcome) {
     A.sfxCloseCall(4);
 }
 
-function goWedding() {
+/** opts (features/family's hall): { hall: true — staged in the Avenue M Ballroom, paid(): false → the dancing only, no coins } */
+function goWedding(opts = {}) {
     F.handoff = "wedding";
     H.prompt("");
     S.weddings++; saveSoon();
     startWedding({
-        rel: avigailRel(),
+        rel: avigailRel(), hall: !!opts.hall,
         luluKey: luluKey(), luluColors: luluColors(F.disguise),
         onReward(caught) {
+            if (opts.paid && !opts.paid(caught)) { bumpAvigail(caught ? 4 : 2); return 0; }      // (the hall: a second wedding the same real day — the dancing only)
             const n = caught ? 40 : 15;
             addCoins(n, "wedding");
             if (caught) addCoins(1, "wedding star");   // the 2D footAwardStar: +1 ⭐ (= the coin wallet)
@@ -1562,6 +1574,63 @@ function updateArrest(dt) {
 
 // ── interactions (the ✋ hand button) ────────────────────────────────────
 const spotList = [];
+/**
+ * 🚪 DOORS THAT ARE EASY TO USE (ci/doors stage 0). A door's ✋ reaches across the whole doorway / shopfront and from
+ * the step out to the kerb — not one square metre. `at` is a town spot ({x, z, ux, uz, nx, nz, len?}: n points to the
+ * street, u along it; the town's door spots stand on the sidewalk 2.6 m out from the lot front). The point returned is
+ * `at` slid toward her inside that strip (then the spot's own r is measured from it, as before). Without axes → `at`.
+ *   o = { w: half-width along u, inn: metres toward the door, out: metres toward the kerb }
+ */
+const DOOR = { w: 1.6, inn: 1.6, out: 1.0 }, DOOR_FLOOR = 0.5;      // (floor: someone within half their reach — the inspector at her door, a chat — still wins)
+/**
+ * 🚶‍♀️ NO CUT (ci/doors stage 2): a PUBLIC door (a spot with `walkIn: { id, n? }` — id = its interior) is entered by
+ * walking into the doorway: within ±WALKIN.w of the door's middle, past n (metres from the spot toward the door —
+ * the town's door spots stand 2.6 m out; default WALKIN.n) and pushing the stick at the door for WALKIN.push s. The room
+ * was built while she walked up (warm() from ~24 m); not ready yet → the handle rattles, never a black screen. ✋ still
+ * works there too; a door with a choice (a stranger's house…) has no walkIn.
+ */
+const WALKIN = { w: 1.15, n: -0.9, push: 0.18, rattle: 1.2 };
+function walkIn(dt) {
+    if (F.phase !== "walk" || F.air || ctx.dialogOpen || F.chase || H.screenOpen()) { F.pushT = 0; return; }
+    const mx = input.moveX, my = input.moveY, mag = Math.min(1, Math.hypot(mx, my));
+    if (mag < 0.5) { F.pushT = 0; return; }
+    const h = frameYaw(), fx = Math.sin(h), fz = Math.cos(h);
+    const wx = fx * -my - fz * mx, wz = fz * -my + fx * mx, wl = Math.hypot(wx, wz) || 1;
+    const p = F.pos;
+    for (const sp of spotList) {
+        if (!sp.walkIn) continue;
+        let at = null;
+        try { at = sp.pos ? sp.pos() : sp; } catch (e) { continue; }
+        if (!at || at.nx == null) continue;
+        const dx = p.x - at.x, dz = p.z - at.z, u = dx * at.ux + dz * at.uz, n = dx * at.nx + dz * at.nz;
+        if (Math.abs(u) > WALKIN.w || n > (sp.walkIn.n != null ? sp.walkIn.n : WALKIN.n) || n < -4.5) continue;
+        if (-(wx * at.nx + wz * at.nz) / wl < 0.6) continue;           // (pushing AT the door, not along the wall)
+        if (F.pushSp !== sp) { F.pushSp = sp; F.pushT = 0; }
+        F.pushT += dt;
+        if (F.pushT < WALKIN.push) return;
+        const wid = typeof sp.walkIn.id === "function" ? sp.walkIn.id() : sp.walkIn.id, reg = ctx.interiors && ctx.interiors[wid];
+        if (reg && reg.ready && !reg.ready()) {
+            if (reg.warm) reg.warm();
+            if (ctx.time > (F.rattleT || 0)) { F.rattleT = ctx.time + WALKIN.rattle; A.sfxCloseCall(-4); rumble(0.15, 0.1, 60); bubble(F.lulu.obj, pick(["*rattle rattle* — one sec…", "It's stuck. Hold on…", "*jiggles the handle*"]), 1.1); }
+            return;
+        }
+        F.pushT = 0; F.walkInT = ctx.time;
+        // (where she went in: she comes back out of THIS doorway — just outside it, on the step)
+        F.walkInAt = { x: at.x - at.nx * 0.7, z: at.z - at.nz * 0.7, nx: at.nx, nz: at.nz, town: ctx.town && ctx.town.active ? ctx.town.id : null };
+        emit("doors:walkIn", { id: wid });
+        try { sp.act(); } catch (e) { console.error("[foot] walk in", e); }
+        return;
+    }
+    F.pushT = 0;
+}
+function doorReach(at, o, p = F && F.pos) {
+    if (!at || !p || at.nx == null || at.ux == null) return at;
+    const w = o && o.w != null ? o.w : at.len ? clamp(at.len / 2 - 1.2, 0.6, DOOR.w) : DOOR.w;
+    const inn = o && o.inn != null ? o.inn : DOOR.inn, out = o && o.out != null ? o.out : DOOR.out;
+    const dx = p.x - at.x, dz = p.z - at.z;
+    const u = clamp(dx * at.ux + dz * at.uz, -w, w), n = clamp(dx * at.nx + dz * at.nz, -inn, out);
+    return { x: at.x + at.ux * u + at.nx * n, z: at.z + at.uz * u + at.nz * n };
+}
 function interactables() {
     const out = [];
     const p = F.pos;
@@ -1573,7 +1642,7 @@ function interactables() {
         const reg = ctx.interiors && ctx.interiors[dr.id];
         // (walking up to a door: its inside starts loading now, so the step through is short)
         if (reg && reg.warm && Math.hypot(dr.x - p.x, dr.z - p.z) < 22) reg.warm();
-        consider("enter", dr, reg ? `🚪 ENTER ${L.FOOT_DOOR_NAME[dr.id] || dr.id.toUpperCase()}` : "🔒 CLOSED — back soon", dr.x, dr.z, 2.3);
+        consider("enter", dr, reg ? `🚪 ENTER ${L.FOOT_DOOR_NAME[dr.id] || dr.id.toUpperCase()}` : "🔒 CLOSED — back soon", dr.x, dr.z, 3.2);     // (ci/doors: was 2.3 — the whole step)
     }
     if (F.booth) consider("disguise", F.booth, "🥸 DUCK IN — change your look", F.booth.fx, F.booth.fz, 2.2);
     for (const pc of F.parked) {
@@ -1598,12 +1667,14 @@ function interactables() {
         }
     }
     for (const sp of spotList) {
-        const at = sp.pos ? sp.pos() : sp;
+        let at = sp.pos ? sp.pos() : sp;
         if (!at) continue;
         const lbl = typeof sp.label === "function" ? sp.label() : sp.label;
         if (!lbl) continue;
+        if (sp.door) at = doorReach(at, sp.door === true ? null : sp.door, p);
         const n0 = out.length;
         consider("spot", sp, lbl, at.x, at.z, sp.r || 2.0);
+        if (sp.door && out.length > n0) out[n0].score = Math.max(out[n0].score, DOOR_FLOOR);   // (a chat right beside her still wins)
         if (sp.first && out.length > n0) out[n0].score *= 0.2;      // (urgent: wins over a door / a car / a chat in reach)
     }
     out.sort((a, b) => a.score - b.score);
@@ -1638,7 +1709,9 @@ function nearLow() {
 on("foot:land", ({ y }) => { if (F && y > 0.3) coachDid("perch"); });
 on("moves:move", ({ id }) => { if (id === "roll" || id === "slide" || id === "vault") coachDid("roll"); });
 
-function interact(P) {
+function interact(P, dt = 1 / 60) {
+    walkIn(dt);
+    if (!F || F.handoff || ctx.state !== "footRun") return;     // (she just walked in)
     const pr = interactables();
     F.prompt = pr;
     F.nearT = (F.nearT || 0) - 1;
@@ -2170,6 +2243,16 @@ ctx.foot = {
     /** Add an on-foot interactable: { x, z } or pos() → {x, z}; r; label (string | fn); act(); first (urgent: it
      *  wins the ✋ button over other things in reach — a tackle). Returns a remover. */
     addSpot(spot) { spotList.push(spot); return () => { const i = spotList.indexOf(spot); if (i >= 0) spotList.splice(i, 1); }; },
+    /** 🚪 ci/doors: a door spot's reach — `at` ({x, z, ux, uz, nx, nz}) slid toward `p` (default: her) within the doorway
+     *  strip (o = { w, inn, out }, see DOOR). A spot with `door: true` (or door: o) and a pos() that returns the town's
+     *  spot WITH its axes gets this for free. → {x, z} */
+    doorReach(at, o = null, p = null) { return doorReach(at, o, p || (F && F.pos)); },
+    /** All registered ✋ spots (read-only — the doors test walks a probe across each door). */
+    spots: () => spotList.slice(),
+    /** ci/doors: did she just WALK into a doorway (rather than press ✋)? The interiors engine then swaps with no fade. */
+    get walkingIn() { return !!F && ctx.time - (F.walkInT != null ? F.walkInT : -9) < 0.5; },
+    /** ci/doors: she's walking OUT of a room's door — the resume puts her on the pavement still walking. */
+    stepOut() { if (F) F.stepOut = true; },
     /** Another feature's parked car she can hotwire (a town's kerbside cars): pc = { vtype ("car"…), key (the shell's model),
      *  colors, obj (its Object3D — the owner adds / removes it), x, z, h, circles, r, ext: { taken(pc) when she drives off in it,
      *  drop(pc) when her walk ends } } — never pruned by distance (the owner takes it back with the remover). → remover | null */
@@ -2201,6 +2284,8 @@ ctx.foot = {
         handoffInterior(id, door);
         return true;
     },
+    /** 💍 Avigail's wedding NOW (on foot, in footRun): features/family's hall — opts { hall, paid(caught) → bool }. */
+    wedding(opts = {}) { if (!F || ctx.state !== "footRun") return false; goWedding(opts); return true; },
     /** The soft edges + nudges (bounds.js): { EDGE, NUDGE, state, zone, visuals, debug } */
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */
@@ -2214,7 +2299,7 @@ ctx.foot = {
         spawnParked: o => F && spawnParked(o), spawnPed: o => F && spawnPed(o), spawnAnimal: o => F && spawnAnimal(o),
         spawnAvigail: o => F && spawnAvigail(o), spawnBooth: o => F && spawnBooth(o), startChase: o => F && startFootChase(o),
         interactables: () => F && interactables(), nextDoorAt, weddingState, allDoors,
-        wedding: () => { if (!F) return false; goWedding(); return true; },
+        wedding: (o) => { if (!F) return false; goWedding(o); return true; },
         /** Hop into her own car (as ✋ GET IN would) — tests. */
         getIn: () => { if (!F || !F.car || !F.car.drivable || !F.car.stub) return false; doInteract({ kind: "own", ent: F.car.stub }); return true; },
     },
