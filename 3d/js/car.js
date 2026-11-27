@@ -183,6 +183,10 @@ export class PlayerCar {
         if (ctl.throttle > 0.02 && vF > -0.5) {
             const k = Math.max(0, 1 - Math.pow(Math.max(0, vF) / top, 2));
             a += 12.5 * st.acc * ctl.throttle * k + (this.boosting ? (st.nitroAcc || 9) : 0);
+        } else if (ctl.throttle > 0.02) {
+            // rolling BACKWARDS with the gas down: the gas stops her first, as hard as the brakes would, then pulls away
+            // (it used to do nothing until she had coasted to a stop by herself — seconds of reversing with the gas held)
+            a += 26 * st.brake * ctl.throttle + (this.boosting ? (st.nitroAcc || 9) : 0);
         } else if (this.boosting) {
             a += st.nitroAcc || 9;
         }

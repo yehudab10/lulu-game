@@ -17,6 +17,13 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "playing" && __lulu3d.ctx.G.mode === "story"`, "the road trip starts")) return;
     t.check("story mode", await t.game(`ctx.G.mode`) === "story");
 
+    // gas while rolling BACKWARDS: the gas stops her at once and pulls away (it used to do nothing until she had coasted
+    // to a stop by herself — seconds of reversing with the gas held down)
+    await t.game(`(() => { const c = ctx.car; c.vx = -Math.sin(c.h) * 8; c.vz = -Math.cos(c.h) * 8; return true; })()`);
+    await t.hold(7, 1);
+    await t.frames(45);
+    t.check("gas while rolling backwards: she's going forwards again in under a second", (await t.game(`ctx.car.vF`)) > 1, `vF ${(await t.game(`ctx.car.vF`)).toFixed(1)} m/s`);
+
     // hold the right trigger, weave with the left stick
     await t.hold(7, 1);
     const s0 = await t.game(`ctx.car.s`);
