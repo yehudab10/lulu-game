@@ -1606,7 +1606,7 @@ function walkIn(dt) {
         if (F.pushSp !== sp) { F.pushSp = sp; F.pushT = 0; }
         F.pushT += dt;
         if (F.pushT < WALKIN.push) return;
-        const reg = ctx.interiors && ctx.interiors[sp.walkIn.id];
+        const wid = typeof sp.walkIn.id === "function" ? sp.walkIn.id() : sp.walkIn.id, reg = ctx.interiors && ctx.interiors[wid];
         if (reg && reg.ready && !reg.ready()) {
             if (reg.warm) reg.warm();
             if (ctx.time > (F.rattleT || 0)) { F.rattleT = ctx.time + WALKIN.rattle; A.sfxCloseCall(-4); rumble(0.15, 0.1, 60); bubble(F.lulu.obj, pick(["*rattle rattle* — one sec…", "It's stuck. Hold on…", "*jiggles the handle*"]), 1.1); }
@@ -1615,7 +1615,7 @@ function walkIn(dt) {
         F.pushT = 0; F.walkInT = ctx.time;
         // (where she went in: she comes back out of THIS doorway — just outside it, on the step)
         F.walkInAt = { x: at.x - at.nx * 0.7, z: at.z - at.nz * 0.7, nx: at.nx, nz: at.nz, town: ctx.town && ctx.town.active ? ctx.town.id : null };
-        emit("doors:walkIn", { id: sp.walkIn.id });
+        emit("doors:walkIn", { id: wid });
         try { sp.act(); } catch (e) { console.error("[foot] walk in", e); }
         return;
     }

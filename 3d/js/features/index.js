@@ -48,6 +48,7 @@ import "./unstuck/index.js";      // 🆘 "I'm stuck": ❚❚ › 🆘 puts her 
 import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget (hud.js) when it's quiet (friends / strangers around) or she's busy; chatter defaults to Quiet with friends
 import "./shul/index.js";         // 🕍 shul: a walk-in shul in each town (the Lakewood yeshiva's front door, Midwood's Young Israel) — the women's section, a lobby with a hundred black hats, the kiddush room; follows the weekday / Friday / Shabbos / fast / Chanukah
 import "./shops/index.js";        // 🛍️ shops: the shop moved into the world — 🚗 Uncle Refael's Pre-Loved Cars in each town (look, test drive, buy), 🔑 pick your car in your garage at home, 🛍️ Where to shop (directions, not a store)
+import "./dealers/index.js";      // 🏎️ dealers: Mazelati of Monsey (luxury, Sal's haggle + F&I, real perks) + ⚡ Tushla (EVs + Full Schlep Driving)
 import "./clothes/index.js";      // 👗 clothing shops (Midwood: Avenue J'adore · Lakewood: Simcha's Classic Clothing) — racks, the fitting room (try on: a curtain + a spin), buy at the counter; outfits on Lulu herself
 import "./pins/index.js";         // 📍 places on the 📱 🗺️ Map + one PING (a beam, one edge pointer, the objective line's lowest slot); friends see it in their colour
 import "./netping/index.js";      // 📶 ⚙️ Show connection (ping): an optional, off-by-default readout of the relay round trip
@@ -59,3 +60,4 @@ import "./crime/index.js";        // 🦹 more cartoon crime in town (solo): �
 import "./cityhall/index.js";     // 🏛️ city hall: a walk-in city hall in each town (take-a-number, Permits · Taxes · Complaints, the mayor's office) + a mayor in each town (posters, ribbon cuttings for absurd things)
 import "./family/index.js";       // 👨‍👩‍👧 more of Lulu's family: Fayge (her older sister), Ash + Chani (2) in a Midwood basement — her day in town (the playgroup, errands, Ima's), her door, her banter
 import "./impound/index.js";      // 🚗 getting an impounded car back: pay the release (the lot's window · City Hall's Permits window · 📞 Contacts › City Hall) → the gate → drive out; or break in past Bruno the night guard and hotwire her own car (one try a real day)
+import "./cameras/index.js";      // 📸 speed cameras: Ocean Parkway (25, fires above 35) + every school block in school hours (15, fires above 25) — the flash + a photo, the ticket comes in the mail at her home, City Hall's ledger, then late fee → summons (Courtroom 2B) → a bench warrant

@@ -266,8 +266,8 @@ module.exports = {
 
     // ════ 7. every catalogue car is buyable somewhere a solo player reaches ════
     await step("catalogue", async () => {
-      const r = await t.L(`Promise.all([import("./js/features/garage/data.js"), import("./js/features/shops/lot.js")]).then(([d, l]) => ({ cars: d.SKIN_KEYS.filter(k => d.SKIN_SHOP[k].price > 0 && !l.LOT.includes(k)) }))`);
-      t.check("every car for sale stands on Uncle Refael's lot", r.cars.length === 0, JSON.stringify(r));
+      const r = await t.L(`Promise.all([import("./js/features/garage/data.js"), import("./js/features/shops/lot.js"), import("./js/car.js")]).then(([d, l, c]) => ({ cars: d.SKIN_KEYS.filter(k => d.SKIN_SHOP[k].price > 0 && !l.LOT.includes(k) && !c.SKINS[k].marque), marque: d.SKIN_KEYS.filter(k => c.SKINS[k].marque && !d.SKIN_SHOP[k].where) }))`);
+      t.check("every car for sale stands on Uncle Refael's lot (a marque's cars — features/dealers — at its own showroom, which says where)", r.cars.length === 0 && r.marque.length === 0, JSON.stringify(r));
     });
 
     // ════ 7b. the makolet + Shmerel's van (items) ════
