@@ -21,8 +21,9 @@ css("accounts", `
 .acct-ideas { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 8px; }
 .acct-ideas .btn { flex: 1 1 140px; max-width: 220px; margin: 0; padding: 8px 10px; font-size: 17px; }
 .acct-in { width: 100%; box-sizing: border-box; font: 700 21px var(--font); text-align: center; border-radius: 12px;
-  border: 2px solid rgba(255,255,255,.35); background: rgba(0,0,0,.25); color: #fff; padding: 7px; margin: 2px 0; }
-.acct-in.focus, .acct-in:focus { border-color: #FFE082; outline: none; }
+  border: 2px solid #F8BBD0; background: #fff; color: #2b1838; padding: 7px; margin: 2px 0; }
+.acct-in::placeholder { color: #9e8aa8; }
+.acct-in.focus, .acct-in:focus { border-color: #E91E63; box-shadow: 0 0 0 3px rgba(233,30,99,.25); outline: none; }
 .acct-why { min-height: 1.3em; margin: 4px 0 2px; font-weight: 700; }
 .acct-why.ok { color: #A5D6A7; } .acct-why.no { color: #FFCC80; }
 .acct-card .fine { opacity: .8; margin: 2px 0 6px; }
