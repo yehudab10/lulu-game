@@ -116,7 +116,8 @@ module.exports = {
     t.check("pepper at nothing: a whiff, nothing spent", (await items()).p === p0, `${p0} → ${(await items()).p}`);
     // pepper at a person walking out ahead (roadevents' pedestrian)
     await g(`(ctx.roadevents && ctx.roadevents.spawn ? ctx.roadevents.spawn("pedestrian", { kind: "adult" }) : 0, true)`);
-    const ped = await t.until(`(() => { const C = __lulu3d.ctx, c = C.car; return C.actors.some(a => { const p = a.obj && a.obj.position || a.pos; if (!p || p.x == null) return false; const dx = p.x - c.pos.x, dz = p.z - c.pos.z, lon = dx * Math.sin(c.h) + dz * Math.cos(c.h); return lon > 2 && lon < 26 && /ped|walker|person|npc/i.test(String(a.kind || a.type || a.name || "")); }); })()`, "a pedestrian ahead", 10000);
+    let ped = false;
+    for (let k = 0; k < 40 && !ped; k++) { await t.frames(10); ped = await t.L(`(() => { const C = __lulu3d.ctx, c = C.car; return C.actors.some(a => { const p = a.obj && a.obj.position || a.pos; if (!p || p.x == null) return false; const dx = p.x - c.pos.x, dz = p.z - c.pos.z, lon = dx * Math.sin(c.h) + dz * Math.cos(c.h); return lon > 2 && lon < 26 && /ped|walker|person|npc/i.test(String(a.kind || a.type || a.name || "")); }); })()`); }
     if (ped) {
       const pp = (await items()).p, sp0 = await g(`ctx.garage.debug.sprays`);
       await tap("garage_pepper"); await t.frames(8);
