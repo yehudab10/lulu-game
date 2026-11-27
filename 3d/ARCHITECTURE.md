@@ -664,7 +664,8 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | roadevents | **seeded** (Road Trip, 🌍 Free Roam; Race / Dash / Tag: hazards only) | `roadevents/party.js`: big set pieces (🍦 stand, 🍔 drive-thru, ⛽ station + nitro cans) from the road plan, small ones (cones, puddles, potholes, animals, strollers, hitchhikers) from per-chunk sub-slots — the same s on every screen, each screen builds its own copy; rewards personal. Off: anything that drives (ambulance, buses, ice-cream truck, drunk / texting drivers, steamroller, fender benders) or must stop the traffic (toll, train, parade, crossing guards, work zones) — party traffic is a pure function of the clock |
 | cameos | **seeded** + personal scenes | `cameos/party.js`: Avigail on foot, Chez Fabio, Heshy's pool, an uncle, the sasquatch from the road plan, their verge spot from `ctx.party.seeded`; the porch / salon scenes are YOUR states (no pause — friends keep driving); two friends at one cameo each get their own copy. Off: Avigail's coupe (it drives); the crash aftermath (no wrecks in a party) |
 | world | **shared constants**, personal pull-in | Gas 'n' Go / the Lookout / driveways are fixed spots (`where("party")`); a Road Trip has no driveways from Bubbe's on; the visit beat is yours. The start at home on foot is solo only (`wantsDeparture`: a party keeps its own grid start) |
-| friends 👯 | **on** (personal) | The list, the doorbell and ▶ Join work the same in a party (a JOIN answers with the party's own code); 👯 › a friend → ➕ Add as a friend (`x.fr`, `x.fid` marks who's already on your list). |
+| accounts 🪪 | **on** (personal) | Her username is the party's name for her (party `nameOf`); every member's game sends its name ticket in the snapshot extras (`x.un`, bound to the party room + relay id) and the others ask the server for the name — shown even with ⚙️ other players' names off (people she plays with). Friend requests / the server list work the same in a party. |
+| friends 👯 | **on** (personal) | The list, the doorbell and ▶ Join work the same in a party (a JOIN answers with the party's own code); 👯 › a friend → ➕ Add as a friend (`x.fr`, `x.fid` marks who's already on your list). Since ci/accounts the list, requests and blocks are also on the server (`friends/server.js`). |
 | onegame 🎮 | **solo only** | The 🧳 suitcase, the 🅿️ rest-area booth (+ its attendant), ✋ Play as Dina, Ima's Friday rush at the door and the 📱 Jobs card all hide in a party (`solo()`; journey, dina and shabbos are in the party's `OFF` set anyway). ▶ PLAY / 👯 Friends on the title are unchanged by a party |
 | hustle | **seeded** markers, personal jobs | `hustle/party.js`: ☎️ payphones + 📋 boards from the road plan; taking one, the riders, props, pay are yours; my 📱 still rings at random (nobody else hears it); 💼 Jobs app on the party highway; the getaway only when the party has the law on. "Follow that car" is a `partyLocal` car |
 | community | **seeded** in a 🌍 Free Roam town, personal help | `community/party.js`: org cruisers on openworld's block loops (pure f(seed, loop, clock)); roadside scenes in 50 s windows of the party clock (kind, kerb, call-in time seeded); the Bais Yaakov line on the party clock; 📞 Phone calls + help visits are yours (local responders); Shomrim chases only with the law on in the party (local cars; a loop cruiser never leaves its loop). Off: highway sightings (the party's highway traffic is the seeded conveyor) |
@@ -747,6 +748,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
 | `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) · `addAd(def)` (another feature's billboard design, never random) · `billboardAt(chunk, s, side, id)` — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
 | `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title. A run may drive the Cruise-style day itself: set `G.atmosClock = () => 0..1` (+ `G.atmosClear = true` for a clear sky) and atmos runs its day/lamps off that clock in any mode, skips the phase toasts, and puts the Cruise clock back afterwards (shabbos uses it: the sunset IS the deadline) · `look()` (the sky + light + weather the driving scene last showed) · `dress(set, {lamps, sky, stars, fog, lights, weather})` / `undress(set)` — an OUTDOOR cutscene set wears that sky (dome, stars, fog, light, rain/snow + its sound, lamps after dark); the clock stands still behind a set, so walking in and out match (`features/atmos/dress.js`; the precinct steps, the roadside parking lot, Avigail's porch, the wedding, the beach) |
+| `ctx.accounts` | accounts | 🪪 accounts + usernames (server/accounts.mjs): `on` (the server answered) · `name` (hers, or null) · `view` (the last hello: `me` {name, gen, ask, next, who}, `friends`, `inReq`, `outReq`, `blocks`, `badge`) · `hideNames` (⚙️ other players' names off) · `off` (she deleted her account) · `rules` (rules.js) · `hello(force)` · `check(n)` → {ok, why, sugg} · `ideas(base)` · `setName(n)` · `nextChange()` · `needsName()` · `ticketFor(room, rid)` (my signed ticket for a relay connection) · `ghostName(room, rid, ticket, {always})` (another player's name from the server, or null) · `report({f} \| {t, room, rid})` · `deleteAccount()` · `call(path, body)` · `addHelloExtra(fn)`. Events `accounts:me`, `accounts:view`, `accounts:names`, `accounts:deleted` |
 | `ctx.mp` | multiplayer | 🌐 Shared Road + the ambient EVERYONE layer: `connected` · `riders` · `room` · `online` (⚙️ Play online) · `setOnline(on)` · `near` (riders drawn right now) · `ghostStats()` → `{built, shown, cap}` · `open(from)` (the Shared Road screen: name + EVERYONE / a 2D friend code) · `connect(room)` / `disconnect()` · `emote(idx)` · parking `parkingRng()` / `parkingSpotIndex()` / `parkingGhosts()` · boards `postWanted(charges)` / `wantedList()` / `scoresList()` · `_debug` (= `MP`). Events `mp:status`, `mp:riders`, `mp:online` {on}, `mp:race`, `mp:honk`; stats `mpEmotes`, `mpRaceWins`, `mpBonks` |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty({act})` / `hostRoam()` (🌍 Hang out: straight into Free Roam, no lobby / grid) / `joinParty(code)` / `leave()` / `openHub()` / `invite()` (share the link: `…/3d/?party=CODE&with=<my uid>`) / `inviter` (whose link I opened — Free Roam drops me beside them), `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` · **for another feature's lobby activity** (openworld's 🌍 Free Roam): `addActivity(k, def)` (def: `emoji name blurb go`, `init(A)` → extra A fields, `slotIn(A)` late join, `respawnAt()` ↺, `label(icon)` / `progress()` trip bar, `show(p)` / `frame(p)` / `decorate(rc, p)` friends' cars, `pose()` → `{s, d, h}` my pose in another frame, `planFirst`, `ownTraffic()`, `noGrid` (no 3-2-1: everyone just goes)) · `sendEvent` / `broadcast` / `onHostEvent` / `setA` / `members()` / `peer(uid)` / `fresh(p)` / `setExtra(x)` (rides in `d.x`) / `displayName` / `skinOf` / `skinHex` / `remoteCar(uid)` / `beginRun` / `placeCar` / `respawned()` / `visuals` · **the shared world** (`plan.js`): `rng(key)` · `seeded(key, fn)` · `h01(key, k)` · `road.{claim(id, kinds), slot(k), list(s0, s1), span}` (see Testing › party). A party run ends with `endRun("party")` (run:end) · **presence** (`presence.js`): `presence({ mode, icon, label }, { sticky })` what I am doing (held until my state changes; null = automatic: drive · chase · foot · in · law · jail · court · er · scene · lobby …) / `presenceOf(uid)` → `{ mode, icon, label }` / `presenceBadge(uid)` (the nametag chip) / `setX(k, v)` a per-feature key in my snapshot extras `d.x` (tiny; keys in use: `pr f pc v cp ws at jk cl e`) / `claimTraffic(car)` (a shared car leaves the traffic for everyone — carjack) / `trafficGone(key)` · **claims** (see Testing › party): `claim(car, {L, dS, hail, how})` / `canClaim(car)` / `claimKinds(prefix, handler)` / `sharedCrash(car, e)` / `claimsLive()` / `claimPose(key, T)` · `addTrafficKind(kind, w, on)` (a special vehicle in the shared traffic, at boot) · `friendCars()` (friends' cars as drawn: cosmetic contact) · events `party:claim` {key, how, hail}; stats `partyClaims`, `partyHails` · `_debug.world(uid)` / `_debug.xk()` (tests) |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `register(id, create, def, {listed})` (another feature's job type on this framework — underworld's Fixer; `listed()` → the extra ids the 💼 Jobs app shows) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
@@ -1393,6 +1395,22 @@ Council's or a tenant's home; a 20 s cooldown. With friends she goes alone (the 
 list is cached per COPY of a town (lap 2's doors aren't lap 1's), and "🏠 Start my days here" stores the door of lap 1's
 copy (`startAtFor`) — a house picked on lap 2+ starts the day at the right door. Test `realestatego` (+ realestatefriends).
 
+**Moving out of Ima's + her home is where friends visit** (roadmap 23 d, the owner 2026-11-26). **d1** (data only, no coin
+source): the `STARTER.perTown` (3) cheapest homes nobody owns in each town are ALWAYS listed (`market.js › starters()` — no
+discount: a home's value never depends on it, so nothing to flip); her FIRST home's mortgage (`mortgage.js › offers()`: nothing
+owned, nothing bought yet) asks 10 / 20 / 35 % down over 30 or 45 played days; one goal line at the top of 📞 the realtor's
+contact (`moveOutStep()`: office → look inside a starter home → buy → "Start my days here"; gone once her days start at a home
+of her own). A played day earns ~500–650; starter homes are ~5,200 (Midwood) / ~7,000 (Lakewood). **d2**: a friend in her home
+sees HER decorations — `party.js` publishes them as `d.x.rd` (one base-36 char per decor slot, parallel to `d.x.re`; a separate
+key so older clients ignore it) → `friendDecor(id)` → `house.js` (inside) + `yard.js` (outside); 👯 "Come to my place"
+(`visit.js`, a `ctx.group.invitable`): the home's id rides as `d.x.rv` for 30 s, friends who say yes get 🏠 Go there to it
+(`goBlock(id, { friend: true })`). The five things Ima's house had that her homes didn't: the couch (inside — the kit couch in
+her colours) and the front door's paint, the porch, the mailbox, the front yard (`yard.js`: features/decor's own models moved
+onto HER house by an anchor — the door / the stoop or deck found by one short ray / where her mailbox stands / the lawn —
+mirrored to her lot's open side; the pink LULU mailbox stands aside for a decor one); decorated from inside (✋ "🏡 Decorate the
+outside" → decor's picker, previews on the street). Anything she owns is free to place (ci/moveout's boxes are owned items;
+its `seed` puts her room pieces up in her first home). Tests `realestateyard`, `realestatefriends`, `realestatehome`.
+
 **The mortgage desk** (`mortgage.js`, stage 2): added to heist's `bank` lobby from here on `interior:enter` (a desk, a
 tower of paperwork, a MORTGAGES sign, the banker — Mr. Pinkus in Lakewood, Mrs. Teitelbaum in Midwood — and ONE hotspot;
 heist's file only lists the two rooms in `TOWN_INTERIORS`). 🏠 buy a home with a mortgage = today's listings → 20 / 35 /
@@ -1890,6 +1908,21 @@ dinner → the helpers get Ima's thank-you, no coins; in a group the solo home b
 as invitations + one shared briefing (who does what, where to meet) — they still happen by doing them, their own
 triggers unchanged. The road-trip leg waits (the Story Trip is hidden, roadmap 21); ci/crime's solo crimes stay solo in a
 party (a race / duet version isn't cheap: each is built around one player's cops + court). Test: `scripts/tests3d/friendsjobs.js`.
+**The list on the server (ci/accounts, `friends/server.js`):** the list, friend REQUESTS and blocks also live on the relay
+per account, so a request waits for a player who is offline. 👯 › ➕ Add a friend by name (or 📍 Nearby › a driver with a
+name: a server request by ticket, it waits if they drive off) → `/acct/ask`; she sees it next time as a quiet number on
+the 👯 app (`badge`, no pop-up) and a "Friend requests" row → Be friends / No thanks (they aren't told) / Block / Report
+this name; "Waiting for an answer" rows can be cancelled; 📨 Friend requests from: Everyone / Friends of friends / Nobody.
+A friendship made on the server has no doorbell yet: each side seals its card ({ f, n, sk, b } — the handshake's card) with
+the secret ECDH(my long-term key, their public key) gives both (my key pair: `S.ek`, a JWK in the save → the 💾 code), and
+posts it on the friendship at hello; the other side opens it (`cin`) — the server only holds the sealed note; a changed
+doorbell re-posts (`pb`). `store.ready(f)` = has a secret + a doorbell (knocks / ▶ Join skip a friend until then). Every
+on-device friend is CLAIMED at hello (migration); when the other side claims back the server has the friendship; a friend
+the server once confirmed (`sv`) and then dropped (they removed / blocked her) leaves her list; removals that couldn't
+reach the server wait in `S.rm`. Labels: `f.u` (their username from the server) wins over "Kugel Kid #37". Deleting the
+online account clears the list. Test: `scripts/tests3d/accountsfriends.js` (B's page closed while A asks, reopened → badge
+→ accept; A reopened sees B; the sealed cards cross; A's knock finds B playing; decline; block; remove; who-can-ask;
+migration of an on-device friendship with one side updating first).
 **Friends among the ghosts (2026-11-22):** the sealed knock + its answer carry `m` = which ghost the sender is in EVERYONE
 (her relay connection id there) → `ctx.friends.byMp(id)` → multiplayer's `labelFor` shows 👯 + the friend's name
 (`ctx.mp.relabel()` on `friends:presence`); coming online re-knocks (≤ 1 a minute). **Tap a name over a car**
@@ -1898,6 +1931,35 @@ driver page (➕). Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).
+
+**Accounts + unique usernames (accounts, ci/accounts — `features/accounts` + `server/accounts.mjs`):** the owner (2026-11-26):
+"add real usernames … unique … make the friends thing work even if a player is offline. Like a real multiplayer game."
+**One account** = `ctx.player`'s random id + device secret (the pair the property registry already used; the server keeps
+the secret's SHA-256 only; the 💾 save code carries both — a new phone is the same account). `hello` (boot, every 5 min,
+👯 opened) makes it on first sight and brings back her name + friends + requests + blocks. **The name rules are ONE file,
+`features/accounts/rules.js`**, imported by the game (instant feedback) AND by the worker (`server/accounts.mjs` imports it;
+wrangler bundles it) — the server's answer counts: 3–16 characters, letters / digits / `_`, starts with a letter, no `__`,
+no `_` at the end; unique on `norm()` (lower case, `_` dropped, look-alikes 0/o 1/l/i 3/e 4/a 5/s 7/t 8/b rn/m vv/w folded);
+the filter (rude words + slurs + sexual words incl. leet / stretched letters, staff impersonation, contact details: 5+
+digits, social apps, "dm me", www) works on folded words — SUB lists match anywhere, short / ambiguous words only as a
+whole word, so "Annalise", "Classy", "Something" pass. **The name card** (`ui.js`): the first time she's on the title
+with the server up (never in a test unless `&acctname=1`): 3 one-tap ideas (the server's, free), a text box checked as she
+types (rules here, "taken" from the server 350 ms after she stops, with ideas), "Don't use your real name", Later (asked
+again after 3 days). Offline / server down → she plays at once as "Kugel Kid #37" and is asked on a later title.
+⚙️ › 🪪 Your name (only when the server is up or she has a name): change it (once every 30 days; a first pick and a name the
+server replaced are free), 👀 Other players' names On / Off, 🗑️ Delete my online account (the server deletes the account,
+its friendships, requests, blocks, reports; coins / cars / homes stay; no account is made again until she picks a name).
+`ctx.player.label()` is the username once she has one (the curated `mpName` stays untouched — the 2D game and the board
+still use it). **Other players' names are never read off the wire:** her game asks the server for a TICKET for each relay
+connection (`/acct/ticket` {room, rid} → `pid.exp.HMAC(pid|room|rid|exp)` with a key the server made itself) and sends it
+as `d.un` (EVERYONE) / the party extra `x.un`; a receiver asks `/acct/names` [[room, rid, ticket]…] (batched, cached 10 min)
+→ the name, or null for a forged / copied / expired ticket — so nobody can appear under someone else's name (and get THEM
+reported). multiplayer's `labelFor` order: 👯 friend → the server's name (unless hidden) → the curated name in a code room →
+colour + number; party's `nameOf` shows members' names always (people she plays with). **🚩 Report this name** (📍 Nearby ›
+a driver with a name): hidden on her screen at once; the server counts DIFFERENT accounts at least a day old (≤ 5 reports a
+day each) within 14 days — 3 → the name is replaced by a generated one ("Knish4821"), the old one retired for good, and
+the owner is asked to pick again (the card says why). No human in the loop. Old clients: they never send `un` and ignore it
+(colour + number / curated names as before). Test: `scripts/tests3d/accounts.js` (+ `node server/test-accounts.mjs`).
 
 **Friends together (together, ci/together):** 👯 the owner (2026-11-20): "in party mode friends should be able to go to
 the same house and both be visible to each other. We also need some sort of way for finding friends in the map — need

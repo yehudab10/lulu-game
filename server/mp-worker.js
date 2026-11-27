@@ -22,6 +22,7 @@
 // handlers) so idle rooms are evicted from memory and cost nothing.
 
 import { createHomes, sqlStore } from "./homes.mjs";   // 🏘️ the world-wide property registry (ci/realestate, owner-approved 2026-11-20)
+import { createAccounts, doSql } from "./accounts.mjs"; // 🪪 accounts + usernames + friends (ci/accounts, owner-approved 2026-11-26)
 
 const MAX_MEMBERS = 24;
 const MAX_FRAME_BYTES = 2 * 1024; // 2 KB
@@ -353,6 +354,16 @@ export class Board {
     this.ready = true;
   }
 
+  accounts() {
+    if (!this.acct) {
+      const q = doSql(this.sql);
+      this.acct = createAccounts(q, {
+        homeSech: (pid) => { try { const r = q("SELECT sech FROM homes WHERE owner = ? LIMIT 1", pid)[0]; return r ? r.sech : null; } catch (e) { return null; } },
+      });
+    }
+    return this.acct;
+  }
+
   clientIp(request) {
     return request.headers.get("CF-Connecting-IP") || "0.0.0.0";
   }
@@ -367,10 +378,10 @@ export class Board {
     return true;
   }
 
-  async readBody(request) {
+  async readBody(request, max) {
     try {
       const text = await request.text();
-      if (text.length > MAX_FRAME_BYTES) return null;
+      if (text.length > (max || MAX_FRAME_BYTES)) return null;
       const obj = JSON.parse(text);
       return obj && typeof obj === "object" ? obj : null;
     } catch (_) {
@@ -388,9 +399,18 @@ export class Board {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
+    // 🪪 /acct/* — accounts, usernames, friends (accounts.mjs): more tables in this same global object
+    if (path.startsWith("/acct/")) {
+      let body = null;
+      if (method === "GET") body = { n: url.searchParams.get("n"), pid: url.searchParams.get("pid") };
+      else body = await this.readBody(request, 16 * 1024);
+      const r = await this.accounts().handle(path, method, body, this.clientIp(request));
+      return corsJson(r.body, r.status);
+    }
+
     // 🏘️ /homes/* — the property registry (homes.mjs): one more table in this same global object
     if (path.startsWith("/homes/")) {
-      if (!this.homes) this.homes = createHomes(sqlStore(this.sql));
+      if (!this.homes) this.homes = createHomes(sqlStore(this.sql), { acctSech: (pid) => this.accounts().sechOf(pid), nameOf: (pid) => this.accounts().nameOf(pid) });
       let body = null;
       if (method === "GET") body = { town: url.searchParams.get("town") };
       else body = await this.readBody(request);
@@ -507,7 +527,7 @@ export default {
 
     // Async board (phase 2): everything under /board/* → the single global
     // Board Durable Object. Handles GET/POST + OPTIONS preflight itself.
-    if (parts[0] === "board" || parts[0] === "homes") {
+    if (parts[0] === "board" || parts[0] === "homes" || parts[0] === "acct") {
       const id = env.BOARD.idFromName("global");
       const stub = env.BOARD.get(id);
       return stub.fetch(request);

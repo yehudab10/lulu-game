@@ -84,6 +84,7 @@ export function layout(town, listed, owned, friends = [], seized = []) {
         const mx = r.lot.x - r.nx * 0.35 - (r.sign.x - r.lot.x + r.nx * 0.7) * 0.6, mz = r.lot.z - r.nz * 0.35 - (r.sign.z - r.lot.z + r.nz * 0.7) * 0.6;
         const rot = Math.atan2(r.nx, r.nz);
         r.mailbox = { x: mx, z: mz };
+        if (r.noBox) return;        // (a mailbox from features/decor's catalogue stands there instead — yard.js)
         put(M.post, mx, 0.45, mz, rot, 1.2, 0.9, 1.2);
         M.box.setColorAt(M.box.count, _c.set(hex));
         put(M.box, mx, 1.02, mz, rot);

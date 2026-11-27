@@ -88,9 +88,12 @@ export function partyTag(code) { return (hash("pt:" + code) % 1679616).toString(
 export function strangerLabel(id, sk) { return `${COLOUR[sk] || "Rider"} ${10 + hash(id) % 90}`; }
 /** What I show for a peer: friends (a code room) by their curated name, everyone else by a generated label. */
 export function labelFor(p) {
-    if (MP.room !== "lobby" && CURATED_NAMES.includes(p.raw)) return p.raw;
     const fr = MP.room === "lobby" && ctx.friends && ctx.friends.byMp ? ctx.friends.byMp(p.id) : null;   // (features/friends: a friend told me which ghost she is — sealed)
     if (fr) return "👯 " + fr;
+    // (features/accounts: a USERNAME — never the text they sent: the server tells me whose ticket this is; ⚙️ can hide it)
+    const un = p.un && ctx.accounts && ctx.accounts.ghostName ? ctx.accounts.ghostName(roomPath(), p.id, p.un) : null;
+    if (un) return un;
+    if (MP.room !== "lobby" && CURATED_NAMES.includes(p.raw)) return p.raw;
     return strangerLabel(p.id, p.sk);
 }
 /** Labels again (features/friends learnt which ghost a friend is). */
@@ -221,6 +224,8 @@ function applyState(id, d, snap) {
     applyWorld(p, d.w);
     p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
     p.fr = Array.isArray(d.fr) && d.fr.length <= 3 ? d.fr : null;      // (features/friends: a ➕ friend handshake — read + checked there)
+    const un = typeof d.un === "string" && d.un.length <= 60 ? d.un : null;   // (features/accounts: a name ticket — the server reads it)
+    if (un !== (p.un || null)) { p.un = un; p.name = labelFor(p); }
     if (!friendRoom()) {
         // EVERYONE: a stranger can't start anything on my screen (no races, no tag, no lot), and their
         // emotes / record toasts are flood-guarded here, whatever their client sends
@@ -299,6 +304,8 @@ function sendState() {
     if (me.w) d.w = me.w;
     if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     if (MP.fr) d.fr = MP.fr;                          // (features/friends: my ➕ friend handshake entries, ≤ 3)
+    const un = MP.myId && ctx.accounts && ctx.accounts.ticketFor ? ctx.accounts.ticketFor(roomPath(), MP.myId) : null;
+    if (un) d.un = un;                                // (features/accounts: "this connection is account X", signed by the server)
     const pk = ctx.parking && ctx.parking.pose ? ctx.parking.pose() : null;
     if (pk) d.pk = pk;
     if (MP.race) {

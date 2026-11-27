@@ -76,6 +76,9 @@ async function body(t, guests) {
   const hrec = await g(`ctx.realestate.home(${ID})`);
   await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${hrec.ap.x}, 0.05, ${hrec.ap.z}); ctx.foot.obj.position.copy(F.pos); return true; })()`);
   await t.frames(4);
+  // her decorations in that home (a rug + a bed) — what a friend visiting should see
+  await g(`(ctx.realestate.debug.S.decor[${ID}] = { rug: "road", bed: "fluffy" }, true)`);
+  t.check("…her decorations there reach the friend's screen", await A.until(`(() => { const d = ctx.realestate.debug.friendDecor(${ID}); return !!d && d.rug === "road" && d.bed === "fluffy"; })()`, "guest knows the host's decor", 20000));
   await g(`ctx.realestate.goIn(${ID}, "owner")`);
   if (!await Hp.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "host inside her house", 60000)) return;
   if (!await A.until(`/JOIN KUGEL KID INSIDE/.test((ctx.foot.debug.interactables() || {}).label || "")`, "guest: ✋ 👯 JOIN KUGEL KID INSIDE", 60000)) return;
@@ -86,6 +89,8 @@ async function body(t, guests) {
   await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host", 60000);
   t.check("the same room on both screens (the house id)", (await g(`ctx.together.debug.room().inst`)) === id && (await A.game(`ctx.together.debug.room().inst`)) === id);
   t.check("…the guest's visit: no decorating hotspots", !(await A.game(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)) && (await A.game(`ctx.realestate.debug.CUR.mode`)) === "visit");
+  const seen = await A.game(`(() => { const C = window.__interiors.room.data.V.cache || {}; const vis = sl => Object.keys(C[sl] || {}).filter(k => C[sl][k] && C[sl][k].visible); return { rug: vis("rug"), bed: vis("bed") }; })()`);
+  t.check("…the friend sees HER decorations (her rug + her bed)", seen.rug.includes("road") && seen.bed.includes("fluffy"), JSON.stringify(seen));
   t.check("…in a party the owner doesn't redecorate either", !(await g(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)));
   await t.frames(20);
   await t.shot("friends-inside");
@@ -104,6 +109,19 @@ async function body(t, guests) {
   t.check("…the host lands at her own front door", hd);
   const ga = await A.game(`({ st: ctx.state, town: ctx.town.active && ctx.town.id, p: [ctx.foot.pos.x, ctx.foot.pos.z], party: ctx.party.connected })`);
   t.check("…the guest stays where she was, still in the group", ga.st === "footRun" && ga.town === "lakewood" && Math.hypot(ga.p[0] - gp[0], ga.p[1] - gp[1]) < 2 && ga.party, JSON.stringify({ ga, gp }));
+  // ── 👯 "Come to my place": the host asks, the friend says yes → the friend goes straight to the host's front door ──
+  await A.game(`(ctx.realestate.debug.GO.last = -1e9, ctx.foot.debug.F.pos.x += 30, ctx.foot.obj.position.copy(ctx.foot.debug.F.pos), true)`);
+  await t.frames(10);
+  await A.L(`import("./js/core/ctx.js").then(m => { m.on("group:missionStart", e => { window.__mstart = (window.__mstart || 0) + 1; }); return true; })`).catch(() => null);
+  const off = await g(`ctx.group.offer("realestate.visit")`);
+  t.check("👯 Come to my place: the host offers it", off === "", String(off));
+  await A.until(`!!ctx.group.offerNow && !!ctx.group.offerNow()`, "guest sees the offer", 20000);
+  await A.game(`ctx.group.joinOffer()`);
+  await Hp.until(`(() => { const o = ctx.group.offerNow(); return !!o && o.ins.length >= 2; })()`, "the guest is in", 20000);
+  await g(`ctx.group.goNow()`);
+  const gd = await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && (() => { const r = ctx.realestate.homes().find(h => h.id === ${ID}); return !!r && Math.hypot(ctx.foot.pos.x - r.ap.x, ctx.foot.pos.z - r.ap.z) < 3; })()`, "guest at the host's door", 30000);
+  t.check("…the friend lands at the host's front door", gd, JSON.stringify(await A.game(`(() => { const p = ctx.party.peer(${HU}); return { rv: p && p.x && p.x.rv, act: ctx.party.activity, go: ctx.realestate.debug.GO, why: p && p.x && p.x.rv ? ctx.realestate.goBlock(p.x.rv, { friend: true }) : "no rv", n: (window.__mstart || 0) }; })()`)));
+  t.check("…nobody's coins moved", (await A.game(`L3.wallet.coins`)) >= 0);
 
   // ── a double booking: both signed the same home → exactly one keeps it, the other gets every coin back ──
   // (with the world-wide registry up — the test's relay has it — the SERVER decides: the first claim to reach it; without

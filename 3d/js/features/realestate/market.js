@@ -6,7 +6,7 @@
 // index in ctx.town.homes: other features replace houses with landmarks (the index shifts), and an owned house is
 // saved forever. A house that's gone from the map later is reported by `lookup()` as missing (index.js refunds it).
 import { ctx } from "../../core/ctx.js";
-import { BASE, STREETS, NEAR_TRAIN, NEAR_COPS, NEIGHBOURS, ROUND, MARKET } from "./data.js";
+import { BASE, STREETS, NEAR_TRAIN, NEAR_COPS, NEIGHBOURS, ROUND, MARKET, STARTER } from "./data.js";
 import { registry } from "./registry.js";
 
 // door offsets per house model (three.js: x = model +X, z = out the front) — the same as features/homes' DOORS
@@ -112,10 +112,22 @@ export function valueOf(rec, day = today()) {
     return round(rec.price * (1 + MARKET.drift * Math.sin(2 * Math.PI * (day / MARKET.period + ph))));
 }
 
-/** Is this home on the market today? (deterministic: the date + the house; never hers / anybody's / the family's) */
+/** The starter homes of the town she's in: its STARTER.perTown cheapest homes nobody owns (always on the market). */
+const ST = { at: -1, key: "", ids: new Set() };
+export function starters() {
+    const t = Math.floor(performance.now() / 1000), key = `${CAT.town}:${CAT.n}`;
+    if (ST.at === t && ST.key === key) return ST.ids;
+    ST.at = t; ST.key = key;
+    ST.ids = new Set(catalogue().filter(r => !r.family && !registry.ownerOf(r.id)).sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1)).slice(0, STARTER.perTown).map(r => r.id));
+    return ST.ids;
+}
+export const isStarter = rec => !!rec && starters().has(rec.id);
+/** Is this home on the market today? (deterministic: the date + the house; never hers / anybody's / the family's;
+ *  a starter home always is) */
 export function isListed(rec, day = today()) {
     if (!rec || rec.family) return false;
     if (registry.ownerOf(rec.id)) return false;
+    if (isStarter(rec)) return true;
     const n = CAT.town && CAT.town.split("@")[0] === rec.town ? Math.max(1, CAT.list.length) : 200;
     const ph = Math.floor(unit(rec.id + ":w") * MARKET.listDays);
     const win = Math.floor((day + ph) / MARKET.listDays);

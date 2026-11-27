@@ -218,10 +218,17 @@ async function body(t, guests) {
   // everyone holds their lane at a cruise (banter's test autopilot), already rolling
   for (const [i, p] of pages.entries()) await p.game(`(ctx.banter.autopilot = { d: ${[1.75, 5.25, 1.75][i]}, speed: 24 }, ctx.party._debug.place(${[90, 82, 74][i]}, ${[1.75, 5.25, 1.75][i]}, 22))`);
   await sleep(2500);
+  // (the placements are respawns: wait until the host draws both friends at their new spots, or a slow page's late
+  //  poof lands inside the trace window)
+  await hostUntil(t, `[...ctx.party._debug.cars.values()].filter(rc => rc.shown && rc.s > 60 && rc.s < 200).length >= 2`, "the host draws both friends at their new spots", 60000);
+  await t.frames(30);
   await t.game(`ctx.party._debug.trace(true)`);
   await sleep(6000);
   const tr = await t.game(`[...ctx.party._debug.cars.values()].map(rc => ({ uid: rc.uid, tr: rc.trace || [] }))`);
   await t.game(`ctx.party._debug.trace(false)`);
+  // (everyone stops now: the checks below take a while on a crawling page and at 24 m/s the cars used to reach the
+  //  2.5 km flag — the race ended before the BONK)
+  for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   let worst = 0, moved = 0, snaps = 0, samples = 0, latJump = 0;
   for (const c of tr) {
     const pts = c.tr.filter(x => x.s != null);
@@ -282,8 +289,13 @@ async function body(t, guests) {
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   await sleep(2500);
   const hs = await t.game(`({ s: ctx.car.s, d: ctx.car.d })`);
-  await A.game(`(ctx.banter.autopilot = null, ctx.party._debug.place(${hs.s.toFixed(2)}, ${(hs.d + 1.3).toFixed(2)}, 0))`);
-  await A.game(`(ctx.banter.autopilot = { d: ${(hs.d + 1.3).toFixed(2)}, speed: 0 }, true)`);
+  // (A pulls up by DRIVING, as a friend would: put 8 m behind in the host's lane, wait till the host's screen shows her there — a short
+  //  respawn hop glides in on a friend's screen, it doesn't snap — then she rolls forward into the host's side)
+  await A.game(`(ctx.banter.autopilot = null, ctx.party._debug.place(${(hs.s - 8).toFixed(2)}, ${hs.d.toFixed(2)}, 0))`);
+  await A.game(`(ctx.banter.autopilot = { d: ${hs.d.toFixed(2)}, speed: 0 }, true)`);
+  const AU = JSON.stringify(await A.game(`ctx.party.uid`));
+  await hostUntil(t, `(() => { const rc = ctx.party.remoteCar(${AU}); return !!rc && rc.shown && Math.abs(rc.s - ${(hs.s - 8).toFixed(2)}) < 1.5; })()`, "the host sees A pulled up behind", 30000);
+  await A.game(`(ctx.banter.autopilot = { d: ${hs.d.toFixed(2)}, speed: 3 }, true)`);     // (a rear-end bump: a long overlap on both screens)
   await hostUntil(t, `ctx.party._debug.P.bonks > 0`, "BONK on the host's screen", 30000);
   await A.until(`ctx.party._debug.P.bonks > 0`, "BONK on the friend's screen", 30000);
   t.check("BONK! symmetric — both screens bounced", await t.game(`ctx.party._debug.P.bonks > 0`) && await A.game(`ctx.party._debug.P.bonks > 0`));

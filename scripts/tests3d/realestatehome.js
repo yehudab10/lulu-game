@@ -19,11 +19,14 @@ module.exports = {
     await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);
     await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     if (!await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "lakewood" && __lulu3d.ctx.realestate.listings().length > 0`, "in Lakewood with listings", 20000)) return;
+    const g0 = await g(`ctx.realestate.debug.moveOutStep()`);
+    t.check("📞 the realtor's contact: the move-out goal starts at the realtor's office", /realtor's office/.test(g0), g0);
     const rec = await g(`(() => { for (const r of ctx.realestate.listings()) if (ctx.realestate.debug.buyNow(r.id)) return { id: r.id, x: r.ap.x, z: r.ap.z, nx: r.nx, nz: r.nz, address: r.address }; return null; })()`);
     t.check("she buys a house in Lakewood", !!rec && (await g(`ctx.realestate.owns(${JSON.stringify(rec && rec.id)})`)), JSON.stringify(rec));
     if (!rec) return;
     // what house.js's "🏠 Start my days here" stores (tested there): the door, facing the street
     await g(`(ctx.home.setStartAt({ town: "lakewood", key: ${JSON.stringify(rec.id)}, door: { x: ${rec.x}, z: ${rec.z} }, face: Math.atan2(${rec.nx}, ${rec.nz}), label: ${JSON.stringify(rec.address)} }), true)`);
+    t.check("…after Start my days here the goal line is gone", (await g(`ctx.realestate.debug.moveOutStep()`)) === "");
     await g(`ctx.onegame.home({ via: "test" })`);
     t.check("a new day starts at HER house's door in Lakewood (not the family porch)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.town.id === "lakewood" && Math.hypot(__lulu3d.ctx.foot.pos.x - ${rec.x}, __lulu3d.ctx.foot.pos.z - ${rec.z}) < 4`, "her day starts at her house", 30000),
       await g(`JSON.stringify({ st: L3.state, town: ctx.town.active && ctx.town.id, pos: ctx.foot.pos && [+ctx.foot.pos.x.toFixed(1), +ctx.foot.pos.z.toFixed(1)], want: [${rec.x.toFixed(1)}, ${rec.z.toFixed(1)}] })`));

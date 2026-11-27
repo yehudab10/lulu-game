@@ -29,7 +29,7 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { CAP, PITCH, PATTER, OFFICE, SIGNING, SOLD, MINE, PASS_SIGN, VIEWING, BASE } from "./data.js";
 import { registry, S } from "./registry.js";
-import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT } from "./market.js";
+import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT, isStarter, starters } from "./market.js";
 import { layout, counts, clear as clearSigns } from "./signs.js";
 import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
 import { bindHouse, nameHouse, CUR, HOUSE_DEF } from "./house.js";
@@ -37,10 +37,12 @@ import { finalize, log } from "./deal.js";
 import { pickPaged } from "./pager.js";
 import * as MG from "./mortgage.js";
 import * as RN from "./rent.js";
-import { tick as partyTick, roam, P as PP } from "./party.js";
+import { tick as partyTick, roam, P as PP, friendDecor } from "./party.js";
 import { SHARED } from "../together/rooms.js";
 import * as SVR from "./server.js";
 import * as GOTO from "./goto.js";
+import * as VISIT from "./visit.js";
+import { layoutYard, clearYard, ownMailbox, yardCount } from "./yard.js";
 import { verdict, openCases } from "./court.js";
 import { COURT_LINES } from "./data.js";
 import { COUNCIL } from "./data.js";
@@ -115,9 +117,15 @@ function refresh(force = false) {
     const others = locked() ? [] : registry.others().map(o => { const r = lookup(o.id); return r ? Object.assign({ who: o }, r) : null; }).filter(Boolean);
     W.friends = others.filter(r => !r.who.seized);
     W.seized = all.filter(r => held(r.id)).concat(others.filter(r => r.who.seized));
+    // 🏡 the outside of her homes (and her friends' — what they placed there) — yard.js; the pink mailbox steps aside
+    const deco = r => (r.who ? friendDecor(r.id) : S.decor[r.id]) || null;
+    for (const r of W.owned.concat(W.friends)) r.noBox = ownMailbox(deco(r));
     layout(W.town, W.listed, W.owned, W.friends, W.seized);
+    try { layoutYard(W.town, W.owned.concat(W.friends).map(r => ({ rec: r, deco: deco(r) })), W.yardPreview || null); } catch (e) { console.error("[realestate] yard", e); }
     try { if (ctx.homes && ctx.homes.refresh) ctx.homes.refresh(); } catch (e) { /* homes without the hook */ }
 }
+/** A picker preview of an outside piece at home `id` (null = stop previewing). */
+export function yardPreview(p) { W.yardPreview = p; if (inTown()) refresh(true); }
 registry.onChange(() => { if (inTown()) refresh(true); });
 // ci/hometown's "🏠 Start my days here" (ctx.home.startAt): a house that's no longer hers to wake up in — sold, foreclosed,
 // double-booked, seized, a tenant in it — sends her mornings back to Ima's; a house that MOVED (migrate) keeps them
@@ -403,10 +411,25 @@ function pinRec(rec) {
     const at = rec.sign || rec.ap;
     return ctx.openworld.pin({ x: at.x, z: at.z, name: rec.address, icon: registry.mine(rec.id) ? "🔑" : "🪧" });
 }
+/** 🏠 Moving out of Ima's (roadmap 23 d): the one goal line — the next step until her days start at a home of her own. */
+function moveOutStep() {
+    const st = ctx.home && ctx.home.startAt;
+    if (st && registry.mine(st.key)) return "";
+    if (!ctx.home || !ctx.home.setStartAt) return "";
+    const mine = registry.listFor(null).filter(h => !h.seized && !h.lost);
+    if (mine.length) return `Last step: go inside your new house and pick "Start my days here".`;
+    if (S.met.viewed) return "Next: buy a starter home. The bank's mortgage desk only needs 10 % down for a first home.";
+    if (S.met.office) return "Next: look inside a starter home. They're the cheapest ones in town.";
+    return "Ready to move out of Ima's? Start at a realtor's office in town.";
+}
+on("realestate:enter", e => { if (e && e.id === "office" && !S.met.office) { S.met.office = Date.now(); saveSoon(); } });
+on("realestate:view", () => { if (!S.met.viewed) { S.met.viewed = Date.now(); saveSoon(); } });
 function contactHtml() {
     const mine = registry.listFor(null), here = inTown() ? townId() : null;
     const R = realtorOf(here || "lakewood");
     let h = `<div class="lp-note">🏘️ <b>${R.name}</b> · ${R.firm}${here ? "" : " (Lakewood) · Brick by Brick (Midwood)"}</div>`;
+    const goal = moveOutStep();
+    if (goal) h += `<div class="lp-note re-goal">🏠 ${goal}</div>`;
     h += `<div class="lp-note"><b>🔑 Your places</b> (${mine.length} of ${CAP})</div>`;
     if (!mine.length) h += `<p class="lp-empty">No houses yet. ${here ? "Look for the FOR SALE signs on the lawns!" : "Drive into Lakewood or Midwood and look for the FOR SALE signs!"}</p>`;
     // (each home: the row shows the way; "🏠 Go there" takes her to its front door — goto.js)
@@ -414,7 +437,7 @@ function contactHtml() {
     if (here) {
         const list = locked() ? [] : listings();
         h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b>. New listings every day.</div>`;
-        h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label}. Tap to show the way.</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
+        h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label}${isStarter(r) ? ", a starter home" : ""}. Tap to show the way.</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
             : `<p class="lp-empty">${locked() ? OFFICE.party : "All sold today! Check back tomorrow."}</p>`;
     } else h += `<p class="lp-fine">Listings show up when you're in a town.</p>`;
     return h;
@@ -519,8 +542,10 @@ SHARED.realestateHouse = () => (CUR.rec && (CUR.mode === "owner" || CUR.mode ===
 SHARED.realty = () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null);
 const REALTOR_CONTACT = { name: "The realtor", tag: "houses for sale · 🔑 your places" };
 on("town:enter", () => { W.said.clear(); W.passed = false; W.town = null; nameOffice(townId()); });
-on("town:leave", () => { clearSigns(); W.town = null; W.listed = []; W.owned = []; });
-on("title", () => { clearSigns(); W.town = null; });
+on("realestate:yardPreview", e => yardPreview(e && e.opt != null ? e : null));
+on("interior:exit", e => { if (e && e.id === "realestateHouse") { W.yardPreview = null; if (inTown()) refresh(true); } });
+on("town:leave", () => { clearSigns(); clearYard(); W.town = null; W.listed = []; W.owned = []; });
+on("title", () => { clearSigns(); clearYard(); W.town = null; });
 on("run:start", () => { W.busy = false; });
 // (a light check: the town's houses are built a frame or so after town:enter; the day rolls over at midnight)
 hook("hud", dt => {
@@ -541,7 +566,7 @@ ctx.realestate = {
     /** 🏠 Go there: to the front door of home `id` she owns (goto.js) → "" (on her way) | the line why not. */
     goTo: id => GOTO.goHome(id),
     /** Why she can't go to home `id` right now ("" = she can). */
-    goBlock: id => GOTO.goBlock(id),
+    goBlock: (id, o) => GOTO.goBlock(id, o),
     ownerOf: id => registry.ownerOf(id),
     count: () => registry.count(),
     cap: CAP,
@@ -571,7 +596,7 @@ ctx.realestate = {
     rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
+    debug: { W, S, MG, RN, PP, friendDecor, yardCount, SV: SVR.SV, SVR, CLOCK, starters, moveOutStep, VISIT, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
         /** Buy a listed home for cash right now, no dialogue (tests). */
         buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; },
         /** The same through the world-wide registry first (tests). → a promise of { ok, why } */

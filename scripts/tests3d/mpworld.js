@@ -194,7 +194,7 @@ async function body(t, pages, riders) {
   // ── Dina's mode is always offline ──
   await g(`(L3.setState("title"), true)`);
   await A.frames(5);
-  await g(`L3.openMenuItem("title", "dina")`);
+  await g(`(ctx.dina.start(), true)`);                   // (the title's Dina tile is hidden since the hometown landing — the same start her door and her bus use)
   t.check("Dina's mode → offline", await A.until(`/^dina/.test(ctx.state) && !${S}.want`, "A: Dina offline", 30000), await g(`ctx.state`));
   await g(`(L3.setState("title"), true)`);
   await A.frames(5);

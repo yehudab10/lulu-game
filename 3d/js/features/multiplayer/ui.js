@@ -18,6 +18,8 @@ import {
 } from "./net.js";
 import { shared } from "../../core/save.js";
 import { SKINS } from "../../car.js";
+/** (features/accounts) her username once she has one; the curated name otherwise */
+const meName = () => (ctx.player && ctx.player.name && ctx.player.name()) || myName();
 
 css("multiplayer", `
 .mp-card h2 { margin-bottom: 2px; }
@@ -142,7 +144,7 @@ function render(focusId) {
         html += `<div class="mp-status ${connecting ? "wait" : "ok"}">${switching ? "🔀 Switching…" : connecting ? "… Connecting" : "✅ Connected"}</div>`;
         if (switching) html += `<p><b>→ ${MP.switchTo}</b></p>`;
         else if (connecting && MP.clock - MP.wantSince > 5) html += `<p class="fine">Can't connect yet. Still trying…</p>`;
-        html += `<p>Room: <b>${roomLabel(MP.room)}</b> · Playing as <b>${esc(myName())}</b></p>`;
+        html += `<p>Room: <b>${roomLabel(MP.room)}</b> · Playing as <b>${esc(meName())}</b></p>`;
         if (MP.connected) {
             const names = Object.values(MP.peers).map(p => esc(p.name));
             html += `<p><b>🌐 ${riderCount()} player${riderCount() === 1 ? "" : "s"} on the road</b></p>${names.length ? `<div class="mp-peers">${names.slice(0, 6).map(n => "• " + n).join("  ")}</div>` : ""}`;
@@ -184,7 +186,7 @@ export function uiDirty() { UI.dirty = true; if (UI.open) UI.lastRender = -1; }
 // ── title extras: the crew strip + top riders ────────────────────────────
 export function titleCrewHtml() {
     if (!MP.connected) return "";
-    const me = { name: myName() + " (you)", sk: ctx.car ? ctx.car.skinKey : "pink" };
+    const me = { name: meName() + " (you)", sk: ctx.car ? ctx.car.skinKey : "pink" };
     const crew = [me, ...Object.values(MP.peers).slice(0, 7)];
     return `<div class="mp-titlebox">👥 YOUR CREW${MP.room !== "lobby" ? " · ROOM " + MP.room.toUpperCase() : ""}</div>
         <div class="mp-crew">${crew.map(p => `<span><i style="background:${(SKINS[p.sk] || SKINS.pink).body}"></i>${esc(p.name)}</span>`).join("")}</div>`;
@@ -218,7 +220,7 @@ export function hudTick() {
     const R = MP.race;
     let r = "";
     if (R && R.state === "go") {
-        const rows = [{ name: myName() + " (you)", prog: R.prog, me: true }];
+        const rows = [{ name: meName() + " (you)", prog: R.prog, me: true }];
         for (const id in MP.peers) if (typeof MP.peers[id].raceProg === "number") rows.push({ name: MP.peers[id].name, prog: MP.peers[id].raceProg });
         rows.sort((a, b) => b.prog - a.prog);
         r = `<div class="t">🏁 RACE · first to ${RACE_GOAL / 1000}k</div>` + rows.slice(0, 5).map(x => {

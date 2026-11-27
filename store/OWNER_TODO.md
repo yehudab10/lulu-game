@@ -69,6 +69,8 @@ app"), a copy that doesn't start is rolled back automatically, and if a bad chan
 
 6. **App Privacy** (needs the Account Holder / Admin): answer item by item from `STORE_LISTING.md` §4, then
    **Publish**.
+   ⚠️ Changed 2026-11-26 (usernames): "User ID" and "Gameplay Content" are now **linked to the user = Yes**, and in the
+   Age Rating "User-Generated Content" is now **Yes** — use the updated answers in `STORE_LISTING.md` §4 and §5.
 
 7. **Create version 2.0.0** ("+" next to iOS App → `2.0.0`): paste the promotional text, description, keywords,
    What's New, support + marketing URLs, copyright (§3). Upload the screenshots: `store/screenshots/iphone-6.9/`

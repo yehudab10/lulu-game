@@ -6,6 +6,9 @@
 //   blocked  [{ f, n, at }]   — never again (they can't knock: the doorbell they knew is gone)
 //   join     "always" | "ask" | "nobody"   — who can hop in next to her
 //   hidden   true = appear offline (no doorbell at all)
+//   (ci/accounts) a friend may also carry u (their username, from the server), sv (the server has this friendship),
+//            pk-derived s + no b yet (made on the server: their card arrives sealed at the next hello), cin / pb (the
+//            card I opened / the doorbell my posted card holds); ek = my long-term key pair; rm = removals to send
 import { store, saveSoon } from "../../core/save.js";
 import { randStr, B64_RE } from "./crypto.js";
 import { CURATED_NAMES } from "../multiplayer/net.js";
@@ -77,4 +80,6 @@ export function setHidden(v) { S.hidden = !!v; saveSoon(); }
 
 /** "Kugel Kid #37" — 12 curated names are shared by many players, so the list adds a stable little number. */
 export const tagOf = tagOfId;              // (the same "#37" as ctx.player.label())
-export const labelOf = f => `${f.n} #${tagOf(f.f)}`;
+export const labelOf = f => (f.u && /^[A-Za-z][A-Za-z0-9_]{2,15}$/.test(f.u) ? f.u : `${f.n} #${tagOf(f.f)}`);   // (ci/accounts: their username first)
+/** Can we reach them at a doorbell yet? (a friendship made on the server waits for their sealed card) */
+export const ready = f => !!(f && f.s && f.b && BELL_RE.test(f.b));

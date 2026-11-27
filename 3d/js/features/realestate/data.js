@@ -58,6 +58,16 @@ export const SALE = { fee: 0.10 };
 export const CAP = 10;
 
 // ── the mortgage (stage 2; the bank's mortgage desk) ─────────────────────
+// 🏠 MOVING OUT OF IMA'S (roadmap 23 d): a first home within her first few PLAYED days of ordinary play. A day of play
+// earns ~500–650 (road coins ~25 a minute, Ima's list 85, a job or two); the cheapest homes are ~7,000. So: the cheapest
+// few homes in each town are ALWAYS on the market (no discount — what a home is worth never changes, so nothing to flip),
+// and the bank's first-home plan asks less down with a longer, gentler term. Hers to lose like any mortgage.
+export const STARTER = {
+    perTown: 3,                                       // the N cheapest unowned homes in a town are always listed
+    firstDown: [0.10, 0.20, 0.35],                    // her FIRST home: the down-payment choices (else 20 / 35 / 50 %)
+    firstTerms: [{ days: 30, fee: 0.15 }, { days: 45, fee: 0.20 }],   // …and the plans (else MORTGAGE.terms)
+};
+
 export const MORTGAGE = {
     minDown: 0.20,                                   // at least 20 % down
     terms: [{ days: 10, fee: 0.05 }, { days: 20, fee: 0.10 }, { days: 30, fee: 0.15 }],   // played days · the bank's flat fee on the loan
@@ -210,6 +220,7 @@ export const BANKERS = {
         colors: { Top: "#4A148C", Bottom: "#212121", Hair: "#9E9E9E" }, bank: "Kings County Savings & Bagel" },
 };
 export const BANK_LINES = {
+    first: "Your FIRST home? Mazel tov! For a first home the bank only needs ten percent down, and you can take up to 45 days. We like you. Don't make it weird.",
     hello: [
         "A MORTGAGE? Sit, sit. Do you have a pen? Do you have forty pens? You'll need forty pens.",
         "Welcome to the mortgage desk. The line is short because nobody can find it. You found it! Already you qualify.",

@@ -10,6 +10,8 @@ import * as HS from "./handshake.js";
 import * as BL from "./bell.js";
 import * as VOTE from "./vote.js";
 import * as MIS from "./missions.js";
+import * as SV from "./server.js";
+import { roomPath } from "../multiplayer/net.js";
 
 let X = null;                                   // index.js's code / join helpers
 const V = { api: null, app: "friends", arg: null, lastCheck: -1e9, wait: "" };
@@ -18,6 +20,11 @@ const row = (id, av, title, sub, meta = "", data = "", dis = false) =>
     `<button class="btn lp-row" id="${id}"${data}${dis ? " disabled" : ""}><span class="lp-av">${av}</span><span class="lp-tx"><b>${title}</b><small>${sub}</small></span>${meta ? `<span class="lp-meta">${meta}</span>` : ""}</button>`;
 const onc = (el, sel, fn) => el.querySelectorAll(sel).forEach(b => b.addEventListener("click", () => fn(b)));
 const JOIN_TXT = { always: "Always", ask: "Ask me", nobody: "Nobody" };
+const WHO_TXT = { everyone: "Everyone", fof: "Friends of friends", nobody: "Nobody" };
+const WHO_SUB = { everyone: "Anyone who knows your name can ask", fof: "Only people who share a friend with you", nobody: "No one can send you a request" };
+const ASK_TXT = { sent: "Sent! They'll see it next time they play.", friends: "You're friends now!", none: "No one has that name. Check the spelling.",
+    self: "That's you!", closed: "They aren't taking friend requests.", full: "Your friends list is full.", outfull: "You've asked a lot of people. Wait for some answers first.",
+    busy: "They can't take more requests right now.", slow: "That's a lot of requests. Try again later.", offline: "Can't send right now. Try again in a bit." };
 const JOIN_SUB = { always: "Friends can join you any time", ask: "You get a little note and say yes or no", nobody: "No one can join. Friends still see you're playing." };
 const partyRoam = () => !!(ctx.party && ctx.party.active && ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
 
@@ -39,6 +46,9 @@ function render(el, api, arg, app) {
     V.api = api; V.app = app || "friends"; V.arg = arg || null;
     const a = arg || {};
     if (a.code) return codeView(el, api);
+    if (a.add) return addView(el, api);
+    if (a.req) return reqView(el, api, a.req);
+    if (a.pick) return pickView(el, api);
     if (a.friend) return friendView(el, api, a.friend);
     if (a.blocked) return blockedView(el, api);
     if (a.edit) return editView(el, api);
@@ -60,6 +70,10 @@ function home(el, api) {
         html += row("frJy_" + f.f, "🙋", `${esc(ST.labelOf(f))} wants to join you`, "They'll show up next to you.", "✓", ` data-jy="${f.f}"`);
         html += row("frJn_" + f.f, "✋", "Not right now", "They'll get a friendly no.", "", ` data-jn="${f.f}"`);
     }
+    // (ci/accounts) requests that waited for her on the server — no pop-up, just this list + the badge on 👯
+    const RQ = SV.requests(), inReq = RQ.inReq.filter(r => !ST.isBlocked(r.f));
+    if (inReq.length) html += `<div class="ow-sec">Friend requests</div>`;
+    for (const r of inReq) html += row("frRq_" + r.f, "🙋", `${esc(r.n || "A player")} wants to be friends`, "Tap to say yes or no", "", ` data-rq="${r.f}"`);
     if (on.length) html += `<div class="ow-sec">Playing now</div>`;
     for (const f of on) {
         const s = BL.seen.get(f.f) || {};
@@ -69,10 +83,15 @@ function home(el, api) {
     if (off.length) html += `<div class="ow-sec">Not playing</div>`;
     for (const f of off) html += row("frF_" + f.f, "💤", dot(f.sk) + esc(ST.labelOf(f)), "not playing right now", "", ` data-fv="${f.f}"`).replace("lp-row", "lp-row fr-off");
     html += `<div class="ow-sec">Add a friend</div>`;
+    const myName = ctx.player && ctx.player.name ? ctx.player.name() : null;
+    if (SV.serverOn()) html += myName ? row("frAdd", "➕", "Add a friend by name", `Your name is ${esc(myName)}. Tell your friends!`)
+        : row("frPick", "🪪", "Pick your name", "Then friends can find you by name");
     html += row("frCode", "➕", "Add by code", "Show your code, or type a friend's", "", "", !live);
     if (nearbyOn()) html += row("frNear", "📍", "Players near you", "Tap one to ask them to be friends");      // (ci/hud: 📍 Nearby lives here now, not on the home screen)
+    for (const r of RQ.outReq) html += row("frOq_" + r.f, "⏳", `Asked ${esc(r.n || "a player")}`, "Waiting for them to say yes. Tap to cancel.", "", ` data-oq="${r.f}"`);
     html += `<div class="ow-sec">Settings</div>`;
     html += row("frJoinSet", "🚪", `Who can join me: ${JOIN_TXT[ST.S.join]}`, JOIN_SUB[ST.S.join]);
+    if (SV.serverOn()) html += row("frWho", "📨", `Friend requests from: ${WHO_TXT[SV.who()]}`, WHO_SUB[SV.who()]);
     html += row("frHide", "🙈", `Appear offline: ${ST.S.hidden ? "ON" : "OFF"}`, ST.S.hidden ? "Friends see you as not playing" : "Friends can see you're playing, and roughly where");
     if (L.length) html += row("frEdit", "✏️", "Remove or block a friend", `${L.length} of ${ST.CAP} friends`);
     if (ST.S.blocked.length) html += row("frBlocked", "🚫", `Blocked players (${ST.S.blocked.length})`, "Tap to unblock");
@@ -84,6 +103,11 @@ function home(el, api) {
     onc(el, "[data-jy]", b => { BL.answerJoin(b.dataset.jy, true); api.close(); });
     onc(el, "[data-jn]", b => { BL.answerJoin(b.dataset.jn, false); api.refresh(); });
     onc(el, "#frCode", () => go(api, { code: 1 }));
+    onc(el, "#frAdd", () => go(api, { add: 1 }));
+    onc(el, "#frPick", () => go(api, { pick: 1 }));
+    onc(el, "[data-rq]", b => go(api, { req: b.dataset.rq }));
+    onc(el, "[data-oq]", async b => { await SV.cancel(b.dataset.oq); api.refresh(); });
+    onc(el, "#frWho", async () => { await SV.setWho(SV.WHO[(SV.WHO.indexOf(SV.who()) + 1) % 3]); api.refresh(); });
     onc(el, "#frJoinSet", () => { ST.setJoin(ST.JOIN[(ST.JOIN.indexOf(ST.S.join) + 1) % 3]); api.refresh(); });
     onc(el, "#frHide", () => { ST.setHidden(!ST.S.hidden); api.refresh(); });
     onc(el, "#frEdit", () => go(api, { edit: 1 }));
@@ -100,6 +124,73 @@ async function joinTap(api, fid) {
     if (/^🚀/.test(msg)) { if (ctx.phone && ctx.phone.isOpen) ctx.phone.closePhone(); H.toast(msg, "pink", { prio: 2 }); return; }
     if (ctx.phone && ctx.phone.isOpen) { refresh(); if (msg && V.api) V.api.toast(msg); }
     else if (msg) H.toast(msg, "", { prio: 2 });
+}
+
+// ── (ci/accounts) ➕ add by name · a request · pick a name ─────────────
+function addView(el, api) {
+    const me = ctx.player.name();
+    let html = `<div class="lp-card"><span class="lp-tx"><b>Add a friend by name</b><small>Type their name. They say yes next time they play.</small></span></div>`;
+    html += `<input class="fr-in nav" id="frName" maxlength="16" placeholder="Their name" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="text-transform:none;letter-spacing:.04em">`;
+    html += row("frSendName", "📨", "Send a friend request", me ? `Your name is ${esc(me)}` : "");
+    if (V.addMsg) html += `<p class="lp-note" id="frAddMsg">${esc(V.addMsg)}</p>`;
+    html += row("frBack", "‹", "Back", "");
+    el.innerHTML = html;
+    const inp = el.querySelector("#frName");
+    if (V.addVal) inp.value = V.addVal;
+    inp.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") send(); if (e.key === "Escape") inp.blur(); });
+    inp.addEventListener("click", () => inp.focus());
+    const send = async () => {
+        const v = inp.value.trim(); V.addVal = v;
+        if (!v) { V.addMsg = "Type their name first."; api.refresh(); return; }
+        V.addMsg = "Sending…"; api.refresh();
+        const r = await SV.ask({ to: v });
+        V.addMsg = ASK_TXT[r] || ASK_TXT.offline;
+        if (r === "sent" || r === "friends") V.addVal = "";
+        refresh();
+    };
+    onc(el, "#frSendName", send);
+    onc(el, "#frBack", () => { V.addMsg = ""; V.addVal = ""; go(api, null); });
+}
+function reqView(el, api, fid) {
+    const r = SV.requests().inReq.find(x => x.f === fid);
+    if (!r) { home(el, api); return; }
+    let html = `<div class="lp-card ow-head"><span class="lp-av">🙋</span><span class="lp-tx"><b>${esc(r.n || "A player")}</b><small>wants to be friends</small></span></div>`;
+    html += row("frRy", "🤝", "Be friends", "You can see when each other is playing, and join", "✓");
+    html += row("frRn", "✋", "No thanks", "They won't be told");
+    html += row("frRb", "🚫", "Block", "They can't ask you again");
+    if (r.n) html += row("frRr", "🚩", "Report this name", "If it's rude or mean");
+    html += row("frBack", "‹", "Back", "");
+    el.innerHTML = html;
+    onc(el, "#frRy", async () => { const w = await SV.answer(fid, true); api.toast(w === "friends" ? `🤝 You and ${r.n || "they"} are friends!` : ASK_TXT[w] || ASK_TXT.offline); go(api, null); });
+    onc(el, "#frRn", async () => { await SV.answer(fid, false); go(api, null); });
+    onc(el, "#frRb", async () => { await SV.answer(fid, false); ctx.friends.block(fid, ""); go(api, null); });
+    onc(el, "#frRr", async () => { await ctx.accounts.report({ f: fid }); await SV.answer(fid, false); api.toast("🚩 Thanks for telling us."); go(api, null); });
+    onc(el, "#frBack", () => go(api, null));
+}
+function pickView(el, api) {
+    const A = ctx.accounts;
+    let html = `<div class="lp-card"><span class="lp-tx"><b>Pick your name</b><small>Other players and your friends will see it. Don't use your real name.</small></span></div>`;
+    for (const [i, n] of (V.ideas || []).entries()) html += row("frIdea" + i, "✨", esc(n), "Tap to take this name", "", ` data-idea="${esc(n)}"`);
+    html += `<input class="fr-in nav" id="frMyName" maxlength="16" placeholder="Or type your own" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="text-transform:none;letter-spacing:.04em">`;
+    html += row("frTake", "✓", "Use this name", "");
+    if (V.pickMsg) html += `<p class="lp-note">${esc(V.pickMsg)}</p>`;
+    html += row("frBack", "‹", "Back", "");
+    el.innerHTML = html;
+    if (!V.ideas) A.ideas("").then(l => { V.ideas = l; refresh(); });
+    const inp = el.querySelector("#frMyName");
+    inp.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") take(inp.value.trim()); if (e.key === "Escape") inp.blur(); });
+    inp.addEventListener("click", () => inp.focus());
+    const take = async n => {
+        if (!n) { V.pickMsg = "Type a name, or tap one of the ideas."; api.refresh(); return; }
+        const r = await A.setName(n);
+        if (r.ok) { V.pickMsg = ""; V.ideas = null; api.toast(`🪪 Hi, ${n}!`); go(api, null); return; }
+        V.pickMsg = r.why === "taken" && r.sugg && r.sugg.length ? `Someone already has that name. Try ${r.sugg.slice(0, 2).join(", ")}…` : (A.rules.WHY[r.why] || A.rules.WHY.offline);
+        if (r.sugg && r.sugg.length) V.ideas = r.sugg.slice(0, 3);
+        refresh();
+    };
+    onc(el, "[data-idea]", b => take(b.dataset.idea));
+    onc(el, "#frTake", () => take(inp.value.trim()));
+    onc(el, "#frBack", () => { V.pickMsg = ""; go(api, null); });
 }
 
 function codeView(el, api) {
@@ -181,15 +272,26 @@ export function driverNote(peerId) {
 /** The driver's page: ➕ ask / ✓ accept / ✗ no thanks. */
 export function driverView(el, api, peerId, name, back) {
     const inc = HS.incoming("mp").some(q => q.peer === peerId), out = HS.outgoing("mp", peerId);
+    // 🚩 (features/accounts) only for a name the server vouched for — a colour + number has nothing to report
+    const gp = ctx.mp && ctx.mp._debug && ctx.mp._debug.peers ? ctx.mp._debug.peers[peerId] : null;
+    const rep = gp && gp.un && ctx.accounts && ctx.accounts.ghostName(roomPath(), peerId, gp.un, { always: true }) ? { t: gp.un, room: roomPath(), rid: peerId } : null;
+
     let html = `<div class="lp-card ow-head"><span class="lp-av">👻</span><span class="lp-tx"><b>${esc(name)}</b><small>Another player out in the world</small></span></div>`;
     if (!X.live()) html += `<p class="lp-note">Friends need an internet connection.</p>`;
     else if (out === "done") html += `<p class="lp-note">🤝 You're friends! They're in 👯 Friends now.</p>`;
     else if (inc) html += row("frDy", "🤝", "Be friends", "They asked you. Say yes and you're friends.", "✓") + row("frDn", "✋", "No thanks", "They won't be told");
     else if (out) html += `<p class="lp-note">➕ Asked! When they say yes, you're friends.</p>`;
+    else if (V.sent && V.sent[peerId]) html += `<p class="lp-note">📨 ${esc(V.sent[peerId])}</p>`;
     else html += row("frDa", "➕", "Ask to be friends", ST.full() ? `Your list is full (${ST.CAP})` : "They'll see it next to your name in their Nearby", "", "", ST.full());
+    if (rep) html += row("frRep", "🚩", "Report this name", "If it's rude or mean. You won't see it again.");
     html += row("frBack", "‹", "Back", "");
     el.innerHTML = html;
-    onc(el, "#frDa", async () => { await HS.ask("mp", peerId); api.refresh(); });
+    onc(el, "#frRep", async () => { await ctx.accounts.report(rep); api.toast("🚩 Thanks for telling us."); back(); });
+    onc(el, "#frDa", async () => {
+        // (ci/accounts) a driver with a name the server vouched for: a request on the server — it waits if they drive off
+        if (rep && SV.serverOn() && ctx.player.name()) { const w = await SV.ask({ t: rep.t, room: rep.room, rid: rep.rid }); (V.sent = V.sent || {})[peerId] = ASK_TXT[w] || ASK_TXT.offline; api.refresh(); return; }
+        await HS.ask("mp", peerId); api.refresh();
+    });
     onc(el, "#frDy", async () => { await HS.accept("mp", peerId); api.refresh(); });
     onc(el, "#frDn", () => { HS.decline("mp", peerId); back(); });
     onc(el, "#frBack", () => back());
@@ -292,14 +394,16 @@ export function install(helpers) {
             // (order 5: first — a multiplayer game; ci/hud landing 3)
             id: "friends", icon: "👯", name: "Friends", order: 5, color: "#7E57C2", color2: "#E91E63",
             visible: () => !partyRoam(),
-            badge: () => (BL.joinAsks().length || HS.incoming("party").length ? "!" : null),
+            badge: () => (BL.joinAsks().length || HS.incoming("party").length ? "!" : SV.badge() ? String(SV.badge()) : null),
             render(el, api, arg) { render(el, api, arg, "friends"); },
             back(api) { if (V.arg) { if (V.arg.code) X.closeCode(); V.arg = null; api.open("friends", null); return true; } return false; },
         });
         return true;
     };
     if (!tryAdd()) on("boot", tryAdd);
-    for (const ev of ["friends:presence", "friends:checked", "friends:asks", "friends:joinAsk"]) on(ev, refresh);
+    for (const ev of ["friends:presence", "friends:checked", "friends:asks", "friends:joinAsk", "friends:server"]) on(ev, refresh);
+    // opening 👯 asks the server what's new (requests that waited) — at most every 20 s
+    on("phone:app", e => { if (e && (e.app === "friends" || e.app === "owparty") && ctx.accounts) ctx.accounts.hello(); });
     on("phone:close", () => { if (X.C.mine) X.closeCode(); });              // (a code lives only while its screen is up)
     on("phone:app", e => { if (e && e.app !== "friends" && !(e.app === "owparty" && V.app === "owparty")) { if (X.C.mine) X.closeCode(); } });
     setInterval(() => { try { chipTick(); } catch (e) { /* hud not ready */ } }, 400);

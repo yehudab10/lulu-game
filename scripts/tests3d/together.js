@@ -204,7 +204,8 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   await g(`(() => { const c = ctx.homes.debug.VISIT.cur; c.V.exit = "door"; c.rt.leave(); return true; })()`);
   await Hp.until(`ctx.state === "footRun"`, "host out again", 40000);
 
-  // ── LULU'S HOUSE: the host's, with friends — the guest walks in and sees the HOST's decorations ──
+  // ── IMA'S HOUSE with friends (roadmap 23): each one walks into HER OWN copy — the host, then the guest at once;
+  //    neither sees the other inside ──
   await g(`(() => { const S = ctx.decor.debug.S; S.owned.rug = ["road"]; S.placed.rug = "road"; return true; })()`);
   await A.game(`(() => { const S = ctx.decor.debug.S; S.owned = {}; S.placed = {}; return true; })()`);
   for (const P of [Hp, A]) {
@@ -229,22 +230,18 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   t.check("…✋ GO INSIDE at the door with friends", /GO INSIDE/.test(await g(`(ctx.foot.debug.interactables() || {}).label || ""`)), await g(`(ctx.foot.debug.interactables() || {}).label`));
   await g(`ctx.decor.enter()`);
   if (!await Hp.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "host goes into HER house", 60000)) return false;
-  t.check("host: it's her own house (the visit's owner)", (await g(`ctx.decor.visitOwner()`)) === hostUid && !(await g(`ctx.decor.visiting`)));
-  t.check("…no redecorating with friends (no picker spots, nothing sold)", await g(`!ctx.decor.debug.room().hots.some(h => /^slot:/.test(h.id)) && !ctx.decor.buy("rug", "round").ok`));
+  t.check("host: her own copy of Ima's house (nobody visits — roadmap 23)", (await g(`ctx.decor.visitOwner()`)) === null && !(await g(`ctx.decor.visiting`)));
+  t.check("…no redecorating at Ima's (no picker spots, nothing sold with friends)", await g(`!ctx.decor.debug.room().hots.some(h => /^slot:/.test(h.id)) && !ctx.decor.buy("rug", "round").ok`));
   await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
   console.log("   WHERE (guest at the door)", await where(A));
-  await A.until(`(() => { const p = ctx.party.peer(${HU}); return !!p && p.x && Array.isArray(p.x.dc) && Array.isArray(p.x.in) && p.x.in[0] === "luluHome"; })()`, "guest knows the host is home", 30000);
-  console.log("   WHERE (guest before going in)", await where(A));
+  t.check("guest: the host is \"at home\" (the friend finder's words)", await A.until(`(() => { const pr = ctx.party.presenceOf(${HU}); return !!pr && pr.label === "at home"; })()`, "the host is at home", 30000));
+  t.check("…the door is still ✋ GO INSIDE for her (nobody waits)", await A.until(`/GO INSIDE/.test((ctx.foot.debug.interactables() || {}).label || "")`, "the guest's door", 20000), await A.game(`(ctx.foot.debug.interactables() || {}).label`));
   await A.game(`ctx.decor.enter()`);
-  if (!await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest comes over", 60000)) return false;
-  console.log("   WHERE (guest inside)", await where(A), await where(Hp));
-  t.check("guest: it's the HOST's house", (await A.game(`ctx.decor.visitOwner()`)) === hostUid && await A.game(`ctx.decor.visiting`));
-  t.check("…with the host's road-map rug (not her own bare floor)", await A.game(`(() => { const V = ctx.decor.debug.room().data.V; return !!V.objs.rug && Object.keys(V.cache.rug || {}).includes("road"); })()`), JSON.stringify(await A.game(`Object.keys(ctx.decor.debug.room().data.V.cache.rug || {})`)));
-  t.check("…and nothing of the host's changed in her own save", await A.game(`ctx.decor.placed("rug") === "none"`));
-  const roomDbg = (P, other) => P.game(`(() => { const p = ctx.party.peer(${other}), R = ctx.together.debug.room(); return JSON.stringify({ st: ctx.state, town: ctx.town.active && ctx.town.id, mine: R && { id: R.room, inst: R.inst, mates: R.mates.map(m => m.uid) }, peer: p && { m: p.m, z: p.x && p.x.z, in: p.x && p.x.in && p.x.in.slice(0, 2), dr: p.x && p.x.dr } }); })()`);
-  if (!await Hp.until(`ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "host sees the guest come in", 60000)) console.log("   ROOM host", await roomDbg(Hp, GU));
-  if (!await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host at home", 60000)) console.log("   ROOM guest", await roomDbg(A, HU));
-  await t.shot("luluhome-together");
+  t.check("…she walks straight into HER OWN copy of Ima's house", await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest goes into her own house", 60000));
+  await A.frames(60); await Hp.frames(30);
+  t.check("both inside at once: neither sees the other (nothing shared in Ima's house)", (await g(`(() => { const R = ctx.together.debug.room(); return R.room !== "luluHome" && R.mates.length === 0; })()`)) && (await A.game(`(() => { const R = ctx.together.debug.room(); return R.room !== "luluHome" && R.mates.length === 0; })()`)) && !(await g(`ctx.decor.visiting`)) && !(await A.game(`ctx.decor.visiting`)),
+    JSON.stringify([await g(`JSON.stringify(ctx.together.debug.room())`), await A.game(`JSON.stringify(ctx.together.debug.room())`)]));
+  await t.shot("luluhome-family-only");
   t.check("coins still untouched", (await g(`L3.wallet.coins`)) === coins0.h && (await A.game(`L3.wallet.coins`)) === coins0.a);
   for (const P of [A, Hp]) {
     await P.game(`(ctx.decor.debug.room().leave(), true)`);
