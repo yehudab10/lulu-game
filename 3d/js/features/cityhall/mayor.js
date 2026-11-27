@@ -47,7 +47,8 @@ export function strike(id) {
 }
 
 // ── in Borough Hall: the notice board, the Complaints window, the staff ──
-LOBBY_BUILDERS.push((rt, B, I) => {
+// (registered at boot: after every module's own builder — story.js replaces the board's action, this wraps whatever is there)
+on("boot", () => LOBBY_BUILDERS.push((rt, B, I) => {
     if (I.town !== "midwood") return;
     const board = rt.hots.find(h => h.id === "board");
     if (board) {
@@ -66,7 +67,7 @@ LOBBY_BUILDERS.push((rt, B, I) => {
         const prev = sec.action;
         sec.action = r => (Math.random() < 0.4 ? r.say(String(typeof sec.label === "function" ? sec.label() : sec.label).replace(/^💬 /, ""), pick(MAYOR31.staff), { emoji: "🙄", person: r.byId.secretary, color: "#6A1B9A" }) : prev(r));
     }
-});
+}));
 COMPLAINT_EXTRAS.push(town => {
     const e = town === "midwood" ? todayEdict() : null;
     return e ? [{ opt: MAYOR31.complaint.opt, reply: MAYOR31.complaint.reply(e) }] : null;
