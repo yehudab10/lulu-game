@@ -398,8 +398,8 @@ function chipTick() {
     const txt = want ? L.chip : "";
     if (CM.chip && CM.chipTxt !== txt) { CM.chipTxt = txt; CM.chip.innerHTML = txt; CM.chip.classList.toggle("hidden", !txt); }
     try {
-        const P = ctx.pins, owe = S.tickets.some(t => open(t) && owedOf(t) > 0);
-        if (P && P.add && owe && !CM.pinRm) CM.pinRm = P.add({ id: "cameras", icon: "📸", label: L.pin, town: "midwood", spot: "cityhall" });
+        const P = ctx.pins, ow = S.tickets.find(t => open(t) && owedOf(t) > 0), owe = !!ow;
+        if (P && P.add && owe && !CM.pinRm) CM.pinRm = P.add({ id: "cameras", icon: "📸", label: L.pin, cat: "mine", town: ow.town, spot: "cityhall" });
         else if (CM.pinRm && !owe) { if (typeof CM.pinRm === "function") CM.pinRm(); else if (P && P.remove) P.remove("cameras"); CM.pinRm = null; }
     } catch (e) { /* no pins */ }
 }
