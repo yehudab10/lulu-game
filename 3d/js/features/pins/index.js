@@ -29,7 +29,7 @@ import * as PTR from "../together/pointers.js";
 import { lapPlaces, ahead } from "../world/lapmap.js";
 import { seed } from "./data.js";
 
-const PS = store("pins", { ping: null, from: "", n: 0, arrived: 0 });
+const PS = store("pins", { ping: null, from: "", kind: "", n: 0, arrived: 0 });
 const REG = new Map();
 const HEX = "#7C4DFF";
 const P = { t: null, tT: 0, chip: null, text: "", fchip: null, ftext: "", fT: 0, seen: {}, fl: [] };
@@ -152,7 +152,7 @@ export const ctxCurrent = () => PS.ping;
 export function ping(id, opts = {}) {
     const p = get(id);
     if (!p) return false;
-    PS.ping = p.id; PS.from = opts.from || ""; PS.n++;
+    PS.ping = p.id; PS.from = opts.from || ""; PS.kind = opts.kind || ""; PS.n++;
     saveSoon();
     P.tT = 0;
     share();
@@ -161,7 +161,7 @@ export function ping(id, opts = {}) {
 }
 export function clear(why = "clear") {
     const was = PS.ping;
-    PS.ping = null; PS.from = "";
+    PS.ping = null; PS.from = ""; PS.kind = "";
     saveSoon();
     hideBeacon("pin"); chip("");
     P.t = null;
@@ -174,6 +174,7 @@ const KIND = { dealer: "dealer", makolet: "makolet", black: "van", bling: "bling
 export function pingKind(kind, opts = {}) {
     if (kind === "garage") return ping("home:ima", opts);
     const key = KIND[kind] || kind;
+    opts = Object.assign({}, opts, { kind: key });
     const here = ctx.town && ctx.town.active ? ctx.town.id : "";
     if (here && get(`${here}:${key}`)) return ping(`${here}:${key}`, opts);
     const cands = list().filter(p => p.town && p.id === `${p.town}:${key}`);
@@ -182,6 +183,8 @@ export function pingKind(kind, opts = {}) {
     cands.sort((a, b) => ahead(lapM(a) ?? 0, me) - ahead(lapM(b) ?? 0, me));
     return ping(cands[0].id, opts);
 }
+// (a ping by KIND — "a car lot" from 🛍️ Where to shop — follows her: into a town that has one, it's that town's)
+on("town:enter", e => { const id = e && e.town && PS.kind ? `${e.town}:${PS.kind}` : ""; if (id && PS.ping !== id && get(id)) { PS.ping = id; saveSoon(); P.tT = 0; share(); } });
 function share() { try { if (ctx.party && ctx.party.active && ctx.party.setX) ctx.party.setX("pg", PS.ping || null); } catch (e) { /* offline */ } }
 on("party:status", () => share());
 
