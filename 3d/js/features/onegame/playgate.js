@@ -11,6 +11,7 @@ import { ctx, on } from "../../core/ctx.js";
 import { models } from "../../models.js";
 import { home } from "../world/home.js";
 
+const NOGATE = typeof location !== "undefined" && new URLSearchParams(location.search).has("nogate");      // (perfstart.js A / B: main's old ▶ PLAY)
 const PG = { waiting: false, start: null, failed: false, pct: 0, lastPct: -1, lastMove: 0, raf: 0 };
 const STALL_MS = 60000;            // no progress for this long while waiting → treat it as failed (offline, a stuck fetch)
 
@@ -65,7 +66,7 @@ function tick() {
 
 ctx.playGate = start => {
     if (PG.waiting) { stop("Stopped. Tap ▶ PLAY when you're ready."); return; }          // (a second tap: stop waiting)
-    if (!gateApplies() || homeStartReady()) { start(); return; }
+    if (NOGATE || !gateApplies() || homeStartReady()) { start(); return; }
     // (a retry after a failed download: ask the town again — its last load gave up)
     if (PG.failed || failed()) { PG.failed = false; const id = homeTown(); if (id && ctx.town.load) ctx.town.load(id); }
     PG.waiting = true; PG.start = start; PG.lastPct = -1; PG.lastMove = performance.now();

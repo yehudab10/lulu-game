@@ -24,6 +24,8 @@
 //   needs arriving late = no home start), so it wasn't kept. Title: FCP ~1 s, interactive ~53 s on slow 4G (it waits
 //   for its downloads) — the place to look next if phones on cellular matter.
 const http = require("http");
+const zlib = require("zlib");
+const GZ = new Map();
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
@@ -43,8 +45,14 @@ function serve() {
     if (url.endsWith("/")) url += "index.html";
     const file = path.join(ROOT, url);
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream", "Cache-Control": "max-age=600" });
-    fs.createReadStream(file).pipe(res);
+    // (like GitHub Pages: gzip for code + models — lulu.boats sends .glb gzipped, ~4× smaller — not for audio / images)
+    const ext = path.extname(file), type = MIME[ext] || "application/octet-stream";
+    const zip = /gzip/.test(req.headers["accept-encoding"] || "") && /\.(js|json|html|css|svg|glb)$/.test(ext) && !process.env.PERFSTART_NOGZIP;
+    if (!zip) { res.writeHead(200, { "Content-Type": type, "Cache-Control": "max-age=600" }); return fs.createReadStream(file).pipe(res); }
+    let body = GZ.get(file);
+    if (!body) GZ.set(file, body = zlib.gzipSync(fs.readFileSync(file), { level: 6 }));
+    res.writeHead(200, { "Content-Type": type, "Cache-Control": "max-age=600", "Content-Encoding": "gzip", "Content-Length": body.length });
+    res.end(body);
   });
   return new Promise(r => server.listen(0, "127.0.0.1", () => r(server)));
 }
