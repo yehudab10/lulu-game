@@ -16,7 +16,7 @@ module.exports = {
     t.check("…today's tone mapping (ACES)", await g(`L3.renderer.toneMapping === 4`));
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await t.frames(10);
-    t.check("…today's car (lulu_car: 9.3k triangles)", await g(`(() => { let n = 0; ctx.car.model.traverse(o => { if (o.isMesh) n += o.geometry.index.count / 3; }); return n < 12000; })()`));
+    t.check("…today's car (lulu_car: 9.3k triangles)", await g(`(() => { let n = 0; ctx.car.model.traverse(o => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n < 12000; })()`));
 
     // ── on ──
     if (!await t.boot("&enable=atmos,foot&look=2")) return;
@@ -25,7 +25,7 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "playing"`, "drives")) return;
     await t.frames(10);
     const h = await g(`(() => { const c = ctx.car, m = c.model; let body = false, tris = 0;
-      m.traverse(o => { if (o.isMesh) { tris += o.geometry.index.count / 3; if (o.material.name === "Body" && /LuluCar_body/.test(o.parent.name + o.name)) body = true; } });
+      m.traverse(o => { if (o.isMesh) { tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; if (o.material.name === "Body" && /LuluCar_body/.test(o.parent.name + o.name)) body = true; } });
       return { w: c.wheels.length, f: c.wheels.filter(w => w.front).length, sw: !!c.steeringWheel, tl: c.taillights.length, a: Object.keys(c.anchors).length,
         d: !!c.driver, hair: c.hairs.length, ws: !!m.getObjectByName("ws"), body, tris }; })()`);
     t.check("the improved car keeps the hooks", h.w === 4 && h.f === 2 && h.sw && h.tl >= 1 && h.a === 9 && h.d && h.hair >= 1 && h.ws && h.body && h.tris > 20000, JSON.stringify(h));

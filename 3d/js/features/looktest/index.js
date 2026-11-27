@@ -5,6 +5,7 @@
 //   ?look=2              all of it: the improved car, the skinned Lulu (real walk / run / idle cycles), the light
 //   ?look=2&car=kenney   the car is Kenney's CC0 sedan fitted to the game instead (car=0: today's car)
 //   ?look=2&lulu=0       today's Lulu on foot        ?look=2&light=0   today's light        ?look=2&glow=0  no bloom
+//   ?look=2&soft=0       today's (sharper) shadows
 //
 // The pictures, clips and costs: 3d/docs/looktest/README.md (made by scripts/looktest/*.js).
 import * as THREE from "three";
@@ -19,7 +20,7 @@ const Q = new URLSearchParams(location.search);
 const ON = Q.get("look") === "2";
 const want = (k, def = "1") => (Q.get(k) || def) !== "0";
 
-export const LOOK = { on: ON, car: ON ? (Q.get("car") || "good") : "0", lulu: ON && want("lulu"), light: ON && want("light"), glow: ON && want("glow") };
+export const LOOK = { on: ON, car: ON ? (Q.get("car") || "good") : "0", lulu: ON && want("lulu"), light: ON && want("light"), glow: ON && want("glow"), soft: ON && want("soft") };
 ctx.look = LOOK;
 
 if (ON) {
@@ -48,12 +49,14 @@ const L = { env: null, base: 0, set: -1 };
 function lightUp() {
     const r = ctx.renderer, sc = ctx.scene, li = ctx.lights;
     if (!r || !sc || !li) return;
-    // softer, wider shadow edges (variance shadow maps blur the edge; PCF only dithers it)
-    r.shadowMap.type = THREE.VSMShadowMap;
-    li.sun.shadow.radius = 5;
-    li.sun.shadow.blurSamples = 10;
-    li.sun.shadow.bias = -0.0006;
-    sc.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
+    // softer, wider shadow edges (variance shadow maps blur the edge; PCF only dithers it)   (&soft=0: today's shadows)
+    if (LOOK.soft) {
+        r.shadowMap.type = THREE.VSMShadowMap;
+        li.sun.shadow.radius = 5;
+        li.sun.shadow.blurSamples = 10;
+        li.sun.shadow.bias = -0.0006;
+        sc.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
+    }
     // tone: keep the pinks pink (ACES pushes saturated reds toward orange and flattens the brights)
     r.toneMapping = THREE.NeutralToneMapping;
     li.sun.color.lerp(new THREE.Color("#ffe2bd"), 0.35);      // a warmer sun against the cooler sky fill

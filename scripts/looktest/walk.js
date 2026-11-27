@@ -60,11 +60,12 @@ async function film(look, dir) {
   await film(true, path.join(tmp, "after"));
   const enc = (d, file) => execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-framerate", String(FPS), "-i", path.join(d, "f%04d.png"),
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-movflags", "+faststart", file]);
-  enc(path.join(tmp, "before"), path.join(out, "walk-before.mp4"));
-  enc(path.join(tmp, "after"), path.join(out, "walk-after.mp4"));
+  enc(path.join(tmp, "before"), path.join(tmp, "walk-before.mp4"));
+  enc(path.join(tmp, "after"), path.join(tmp, "walk-after.mp4"));
   // side by side: before | after
-  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", path.join(out, "walk-before.mp4"), "-i", path.join(out, "walk-after.mp4"),
-    "-filter_complex", "[0:v][1:v]hstack=inputs=2[v]", "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-movflags", "+faststart",
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", path.join(tmp, "walk-before.mp4"), "-i", path.join(tmp, "walk-after.mp4"),
+    "-filter_complex", `[0:v]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='TODAY':x=20:y=20:fontsize=30:fontcolor=white:box=1:boxcolor=black@0.55[a];` +
+      `[1:v]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='SKELETON + WALK / RUN / IDLE':x=20:y=20:fontsize=30:fontcolor=white:box=1:boxcolor=black@0.55[b];[a][b]hstack=inputs=2[v]`, "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-movflags", "+faststart",
     path.join(out, "walk-side-by-side.mp4")]);
   fs.writeFileSync(path.join(out, "walk-marks.json"), JSON.stringify(marks.map(m => ({ label: m.label, at: +(m.frame / FPS).toFixed(1) })), null, 1));
   console.log("clips in", path.relative(L.ROOT, out));
