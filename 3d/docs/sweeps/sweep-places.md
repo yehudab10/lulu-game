@@ -34,8 +34,8 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
 7. **East Midwood Lanes' front said COMING SOON** — the alley is open (walk in, bowl), but its Avenue M front still
    had the "COMING SOON: EAST MIDWOOD LANES" sign and brown paper taped over the windows. Now its own sign, no paper
    (`storefronts/assign.js` + `index.js` buildLook, when features/lanes is here). — fixed
-8. **Midwood's precinct answered the phone as "Precinct 18½"** (the highway precinct's name) — the line is generic now
-   (`interiors/police.js`). — fixed
+8. **Midwood's precinct answered the phone as "Precinct 18½"** (the highway precinct's name) — fixed the same night on
+   main by another sweep (their line kept).
 
 9. **Walking out of East Midwood Lanes left her on the highway, ~480 km from Midwood** — the alley wasn't on the list
    of town rooms that keep the town (`heist/bank.js` TOWN_INTERIORS): going in quietly unloaded Midwood, and coming out
@@ -55,4 +55,4 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
 
 ## For other sweeps
 - for `ci/sweep-logic`: free coins from interiors' one-off ✋ (precinct coffee +30, hospital vending +5, Heshy +4…)
-  are "once per interior per RUN" (`interiors/engine.js` RUN_USED) — a new run (title → ▶ PLAY) pays them again.
+  were "once per interior per RUN" — done by ci/sweep-logic (once a day now).
