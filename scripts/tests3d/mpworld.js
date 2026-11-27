@@ -102,6 +102,13 @@ async function body(t, pages, riders) {
   t.check("A sees B at B's spot on the road (s 425, d −1.75)", Math.abs(seen.ca - 425) < 4 && Math.abs(seen.cb + 1.75) < 0.6, JSON.stringify(seen));
   t.check("a stranger is a generated label (colour + number), not their name", /^[A-Z][a-z]+ \d\d$/.test(seen.name) && seen.name !== "Latke Legend", JSON.stringify(seen));
   t.check("one ghost built for one rider", await g(`ctx.mp.ghostStats().built === 1 && ctx.mp.ghostStats().shown === 1`));
+  // stage 3 ("no ghosts", owner 2026-11-27): another player is drawn SOLID, her own car the way friends' are
+  const gs1 = await g(`ctx.mp.ghostStats()`);
+  t.check("stage 3: the other player is a solid car (no see-through body)", gs1.kinds[0] === "car" && gs1.seeThrough === 0, JSON.stringify(gs1));
+  // …and her look travels: B's hair colour + outfit reach A (d.hc / d.ot)
+  const look = await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return p ? { hc: p.hc, ot: p.ot } : null; })()`);
+  const bLook = await B.game(`({ hc: ctx.mp._debug.me ? ctx.mp._debug.me.hc : null, ot: ctx.mp._debug.me ? ctx.mp._debug.me.ot : null })`);
+  t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && look.hc === (bLook.hc || null) && look.ot === (bLook.ot || null), JSON.stringify({ look, bLook }));
   await t.shot("dropin");
 
   // ── SAFE: a stranger with a hacked client ──

@@ -106,6 +106,16 @@ function myPose() {
     const veh = ctx.foot && ctx.foot.vehicle;   // a borrowed ride, if the foot feature exposes one
     if (!foot && veh && veh.kind) { me.vk = "borrowed"; me.ct = veh.ct || 0; me.co = veh.color || "#E53935"; }
     else me.vk = (ctx.G && ctx.G.vehicleKind) || "car";
+    // her look, so everyone sees her the way friends do (stage 3, "no ghosts"): hair colour + the outfit's compact
+    // form (features/clothes) — read every couple of seconds, not per frame
+    if (!me.lookAt || performance.now() - me.lookAt > 2000) {
+        me.lookAt = performance.now();
+        const s2 = shared.get();
+        me.hc = typeof s2.luluHair === "string" && /^#[0-9a-fA-F]{6}$/.test(s2.luluHair) ? s2.luluHair : null;
+        let ot = null;
+        try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
+        me.ot = ot;
+    }
     return me;
 }
 
