@@ -518,6 +518,31 @@ town's next exit; arriving clears it (a town place within 12 m, a rest area / JF
 it, ✕ Clear in the map. 🛍️ Where to shop (shops/guide.js) marks through it (`pingKind`). With friends: `d.x.pg` = my
 ping's id (the party packet — no relay change); a friend's ping = their beam in their colour + one quiet line for 8 s.
 ⚙️ 📍 Destination pointer (off = no beam, no edge pointer; the map + the line stay). Test `pins`.
+**Discover by walking** (ci/storefronts): the essentials are always on her Map (help, her homes, the highway's + JFK's
+places, City Hall, Ima's house, anything `essential`); every other place shows only once she's been within 28 m of it
+(`ctx.pins.shown(p)`, `discover(id)` · `PS.found`), with a small pink dot in the list until she's seen it there. The
+registry (`list()`) is unchanged — the Map view filters. Tests opt in with `&enable=discover`.
+
+**Storefronts (`features/storefronts`, `ci/storefronts`, 2026-11-27 — the owner: "fill every building and property with
+something … some of them can be under renovation — or closed … I don't necessarily want a bunch of stores repeating
+themselves … this could clutter the map … done smartly"):** every shopfront (town_shop / town_mw_store — Midwood 165,
+Lakewood 19) has ONE state, decided as the town builds: the engine asks `town/fronts.js`' namer (set by
+`storefronts/assign.js`) in build order — deterministic, the same for everyone. The first front showing a named shop IS
+that shop; every later copy becomes its street's next NEW shop (`data.js` › SHOPS rows with a `list`), then a cycle of
+non-shops — so no name shows twice in a town. States: **open** (a one-joke walk-in, `hours` on the device's clock + the
+weekday; Shabbos / Yom Tov from `ctx.seasons.day()` shut everything) · **closed** (outside its hours: a red card on the
+door, ✋ reads its joke + "opens 6:30 am") · **soon** (papered windows + a sign that changes each real week; Midwood's east
+end of Avenue M is kept as one long front for East Midwood Lanes, the bowling alley) · **lease** (FOR LEASE —
+`ctx.storefronts.claim(id, { label, enter })` for ci/playershops) · **use** (saved for a feature: ci/cars' car-care row,
+"BACK IN 5") · office / dentist / gone. The ONE shop room (`room.js`, code-built on the interiors engine like
+places/roadrooms.js) is dressed from the row as she walks in (`dress()`): its colours, its sign, one person, a few lines,
+ONE thing to do — a taste, a browse, a seat, or a 5-coin thing (a coin SINK, `garage/buy.js` › `buyExtra`). The door
+cards + papered windows + FOR LEASE cards are ONE merged mesh per town (a 4-cell texture); the non-shop signs share one
+plain style at a smaller size, and the sign atlas now packs at the largest scale that fits (kit.js: a bisection — Midwood
+0.528, was 0.531). One foot spot is always the nearest front's door (`walkIn` only while open); a 🗺️ STREET DIRECTORY
+board on each shopping street (✋ → today's hours; a tap pings the shop through a HIDDEN pin — one-joke shops never get a
+pin of their own). `ctx.town.fronts` (world coords, build order). heist/bank.js' `TOWN_INTERIORS` lets the shop room play
+inside a town. Data: every shop, hour and line in `storefronts/data.js`. Test `storefronts`.
 
 **📶 Show connection (`features/netping`, ⚙️, OFF by default):** a small "📶 48 ms" pill in the top band by the coins;
 it times the relay heartbeat the game already sends (`multiplayer/net.js › pingRelay()`: "pi" → the relay's "po" →
