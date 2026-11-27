@@ -37,6 +37,18 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
 8. **Midwood's precinct answered the phone as "Precinct 18½"** (the highway precinct's name) — the line is generic now
    (`interiors/police.js`). — fixed
 
+9. **Walking out of East Midwood Lanes left her on the highway, ~480 km from Midwood** — the alley wasn't on the list
+   of town rooms that keep the town (`heist/bank.js` TOWN_INTERIORS): going in quietly unloaded Midwood, and coming out
+   put her at the door's road position on the HIGHWAY (no town, nowhere near her car). Added. — fixed
+10. **The street's banners followed her inside / a room's banner showed up in the next place** — the town's "WELCOME
+   TO MIDWOOD" inside the clothes shop, the pizza shop's "Slice of Sinai" banner in Borough Hall; and on a phone a room's
+   title banner drew under its own chips for its first seconds. Rooms drop the street's flavour banners on the way in,
+   their own title on the way out, and the banner tucks under the chips indoors (`hud.js` dropBanners / bannerCompact,
+   `interiors/engine.js`). — fixed
+11. **A friend's nametag right by the camera filled a phone** ("Kugel Kid" in giant letters across Borough Hall) —
+   `together/rooms.js`: the tag keeps one size on screen and hides when it's on top of the lens. — fixed
+12. **Rooms' long speech bubbles were squeezed into one thin unreadable strip** — they wrap now (`interiors/fx.js`). — fixed
+
 ## Left (owner's call / not a fix)
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
