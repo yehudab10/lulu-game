@@ -201,6 +201,24 @@ function lightJoin(A) {
 function joinOnFoot(t) {
     if (!ctx.foot || !ctx.foot.start || ctx.state !== "playing" || onFoot()) return;
     try { ctx.foot.start("droveOff", { line: `There's ${nameOf(t.uid)}! 👋` }); } catch (e) { console.error("[openworld] join on foot", e); }
+    besideFriend(t.uid);
+}
+/** Out of her car: if the friend is off the street (her porch, a lot), walk-cut right beside them — the first surely
+ *  normal spot 1.6–3 m around them (ctx.unstuck.normal); her car stays parked at the kerb. */
+function besideFriend(uid, tries = 40) {
+    if (!onFoot() || ctx.foot.phase !== "walk") { if (tries > 0) setTimeout(() => besideFriend(uid, tries - 1), 100); return; }
+    const rc = ctx.party.remoteCar && ctx.party.remoteCar(uid), fp = ctx.foot.pos;
+    if (!rc || !rc.shown || !fp || Math.hypot(rc.x - fp.x, rc.z - fp.z) < 8) return;
+    const ok = (x, z) => !(ctx.unstuck && ctx.unstuck.normal) || !ctx.unstuck.normal(x, z, "foot");
+    const a0 = Math.atan2(fp.x - rc.x, fp.z - rc.z);         // (the side she's coming from first)
+    for (const r of [1.8, 2.6, 3.2]) for (const k of [0, 1, -1, 2, -2, 3, -3, 4]) {
+        const a = a0 + k * Math.PI / 4;
+        const x = rc.x + Math.sin(a) * r, z = rc.z + Math.cos(a) * r;
+        if (!ok(x, z)) continue;
+        fp.set(x, fp.y || 0, z);
+        if (ctx.cam) ctx.cam.snap();
+        return;
+    }
 }
 // a step that waits until a warp (a soft cut, maybe a town download) has landed her
 let pendingWarp = null;

@@ -274,8 +274,8 @@ async function partyRun(t, guests) {
 
   // 🚗 ride along: the guest hops into the host's passenger seat
   t.check("ride: the guest hops in", (await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`)) === "");
-  await sleep(3000);
-  t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await g(`!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`));
+  // (in GAME frames: on a slow runner her riding pose reaches the host a beat late)
+  t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await waitOn(t.page, `!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`, 30000));
   const rideSt = await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return { riding: ctx.openworld.riding, shown: !!rc && rc.shown, vis: ctx.car.obj.children.some(c => c.visible), d: rc ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(2) : -1, st: ctx.state }; })()`);
   t.check("ride: the guest's car rides with the host's (camera follows it)", rideSt.shown && !rideSt.vis && rideSt.d < 1.5, JSON.stringify(rideSt));
   await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-openworld-ride-guest.png") }).catch(() => { });
