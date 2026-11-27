@@ -624,11 +624,16 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 - Loading (from `ci/preload`, 2026-11-27): ▶ PLAY waits on the title until the home start is ready (`onegame/playgate.js`:
   a progress line on the tile, tap again to stop, a failed download → retry) — it used to start a plain drive. A failed
   model download is now forgotten and retried (`models.js`; it used to fail forever). Measure the start with
-  `node scripts/perfstart.js` (real game, desktop / phone (CPU 4× + slow 4G, gzip like Pages) / app). Not built (measured,
-  small or big): title preloading (nothing is fetched after ▶ PLAY — it's shader compiles + building); the slow-4G title
-  (~26 s: 248+ JS modules arrive by ~11 s, then boot work); shrinking the models (41 MB raw, ~10.5 MB gzipped on Pages —
-  drop the unused UVs −3.2 MB raw, quantize positions/normals ~−17 MB raw, load airport / Dina / Story / interiors /
-  cameos models on approach ~−4 MB gzipped on a first visit).
+  `node scripts/perfstart.js` (real game; desktop / phone = CPU 4× + slow 4G / app; gzip like Pages; PERFSTART_H2 for
+  HTTP/2, PERFSTART_ROOT for a scratch A / B). MEASURED AND NOT BUILT: title preloading (nothing is fetched after ▶ PLAY —
+  its cost is shader compiles + building); shrinking the models (gzipped 10.5 MB → 9.5 MB dropping the unused UVs + 8-bit
+  normals, ~8.3 MB with 16-bit positions — not worth rewriting 390 files); `<link rel="modulepreload">` for the 486-module
+  graph (title −0.7 s but first paint +13 s on slow 4G). HELD until the owner has checked the iPhone title on TestFlight:
+  loading area-only models (airport, Dina, Story, interiors, cameos ≈ 4 MB gzipped) on approach; reordering the boot in
+  app.js so the title is tappable before its world is built (slow 4G: code arrives by ~11 s, title ~23–26 s); and the
+  home start's own models FIRST — over HTTP/2 (GitHub Pages) everything downloads at once, so an early ▶ PLAY waits ~13 s
+  for the home vs ~9.5 s over HTTP/1.1 — done robustly, the home start declaring its full model list (a first attempt that
+  guessed it broke the home start).
 
 ## 8. Owner-only to-dos (agents can't do these — remind the owner if relevant)
 
