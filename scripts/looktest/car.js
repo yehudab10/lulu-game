@@ -8,11 +8,13 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const L = require("./lib.js");
 
-const VARIANTS = [
+const ALL = [
   ["today", ""],
   ["ours", "&look=2&car=good&lulu=0&light=0&glow=0"],
+  ["lite", "&look=2&car=lite&lulu=0&light=0&glow=0"],
   ["kenney", "&look=2&car=kenney&lulu=0&light=0&glow=0"],
 ];
+const VARIANTS = ALL.filter(([id]) => (process.env.CAR_VARIANTS || "today,ours,kenney").split(",").includes(id));
 const VIEWS = { front: { pos: [3.6, 1.6, 4.6], look: [0, 0.7, 0], fov: 45 }, rear: { pos: [-3.4, 2.0, -4.8], look: [0, 0.7, 0], fov: 45 } };
 
 (async () => {
@@ -47,14 +49,15 @@ const VIEWS = { front: { pos: [3.6, 1.6, 4.6], look: [0, 0.7, 0], fov: 45 }, rea
     console.log(id, hooks[id]);
     await s.close();
   }
-  fs.writeFileSync(path.join(out, "car-hooks.json"), JSON.stringify(hooks, null, 1));
+  fs.writeFileSync(path.join(out, `car-hooks${process.env.CAR_VARIANTS ? "-" + process.env.CAR_VARIANTS.replace(/,/g, "-") : ""}.json`), JSON.stringify(hooks, null, 1));
   // the contact sheets: a row per view, the three cars side by side, labelled
   const label = (f, txt, o) => execFileSync("convert", [f, "-resize", "1280x720", "-gravity", "north", "-fill", "white", "-undercolor", "#000000a0", "-font", "DejaVu-Sans",
     "-pointsize", "34", "-annotate", "+0+14", ` ${txt} `, o]);
-  const NAMES = { today: "TODAY", ours: "OUR MODEL, IMPROVED", kenney: "FREE CC0 MODEL (Kenney), FITTED" };
+  const NAMES = { today: "TODAY", ours: "OUR MODEL, IMPROVED", lite: "IMPROVED, LITE (for phones)", kenney: "FREE CC0 MODEL (Kenney), FITTED" };
+  const SET = process.env.CAR_VARIANTS ? "-" + VARIANTS.map(v => v[0]).join("-") : "";
   for (const v of ["front", "rear", "blue-dented", "kit"]) {
     const parts = VARIANTS.map(([id]) => { const o = path.join(tmp, `${id}-${v}-l.png`); label(path.join(tmp, `${id}-${v}.png`), NAMES[id], o); return o; });
-    execFileSync("convert", [...parts, "+append", "-quality", "86", path.join(out, `car-${v}.jpg`)]);
+    execFileSync("convert", [...parts, "+append", "-quality", "86", path.join(out, `car-${v}${SET}.jpg`)]);
     for (const [id] of VARIANTS) execFileSync("convert", [path.join(tmp, `${id}-${v}.png`), "-quality", "88", path.join(out, `car-${v}-${id}.jpg`)]);
   }
   console.log("done");

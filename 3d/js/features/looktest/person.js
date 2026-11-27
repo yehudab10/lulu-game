@@ -8,11 +8,13 @@
 // and the forearms, placed so their frame is exactly the old nodes' frame (a coat sits where it always did).
 import * as THREE from "three";
 import { clone as skClone } from "three/addons/utils/SkeletonUtils.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Person } from "../../core/people.js";
+import { ctx } from "../../core/ctx.js";
 
 const WALK = 3.4, RUN = 7.6;                     // features/foot's walking and running speeds (m/s)
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
-const matCache = new Map(), _X = new THREE.Vector3(1, 0, 0);
+const matCache = new Map(), _X = new THREE.Vector3(1, 0, 0), _p = new THREE.Vector3(), _s = new THREE.Sphere(), _f = new THREE.Frustum();
 
 /** Model-space rotation `d` (Euler x, z like people.js) applied to a bone, measured from its rest pose. */
 function poseBone(b, x, z = 0, y = 0) {
@@ -39,9 +41,30 @@ export class LookPerson extends Person {
         this.w = { idle: 1, walk: 0, run: 0 };
         this.cyc = 0;                                          // the walk / run phase, 0..1
         this.lastYaw = null; this.bank = 0; this.sitK = 0;
+        this.skipT = 0; this.skipN = 0;
+    }
+
+    /** How often this one's skeleton is worth updating: every frame near the camera, every 2nd from 18 m, every 4th
+     *  from 40 m, never while it's off screen / hidden (its pose catches up when it's seen again). */
+    every() {
+        const cam = ctx.camera, o = this.obj;
+        if (!o.visible || !o.parent || !cam) return 0;
+        o.getWorldPosition(_p);
+        const d2 = _p.distanceToSquared(cam.position);
+        if (d2 > 160 * 160) return 0;
+        _s.center.copy(_p); _s.center.y += 0.8; _s.radius = 1.2;
+        _f.setFromProjectionMatrix(_m.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+        if (!_f.intersectsSphere(_s)) return 0;
+        if (this.shadow) this.shadow.castShadow = d2 < 30 * 30;     // (far people: no shadow at all — today's crowd shows none that far either on MEDIUM)
+        return d2 < 18 * 18 ? 1 : d2 < 40 * 40 ? 2 : 4;
     }
 
     update(dt, opts = {}) {
+        // (animation LOD: a far or off-screen person saves the skinning work; the time it skipped is caught up at once)
+        const n = this.every();
+        this.skipT += dt;
+        if (n === 0 || ++this.skipN < n) return;
+        dt = Math.min(this.skipT, 0.25); this.skipT = 0; this.skipN = 0;
         this.t += dt;
         const sp = opts.walk || 0;
         // target blend by speed: standing → walking → running
@@ -141,8 +164,45 @@ export function lookPerson(template, clips, { colors = null, scale = 1, outfit }
     socket("Body", B.Spine, [0, 0, 0]);
     socket("Arm_L", B.ForeArmL, [0.22, 1.30, 0]);
     socket("Arm_R", B.ForeArmR, [-0.22, 1.30, 0]);
-    obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+    obj.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; o.frustumCulled = false; } });
+    const shadow = shadowCaster(template, obj);
     obj.scale.setScalar(scale);
     if (dresser && outfit !== false && !(colors && colors.Top)) { try { dresser(obj, outfit); } catch (e) { console.error("[looktest] dress", e); } }
-    return new LookPerson(obj, clips);
+    const p = new LookPerson(obj, clips);
+    p.shadow = shadow;
+    return p;
+}
+
+// ── her shadow in ONE draw ────────────────────────────────────────────────────────────────────────────────────────
+// Her model is 11 skinned parts (one per material); casting each would be 11 shadow draws a person (today's people
+// share ONE batched shadow draw — lod.js — which can't bend with a skeleton). So every skinned Lulu gets one extra,
+// shadow-only skinned mesh: all her parts merged (positions + skin weights only), on layer 1, which the main camera
+// never draws and the sun's shadow camera does (index.js turns layer 1 on for it). 11 → 1 shadow draw a person.
+const SHADOW_GEO = new WeakMap();
+const SHADOW_MAT = new THREE.MeshBasicMaterial({ colorWrite: false });
+function shadowCaster(template, obj) {
+    const parts = [];
+    obj.traverse(o => { if (o.isSkinnedMesh) parts.push(o); });
+    if (!parts.length) return null;
+    let g = SHADOW_GEO.get(template);
+    if (!g) {
+        const gs = parts.map(m => {
+            const x = new THREE.BufferGeometry();
+            for (const k of ["position", "skinIndex", "skinWeight"]) x.setAttribute(k, m.geometry.attributes[k]);
+            if (m.geometry.index) x.setIndex(m.geometry.index);
+            return x;
+        });
+        try { g = mergeGeometries(gs, false); } catch (e) { g = null; }
+        SHADOW_GEO.set(template, g || false);
+    }
+    if (!g) { for (const m of parts) m.castShadow = true; return null; }      // (couldn't merge: each part casts, as before)
+    const first = parts[0];
+    const sm = new THREE.SkinnedMesh(g, SHADOW_MAT);
+    sm.name = "LookShadow";
+    sm.position.copy(first.position); sm.quaternion.copy(first.quaternion); sm.scale.copy(first.scale);
+    sm.bind(first.skeleton, first.bindMatrix);
+    sm.castShadow = true; sm.receiveShadow = false; sm.frustumCulled = false;
+    sm.layers.set(1);
+    first.parent.add(sm);
+    return sm;
 }

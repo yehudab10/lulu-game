@@ -1,92 +1,146 @@
 {
- "today-noon-wide": {
-  "calls": 109,
-  "tris": 82456,
+ "medium-today-noon-wide": {
+  "calls": 106,
+  "tris": 82153,
   "geos": 291,
   "tex": 30,
   "progs": 50,
   "tier": "medium",
   "pr": 1.5
  },
- "today-noon-low": {
-  "calls": 84,
-  "tris": 72090,
+ "medium-today-noon-low": {
+  "calls": 96,
+  "tris": 82132,
   "geos": 292,
   "tex": 30,
   "progs": 50,
   "tier": "medium",
   "pr": 1.5
  },
- "today-dusk-wide": {
-  "calls": 106,
-  "tris": 75059,
+ "medium-today-dusk-wide": {
+  "calls": 116,
+  "tris": 80837,
   "geos": 292,
   "tex": 30,
   "progs": 50,
   "tier": "medium",
   "pr": 1.5
  },
- "today-dusk-low": {
+ "medium-today-dusk-low": {
   "calls": 101,
-  "tris": 80858,
+  "tris": 76694,
   "geos": 292,
   "tex": 30,
   "progs": 50,
   "tier": "medium",
   "pr": 1.5
  },
- "light-noon-wide": {
+ "medium-light-noon-wide": {
   "calls": 106,
-  "tris": 84232,
-  "geos": 315,
-  "tex": 37,
-  "progs": 92,
+  "tris": 82153,
+  "geos": 291,
+  "tex": 30,
+  "progs": 50,
   "tier": "medium",
   "pr": 1.5
  },
- "light-noon-low": {
-  "calls": 84,
-  "tris": 73211,
-  "geos": 316,
-  "tex": 37,
-  "progs": 92,
+ "medium-light-noon-low": {
+  "calls": 96,
+  "tris": 82132,
+  "geos": 292,
+  "tex": 30,
+  "progs": 50,
   "tier": "medium",
   "pr": 1.5
  },
- "light-dusk-wide": {
+ "medium-light-dusk-wide": {
+  "calls": 116,
+  "tris": 80837,
+  "geos": 292,
+  "tex": 30,
+  "progs": 50,
+  "tier": "medium",
+  "pr": 1.5
+ },
+ "medium-light-dusk-low": {
+  "calls": 101,
+  "tris": 76694,
+  "geos": 292,
+  "tex": 30,
+  "progs": 50,
+  "tier": "medium",
+  "pr": 1.5
+ },
+ "high-today-noon-wide": {
+  "calls": 116,
+  "tris": 89523,
+  "geos": 295,
+  "tex": 37,
+  "progs": 74,
+  "tier": "high",
+  "pr": 2
+ },
+ "high-today-noon-low": {
+  "calls": 85,
+  "tris": 73213,
+  "geos": 296,
+  "tex": 37,
+  "progs": 74,
+  "tier": "high",
+  "pr": 2
+ },
+ "high-today-dusk-wide": {
   "calls": 121,
-  "tris": 84933,
-  "geos": 316,
+  "tris": 84770,
+  "geos": 296,
   "tex": 37,
-  "progs": 92,
-  "tier": "medium",
-  "pr": 1.5
+  "progs": 74,
+  "tier": "high",
+  "pr": 2
  },
- "light-dusk-low": {
+ "high-today-dusk-low": {
+  "calls": 91,
+  "tris": 69795,
+  "geos": 296,
+  "tex": 37,
+  "progs": 74,
+  "tier": "high",
+  "pr": 2
+ },
+ "high-light-noon-wide": {
+  "calls": 107,
+  "tris": 84232,
+  "geos": 295,
+  "tex": 37,
+  "progs": 88,
+  "tier": "high",
+  "pr": 2
+ },
+ "high-light-noon-low": {
+  "calls": 85,
+  "tris": 73211,
+  "geos": 296,
+  "tex": 37,
+  "progs": 88,
+  "tier": "high",
+  "pr": 2
+ },
+ "high-light-dusk-wide": {
+  "calls": 121,
+  "tris": 84929,
+  "geos": 296,
+  "tex": 37,
+  "progs": 88,
+  "tier": "high",
+  "pr": 2
+ },
+ "high-light-dusk-low": {
   "calls": 101,
-  "tris": 75247,
-  "geos": 316,
+  "tris": 75245,
+  "geos": 296,
   "tex": 37,
-  "progs": 92,
-  "tier": "medium",
-  "pr": 1.5
- },
- "all-noon-wide": {
-  "calls": 131,
-  "tris": 125226,
-  "geos": 336,
-  "tex": 48,
-  "progs": 96,
-  "tier": "medium",
-  "pr": 1.5
- },
- "all-dusk-wide": {
-  "calls": 126,
-  "tris": 102567,
-  "geos": 336,
-  "tex": 48,
-  "progs": 96,
-  "tier": "medium",
-  "pr": 1.5
+  "progs": 88,
+  "tier": "high",
+  "pr": 2
  }
 }

@@ -35,6 +35,10 @@ def setup():
     S = shared()
 
 
+LITE = False      # the phone version (looktest_car_lite): fewer rings / segments / bevels, no tiny interior bits
+seg = lambda full, lite: lite if LITE else full
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  (b) the improved convertible
 # ─────────────────────────────────────────────────────────────────────────────
@@ -188,32 +192,50 @@ def good_wheel(coll, root, name, loc, TIRE, RIM, CHROME, DARK, BODY):
     W = 0.25
     # tyre: rounded sidewall, three tread grooves
     pr = []
-    for k in range(13):
-        t = k / 12
+    nk = seg(13, 7)
+    for k in range(nk):
+        t = k / (nk - 1)
         xx = (-W / 2 + W * t)
         bulge = math.sin(math.pi * t) ** 0.35
-        groove = -0.01 if k in (3, 6, 9) else 0.0
+        groove = -0.01 if (k in (3, 6, 9) and not LITE) else 0.0
         pr.append((R * (0.80 + 0.20 * bulge) + groove, xx))
     pr = [(R * 0.62, -W / 2 + 0.01)] + pr + [(R * 0.62, W / 2 - 0.01)]
-    parts = [Part(coll, name + "_tire", bm_lathe(pr, 28), TIRE, loc=loc)]
+    parts = [Part(coll, name + "_tire", bm_lathe(pr, seg(28, 16)), TIRE, loc=loc)]
     # rim: a dish + a chrome lip, 5 spokes, a centre cap, lug nuts, a brake disc behind
     ox = s * (W / 2 - 0.035)
-    parts.append(Part(coll, name + "_lip", bm_torus(R * 0.66, 0.018, 24, 5), CHROME, loc=(x + ox, y, z), rot=(0, math.pi / 2, 0)))
-    parts.append(Part(coll, name + "_dish", bm_cyl(R * 0.64, R * 0.64, 0.03, 30, "X"), DARK, loc=(x + ox - s * 0.03, y, z)))
+    parts.append(Part(coll, name + "_lip", bm_torus(R * 0.66, 0.018, seg(24, 14), seg(5, 4)), CHROME, loc=(x + ox, y, z), rot=(0, math.pi / 2, 0)))
+    parts.append(Part(coll, name + "_dish", bm_cyl(R * 0.64, R * 0.64, 0.03, seg(30, 14), "X"), DARK, loc=(x + ox - s * 0.03, y, z)))
     for k in range(5):
         a = 2 * math.pi * k / 5
         parts.append(Part(coll, name + "_spoke%d" % k, bm_box(0.03, 0.05, R * 0.56), RIM,
                           loc=(x + ox, y + math.sin(a) * R * 0.33, z + math.cos(a) * R * 0.33), rot=(-a, 0, 0)))
-        parts.append(Part(coll, name + "_nut%d" % k, bm_cyl(0.014, 0.014, 0.02, 6, "X"), CHROME,
+        if not LITE: parts.append(Part(coll, name + "_nut%d" % k, bm_cyl(0.014, 0.014, 0.02, 6, "X"), CHROME,
                           loc=(x + ox + s * 0.012, y + math.sin(a + 0.63) * R * 0.17, z + math.cos(a + 0.63) * R * 0.17)))
     parts.append(Part(coll, name + "_cap", bm_sphere(0.012, R * 0.12, R * 0.12, 12, 6), RIM, loc=(x + ox + s * 0.015, y, z)))
     parts.append(Part(coll, name + "_rimhub", bm_cyl(R * 0.2, R * 0.2, 0.04, 16, "X"), RIM, loc=(x + ox, y, z)))
-    parts.append(Part(coll, name + "_disc", bm_cyl(R * 0.5, R * 0.5, 0.02, 18, "X"), CHROME, loc=(x - s * 0.03, y, z)))
+    parts.append(Part(coll, name + "_disc", bm_cyl(R * 0.5, R * 0.5, 0.02, seg(18, 10), "X"), CHROME, loc=(x - s * 0.03, y, z)))
     return bake_at(parts, name, coll, root, loc)
 
 
+def build_good_car_lite():
+    global LITE
+    LITE = True
+    old = Part.bevel
+    Part.bevel = lambda self, width, segs=3: old(self, width, 1)
+    try:
+        return build_good_car()
+    finally:
+        Part.bevel = old
+        LITE = False
+
+
 def build_good_car():
-    coll = scene_coll("LookCar")
+    import bpy
+    # (built after another car in this file: free the names the game looks for)
+    for o in list(bpy.data.objects):
+        if o.name in ("ws", "LuluCar_body", "SteeringWheel", "Driver", "Hair_sheitel") or o.name.startswith(("Wheel_", "Anchor_")):
+            o.name = "prev_" + o.name
+    coll = scene_coll("LookCarLite" if LITE else "LookCar")
     root = root_empty(coll, "LookCar")
     BODY = mat("Body", "#E91E63", rough=0.28, metal=0.05)
     LIGHT = mat("BodyLight", "#F48FB1", rough=0.4)
@@ -233,18 +255,18 @@ def build_good_car():
     TIRE, RIM, CHROME, TAIL, GLASS, DARK = S.TIRE, S.RIM, S.CHROME, S.TAIL, S.GLASS, S.DARK
 
     parts = []
-    body = Part(coll, "body", bm_body(), BODY)
+    body = Part(coll, "body", bm_body(seg(52, 34), seg(32, 22)), BODY)
     cock = Part(coll, "cockpitCut", bm_box(1.42, 1.62, 0.9), None, loc=(0, 0.26, 1.16)).bevel(0.22, 4)
     cock.ob.display_type = "WIRE"
     body.cut(cock)
     for nm, x, y in (("archFL", 1, FY), ("archFR", -1, FY), ("archRL", 1, RY), ("archRR", -1, RY)):
-        arch = Part(coll, nm, bm_cyl(R + 0.085, R + 0.085, 0.62, 40, "X"), None, loc=(x * 0.92, y, R + 0.02))
+        arch = Part(coll, nm, bm_cyl(R + 0.085, R + 0.085, 0.62, seg(40, 20), "X"), None, loc=(x * 0.92, y, R + 0.02))
         arch.ob.display_type = "WIRE"
         body.cut(arch)
     parts.append(body)
     # the dark inside of each arch (no pink tunnel showing through)
     for x, y in ((1, FY), (-1, FY), (1, RY), (-1, RY)):
-        parts.append(Part(coll, "liner", bm_arch_liner(R + 0.07, R + 0.09, 0.62, 0.93), DARK, loc=(0, y, R + 0.02), rot=(0, 0, 0 if x > 0 else math.pi)))
+        parts.append(Part(coll, "liner", bm_arch_liner(R + 0.07, R + 0.09, 0.62, 0.93, seg(20, 10)), DARK, loc=(0, y, R + 0.02), rot=(0, 0, 0 if x > 0 else math.pi)))
 
     # the cockpit tub: floor, door cards, firewall, rear bulkhead
     parts.append(Part(coll, "floor", bm_box(1.38, 1.58, 0.04), CARPET, loc=(0, 0.26, 0.62)))
@@ -261,33 +283,33 @@ def build_good_car():
         belt.append((half_x(y, z_belt) + 0.006, y, z_belt))
     for s in (-1, 1):
         pts = [(s * p[0], p[1], p[2]) for p in belt]
-        parts.append(Part(coll, "belt", bm_sweep(pts, 0.012, 0.012, 5), CHROME))
+        parts.append(Part(coll, "belt", bm_sweep(pts, 0.012, 0.012, seg(5, 3)), CHROME))
         rk = []
         for i in range(16):
             y = -0.72 + 1.44 * i / 15
             rk.append((s * (half_x(y, 0.38) + 0.004), y, 0.38))
-        parts.append(Part(coll, "rocker", bm_sweep(rk, 0.02, 0.035, 6), DARK))
+        parts.append(Part(coll, "rocker", bm_sweep(rk, 0.02, 0.035, seg(6, 4)), DARK))
         # the stripe (BodyLight) a hand under the belt
         st = [(s * (half_x(p[1], 0.70) + 0.004), p[1], 0.70) for p in belt[4:-4]]
-        parts.append(Part(coll, "stripe", bm_sweep(st, 0.004, 0.028, 6), LIGHT))
+        parts.append(Part(coll, "stripe", bm_sweep(st, 0.004, 0.028, seg(6, 3)), LIGHT))
         for y in (-0.52, 0.86):
             parts.append(Part(coll, "doorline", bm_box(0.012, 0.012, 0.36), DARK, loc=(s * (half_x(y, 0.6) + 0.002), y, 0.6)))
         parts.append(Part(coll, "handle", bm_box(0.03, 0.16, 0.035), CHROME, loc=(s * (half_x(0.62, 0.74) + 0.012), 0.62, 0.74)).bevel(0.012, 2))
         # mirrors: a teardrop head on a stalk
-        parts.append(Part(coll, "mirror", bm_sphere(0.075, 0.11, 0.065, 16, 10), BODY, loc=(s * 0.98, -0.50, 1.00)))
+        parts.append(Part(coll, "mirror", bm_sphere(0.075, 0.11, 0.065, seg(16, 10), seg(10, 6)), BODY, loc=(s * 0.98, -0.50, 1.00)))
         parts.append(Part(coll, "mirrorGlass", bm_sphere(0.06, 0.01, 0.05, 12, 6), CHROME, loc=(s * 0.98, -0.395, 1.00)))
         parts.append(limb(coll, "mirrorArm", (s * 0.80, -0.50, 0.86), (s * 0.95, -0.50, 0.98), 0.016, CHROME))
 
     # rear deck humps + headrests (the roadster look)
     for x in (-0.38, 0.38):
-        parts.append(Part(coll, "hump", bm_sphere(0.27, 0.48, 0.17, 24, 12), BODY, loc=(x, 1.24, 0.86)))
+        parts.append(Part(coll, "hump", bm_sphere(0.27, 0.48, 0.17, seg(24, 14), seg(12, 7)), BODY, loc=(x, 1.24, 0.86)))
         parts.append(Part(coll, "headrest", bm_box(0.30, 0.10, 0.18), SEAT, loc=(x, 0.86, 1.43), rot=(-0.18, 0, 0)).bevel(0.05, 2))
         parts.append(limb(coll, "hrPost", (x, 0.84, 1.20), (x, 0.86, 1.36), 0.012, CHROME))
 
     # dashboard: a padded top, two dials, a console
     parts.append(Part(coll, "dash", bm_box(1.40, 0.30, 0.18), BDARK, loc=(0, -0.44, 0.86)).bevel(0.07, 3))
     parts.append(Part(coll, "dashTop", bm_box(1.36, 0.22, 0.05), CARPET, loc=(0, -0.48, 0.96)).bevel(0.02, 2))
-    for k, dx in enumerate((-0.07, 0.07)):
+    for k, dx in enumerate((-0.07, 0.07) if not LITE else ()):
         parts.append(Part(coll, "dialRing", bm_torus(0.055, 0.008, 18, 5), CHROME, loc=(0.38 + dx, -0.285, 0.90), rot=(math.pi / 2, 0, 0)))
         parts.append(Part(coll, "dial", bm_cyl(0.052, 0.052, 0.01, 18, "Y"), GAUGE, loc=(0.38 + dx, -0.29, 0.90)))
     parts.append(Part(coll, "console", bm_box(0.22, 0.8, 0.16), BDARK, loc=(0, 0.02, 0.70)).bevel(0.04, 2))
@@ -317,7 +339,7 @@ def build_good_car():
     # Lulu sits on the LEFT (+X); steering wheel: rim, three spokes, hub (its own object, origin at the hub)
     lx = 0.38
     swp = (lx, -0.20, 1.02)
-    sw_parts = [Part(coll, "ring", bm_torus(0.17, 0.022, 28, 8), DARK, loc=swp),
+    sw_parts = [Part(coll, "ring", bm_torus(0.17, 0.022, seg(28, 16), seg(8, 5)), DARK, loc=swp),
                 Part(coll, "hub", bm_cyl(0.045, 0.045, 0.04, 16), CHROME, loc=swp)]
     for a in (0, 2.3, -2.3):
         sw_parts.append(Part(coll, "spoke", bm_box(0.16, 0.025, 0.014), CHROME,
@@ -337,8 +359,8 @@ def build_good_car():
     for s in (-1, 1):
         hx, hz = 0.56, 0.68
         hy = end_y(s * hx, hz, front=True)
-        parts.append(Part(coll, "hlBezel", bm_torus(0.12, 0.022, 24, 6), CHROME, loc=(s * hx, hy + 0.025, hz), rot=(math.pi / 2, 0, 0)))
-        parts.append(Part(coll, "hlLens", bm_sphere(0.115, 0.05, 0.115, 20, 10), LENS, loc=(s * hx, hy + 0.035, hz)))
+        parts.append(Part(coll, "hlBezel", bm_torus(0.12, 0.022, seg(24, 14), seg(6, 4)), CHROME, loc=(s * hx, hy + 0.025, hz), rot=(math.pi / 2, 0, 0)))
+        parts.append(Part(coll, "hlLens", bm_sphere(0.115, 0.05, 0.115, seg(20, 12), seg(10, 6)), LENS, loc=(s * hx, hy + 0.035, hz)))
         parts.append(Part(coll, "indicator", bm_box(0.12, 0.03, 0.04), AMBER, loc=(s * 0.58, end_y(s * 0.58, 0.50) + 0.012, 0.50)).bevel(0.012, 2))
         tz = 0.70
         ty = end_y(s * 0.55, tz, front=False)
@@ -358,7 +380,7 @@ def build_good_car():
             x = -0.86 + 1.72 * i / 24
             y0 = end_y(x * 0.97, zb + 0.06, front=front)
             pts.append((x * 0.97, y0 + (-0.05 if front else 0.05), zb))
-        parts.append(Part(coll, "bumper", bm_sweep(pts, 0.06, 0.07, 8), CHROME))
+        parts.append(Part(coll, "bumper", bm_sweep(pts, 0.06, 0.07, seg(8, 5)), CHROME))
     py = end_y(0, 0.56, front=False)
     parts.append(Part(coll, "plate", bm_box(0.52, 0.02, 0.16), S.PLATE, loc=(0, py + 0.01, 0.56)).bevel(0.01, 1))
     parts.append(Part(coll, "plateTxt", bm_text("LULU", 0.13), S.PLATE_TXT, loc=(0, py + 0.022, 0.56), rot=(math.pi / 2, 0, math.pi), smooth=False))
@@ -835,6 +857,7 @@ def _animate(rig):
 
 ASSETS = [
     ("looktest_car", build_good_car),
+    ("looktest_car_lite", build_good_car_lite),
     ("looktest_kenney", build_kenney_car),
     ("looktest_lulu", build_rigged_lulu),
 ]
