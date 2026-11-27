@@ -17,6 +17,7 @@ import { openCard, cardTick, closeCard, cardOpen, cardSay } from "../shops/card.
 import { buyClothes } from "../garage/buy.js";
 import { SHOPS, PIECES, LULU, ANIM, pieceById, SLOTS } from "./data.js";
 import { S, current, owns, wear, addOwned, dress, clean } from "./wear.js";
+import { changeAnim, mirrorOn, setCurtain } from "./stage.js";
 
 const fmt = n => Math.round(n).toLocaleString("en-US");
 const W = 10, D = 7.2, WALL = 3.0;
@@ -145,15 +146,6 @@ function build(rt) {
     setTimeout(() => { if (!rt.disposed) rt.bubble(HELLO(), clerk.p.obj, 3.2); }, 700);
 }
 
-function setCurtain(rt, k) {
-    const C = rt.data.curtain;
-    if (!C) return;
-    C.open = k;
-    // k = how much of the opening it covers (1 = closed): it bunches toward the left post
-    C.mesh.scale.x = Math.max(0.06, k);
-    C.mesh.position.x = C.x0 + (C.x1 - C.x0) * Math.max(0.06, k) / 2;
-}
-
 function tick(rt, dt) {
     const m = rt.data.mannequin;
     if (m) m.update(0, {});
@@ -189,31 +181,6 @@ async function browse(rt, items, title) {
     return buyAtCounter(rt, next.p, true);
 }
 
-// ── the changing animation: the curtain closes, a little spin, it opens (≈ 1 s; ✕ / ○ skips to the end) ──
-function changeAnim(rt, apply) {
-    const total = ANIM.curtain + ANIM.spin + ANIM.open;
-    let t = 0, done = false;
-    const o = rt.lulu.obj, y0 = o.rotation.y;
-    return rt.runMode({
-        update(r, dt, P) {
-            t += dt;
-            if (P.confirm || P.back || P.interact || ctx.skipping) t = total;
-            const c = t < ANIM.curtain ? t / ANIM.curtain : t < ANIM.curtain + ANIM.spin ? 1 : Math.max(0, 1 - (t - ANIM.curtain - ANIM.spin) / ANIM.open);
-            setCurtain(rt, 0.12 + 0.88 * c);
-            const sp = Math.min(1, Math.max(0, (t - ANIM.curtain) / ANIM.spin));
-            o.rotation.y = y0 + sp * Math.PI * 2;
-            if (!done && sp >= 0.5) { done = true; apply(); r.burst({ x: o.position.x, y: 1.2, z: o.position.z + 0.3 }, ["#FFFFFF", "#FFD1E8", "#FFE082"], 12, 1.4, 0.04); sfx.hop(); }
-            if (t >= total) { if (!done) { done = true; apply(); } o.rotation.y = y0; setCurtain(rt, 0.12); return true; }
-            return false;
-        },
-    });
-}
-/** The mirror view: the camera glides in close in front of her (the room's camera eases there on its own — no cut). */
-const MIRROR_CAM = { dist: 3.4, height: 1.5, lookY: 1.0, clampX: 0 };
-function mirrorOn(rt, on) {
-    if (on) { if (!rt.data.camSave) rt.data.camSave = rt.def.cam; rt.def.cam = Object.assign({}, rt.data.camSave, MIRROR_CAM); }
-    else if (rt.data.camSave) { rt.def.cam = rt.data.camSave; rt.data.camSave = null; }
-}
 async function intoFitting(rt) {
     await rt.walkTo(FIT.x, FIT.z + 0.2, 3);
     if (rt.disposed) return false;

@@ -17,15 +17,32 @@ import { ctx, on } from "../../core/ctx.js";
 import { PIECES, SLOTS, SHOPS } from "./data.js";
 import { S, current, owns, wear, encode, decode, dress, wearDebug } from "./wear.js";
 import { enterShop, enterAs, addDoors, shopDebug } from "./shop.js";
+import { placeCloset, closetDebug } from "./closet.js";
 
 on("boot", () => addDoors());
+
+// 👯 friends see what she wears: the compact form rides in the party state she already sends (d.x.ot — old clients
+// ignore an unknown extra). Strangers in the EVERYONE room stay plain see-through ghosts (no outfits on crowds).
+let sentOt = null;
+function publish() {
+    const P = ctx.party;
+    if (!P || !P.active || !P.setX) { sentOt = null; return; }
+    const ot = encode(current()), v = /[^,]/.test(ot) ? ot : null;
+    if (v === sentOt) return;
+    sentOt = v;
+    try { P.setX("ot", v); } catch (e) { /* not connected */ }
+}
+on("clothes:changed", publish);
+setInterval(publish, 2000);
+/** A friend's outfit from her party record (p.x.ot) — {} when she sends none (an old client: the default look). */
+const outfitOf = p => decode(p && p.x && typeof p.x.ot === "string" ? p.x.ot : "");
 
 ctx.clothes = {
     current, owns, wear, encode, decode, dress,
     pieces: PIECES, slots: SLOTS, shops: SHOPS,
-    enterShop, enterAs,
+    enterShop, enterAs, outfitOf, placeCloset,
     /** Which shop the room is dressed as right now (a town id / "jfk") — friends in the same one share it. */
     shopNow: () => shopDebug.shopNow(),
     get owned() { return S.owned.slice(); },
-    debug: { S, wear: wearDebug, shop: shopDebug },
+    debug: { S, wear: wearDebug, shop: shopDebug, closet: closetDebug },
 };

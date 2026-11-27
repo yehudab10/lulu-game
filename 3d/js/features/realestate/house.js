@@ -106,6 +106,8 @@ function build(rt) {
             if (cslot) rt.hot({ id: "slot:couch", x: cs.x, z: cs.z, r: cs.r, label: () => `${cslot.icon} Couch — decorate`, action: r => pickHere(r, "couch", cs) });
             rt.hot({ id: "slot:outside", x: lx - 1.7, z: 1.5, r: 1.0, label: "🏡 Decorate the outside", action: r => pickOutside(r) });
         }
+        // her closet in her room (features/clothes) — the front corner, clear of the decorating spots and the boxes
+        if (!visit && !tn) { try { if (ctx.clothes && ctx.clothes.placeCloset) ctx.clothes.placeCloset(rt, { x: bx + W / 2 - 0.33, z: 2.05, ry: -Math.PI / 2, col: B.col, where: "home" }); } catch (e) { console.error("[realestate] closet", e); } }
         // a welcome card on the wall
         const c = document.createElement("canvas"); c.width = 512; c.height = 160; const g = c.getContext("2d");
         g.fillStyle = "#FFF3F8"; g.fillRect(0, 0, 512, 160); g.fillStyle = "#AD1457"; g.font = "bold 52px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";

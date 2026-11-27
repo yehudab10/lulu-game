@@ -153,5 +153,57 @@ module.exports = {
     await t.L(`(window.__lineup.forEach(o => o.removeFromParent()), true)`);
     await walkOut();
     { const r = await W.report(t); W.log(r); W.check(t, "Midwood's clothing shop", r); }
+
+    // ════ 4. her closet at Ima's: the only place at home she changes ════
+    await W.pause(t, false);          // (the test takes her home through the title: not gameplay)
+    await playing();
+    if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(10); }
+    await g(`(L3.setState("title"), true)`);
+    await t.frames(20);
+    await t.click(/PLAY/);
+    if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot at home", 60000)) return;
+    t.check("at home she's still in the coat (the save)", await topOf(`ctx.foot.obj`) === "#1d2a5c");
+    const door = await g(`ctx.decor.debug.spotAt("door")`);
+    await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${door.x}, 0.05, ${door.z}); F.phase = "walk"; ctx.foot.obj.position.copy(F.pos); return true; })()`);
+    await t.frames(3);
+    await t.until(`__lulu3d.ctx.interiors.luluHome.ready()`, "house warmed", 60000);
+    await g(`ctx.decor.enter()`);
+    if (!await t.until(`__lulu3d.state === "interior" && ${room("luluHome")}`, "inside Ima's house", 30000)) return;
+    await t.frames(10);
+    t.check("a closet in her room at Ima's (✋ outside every wall)", await g(`(() => { const r = __interiors.room, h = r.hots.find(x => x.id === "closet"); if (!h) return false; return !r.cols.some(c => c.on !== false && h.x > c.x0 && h.x < c.x1 && h.z > c.z0 && h.z < c.z1); })()`));
+    t.check("…and still no decorating at Ima's", !(await g(`__interiors.room.hots.some(h => /^slot:/.test(h.id))`)));
+    await run(`return ctx.clothes.debug.closet.openCloset(rt)`);
+    await t.until(`!!document.querySelector("#screenCard .sp")`, "the closet card", 15000);
+    await t.frames(20);
+    t.check("the closet card: her coat + 'No coat'", await t.L(`["lk_coat", "plain:outer"].every(id => !!document.querySelector('#screenCard .dp-opt[data-opt="' + id + '"]'))`));
+    await t.L(`document.querySelector('#screenCard .dp-opt[data-opt="plain:outer"]').click()`);
+    await t.frames(4);
+    t.check("…picking 'No coat' previews it on her (no coat shape), nothing saved yet", await shapes(lulu) === 0 && await g(`ctx.clothes.current().outer === "lk_coat"`));
+    await t.shot("closet");
+    await t.click(/Put it on/);
+    await idle("changed at the closet");
+    t.check("…👗 Put it on: changed (the coat off, saved)", await g(`!ctx.clothes.current().outer`) && await topOf(lulu) === "#4fc3f7");
+    await run(`return ctx.clothes.debug.closet.openCloset(rt)`);
+    await t.until(`!!document.querySelector("#screenCard .sp")`, "the closet card again", 15000);
+    await t.frames(10);
+    await t.L(`document.querySelector('#screenCard .dp-opt[data-opt="lk_coat"]').click()`);
+    await t.frames(3);
+    await t.click(/Save this look/);
+    t.check("…💾 save this look: kept as Look 1", await g(`ctx.clothes.debug.S.saved.length === 1 && ctx.clothes.debug.S.saved[0].outer === "lk_coat"`));
+    await t.click(/^Done/);
+    await idle("closet closed");
+    t.check("…Done without putting it on: back in what she wore", await g(`!ctx.clothes.current().outer`) && await shapes(lulu) === 0);
+    await W.pause(t, false);
+    await g(`(window.__interiors.room.leave(), true)`);
+    await t.until(`__lulu3d.state === "footRun"`, "back out on the porch", 30000);
+
+    // ════ 5. friends see it: her look rides in the party state; a friend's Lulu wears what she sends ════
+    t.check("a friend's outfit (d.x.ot) dresses the Lulu drawn for her; an old client's (none) = the default look", await t.L(`import("./js/core/people.js").then(m => {
+      const C = __lulu3d.ctx.clothes, n = o => { let k = 0; o.traverse(x => { if (x.userData.outfit) k++; }); return k; };
+      const a = m.spawnPerson("luluPerson", { outfit: C.outfitOf({ x: { ot: C.encode({ outer: "mw_puffer", acc: "mw_shades" }) } }) });
+      const b = m.spawnPerson("luluPerson", { outfit: C.outfitOf({ x: {} }) });
+      const c = m.spawnPerson("luluPerson", { colors: { Top: "#FF6D2E", Bottom: "#FF6D2E" } });
+      return n(a.obj) === 1 && n(b.obj) === 0 && n(c.obj) === 0;
+    })`));
   },
 };

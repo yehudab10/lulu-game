@@ -24,6 +24,9 @@ import { tone } from "../interiors/fx.js";
 import { EMOTES } from "../party/emotes.js";
 import { friends, friendHex, zoneOf } from "./where.js";
 
+/** A friend's outfit, compact (features/clothes: d.x.ot) — "" for none / an old client. */
+const otOf = p => (p && p.x && typeof p.x.ot === "string" ? p.x.ot.slice(0, 160) : "");
+
 /** Which rooms friends share, and how two copies of a room are told apart. */
 export const SHARED = {
     home: () => (ctx.homes && ctx.homes.house ? ctx.homes.house.key : null),       // a house in town: its door
@@ -83,7 +86,8 @@ class Mate {
     constructor(uid, rt, p) {
         this.uid = uid; this.rt = rt; this.buf = []; this.leaving = 0; this.gone = false; this.emKey = ""; this.em = null; this.key = "";
         const colors = p.hc ? { Hair: p.hc } : null;
-        this.person = spawnPerson("luluPerson", { colors, outfit: false });
+        this.ot = otOf(p);
+        this.person = spawnPerson("luluPerson", { colors, outfit: this.ot && ctx.clothes ? ctx.clothes.decode(this.ot) : false });
         this.person.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
         rt.set.add(this.person.obj);
         const NT = ctx.party.visuals && ctx.party.visuals.NameTag;
@@ -102,6 +106,9 @@ class Mate {
     }
     update(dt, p) {
         const o = this.person.obj, rt = this.rt;
+        // (she changed in the fitting room while I watched: her new outfit, in place)
+        const ot = otOf(p);
+        if (ot !== this.ot && ctx.clothes) { this.ot = ot; ctx.clothes.dress(o, ot ? ctx.clothes.decode(ot) : {}); }
         let walk = 0, bits = 0;
         if (this.leaving > 0) {
             // out through the door: walk to it, then gone
