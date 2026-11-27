@@ -1702,7 +1702,7 @@ interiors engine, built from boxes MERGED BY COLOUR — the room itself is ≈ 3
 lane in ONE `InstancedMesh` (a lathe pin, the red neck as vertex colours), the rolling balls in another, a scoreboard canvas over
 each lane (redrawn only when its game changes), Sheldon's counter (shoes — all one size — and a lane: `TUNE.fee`, a sink), Rivky's
 snack bar (one knish a real day: the next 3 balls' power swings slower), the trophy case with the gap where 1994 was (bring the
-stolen trophy — `ctx.houseitems`' `"trophy"` — and it goes back, a badge), the high-games board (her best + her username), Sunday
+stolen trophy — `ctx.houseitems`' `"trophy"`, taken with `ctx.houseitems.take("trophy")` — and it goes back, a badge), the high-games board (her best + her username), Sunday
 League Shimmy (solo: he bowls against her), league night (Tue + Thu 18–23 h: two NPC teams on lanes 3 + 4) and Yossi's birthday
 party (Sundays 10–17 h: lane 4, bumpers up) — the clock + weekday from `homes/life.js › when()`. **The roll** (`pins.js`, pure: node
 runs it): a throw is 4 numbers 0–35 (where she lets go, the aim, the power, the spin); the ball's line (straight, then hooking over
