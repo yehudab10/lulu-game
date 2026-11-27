@@ -182,7 +182,7 @@ module.exports = {
     await step("savecode", async () => {
       const code = await t.L(`import("./js/features/meta/screens.js").then(m => m.saveToCode())`);
       const back = await t.L(`import("./js/features/meta/screens.js").then(m => { const o = m.codeToSave(${JSON.stringify(code)}); return o && o.lulu3d && o.lulu3d.f && o.lulu3d.f.cars ? JSON.stringify(o.lulu3d.f.cars.cars) : ""; })`);
-      t.check("the save code round-trips where every car is", /"purple":\{"kind":"left","town":"lakewood"/.test(back) && /"orange":\{"kind":"with"/.test(back), back.slice(0, 300));
+      t.check("the save code round-trips where every car is", /"purple":\{"kind":"left"[^}]*"town":"lakewood"/.test(back) && /"orange":\{"kind":"with"/.test(back), back.slice(0, 300));
     });
 
     // ════ home: three cars at Ima's — the one she uses in the driveway, the others along her kerb; walk up to pick ════
