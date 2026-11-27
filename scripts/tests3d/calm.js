@@ -56,7 +56,7 @@ const SAMPLER = `(() => {
       if (kind !== "prompt" && kind !== "chip") { on++; area += Math.min(v.r.width, innerWidth) * Math.min(v.r.height, innerHeight); }
       if (kind === "toast" || kind === "meta" || kind === "law" && el.classList.contains("law-toast") || kind === "mp") toasts++;
       // an APPEARANCE = this kind + text wasn't on screen a moment ago (a re-rendered overlay isn't a new pop-up)
-      const key = kind === "call" ? "call" : /^(text|caption|radio)$/.test(kind) ? kind + "|#" + (el.id || el.className) : kind + "|" + v.tx;   // (a card whose lines change is one pop-up; ringing → talking is ONE call)
+      const key = kind === "call" ? "call" : /^(text|caption|radio)$/.test(kind) ? kind + "|#" + (el.id || el.className) : kind + "|" + v.tx.replace(/\s*×\d+/g, "");   // (a card whose lines change is one pop-up; ringing → talking is ONE call; a merged toast's ×N count going up is the SAME pop-up)
       if (!prevKeys.has(key) && !keys.has(key)) C.events.push({ t: +(gt() - C.t0).toFixed(1), kind, text: v.tx.slice(0, 80) });
       keys.add(key);
       C.seen.set(el, v.tx);
