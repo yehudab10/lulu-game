@@ -182,7 +182,7 @@ module.exports = {
     await step("cruise", async () => {
       await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("kvetchtoria"))`);
       await W.pause(t, false);
-      await g(`(() => { const s = ctx.car.s + 200, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); return true; })()`);
+      await g(`(() => { ctx.traffic.clear(); const s = ctx.car.s + 200, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); return true; })()`);
       await t.frames(10);
       t.check("❚❚ offers ⏱️ Cruise control in the Kvetchtoria", await t.L(`import("./js/core/ctx.js").then(m => m.menuItems("pause").some(i => i.id === "cruise"))`));
       t.check("set: it holds the speed she's doing", await g(`ctx.dealers.debug.perks.cruiseOn()`) === true);
@@ -190,8 +190,9 @@ module.exports = {
       await t.frames(120);
       const v1 = await g(`ctx.car.speed`);
       t.check("…hands off the pedals for 4 s: still within 1.5 m/s of it (she steers; it isn't self-driving)", Math.abs(v1 - v0) < 1.5 && !await g(`ctx.G.selfDriving`), `${v0.toFixed(1)} → ${v1.toFixed(1)}`);
-      await t.hold(6, 1); await t.frames(4); await t.hold(6, 0);
-      t.check("braking cancels it", !await g(`ctx.dealers.debug.perks.CC.on`) && await g(`ctx.dealers.debug.perks.CC.off`) === "brake");
+      const cc1 = await g(`({ on: ctx.dealers.debug.perks.CC.on, off: ctx.dealers.debug.perks.CC.off })`);
+      await t.hold(6, 1); await t.frames(8); await t.hold(6, 0);
+      t.check("braking cancels it", !await g(`ctx.dealers.debug.perks.CC.on`) && await g(`ctx.dealers.debug.perks.CC.off`) === "brake", `${JSON.stringify(cc1)} → ${JSON.stringify(await g(`({ on: ctx.dealers.debug.perks.CC.on, off: ctx.dealers.debug.perks.CC.off, st: L3.state })`))}`);
       await W.pause(t, true); await W.moved(t);
     });
     { const r = await W.report(t); W.log(r); W.check(t, "Mazelati (the showroom, the haggle, the perks)", r); await W.reset(t); }

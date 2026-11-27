@@ -1806,7 +1806,14 @@ speed-bump street; it stops for anything in its path (traffic, `LIFE.people` / `
 `SOURCES` for any feature's own walkers) and pulls up double-parked beside the door: "📍 You have arrived. Probably."
 It hands back when it's lost (off its path 3 times), stuck (9 s behind the same thing), nosed across a street ("point it
 down a street first"), or the ping is in another town while she's in this one (it only knows the way IN, for now).
-Tunables: `route.js` › `NAV`. `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
+Tunables: `route.js` › `NAV`. 🌶️ MESHUGA really is (the owner, 2026-11-27): `SUB.modes.meshuga` drives `over` the
+limit (82 mph on the highway, `town` 38 in town, no school-zone slowdown), tailgates (`gap` 9), cuts in (`cut`: a few
+metres behind is enough) and honks (`honk`) — so a speed camera / a trooper can catch it like any speeder (that's the
+price; the tablet says "Tushla is not responsible for Meshuga"); Bubbe + Normal stay ticket-proof. ⚡ NO NITRO in an EV
+(`SKINS[id].ev` → `ctx.G.evCar`: core/driving.js won't light it, `body.ev-car` hides the bar + the touch button). ⏱️
+CRUISE CONTROL on the Mazelatis (`perks.js`): built into the Kvetchtoria, ADAPTIVE on the Machatunim (`acc`: keeps a gap
+that grows with speed), a 700-coin F&I option on the others; ❚❚ › Cruise holds her current speed while she steers (she's
+driving: everything earns as usual); brake, a hard swerve, a chase, a crash or getting out cancel it. `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
 active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
 `dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
