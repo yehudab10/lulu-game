@@ -183,11 +183,11 @@ export const STARE = {
 // ── the OTD guys: written with affection, zero contempt either way ───────
 export const OTD = {
     sammy: {
-        name: "Sammy", where: "lake", icon: "🪑", lines: [
-            "Pull up a bench. It's free. Best seat in town, with a view of nobody.",
+        name: "Sammy", where: "campusDorm", icon: "🪑", lines: [
+            "Pull up a bench. It's free. Best seat on Minivan Way, with a view of the whole dorm and none of the noise.",
             "I used to sit in the big beis — row twelve. Still know whose turn it is for coffee. (It's Moshe's.) How's Moshe doing?",
             "People think I left. I didn't leave — I just took the long way to the parking lot.",
-            "The swans don't bother anybody. That's the whole deal. I respect that.",
+            "The dorm windows light up one by one at night. Somebody's always awake up there. I respect that.",
             "Tell Reuven I said hi. Tell him I've still got his old shtender in my garage. He'll know.",
         ],
     },

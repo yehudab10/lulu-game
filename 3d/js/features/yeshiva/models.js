@@ -114,6 +114,9 @@ function buildWing() {
     const shirts = ["#E57373", "#FFFFFF", "#64B5F6", "#FFFFFF", "#FFD54F"];
     box(g, rail, 4.6, 0.03, 0.03, 0.4, 7.4, D / 2 + 1.2);
     shirts.forEach((c, i) => box(g, mat("Shirt" + i, c), 0.5, 0.65, 0.04, -1.6 + i * 0.95, 7.0, D / 2 + 1.2));
+    // a bench on the lawn strip, Sammy's (features/yeshiva/street.js stands him beside it at night)
+    const wood = mat("Bench", "#8D6E4F");
+    box(g, wood, 1.7, 0.08, 0.5, -1.2, 0.45, D / 2 + 1.3); box(g, wood, 1.7, 0.45, 0.06, -1.2, 0.72, D / 2 + 1.52); box(g, wood, 0.1, 0.44, 0.44, -1.9, 0.22, D / 2 + 1.3); box(g, wood, 0.1, 0.44, 0.44, -0.5, 0.22, D / 2 + 1.3);
     anchor(g, "Anchor_sign", 0, 9.9, D / 2 + 0.2);
     anchor(g, "Anchor_door", 4.3, 0, D / 2);
     return g;
