@@ -58,7 +58,11 @@ module.exports = {
       // cards / toasts / texts that turn up while an activity is on
       new MutationObserver(ms => { if (!S.on || !(ctx.engaged && ctx.engaged())) return; for (const m of ms) for (const n of m.addedNodes) {
         if (n.nodeType !== 1 || n.matches(SKIP)) continue; const cls = (n.className && typeof n.className === "string") ? n.className : "";
-        if (/toast|jtext|card|banner|bubble|chip/i.test(cls + " " + (n.id || ""))) S.during.push({ view: S.view, state: ctx.state, what: (n.id ? "#" + n.id : "") + "." + cls.split(/\\s+/).slice(0, 2).join("."), txt: (n.textContent || "").trim().slice(0, 80), act: ctx.engaged() }); }
+        if (!/toast|jtext|card|banner|bubble|chip/i.test(cls + " " + (n.id || ""))) continue;
+        // (shown 10 frames on, not folded into the objective line's badges — a chip the line folds isn't a pop-up)
+        const rec = { view: S.view, state: ctx.state, what: (n.id ? "#" + n.id : "") + "." + cls.split(/\\s+/).slice(0, 2).join("."), txt: (n.textContent || "").trim().slice(0, 80), act: ctx.engaged() }, f1 = S.f + 10;
+        const later = () => { if (S.f < f1) return requestAnimationFrame(later); if (n.isConnected && shown(n) && !n.closest(".obj-folded") && !n.querySelector(".obj-folded") && !/obj-folded/.test(n.className || "")) S.during.push(rec); };
+        requestAnimationFrame(later); }
       }).observe(document.body, { childList: true, subtree: true });
       return true; })()`);
     const view = v => t.L(`(window.__pop.view = ${JSON.stringify(v)}, window.__pop.cur = {}, true)`);
