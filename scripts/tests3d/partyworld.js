@@ -97,7 +97,6 @@ async function roadTrip(t, guests) {
   const g = t.game;
   t.check("party plan service (rng / seeded / road)", await g(`!!(ctx.party.rng && ctx.party.seeded && ctx.party.road && ctx.party.road.slot)`));
   t.check("the party OFF set no longer holds the shared-world features", await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true; try { return ["roadevents", "cameos", "world", "hustle", "community", "memory", "banter", "meta"].every(id => ctx.enabled(id)) && !ctx.enabled("journey") && !ctx.enabled("dina"); } finally { N.want = was; } })()`));
-  await t.click(/Friends/);
   await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return false;
   const code = await g(`ctx.party.code`);
@@ -252,26 +251,21 @@ async function freeRoam(t, guests) {
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 60000)) return;
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: 5.25, speed: 0 }, ctx.hustle.hold(900), true)`);
   // the long road: every kind of slot shows up, the same on both screens — and the big ones build the same
-  const rp = [];
-  for (const p of pages) rp.push(await p.game(`ctx.party.road.list(0, 24000).map(s => ({ key: s.key, id: s.id, s: +s.s.toFixed(2) }))`));
-  t.check("free roam plan: identical on both screens, every feature gets slots", JSON.stringify(rp[0]) === JSON.stringify(rp[1]) && ["roadevents", "cameos", "hustle"].every(i => rp[0].some(x => x.id === i)), `${rp[0].length} slots`);
-  const big = ["roadevents", "hustle"].map(i => rp[0].find(x => x.id === i)).filter(Boolean);
-  for (const v of big) {
-    for (const [i, p] of pages.entries()) await p.game(`ctx.party._debug.place(${(v.s - (v.id === "hustle" ? 420 : 200)).toFixed(2)}, ${i ? 1.75 : 5.25}, 0)`);
-    await sleep(2500);
+  // (each screen plans the road as features reserve their slots: on a slow runner one can still be catching up — compare
+  //  again for a few seconds of game frames before calling it different)
+  let rp = [];
+  for (let i = 0; i < 8; i++) {
+    rp = [];
+    for (const p of pages) rp.push(await p.game(`ctx.party.road.list(0, 24000).map(s => ({ key: s.key, id: s.id, s: +s.s.toFixed(2) }))`));
+    if (JSON.stringify(rp[0]) === JSON.stringify(rp[1])) break;
+    await t.frames(30);
   }
-  await sleep(2500);
-  for (const v of big) {
-    const got = [];
-    for (const p of pages) got.push(await p.game(v.id === "hustle" ? `ctx.hustle._dbg.party.log.filter(x => x.key === ${JSON.stringify(v.key)}).map(x => x.key + "@" + x.s + "=" + x.job + ":" + x.built)` : `ctx.roadevents.party.log.filter(x => x.key === ${JSON.stringify(v.key)}).map(x => x.key + "@" + x.s)`));
-    t.check(`same ${v.id} set piece on both screens: ${v.key}`, got[0].length === 1 && JSON.stringify(got[0]) === JSON.stringify(got[1]), got.map(x => x.join(" ")).join(" | "));
-  }
-  if (big.length) { await t.shot("setpiece-host"); await A.shot("setpiece-guest"); }
-  const mk = await g(`ctx.hustle.marker`);
-  // (built for her = up for her: with an early slot it was built at the start and the set-piece hops above may have carried her past it)
-  const hv = big.find(v => v.id === "hustle");
-  const built = hv ? await g(`ctx.hustle._dbg.party.log.some(x => x.key === ${JSON.stringify(hv ? hv.key : "")} && x.built)`) : true;
-  t.check("a seeded payphone / job board is up for the host", !hv || !!mk || built, JSON.stringify(mk));
+  const rdiff = rp[0].findIndex((x, i) => JSON.stringify(x) !== JSON.stringify(rp[1][i]));
+  t.check("free roam plan: identical on both screens, every feature gets slots", JSON.stringify(rp[0]) === JSON.stringify(rp[1]) && ["roadevents", "cameos", "hustle"].every(i => rp[0].some(x => x.id === i)), `${rp[0].length}/${rp[1].length} slots; first difference at ${rdiff}: ${JSON.stringify(rp[0][rdiff])} ≠ ${JSON.stringify(rp[1][rdiff])}`);
+  // (friends = the same game: 🌍 Free Roam rides on each one's OWN run now — her own highway set pieces, payphones and
+  //  traffic, like solo; the seeded road plan is the 🏡 Road Trip's, checked above. What's shared in Free Roam: the towns'
+  //  loop traffic + the org cruisers below, the claims, the friends themselves.)
+  for (const p of pages) t.check(`${p.label}: Free Roam on her own run (no party run)`, await p.game(`ctx.G.mode === "cruise" && ctx.party.ownRun`));
   // each town its own exit, in the route's fixed order: the same metres on both screens (planned from fixed data only)
   const ex = [];
   for (const p of pages) ex.push(await p.game(`(["midwood", "lakewood", "midwood"].reduce((a, id) => { const s = ctx.town.exitOf(id, a.s); return { s: s + 1, out: a.out.concat(id + "@" + Math.round(s)) }; }, { s: 20000, out: [] }).out.join(","))`));
@@ -300,7 +294,10 @@ async function freeRoam(t, guests) {
     tn += live.length; tbad += live.filter(x => !x).length;
   }
   t.check("town traffic (openworld's minivans) still on their loops alongside the orgs", tn >= 12 && tbad === 0, `${tn} live, ${tbad} off`);
-  t.check("no random town drivers / no strays in a party town", await g(`ctx.traffic.cars.every(c => c.data && (c.data.party || c.data.partyLocal || (c.data.town && c.data.town.hazard)))`));
+  // (friends = the same game: each screen's own passing cars — a road event's sedan… — are allowed now (owner, 2026-11-27);
+  //  what mustn't be there is the town's own random drivers, which would differ from the shared loops)
+  const strays = await g(`ctx.traffic.cars.filter(c => c.data && c.data.town && !c.data.town.hazard && !c.data.party && !c.data.partyLocal).map(c => c.kind + ":" + Object.keys(c.data || {}).join("/") + ":" + Math.round(c.s || 0))`);
+  t.check("no random town drivers in a party town (the loops are shared)", strays.length === 0, strays.slice(0, 6).join(" "));
   // the org cruisers never share a spot with a minivan (a quarter loop apart at least)
   t.check("org cruisers keep clear of the minivans on their loop", await g(`(() => { const a = ctx.community.debug.party.cruisersAt(ctx.party.clock()), b = ctx.openworld.debug.townCarsAt(ctx.party.clock()); return a.every(c => b.every(v => Math.hypot(v.x - c.x, v.z - c.z) > 2.6)); })()`));
   const sc = [];

@@ -37,6 +37,7 @@ export const SHARED = {
     shopsPizza: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null), shopsBakery: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),   // (features/shops: the walk-in shops, one per town)
     terminal: () => "jfk",                                      // ✈️ the JFK terminal (features/airport): one hall
     clothesShop: () => (ctx.clothes && ctx.clothes.shopNow ? ctx.clothes.shopNow() : null),   // 👗 features/clothes: one per town (+ JFK's luxury house)
+    lanes: () => "midwood",                                     // 🎳 features/lanes: East Midwood Lanes (one alley — its games are shared, net.js)
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
 export const NOT_SHARED = {
@@ -76,8 +77,9 @@ function inMine(p, R) {
     if (!a || a[0] !== R.id || p.m !== 7) return false;
     if (zoneOf(p) !== (ctx.town && ctx.town.active ? ctx.town.id || "" : "")) return false;
     const d = p.x.dr, m = M.myDoor;
-    // (a town can stand at more than one interchange: the same house / bank key in another copy is another room)
-    const far = Array.isArray(d) && !!m && Math.hypot(d[0] / 10 - m[0] / 10, d[1] / 10 - m[1] / 10) > 80;
+    // (a town can stand at more than one interchange: the same house / bank key in another copy is another room.
+    //  Off the towns (the airport's one terminal) there is only one copy: the instance key alone decides.)
+    const far = !!zoneOf(p) && Array.isArray(d) && !!m && Math.hypot(d[0] / 10 - m[0] / 10, d[1] / 10 - m[1] / 10) > 80;
     if (R.inst || a[1]) return String(a[1] || "") === R.inst && !far;
     return Array.isArray(d) && !!m && Math.hypot(d[0] / 10 - m[0] / 10, d[1] / 10 - m[1] / 10) < DOOR_MATCH;
 }

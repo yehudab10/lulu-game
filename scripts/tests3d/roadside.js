@@ -80,6 +80,11 @@ module.exports = {
       const sp = await g(`ctx.places.spots().filter(s => /^roadside_/.test(s.id)).map(s => s.id + "@" + s.s + (s.built ? "+" : "-"))`);
       t.check("Trooper Post 7 stands at lap 2's 6.8 km (built)", sp.includes("roadside_trooper@22800+"), JSON.stringify(sp));
       t.check("its doors: precinct, court (hw:court), impound (a car bay)", await g(`(() => { const a = ctx.civic.spot("precinct"), b = ctx.civic.spot("court"), c = ctx.civic.spot("impound"); return !!a && a.addr === "hw:trooper" && !!b && b.addr === "hw:court" && !!c && !!c.car; })()`));
+      // (qa27: the building colliders follow the walls — the doorstep in front of each door is free)
+      const step = await g(`(() => { const cs = []; for (const c of ctx.world.chunks.values()) for (const o of c.colliders || []) if (o.kind === "building") cs.push(o);
+        return ["precinct", "court", "hospital"].map(k => { const sp = ctx.civic.spot(k); if (!sp) return -1; const x = sp.x - sp.nx * 1.5, z = sp.z - sp.nz * 1.5;
+          return +Math.min(9, ...cs.map(o => Math.hypot(o.x - x, o.z - z) - o.r)).toFixed(2); }); })()`);
+      t.check(`the doorsteps are free: 1 m in front of each door, the nearest wall collider is ≥ 0.7 m away (${step})`, step.every(d => d >= 0.7), JSON.stringify(step));
       t.check("a sign before it (a 190 m board, world/places)", await g(`(() => { const p = ctx.places.get("roadside_trooper"); return !!(p && p.sign && /TROOPERS/.test(p.sign.lines.join(" "))); })()`));
       await g(`(() => { const sp = ctx.civic.spot("precinct"), c = ctx.camera; window.__camAt = [sp.x + sp.nx * 38 + sp.ux * 8, 12, sp.z + sp.nz * 38 + sp.uz * 8, sp.x - sp.nx * 4 + sp.ux * 10, 2, sp.z - sp.nz * 4 + sp.uz * 10];
         const r = L3.renderer; if (!window.__camWrap) { const o = r.render.bind(r); window.__camWrap = true; r.render = (s, cam) => { const V = window.__camAt; if (V && cam === c) { cam.position.set(V[0], V[1], V[2]); cam.lookAt(V[3], V[4], V[5]); cam.updateMatrixWorld(); } o(s, cam); }; } return true; })()`);

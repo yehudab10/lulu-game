@@ -11,7 +11,7 @@ import { saved } from "./places.js";
 import { ONEGAME } from "../onegame/switches.js";
 
 const LORE = {
-    home: ["🏡", "Home", "Lakewood · the cul-de-sac", "The pink door was Dina's idea. The pink car was also Dina's idea."],
+    home: ["🏡", "Home", "Midwood · E 34th St", "The pink door was Dina's idea. The pink car was also Dina's idea."],
     family_bubbe: ["👵", "Bubbe's house", "4.8 km up the road", "Nobody has ever left Bubbe's hungry. Several have tried."],
     family_heshy: ["🏊", "Heshy's pool", "pool town", "Heshy has been 'researching fountains' since 2019."],
     family_beach: ["🏖️", "The beach", "the coast", "Morgan the plushie was lost here once. Dina still won't talk about it."],

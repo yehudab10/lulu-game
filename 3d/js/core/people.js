@@ -93,8 +93,14 @@ export class Person {
 let dresser = null;
 export function setDresser(fn) { dresser = fn; }
 
+// The look test (features/looktest, only with ?look=2) may build a person its own way (a skinned Lulu with real walk /
+// run / idle cycles). Unset = today's people, exactly.
+let factory = null;
+export function setPersonFactory(fn) { factory = fn; }
+
 /** Clone a person model (optionally recolouring materials by name) and wrap it. */
 export function spawnPerson(key, { colors = null, scale = 1, outfit } = {}) {
+    if (factory) { const p = factory(key, { colors, scale, outfit }, dresser); if (p) return p; }
     if (!models[key]) throw new Error(`spawnPerson: model "${key}" isn't loaded (ensureModels first)`);
     const obj = cloneWithColors(models[key], colors);
     obj.scale.setScalar(scale);

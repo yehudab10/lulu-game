@@ -19,10 +19,11 @@ import { EV, EV_CARS, EV_IDS, LAP_M, ZEV, SUB } from "./data.js";
 import { EVSHOW } from "./models.js";
 import { schlep } from "./schlep.js";
 import { DS } from "./perks.js";
+import { openConfig, wrapKit, configDebug, CF } from "./config.js";
 
 for (const [id, c] of Object.entries(EV_CARS)) {
     SKINS[id] = { name: c.name, body: c.body, light: c.light, dark: c.dark, top: c.top, acc: c.acc, grip: c.grip, brake: c.brake,
-        nitro: c.nitro, perks: c.perks, kit: "tushla", marque: "tushla", ev: true };
+        nitro: c.nitro, perks: c.perks, kit: "tushla", marque: "tushla", ev: true, evKey: id };
     SKIN_SHOP[id] = { price: c.price, flavor: c.flavor, stripe: c.stripe, where: "Tushla Motors, across the highway from Mazelati (half a mile past the lap line)" };
     if (!SKIN_KEYS.includes(id)) SKIN_KEYS.push(id);
 }
@@ -31,6 +32,8 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const EV_AT = [];
 for (let n = 0; n * LAP < 400000; n++) EV_AT.push(n * LAP + LAP_M);
 const E = { spots: [], cars: [], at: null, armed: null, postT: 8 };
+wrapKit(KITS);                 // (her own Tushlas wear their configuration — config.js)
+CF.E = () => E;
 const dead = new WeakSet();
 on("chunk:dispose", ({ chunk }) => { dead.add(chunk); E.spots = E.spots.filter(s => s.chunk !== chunk); });
 const live = sp => sp && sp.obj && sp.chunk && !dead.has(sp.chunk);
@@ -86,7 +89,7 @@ hook("hud", dt => {
 on("run:start", () => { drop(); E.spots = []; });
 
 // ── on foot: ✋ the tablet, ✋ a car (→ the same card) ──
-const onFootHere = () => ctx.state === "footRun" && ctx.foot && ctx.foot.pos && E.at && !cardOpen();
+const onFootHere = () => ctx.state === "footRun" && ctx.foot && ctx.foot.pos && E.at && !cardOpen() && !H.screenOpen();
 const tabletSpot = {
     r: 2.2, short: "TABLET",
     pos() { if (!onFootHere()) return null; const w = local(E.at, EVSHOW.tablet.x, EVSHOW.tablet.z + 1.4, {}); return { x: w.x, z: w.z }; },
@@ -120,7 +123,11 @@ function headHtml(id) {
     return `<div class="dl-ev"><b>${c.name}</b> — <i>${c.flavor}</i><div class="sp-stats">${rows}</div>`
         + `<div class="dl-post">⚡ Full Schlep Driving ready (subscription). No haggling — the price is the price.<br>📱 ${ZEV.name}: “${pick(ZEV.posts)}”</div></div>`;
 }
-export function openTablet(focus) {
+/** ✋ the tablet / a car on the floor → the configurator (config.js: the model, paint, wheels, interior, horn, add-ons,
+ *  a live price, ORDER, a test drive). */
+export function openTablet(focus) { return openConfig(focus); }
+/** (the old tile card — kept for its buy / subscribe handlers, which tests share) */
+export function openTabletCard(focus) {
     if (cardOpen() || !ctx.foot || !ctx.foot.script) return false;
     syncInv(); E.armed = null;
     const tiles = EV_IDS.map(k => ({
@@ -197,4 +204,4 @@ hook("hud", () => {
     try { ctx.pins.add({ id: EV.addr, name: EV.full, icon: EV.emoji, cat: "shops", lap: LAP_M, sub: "electric cars · Full Schlep Driving" }); } catch (e) { /* the registry's rules */ }
 });
 
-export const evDebug = { E, EV_AT, nearSpot, padWorld, openTablet, buyHere, subHere, chargerHere };
+export const evDebug = { E, EV_AT, nearSpot, padWorld, openTablet, buyHere, subHere, chargerHere, config: configDebug };

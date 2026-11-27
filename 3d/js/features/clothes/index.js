@@ -15,7 +15,7 @@
 // Stats: clothesBought. Dina's mode: never touched (no Lulu there).
 import { ctx, on } from "../../core/ctx.js";
 import { PIECES, SLOTS, SHOPS } from "./data.js";
-import { S, current, owns, wear, encode, decode, dress, wearDebug } from "./wear.js";
+import { S, current, owns, wear, encode, decode, dress, addOwned, wearDebug } from "./wear.js";
 import { enterShop, enterAs, addDoors, shopDebug } from "./shop.js";
 import { placeCloset, closetDebug } from "./closet.js";
 import { airDebug } from "./airdoor.js";
@@ -48,5 +48,7 @@ ctx.clothes = {
     /** Which shop the room is dressed as right now (a town id / "jfk") — friends in the same one share it. */
     shopNow: () => shopDebug.shopNow(),
     get owned() { return S.owned.slice(); },
+    /** A piece she EARNS (never bought — e.g. features/lanes' bowling shirt): into her closet → true if it's new. */
+    give: id => addOwned(id),
     debug: { S, wear: wearDebug, shop: shopDebug, closet: closetDebug, limited: limitedDebug, air: airDebug, buyLimited },
 };

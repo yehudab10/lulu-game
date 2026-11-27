@@ -1,0 +1,314 @@
+[
+ {
+  "config": "1: first try (full car everywhere, VSM soft shadows, no caps); today runs",
+  "tier": "low",
+  "build": "today",
+  "street": {
+   "frames": 63,
+   "frameMs": 105.9,
+   "jsMs": 3.49,
+   "gl": 100,
+   "calls": 100,
+   "tris": 67543,
+   "tier": "low"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 257.1,
+   "jsMs": 5.7,
+   "gl": 899,
+   "calls": 899,
+   "tris": 325098,
+   "tier": "low"
+  },
+  "errors": []
+ },
+ {
+  "config": "1: first try (full car everywhere, VSM soft shadows, no caps); today runs",
+  "tier": "low",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 140.8,
+   "jsMs": 4.67,
+   "gl": 103,
+   "calls": 103,
+   "tris": 80755,
+   "tier": "low"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 577.4,
+   "jsMs": 9.07,
+   "gl": 817,
+   "calls": 817,
+   "tris": 542266,
+   "tier": "low"
+  },
+  "errors": []
+ },
+ {
+  "config": "1: first try (full car everywhere, VSM soft shadows, no caps); today runs",
+  "tier": "medium",
+  "build": "today",
+  "street": {
+   "frames": 62,
+   "frameMs": 188.5,
+   "jsMs": 5.33,
+   "gl": 106,
+   "calls": 98,
+   "tris": 64481,
+   "tier": "medium"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 407.7,
+   "jsMs": 7.01,
+   "gl": 1173,
+   "calls": 904,
+   "tris": 327248,
+   "tier": "medium"
+  },
+  "errors": []
+ },
+ {
+  "config": "1: first try (full car everywhere, VSM soft shadows, no caps); today runs",
+  "tier": "medium",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 199.8,
+   "jsMs": 5.14,
+   "gl": 134,
+   "calls": 115,
+   "tris": 94099,
+   "tier": "medium"
+  },
+  "crowd": {
+   "frames": 62,
+   "frameMs": 528.9,
+   "jsMs": 9.27,
+   "gl": 1498,
+   "calls": 807,
+   "tris": 432005,
+   "tier": "medium"
+  },
+  "errors": []
+ },
+ {
+  "config": "1: first try (full car everywhere, VSM soft shadows, no caps); today runs",
+  "tier": "high",
+  "build": "today",
+  "street": {
+   "frames": 63,
+   "frameMs": 265.4,
+   "jsMs": 4.99,
+   "gl": 122,
+   "calls": 102,
+   "tris": 80660,
+   "tier": "high"
+  },
+  "crowd": {
+   "frames": 62,
+   "frameMs": 574.4,
+   "jsMs": 7.94,
+   "gl": 1206,
+   "calls": 892,
+   "tris": 333978,
+   "tier": "high"
+  },
+  "errors": []
+ },
+ {
+  "config": "1: first try (full car everywhere, VSM soft shadows, no caps); today runs",
+  "tier": "high",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 458.4,
+   "jsMs": 5.22,
+   "gl": 133,
+   "calls": 102,
+   "tris": 86033,
+   "tier": "high"
+  },
+  "crowd": {
+   "frames": 62,
+   "frameMs": 1139.5,
+   "jsMs": 10.6,
+   "gl": 1561,
+   "calls": 804,
+   "tris": 543633,
+   "tier": "high"
+  },
+  "errors": []
+ },
+ {
+  "config": "2: + lite car on LOW/MEDIUM copies, one-draw shadow, sky light HIGH only, PCF soft",
+  "tier": "low",
+  "build": "look",
+  "street": {
+   "frames": 62,
+   "frameMs": 133.6,
+   "jsMs": 5.17,
+   "gl": 108,
+   "calls": 108,
+   "tris": 75023,
+   "tier": "low"
+  },
+  "crowd": {
+   "frames": 62,
+   "frameMs": 356.9,
+   "jsMs": 7.6,
+   "gl": 790,
+   "calls": 790,
+   "tris": 409779,
+   "tier": "low"
+  },
+  "errors": []
+ },
+ {
+  "config": "2: + lite car on LOW/MEDIUM copies, one-draw shadow, sky light HIGH only, PCF soft",
+  "tier": "medium",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 194.5,
+   "jsMs": 3.94,
+   "gl": 106,
+   "calls": 98,
+   "tris": 72576,
+   "tier": "medium"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 502,
+   "jsMs": 8.71,
+   "gl": 1145,
+   "calls": 796,
+   "tris": 414304,
+   "tier": "medium"
+  },
+  "errors": []
+ },
+ {
+  "config": "2: + lite car on LOW/MEDIUM copies, one-draw shadow, sky light HIGH only, PCF soft",
+  "tier": "high",
+  "build": "look",
+  "street": {
+   "frames": 62,
+   "frameMs": 458.1,
+   "jsMs": 5.45,
+   "gl": 120,
+   "calls": 100,
+   "tris": 87169,
+   "tier": "high"
+  },
+  "crowd": {
+   "frames": 62,
+   "frameMs": 1010.4,
+   "jsMs": 10.08,
+   "gl": 1223,
+   "calls": 807,
+   "tris": 547032,
+   "tier": "high"
+  },
+  "errors": []
+ },
+ {
+  "config": "3: + skinned budget (LOW 3, MEDIUM 10)",
+  "tier": "low",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 112.2,
+   "jsMs": 3.63,
+   "gl": 96,
+   "calls": 96,
+   "tris": 64170,
+   "tier": "low"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 308.1,
+   "jsMs": 6.19,
+   "gl": 966,
+   "calls": 966,
+   "tris": 370174,
+   "tier": "low"
+  },
+  "errors": []
+ },
+ {
+  "config": "3: + skinned budget (LOW 3, MEDIUM 10)",
+  "tier": "medium",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 192.1,
+   "jsMs": 4.32,
+   "gl": 115,
+   "calls": 107,
+   "tris": 81842,
+   "tier": "medium"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 526.4,
+   "jsMs": 8.42,
+   "gl": 1287,
+   "calls": 938,
+   "tris": 395602,
+   "tier": "medium"
+  },
+  "errors": []
+ },
+ {
+  "config": "4: + LOW keeps today's car for copies",
+  "tier": "low",
+  "build": "look",
+  "street": {
+   "frames": 63,
+   "frameMs": 129.7,
+   "jsMs": 4.72,
+   "gl": 101,
+   "calls": 101,
+   "tris": 69844,
+   "tier": "low"
+  },
+  "crowd": {
+   "frames": 62,
+   "frameMs": 394.8,
+   "jsMs": 9,
+   "gl": 892,
+   "calls": 892,
+   "tris": 325894,
+   "tier": "low"
+  },
+  "errors": []
+ },
+ {
+  "config": "repeat of today (noise check)",
+  "tier": "medium",
+  "build": "today",
+  "street": {
+   "frames": 63,
+   "frameMs": 187.5,
+   "jsMs": 4.38,
+   "gl": 113,
+   "calls": 105,
+   "tris": 81614,
+   "tier": "medium"
+  },
+  "crowd": {
+   "frames": 63,
+   "frameMs": 438.7,
+   "jsMs": 7.85,
+   "gl": 1166,
+   "calls": 897,
+   "tris": 336183,
+   "tier": "medium"
+  },
+  "errors": []
+ }
+]

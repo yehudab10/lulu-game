@@ -97,6 +97,7 @@ export function endRun(reason = "end") {
 // ── scoring / pickups ─────────────────────────────────────────────────────
 /** Run coins: counted on the HUD AND added to the shared wallet right away (like the 2D game). */
 export function addCoins(n, why) {
+    if (!Number.isFinite(n)) return;           // (a bad sum must not turn the HUD's coins into NaN for the rest of the run)
     const G = ctx.G;
     G.coins += n;
     wallet.add(n);

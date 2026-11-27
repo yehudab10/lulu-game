@@ -177,6 +177,17 @@ module.exports = {
         const miss = await probe(d.i, d.at, [-1.2, 0, 1.2], [-1.2, 0, 2.4]);
         t.check(`${id} ${d.name}: ✋ shows across the doorway, step → kerb`, miss.length === 0, miss.join(" | "));
       }
+      // THE RULE: someone she's standing right next to (≤ 1.2 m) outranks the door's wide zone — Dina on Ima's porch, a
+      // shopkeeper in a doorway (a stand-in spot 0.9 m from her, in the middle of each door's zone)
+      for (const d of doors.slice(0, 4)) {
+        const r = await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}, keep = { parked: F.parked, peds: F.peds, animals: F.animals };
+          F.parked = []; F.peds = []; F.animals = [];
+          F.pos.set(a.x + a.nx * 0.4, 0.05, a.z + a.nz * 0.4);
+          const who = { x: F.pos.x + a.ux * 0.9, z: F.pos.z + a.uz * 0.9, r: 2.0, label: "🙋 SOMEONE HERE", act() {} }, rm = ctx.foot.addSpot(who);
+          const pr = ctx.foot.debug.interactables(); rm(); Object.assign(F, keep);
+          return pr ? pr.label : "nothing"; })()`);
+        t.check(`${id} ${d.name}: someone right beside her beats the door's ✋ (${r})`, /SOMEONE HERE/.test(r));
+      }
       // strangers' front doors: a sample (a duplex has two doors side by side → narrower: ±0.6 along the street)
       const hi = await g(`ctx.foot.spots().findIndex(s => s.short === "HOUSE")`);
       // (the houses whose door is the homes ✋ — not her own / one for sale: those are real estate's)

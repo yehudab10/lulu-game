@@ -33,7 +33,7 @@ export const PARTY_OK = new Set(["gear", "snatch", "robbery"]);      // (robbery
 export const inParty = () => !!(ctx.party && ctx.party.active);
 export function partyFree() {
     const pt = ctx.party, G = ctx.G;
-    if (!pt || !pt.active || !G || G.mode !== "party") return false;
+    if (!pt || !pt.active || !G || !pt.inWorld) return false;          // (a party run or 🌍 on her own run)
     const k = pt.activity && pt.activity.k;
     if (k !== "trip" && k !== "roam") return false;
     const ow = ctx.openworld, g = ow && ow.debug && ow.debug.getG ? ow.debug.getG() : null;

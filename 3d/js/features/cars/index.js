@@ -37,7 +37,7 @@ import { MAP_EXTRAS } from "../phone/apps.js";
 import { lapPlaces, myLapM, ahead, miles } from "../world/lapmap.js";
 import { ID, TUNE, L, TOW_FEE, MINIVAN } from "./data.js";
 
-export const SAVE = store(ID, { v: 1, cars: {}, pend: null, slots: null });
+export const SAVE = store(ID, { v: 1, cars: {}, pend: null, slots: null, care: {} });
 const S = { t: 0, last: null, props: {}, swapping: false, migrated: false, log: [], away: {}, minivan: false, tv: { arm: null, msg: "" } };
 const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -68,6 +68,8 @@ function migrate() {
     try { syncInv(); } catch (e) { /* no save yet */ }
     const have = owned();
     for (const k of Object.keys(SAVE.cars)) if (!have.includes(k)) delete SAVE.cars[k];
+    if (!SAVE.care || typeof SAVE.care !== "object") SAVE.care = {};
+    for (const k of Object.keys(SAVE.care)) if (!have.includes(k)) delete SAVE.care[k];
     for (const k of have) rec(k);
     // a walk that never finished (the page closed with her car parked out in a town): it's still there
     const p = SAVE.pend;
@@ -219,6 +221,7 @@ function spawn(k, w) {
     c.free = true; c.x = w.x; c.z = w.z; c.h = w.h;
     T().place(c, 0);
     paint(c, k);
+    emit("cars:prop", { key: k, obj: c.obj });              // (features/carcare dresses it: dirt, dents)
     const p = { c, key: k };
     p.rm = ctx.foot && ctx.foot.addSpot ? ctx.foot.addSpot({
         pos: () => (T().cars.includes(c) ? { x: c.x, z: c.z } : null), r: TUNE.getIn,
@@ -589,6 +592,15 @@ ctx.cars = {
     /** The frame a world spot would be saved in ({ town, lx, lz, h } | { hw }). */
     frameOf: (x, z, h = 0) => frame(poseOf({ x, z, h })),
     getIn, held, impounded, fromImpound, deliver, tow,
+    /** Car k's condition, saved with its record (features/carcare: dirt, dents, tires, muffler) — the live object, created
+     *  empty; the owner writes it + saveSoon(). null for a car she doesn't own. */
+    care(k) {
+        if (!SKINS[k] || !owned().includes(k)) return null;
+        if (!SAVE.care || typeof SAVE.care !== "object") SAVE.care = {};
+        return SAVE.care[k] || (SAVE.care[k] = {});
+    },
+    /** Her parked cars drawn near her now: [{ key, obj, x, z }] (features/carcare: which of her cars is at the shop). */
+    props() { return Object.values(S.props).filter(p => p && p.c && T().cars.includes(p.c)).map(p => ({ key: p.key, obj: p.c.obj, x: p.c.x, z: p.c.z })); },
     get minivan() { return S.minivan; },
     debug: { S, SAVE, rec, migrate, track, resolve, syncProps, towTick, worldOf, poseOf, kerbSlots, startHome, legalHere, daysSince },
 };
