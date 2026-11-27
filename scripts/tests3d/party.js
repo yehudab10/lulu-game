@@ -222,6 +222,9 @@ async function body(t, guests) {
   await sleep(6000);
   const tr = await t.game(`[...ctx.party._debug.cars.values()].map(rc => ({ uid: rc.uid, tr: rc.trace || [] }))`);
   await t.game(`ctx.party._debug.trace(false)`);
+  // (everyone stops now: the checks below take a while on a crawling page and at 24 m/s the cars used to reach the
+  //  2.5 km flag — the race ended before the BONK)
+  for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   let worst = 0, moved = 0, snaps = 0, samples = 0, latJump = 0;
   for (const c of tr) {
     const pts = c.tr.filter(x => x.s != null);
