@@ -241,7 +241,9 @@ shops as OPENING SOON again.
 | `POST /shops/claim` | `{ pid, sec, id, kind, edictStruck? }` | `{ ok }` · `{ ok: false, why: taken \| mine \| edict \| cap \| licence \| full, o }` |
 | `POST /shops/release` | `{ pid, sec, id }` | `{ ok }` (only the owner) |
 | `POST /shops/stock` | `{ pid, sec, id, shelf: [{ s, g, n, p, st }] }` | `{ ok, n }` · `{ ok: false, why: price \| bad slot }` (her kind's goods, inside the band) |
-| `POST /shops/buy` | `{ pid, sec, id, slot, p }` | `{ ok, g, st, p, left }` · `{ ok: false, why: yours \| new \| price \| buys \| spent \| soldout \| gone \| closed }` |
+| `POST /shops/buy` | `{ pid, sec, id, slot, p, tip? }` | `{ ok, g, st, p, tip, clerk, left }` · `{ ok: false, why: yours \| unminded \| new \| price \| buys \| spent \| soldout \| gone \| closed }` |
+| `POST /shops/clerk` | `{ pid, sec, id, on }` | `{ ok, c }` — hire / let go of the clerk (stage 3) |
+| `POST /shops/counter` | `{ pid, sec, id, off? }` | `{ ok }` — she's at her own counter for 90 s (pinged once a minute while she's inside) |
 | `POST /shops/collect` | `{ pid, sec }` | `{ ok, coins }` — the till, emptied |
 | `POST /shops/hello` | `{ pid, sec }` | `{ mine, till }` (any POST also marks her seen) |
 | `POST /shops/thumb` | `{ pid, sec, id }` | `{ ok }` — once a day, only after buying there |
@@ -249,7 +251,7 @@ shops as OPENING SOON again.
 
 **The caps (a net sink, never a coin pump):** the owner earns at most `ownerDayProfit` (300) a real day above what her
 stock cost; a buyer spends at most `buyerPerOwner` (150) a day at one owner's shops and buys at most `buysPerShop` (3)
-a day in one shop; nobody buys from her own shop; a buyer needs a username and an account at least `minDays` (3) old;
+a day in one shop; nobody buys from her own shop; **stage 3 — who minds the shop:** it sells only while the owner was seen in the last `mindMs` (10 min) or she has hired the clerk (`clerkShare`, 10 % of each sale the clerk makes, out of the owner's share); the owner AT her counter can be tipped 5 or 10 (`tips`; the buyer's coins, inside the buyer's 150); a buyer needs a username and an account at least `minDays` (3) old;
 prices sit inside cost × 1.2–1.8; the town keeps 15 %. Midwood allows 1 shop a player (2 when the game says the court
 struck the mayor's edict down), Lakewood 3, 4 in all; a few licences per kind per town. Writes: one per 600 ms per
 account, 200 ms per IP. **Ghost shops:** an owner unseen for 14 days → her shops are under renovation (sell nothing) for
