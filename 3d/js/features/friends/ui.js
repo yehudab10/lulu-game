@@ -12,6 +12,7 @@ import * as VOTE from "./vote.js";
 import * as MIS from "./missions.js";
 import * as SV from "./server.js";
 import { roomPath } from "../multiplayer/net.js";
+import { CODE_ABC } from "../party/net.js";
 
 let X = null;                                   // index.js's code / join helpers
 const V = { api: null, app: "friends", arg: null, lastCheck: -1e9, wait: "" };
@@ -49,6 +50,7 @@ function render(el, api, arg, app) {
     if (a.add) return addView(el, api);
     if (a.req) return reqView(el, api, a.req);
     if (a.pick) return pickView(el, api);
+    if (a.pcode) return partyCodeView(el, api);
     if (a.friend) return friendView(el, api, a.friend);
     if (a.blocked) return blockedView(el, api);
     if (a.edit) return editView(el, api);
@@ -82,6 +84,12 @@ function home(el, api) {
     }
     if (off.length) html += `<div class="ow-sec">Not playing</div>`;
     for (const f of off) html += row("frF_" + f.f, "💤", dot(f.sk) + esc(ST.labelOf(f)), "not playing right now", "", ` data-fv="${f.f}"`).replace("lp-row", "lp-row fr-off");
+    // (the title has no 👯 tile any more — owner 2026-11-27: friends are an in-game thing; these were the title hub's)
+    html += `<div class="ow-sec">Play together</div>`;
+    // (playing together needs the party relay, not the friends list's crypto / the EVERYONE layer)
+    const canPlay = !!(ctx.party && ctx.party.allowed);
+    html += row("frHost", "📤", "Play with a friend", "Send a link. They'll show up next to you.", "", "", !canPlay);
+    html += row("frPcode", "🔑", "Join with a code", "A friend's 4-letter code", "", "", !canPlay);
     html += `<div class="ow-sec">Add a friend</div>`;
     const myName = ctx.player && ctx.player.name ? ctx.player.name() : null;
     if (SV.serverOn()) html += myName ? row("frAdd", "➕", "Add a friend by name", `Your name is ${esc(myName)}. Tell your friends!`)
@@ -103,6 +111,15 @@ function home(el, api) {
     onc(el, "[data-jy]", b => { BL.answerJoin(b.dataset.jy, true); api.close(); });
     onc(el, "[data-jn]", b => { BL.answerJoin(b.dataset.jn, false); api.refresh(); });
     onc(el, "#frCode", () => go(api, { code: 1 }));
+    onc(el, "#frHost", async () => {
+        if (!ctx.party || !ctx.party.hostRoam) return;
+        ctx.party.hostRoam();
+        api.close();
+        // (the link goes out once the group is up: the same 📤 as 👯 › Invite)
+        for (let i = 0; i < 40 && !(ctx.party.connected && ctx.party.code); i++) await new Promise(r => setTimeout(r, 250));
+        if (ctx.party.connected && ctx.party.invite) { const msg = await ctx.party.invite(); if (msg) H.toast(msg, "pink", { prio: 2 }); }
+    });
+    onc(el, "#frPcode", () => go(api, { pcode: 1 }));
     onc(el, "#frAdd", () => go(api, { add: 1 }));
     onc(el, "#frPick", () => go(api, { pick: 1 }));
     onc(el, "[data-rq]", b => go(api, { req: b.dataset.rq }));
@@ -127,6 +144,26 @@ async function joinTap(api, fid) {
 }
 
 // ── (ci/accounts) ➕ add by name · a request · pick a name ─────────────
+/** 🔑 Join with a code: a friend's party code (4 letters) on a letter pad (a controller / TV can type it too) → you're
+ *  taken to her (features/party join = a teleport; your own day goes on). */
+function partyCodeView(el, api) {
+    const c = V.pCode || "";
+    let html = `<div class="lp-card"><span class="lp-tx"><b>Join with a code</b><small>Type your friend's 4-letter code. You keep playing your own day and go to them.</small></span></div>`;
+    html += `<div class="fr-code" id="frPshow">${esc((c + "____").slice(0, 4))}</div>`;
+    html += `<div class="fr-keys" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:4px 0">${[...CODE_ABC].map(ch => `<button class="btn nav" id="frPk_${ch}" data-pk="${ch}" style="padding:6px 0;min-width:0">${ch}</button>`).join("")}</div>`;
+    html += row("frPdel", "⌫", "Delete a letter", "");
+    html += row("frPgo", "▶", "Join", c.length === 4 ? "" : "Type all 4 letters", "", "", c.length !== 4);
+    if (V.pMsg) html += `<p class="lp-note">${esc(V.pMsg)}</p>`;
+    html += row("frBack", "‹", "Back", "");
+    el.innerHTML = html;
+    onc(el, "[data-pk]", b => { if ((V.pCode || "").length < 4) V.pCode = (V.pCode || "") + b.dataset.pk; V.pMsg = ""; api.refresh(); });
+    onc(el, "#frPdel", () => { V.pCode = (V.pCode || "").slice(0, -1); api.refresh(); });
+    onc(el, "#frPgo", () => {
+        if (!(ctx.party && ctx.party.join && ctx.party.join(V.pCode || ""))) { V.pMsg = "That isn't a code. It's 4 letters."; api.refresh(); return; }
+        V.pCode = ""; V.pMsg = ""; api.close();
+    });
+    onc(el, "#frBack", () => { V.pCode = ""; V.pMsg = ""; go(api, null); });
+}
 function addView(el, api) {
     const me = ctx.player.name();
     let html = `<div class="lp-card"><span class="lp-tx"><b>Add a friend by name</b><small>Type their name. They say yes next time they play.</small></span></div>`;

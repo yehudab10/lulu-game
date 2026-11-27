@@ -42,7 +42,7 @@ module.exports = {
       return { hero: ids("#screenCard .tile.hero"), tiles: ids("#screenCard .home-tiles .tile"), groups: ids("#screenCard .home-groups .tile"),
                chip: !!document.getElementById("shabbosChip"), text: document.querySelector("#screenCard .home").textContent }; })()`);
     t.check("title: ONE big ▶ PLAY hero", home.hero.length === 1 && home.hero[0] === "play" && /PLAY/.test(home.text), home.hero.join(","));
-    t.check("title: exactly one small play tile — 👯 Friends (👧 Dina's is hidden for now)", home.tiles.length === 1 && /^(party|friends)$/.test(home.tiles[0]), home.tiles.join(","));
+    t.check("title: no small play tiles — 👯 Friends lives in the game now, 👧 Dina's is hidden for now", home.tiles.length === 0, home.tiles.join(","));
     t.check("title: no 'More to play' overflow", !home.groups.includes("tg_play") && !/More to play/.test(home.text), home.groups.join(","));
     const labels = (await t.titleItems()).join(" | ");
     t.check("title: no Story Trip / Cruise / Parking Challenge items", !/Story Trip|Cruise|Parking Challenge/.test(labels), labels);
@@ -197,7 +197,7 @@ module.exports = {
       await t.frames(4);
       const f = await fits();
       t.check(`the new home fits ${name} (${w}×${h})`, f.ok, JSON.stringify(f));
-      const hero = await t.L(`(() => { const r = document.getElementById("play").getBoundingClientRect(), d = document.querySelector("#screenCard .home-tiles .tile").getBoundingClientRect(); return { h: r.height, w: r.width, dh: d.height }; })()`);
+      const hero = await t.L(`(() => { const r = document.getElementById("play").getBoundingClientRect(), d = (document.querySelector("#screenCard .home-tiles .tile") || document.querySelector("#screenCard .home-groups .tile")).getBoundingClientRect(); return { h: r.height, w: r.width, dh: d.height }; })()`);
       t.check(`${name}: PLAY is the biggest button`, hero.h >= hero.dh && hero.h >= 44, JSON.stringify(hero));
       await t.shot(`home-${name}`);
     }
@@ -208,7 +208,7 @@ module.exports = {
     await g(`(ctx.shabbos.debug.date("2026-11-20T15:00"), ctx.applySettings(), L3.setState("title"), true)`);
     await t.frames(4);
     t.check("Friday: PLAY's subtitle says Erev Shabbos", await t.L(`/Erev Shabbos/.test(document.getElementById("play").textContent)`));
-    t.check("…and there's still no chip / extra tile", await t.L(`!document.getElementById("shabbosChip") && document.querySelectorAll("#screenCard .home-tiles .tile").length === 1`));
+    t.check("…and there's still no chip / extra tile", await t.L(`!document.getElementById("shabbosChip") && document.querySelectorAll("#screenCard .home-tiles .tile").length === 0`));
     await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun"`, "friday home", 4000);
     await t.frames(30);

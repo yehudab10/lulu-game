@@ -77,7 +77,7 @@ module.exports = {
   save2d: { totalCoins: 300, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid" },
   async run(t) {
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };
-    await step("solo", () => solo(t));
+    if (process.env.OPENWORLD_ONLY !== "party") await step("solo", () => solo(t));
     await startRelay();
     const guests = [];
     try { await step("party", () => partyRun(t, guests)); }
@@ -195,7 +195,6 @@ async function partyRun(t, guests) {
   const g = t.game;
   await g(`(ctx.phone.isOpen && ctx.phone.closePhone(), ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
   await t.frames(6);
-  await t.click(/Friends/);
   await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;
   const code = await g(`ctx.party.code`);
@@ -224,6 +223,8 @@ async function partyRun(t, guests) {
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 10000);
   }
   await sleep(2500);
+  // (a slow runner places the townsfolk + the loops a few frames after the arrival: wait for them on each screen, in game frames)
+  for (const p of pages) await waitOn(p === A ? A.page : t.page, `ctx.town.debug.LIFE.people.length > 0 && ctx.openworld.debug.townLive().length > 0`, 30000);
   const T0 = await g(`Math.round(ctx.party.clock() + 2000)`);
   const lists = [];
   for (const p of pages) lists.push(JSON.stringify(await p.game(`ctx.openworld.debug.townCarsAt(${T0}).map(c => [c.key, c.kind, +c.x.toFixed(2), +c.z.toFixed(2)])`)));
@@ -248,6 +249,7 @@ async function partyRun(t, guests) {
   const folk = [];
   for (const p of pages) folk.push(JSON.stringify(await p.game(`ctx.town.debug.LIFE.people.map(r => [r.p.obj.position.x.toFixed(2), r.p.obj.position.z.toFixed(2)]).concat(ctx.town.debug.LIFE.geese.map(q => [q.home.x.toFixed(2), q.home.z.toFixed(2)]))`)));
   const fA = JSON.parse(folk[0]), fB = JSON.parse(folk[1]), diff = fA.map((x, i) => JSON.stringify(x) === JSON.stringify(fB[i]) ? null : i).filter(i => i != null);
+  if (folk[0] !== folk[1] || lists[0] !== lists[1]) for (const p of pages) console.log("   TOWNDIAG " + p.label, JSON.stringify(await p.game(`({ mode: ctx.G.mode, st: ctx.state, inWorld: ctx.party.inWorld, own: ctx.party.ownRun, act: ctx.party.activity && ctx.party.activity.k, town: ctx.town.active && ctx.openworld.zone, pt: ctx.openworld.partyTowns && ctx.openworld.partyTowns(), folk: ctx.town.debug.LIFE.people.length, geese: ctx.town.debug.LIFE.geese.length, cars: ctx.openworld.debug.townCarsAt(Math.round(ctx.party.clock())).length, live: ctx.openworld.debug.townLive().length, clock: Math.round(ctx.party.clock()), synced: ctx.party.synced })`)), lists[pages.indexOf(p)].slice(0, 300));
   t.check("townsfolk + geese: seeded the same on both screens (e-bikes ride in a party since round 2 — partyplus)", folk[0] === folk[1], `${fA.length}/${fB.length} placed; differ at ${diff.slice(0, 6).map(i => i + ":" + JSON.stringify(fA[i]) + "≠" + JSON.stringify(fB[i])).join(" ")}`);
 
   // friends see each other on the streets: the guest catches up with the host
@@ -273,9 +275,12 @@ async function partyRun(t, guests) {
   await g(`ctx.phone.closePhone()`);
 
   // 🚗 ride along: the guest hops into the host's passenger seat
-  t.check("ride: the guest hops in", (await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`)) === "");
-  await sleep(3000);
-  t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await g(`!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`));
+  // (a slow runner: the host's snapshots can be a moment stale right after the phone — a player would tap again)
+  let rideWhy = await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`);
+  for (let i = 0; i < 5 && rideWhy && /Can't see them/.test(rideWhy); i++) { await A.frames(30); rideWhy = await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`); }
+  t.check("ride: the guest hops in", rideWhy === "", rideWhy);
+  // (in GAME frames: on a slow runner her riding pose reaches the host a beat late)
+  t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await waitOn(t.page, `!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`, 30000));
   const rideSt = await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return { riding: ctx.openworld.riding, shown: !!rc && rc.shown, vis: ctx.car.obj.children.some(c => c.visible), d: rc ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(2) : -1, st: ctx.state }; })()`);
   t.check("ride: the guest's car rides with the host's (camera follows it)", rideSt.shown && !rideSt.vis && rideSt.d < 1.5, JSON.stringify(rideSt));
   await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-openworld-ride-guest.png") }).catch(() => { });

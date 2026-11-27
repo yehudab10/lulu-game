@@ -109,6 +109,7 @@ function registerRoam() {
         planFirst: true, noGrid: true,
         init: () => ({ g: null }),
         slotIn: A => { lateJoin(A); return true; },
+        lightJoin: A => lightJoin(A),
         respawnAt() {
             if (ROAM.leftExit != null && ctx.time - ROAM.leftT < 3) { const s = ROAM.leftExit + 190; ROAM.leftExit = null; return { s, d: 5.25 }; }
             return null;
@@ -184,10 +185,45 @@ function lateJoin(A) {
     H.banner(`<b>🌍 You're in!</b><small>${t ? `Right next to ${HUD.esc(nameOf(t.uid))}${t.foot ? " (they're on foot — hop out and say hi 👋)" : ""}` : "Free roam — 📱 👯 for games"}</small>`, 2600);
     tone(660, 0.12, "triangle", 0.16, 990);
 }
+/** 🌍 With friends on her OWN run (party lightEnter): a joiner is taken to the friend with the soft cut Go-there uses —
+ *  beside them on foot (or at their door), in her own car just behind them on the road. Her run, hearts, coins, car and
+ *  errand stay hers; the friend she joins sees nothing change. The host (the one being joined) never moves. */
+/** → true once handled (joined beside the friend, or nothing to do); false = the friend's position hasn't come in yet. */
+function lightJoin(A) {
+    if (ctx.party.isHost) return true;
+    const t = findFriend(A);
+    if (!t) return false;
+    if (onFoot() && ctx.foot.drive) { const p = ctx.foot.pos; try { ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } catch (e) { console.error("[openworld] join: back in her car", e); } }
+    if (t.zone) { warpTo(t, t.foot ? 8 : 14); if (t.foot) afterWarp(() => joinOnFoot(t), t.zone); }
+    else { warpTo({ zone: "", s: t.s, d: t.d }, t.foot ? 10 : 22); if (t.foot) afterWarp(() => joinOnFoot(t)); }
+    H.toast(`👯 You're with ${HUD.esc(nameOf(t.uid))}`, "pink", { prio: 2 });
+    return true;
+}
 /** The friend I joined is walking: climb out beside them (a parked car behind her, like any walk). */
 function joinOnFoot(t) {
     if (!ctx.foot || !ctx.foot.start || ctx.state !== "playing" || onFoot()) return;
     try { ctx.foot.start("droveOff", { line: `There's ${nameOf(t.uid)}! 👋` }); } catch (e) { console.error("[openworld] join on foot", e); }
+    besideFriend(t.uid);
+}
+/** Out of her car: if the friend is off the street (her porch, a lot), walk-cut right beside them — the first surely
+ *  normal spot 1.6–3 m around them (ctx.unstuck.normal); her car stays parked at the kerb. */
+function besideFriend(uid, tries = 300, from = null) {
+    // (waits — up to ~30 s on a crawling phone — for her to be out and walking and the friend to be drawn; she walked off
+    //  herself meanwhile → leave her be)
+    const rc = ctx.party.remoteCar && ctx.party.remoteCar(uid), fp = onFoot() && ctx.foot.phase === "walk" ? ctx.foot.pos : null;
+    if (fp && !from) from = { x: fp.x, z: fp.z };
+    if (!fp || !rc || !rc.shown) { if (tries > 0 && ctx.party.active) setTimeout(() => besideFriend(uid, tries - 1, from), 100); return; }
+    if (Math.hypot(fp.x - from.x, fp.z - from.z) > 4 || Math.hypot(rc.x - fp.x, rc.z - fp.z) < 8) return;
+    const ok = (x, z) => !(ctx.unstuck && ctx.unstuck.normal) || !ctx.unstuck.normal(x, z, "foot");
+    const a0 = Math.atan2(fp.x - rc.x, fp.z - rc.z);         // (the side she's coming from first)
+    for (const r of [1.8, 2.6, 3.2]) for (const k of [0, 1, -1, 2, -2, 3, -3, 4]) {
+        const a = a0 + k * Math.PI / 4;
+        const x = rc.x + Math.sin(a) * r, z = rc.z + Math.cos(a) * r;
+        if (!ok(x, z)) continue;
+        fp.set(x, fp.y || 0, z);
+        if (ctx.cam) ctx.cam.snap();
+        return;
+    }
 }
 // a step that waits until a warp (a soft cut, maybe a town download) has landed her
 let pendingWarp = null;
@@ -248,7 +284,7 @@ function warpNow(at, back = 0) {
     }
     if (T && T.active) T.leave("reset");
     const s = Math.max(GRID_S, (at.s || 0) - back), d = at.d > 3.5 ? 5.25 : at.d < -3.5 ? -5.25 : at.d < 0 ? -1.75 : 1.75;
-    if (roam()) ctx.party.placeCar(s, Math.abs(d) < 1 ? 1.75 : d, 0);
+    if (roam() && ctx.G.mode === "party") ctx.party.placeCar(s, Math.abs(d) < 1 ? 1.75 : d, 0);
     else { const p = ctx.world.road.point(s, d, {}); car.place(p.x, p.z, p.h); car.s = s; car.d = d; ctx.world.prebuild(s); }
     return done();
 }

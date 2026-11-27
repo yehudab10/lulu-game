@@ -62,7 +62,7 @@ module.exports = {
           id === "midwood" ? lease.length >= 10 && streets.size >= 3 : lease.length >= 4 && lease.length <= 6, JSON.stringify(lease.map(l => l.id)));
         if (id === "midwood") {
           const cc = await g(`ctx.storefronts.reservedFor("carcare").length`), ln = await g(`ctx.storefronts.reservedFor("lanes").length`);
-          t.check(`midwood: kept for ci/carcare: the Coney Island Ave row + the Minivan Wash (${cc}) · for ci/lanes: the Avenue M run (${ln})`, cc >= 30 && ln >= 4);
+          t.check(`midwood: kept for ci/carcare: the 4 named Coney Island Ave shops + the Minivan Wash (${cc}) · for ci/lanes: the Avenue M run (${ln})`, cc === 5 && ln >= 4);
         } else t.check("lakewood: its Minivan Wash is kept for ci/carcare", (await g(`ctx.storefronts.reservedFor("carcare").map(f => f.name)`)).includes("MINIVAN WASH"));
         // never nothing open: on a weekday, 6 am–midnight ≥ a third of each street's shops; overnight at least one
         const cov = await t.L(`Promise.all([import("./js/features/storefronts/hours.js"), import("./js/core/ctx.js")]).then(([H, C]) => {
