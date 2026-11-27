@@ -153,7 +153,9 @@ module.exports = {
       const stand = async (dx) => footAt(D.x + dx, D.z + dx * 0.3);
       await stand(22);
       t.check("a porch pirate turns up at that door", await g(`${O}.spawnPorch({ i: ${D.i} })`));
-      await t.until(`${OU}.PORCH.E && ${OU}.PORCH.E.phase === "run"`, "he grabs the box and runs", 20000);
+      // (…and is off the porch: put beside him ON the porch she'd stand in the house and be pushed out of reach — the
+      //  old clock's slow polling always let him get a few metres first)
+      await t.until(`${OU}.PORCH.E && ${OU}.PORCH.E.phase === "run" && Math.hypot(${OU}.PORCH.E.x - ${D.x}, ${OU}.PORCH.E.z - ${D.z}) > 5`, "he grabs the box and runs", 20000);
       // run him down: put her right by him (in the same breath — he's quick), ✋
       const reasons = await g(`(() => { const E = ${O}.PORCH.E, F = ctx.foot.debug.F; E.dir = 0; /* (he stops to catch his breath: the test's page is slow) */ F.pos.x = E.x + 1.4; F.pos.z = E.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return ctx.community.reasons("shomrim"); })()`);
       t.check("📞 Shomrim lists the running porch pirate", reasons.includes("crimePorch"), JSON.stringify(reasons));

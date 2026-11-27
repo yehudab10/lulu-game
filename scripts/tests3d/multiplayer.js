@@ -54,6 +54,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 module.exports = {
   name: "multiplayer",
+  fast: false,     // (on the relay: the daily board is read after a REAL-time sleep, and which run's score has landed by then
+                   //  depends on how much game ran in it — the old clock)
   query: `&enable=multiplayer&mpurl=${encodeURIComponent(URL)}`,
   save2d: { totalCoins: 100, ownedSkins: ["pink", "gold"], selectedSkin: "pink" },
   async run(t) {
