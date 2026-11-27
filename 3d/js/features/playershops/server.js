@@ -23,6 +23,11 @@ function base() {
 const me = () => (ctx.player && ctx.player.id && ctx.player.secret ? { pid: ctx.player.id(), sec: ctx.player.secret() } : null);
 function log(ev, d = {}) { SV.log.push(Object.assign({ at: Date.now(), ev }, d)); if (SV.log.length > 40) SV.log.shift(); }
 async function req(path, body) {
+    const r = await req1(path, body);
+    if (r.st === 429 && body) { await new Promise(res => setTimeout(res, 900)); return req1(path, body); }   // (a write a moment too soon: once more)
+    return r;
+}
+async function req1(path, body) {
     const b = SV.base || base();
     if (!b) throw new Error("off");
     const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -63,8 +68,7 @@ const wire = id => String(id).replace(/^shop:/, "");
 export async function claim(id, kind, edictStruck) {
     if (!SV.on) return { ok: true, local: true };
     try {
-        let r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck });
-        if (r.st === 429) { await new Promise(res => setTimeout(res, 900)); r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck }); }   // (too quick: once more)
+        const r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck });
         if (r.st === 200 && r.j) return r.j.ok || r.j.why === "mine" ? { ok: true } : { ok: false, why: r.j.why, o: r.j.o };
         return r.st === 429 ? { ok: false, why: "rate" } : { ok: true, local: true };
     } catch (e) { return { ok: true, local: true }; }
@@ -112,8 +116,7 @@ export async function view(id) { try { const r = await req(`/shops/view?id=${enc
 export async function buy(id, slot, p, tip = 0) {
     if (!SV.on) return { ok: false, why: "off" };
     try {
-        let r = await req("/shops/buy", { id: wire(id), slot, p, tip });
-        if (r.st === 429) { await new Promise(res => setTimeout(res, 900)); r = await req("/shops/buy", { id: wire(id), slot, p, tip }); }   // (too quick: once more)
+        const r = await req("/shops/buy", { id: wire(id), slot, p, tip });
         SV.lastBuy = { st: r.st, j: r.j };
         return r.j || { ok: false, why: r.st === 429 ? "rate" : "error" };
     } catch (e) { return { ok: false, why: "offline" }; }
