@@ -42,6 +42,7 @@ import * as PERMITS from "./permits.js";
 import * as INSPECT from "./inspect.js";
 import * as PROTEST from "./protest.js";
 import * as STORYM from "./story.js";
+import * as MAYORM from "./mayor.js";
 
 const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
 const C = { said: false, t: 0, doorsAt: 0, outAt: null };
@@ -102,6 +103,7 @@ hook("hud", dt => {
     try { INSPECT.inspectTick(dt); } catch (e) { console.error("[cityhall] inspect", e); }
     try { PROTEST.protestTick(dt); } catch (e) { console.error("[cityhall] protest", e); }
     try { STORYM.storyTick(dt); } catch (e) { console.error("[cityhall] story", e); }
+    try { MAYORM.mayorTick(dt); } catch (e) { console.error("[cityhall] mayor", e); }
     try {
         if ((C.t += dt) < 0.6) return;
         C.t = 0;
@@ -134,6 +136,8 @@ ctx.cityhall = {
     inspect: { start: INSPECT.startInspection, end: INSPECT.endInspection, inspector: INSPECT.inspector, homesHere: INSPECT.homesHere, IN: INSPECT.IN, reset: INSPECT.inspectReset },
     /** Stage 4 — protests (protest.js). */
     protest: { start: PROTEST.protestStart, stop: PROTEST.protestStop, hours: PROTEST.protestHours, topic: PROTEST.topicToday, chant: PROTEST.startChant, PR: PROTEST.PR },
+    /** Roadmap 31 — Midwood's mayor (mayor.js): today's edict, striking one down, Pickleman's recount stand. */
+    mayor31: { today: MAYORM.todayEdict, topic: MAYORM.edictTopic, strike: MAYORM.strike, addCase: MAYORM.addEdictCase, standStart: MAYORM.standStart, standStop: MAYORM.standStop, MY: MAYORM.MY },
     /** Stage 5 — the corruption thread (story.js). */
     story: { state: STORYM.story, crewStart: STORYM.crewStart, crewStop: STORYM.crewStop, usePhoto: STORYM.usePhoto, pay: STORYM.payStory, ST: STORYM.ST },
     debug: { S, RUN, force, C, RB, def: LOBBY_DEF, startRibbon, endRibbon },

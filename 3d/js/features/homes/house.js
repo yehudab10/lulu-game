@@ -86,9 +86,10 @@ function build(rt) {
     // the rooms (who's home: the scene's — work, school, shul, the mountains)
     const cast = hm.cast || home.cast;
     const allCast = home.cast;
-    const types = ["living", "kitchen"];
-    if (allCast.includes("boy") || allCast.includes("girl") || (allCast.includes("baby") && R() < 0.5)) types.unshift("kids");
-    if (R() < 0.65 || (sd.rooms && sd.rooms.dining)) types.splice(types.indexOf("kitchen"), 0, "dining");
+    const types = home.rooms ? home.rooms.slice() : ["living", "kitchen"];
+    if (home.rooms) { /* (a household with a fixed layout: Fayge's basement) */ }
+    else if (allCast.includes("boy") || allCast.includes("girl") || (allCast.includes("baby") && R() < 0.5)) types.unshift("kids");
+    if (!home.rooms && (R() < 0.65 || (sd.rooms && sd.rooms.dining))) types.splice(types.indexOf("kitchen"), 0, "dining");
     const n = types.length, x0 = -n * W / 2;
     const rooms = types.map((type, i) => ({ type, x0: x0 + i * W, x1: x0 + (i + 1) * W, cx: x0 + (i + 0.5) * W }));
     V.rooms = rooms;
@@ -97,7 +98,7 @@ function build(rt) {
     rt.cols.length = 0;
     V.walls = [];
     // materials (owned by the set)
-    const pal = [["#F3E5D0", "#E3D5F0"], ["#E8F1E4", "#FFF1D6"], ["#FCE4EC", "#E0F2F1"], ["#EDE7F6", "#FFF8E1"]][seed % 4];
+    const pal = home.palette || [["#F3E5D0", "#E3D5F0"], ["#E8F1E4", "#FFF1D6"], ["#FCE4EC", "#E0F2F1"], ["#EDE7F6", "#FFF8E1"]][seed % 4];
     const M = (c, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o)); rt.own(m); return m; };
     const box = (w, h, d, mat, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); rt.own(g); const m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.receiveShadow = true; m.castShadow = h > 1; rt.add(m); return m; };
     const wallM = [M(pal[0]), M(pal[1])], trim = M("#FFFFFF"), woodFloor = M("#B58457", { roughness: 0.7 });
@@ -131,7 +132,7 @@ function build(rt) {
     const night = ctx.atmos && typeof ctx.atmos.night === "number" ? ctx.atmos.night : 0;
     for (const r of rooms) {
         const wx = r.cx + (r.type === "kitchen" ? -1.6 : r.type === "living" ? 0.9 : 0);
-        const w = kit("Window"); w.position.set(wx, 1.55, -D / 2); rt.add(w);
+        const w = kit("Window"); w.position.set(wx, home.basement ? 2.15 : 1.55, -D / 2); if (home.basement) w.scale.set(1, 0.55, 1); rt.add(w);
         if (night > 0.4) w.traverse(o => { if (o.isMesh && /Glass/.test(o.material.name)) { o.material = o.material.clone(); o.material.color.set("#1B2440"); o.material.opacity = 0.9; rt.own(o.material); } });
         V.windows.push({ x: wx, z: -D / 2 + 0.75, room: r.type });
     }
@@ -275,7 +276,7 @@ function build(rt) {
             : (spotsFor[kind] || [])[0];
         // Purim: everyone's in costume (the same costumes on every screen — the house's seed)
         const costume = sd.costumes && !KINDS[kind].animal && kind !== "baby" ? COSTUMES[(seed + kind.length * 7 + kind.charCodeAt(0)) % COSTUMES.length] : null;
-        addRes(kind, kind, sp, { name: home.names && home.names[kind] || kind, colors: (P0 && P0.colors) || costume || null });
+        addRes(kind, kind, sp, { name: home.names && home.names[kind] || kind, colors: (P0 && P0.colors) || costume || (home.colors && home.colors[kind]) || null });
     }
     ST.extras.forEach((e, i) => addRes(`x${i}_${e.kind}`, e.kind, e, { name: e.name || e.kind, colors: e.colors || null, extra: true }));
     V.props = buildProps(rt, ST.props);
@@ -291,8 +292,8 @@ function build(rt) {
     rt.lulu.obj.position.set(start.x, 0, start.z);
     rt.lulu.obj.rotation.y = start.ry;
     // the title + presence (friends in a 🎉 party see "🏠 in the Goldbergs' house")
-    const pl = plural(home.name), label = `the ${pl}' house`;
-    DEF.name = `The ${pl}' house`; DEF.title = `🏠 THE ${pl.toUpperCase()}`;
+    const pl = plural(home.name), label = home.inside ? home.inside.label : `the ${pl}' house`;
+    DEF.name = home.inside ? home.inside.name : `The ${pl}' house`; DEF.title = home.inside ? home.inside.title : `🏠 THE ${pl.toUpperCase()}`;
     if (ctx.interiors.home) ctx.interiors.home.name = DEF.name;
     rt.chip.querySelector(".int-title").textContent = DEF.title;
     try { if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence({ mode: "in", icon: "🏠", label: `in ${label}` }); } catch (e) { /* no party */ }
@@ -470,8 +471,9 @@ async function chat(rt, r) {
     if (i === 0) {
         if (r.friendly || V.mode === "guest" || r.K.animal || r.kind === "baby") {
             const sd = V.scene && V.scene.def;
-            const g = V.mode === "guest" && sd && sd.guest && r.K.adult && Math.random() < 0.6 ? sd.guest : (TALK[r.kind] || TALK[r.K.like] || ["..."]);
-            rt.bubble(dressLine(r, pick(g)), r.p.obj, 2.8); emit("stat", { id: "homesTalks", n: 1 }); return;
+            const own = V.home.talk ? V.home.talk(r.kind, V) : null;
+            const g = own ? [own] : V.mode === "guest" && sd && sd.guest && r.K.adult && Math.random() < 0.6 ? sd.guest : (TALK[r.kind] || TALK[r.K.like] || ["..."]);
+            rt.bubble(own || dressLine(r, pick(g)), r.p.obj, 3); emit("stat", { id: "homesTalks", n: 1 }); return;
         }
         // "Shhh!" — a kid makes a pact; an adult… sees her, obviously
         if (r.kind === "boy" || r.kind === "girl") { r.friendly = true; r.meter = 0; rt.bubble(r.kind === "boy" ? "...okay. But I want to SEE the car." : "I won't tell. ...for a BRACELET.", r.p.obj, 2.8); return; }

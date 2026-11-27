@@ -11,6 +11,7 @@
 import * as THREE from "three";
 import { ctx, css } from "../../core/ctx.js";
 import { fmtDist } from "./where.js";
+import { clearWindow, phoneHud } from "../../hud.js";
 
 css("together-ptr", `
 #tgPtrs { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -33,7 +34,7 @@ body.tv .tg-p small { font-size: 15px; max-width: 320px; }
 
 /** Every HUD bit / touch control a pointer must never cover. */
 const AVOID = ["#hud .hud-tl", "#hud .hud-top", "#hud .hud-tr", "#hud .hud-br", "#slot-center > *", "#hud .hud-slot.left > *", "#hud .hud-slot.right > *",
-    "#hud .hud-slot.bottom > *", "#banner", "#toasts > *", "#touch .tbtn", "#stickZone", "#touchExtra > *", "#phoneBtn", "#pauseBtn", "#ptChip", "#owChip", "#owBoard", "#skipBtn", "#padHint"];
+    "#hud .hud-slot.bottom > *", "#banner", "#toasts > *", "#touch .tbtn", "#stickZone", "#touchExtra > *", "#phoneBtn", "#pauseBtn", "#ptChip", "#owChip", "#owBoard", "#skipBtn", "#padHint", "#objLine:not(.empty)"];
 const MAX = 3;                    // the nearest few friends only
 const D = { root: null, pills: new Map(), avoid: [], avoidT: 0, W: 0, Hh: 0 };
 const _v = new THREE.Vector3(), _dir = new THREE.Vector3();
@@ -79,6 +80,8 @@ function measureAvoid() {
         if (cs.visibility === "hidden" || cs.display === "none" || +cs.opacity === 0) continue;
         D.avoid.push({ l: r.left - 6, t: r.top - 6, r: r.right + 6, b: r.bottom + 6 });
     }
+    // (ci/hud: on a phone the CLEAR WINDOW around her car stays empty — hud.js › the layout contract)
+    if (phoneHud()) { const c = clearWindow(), W = innerWidth, Hh = innerHeight; D.avoid.push({ l: c.x0 * W, t: c.y0 * Hh, r: c.x1 * W, b: c.y1 * Hh }); }
 }
 const hits = (a, list) => list.some(q => a.l < q.r && a.r > q.l && a.t < q.b && a.b > q.t);
 
@@ -105,6 +108,8 @@ function edgeAt(u, w, h, out) {
  * Per frame. list = locate() results (nearest first), dest = the destination friend's uid (or ""), on = show at all.
  */
 export function tick(dt, list, dest, on) {
+    // (features/pins: the one 📍 ping is a pointer too — first, always styled as a destination)
+    for (const f of EXTRA) { let l = null; try { l = f(); } catch (e) { l = null; } if (l) list = [l].concat(list); }
     if (!on || !list.length) { hideAll(); return; }
     const W = innerWidth, Hh = innerHeight;
     if (W !== D.W || Hh !== D.Hh) { D.W = W; D.Hh = Hh; D.avoidT = 0; for (const p of D.pills.values()) p.w = 0; }
@@ -115,12 +120,13 @@ export function tick(dt, list, dest, on) {
     const yaw = Math.atan2(_dir.x, _dir.z), cp = cam.position;
     const want = new Set();
     // the destination friend always gets a pill; then the nearest others up to MAX
-    const pickd = list.filter(l => l.uid === dest).concat(list.filter(l => l.uid !== dest)).slice(0, MAX);
+    const isD = l => l.uid === dest || !!l.dest;
+    const pickd = list.filter(isD).concat(list.filter(l => !isD(l))).slice(0, MAX);
     const placed = [];
     for (const l of pickd) {
         const p = pillFor(l.uid);
         want.add(l.uid);
-        setText(p, l, l.uid === dest);
+        setText(p, l, isD(l));
         if (!p.w) { const r = p.el.getBoundingClientRect(); p.w = Math.ceil(r.width) || 90; p.h = Math.ceil(r.height) || 24; }
         // where is it, relative to where the camera looks?
         const dx = l.x - cp.x, dz = l.z - cp.z;
@@ -131,7 +137,7 @@ export function tick(dt, list, dest, on) {
         _v.set(l.x, 1.4, l.z).project(cam);
         const onScreen = _v.z < 1 && Math.abs(_v.x) < 0.86 && Math.abs(_v.y) < 0.86;
         const seen = l.kind === "here" || l.kind === "door";
-        const fade = seen && onScreen && l.dist < 140 && l.uid !== dest;
+        const fade = seen && onScreen && l.dist < 140 && !isD(l);
         if (fade || (l.dist < 9 && seen)) { p.op = 0; apply(p); continue; }
         // screen-right is −a (a bearing to the left is positive in three.js's yaw)
         let u = Math.max(-1, Math.min(1, -a / Math.PI * (1 / 0.62)));          // (±112° and beyond: down the sides as far as they go)
@@ -170,6 +176,9 @@ function apply(p) {
     const s = p.op > 0.05;
     if (s !== p.shown) { p.shown = s; p.el.style.opacity = s ? String(p.op) : "0"; }
 }
+/** Other pointers (features/pins' 📍 ping): fn() → one locate()-shaped item { uid, name, hex, x, z, dist, label, kind, dest } | null. */
+const EXTRA = [];
+export function extra(fn) { EXTRA.push(fn); }
 export function hideAll() { for (const p of D.pills.values()) { p.op = 0; apply(p); } }
 export function clear() { for (const p of D.pills.values()) p.el.remove(); D.pills.clear(); }
 /** Tests: what each pill shows + where (screen px). */
