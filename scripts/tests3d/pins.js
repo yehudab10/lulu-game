@@ -124,7 +124,7 @@ module.exports = {
     const lw = await reachable("lakewood");
     t.check(`Lakewood (lap 2): all ${lw.n} places have a spot she can stand on`, !lw.bad.length, lw.bad.join(" · "));
     await g(`ctx.pins.ping("midwood:clothes")`); await t.frames(4);
-    t.check("in another town: it points the way out of town", /head out of town/.test(await g(`(ctx.pins.target() || {}).label || ""`)));
+    t.check("in another town: it points the way out of town (\"leave Lakewood, then …\")", /^leave Lakewood/.test(await g(`(ctx.pins.target() || {}).label || ""`)));
 
     // ── the highway, lap 2: the next exit into the place's town ──
     await playing();
