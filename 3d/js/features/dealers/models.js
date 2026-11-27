@@ -60,7 +60,7 @@ function buildMazelati() {
     // velvet ropes along the forecourt edge (gold posts, red ropes)
     for (let k = 0; k < 9; k++) { const x = -16 + k * 4; P.push([cyl(0.07, 1.0, x, 0.5, 14.5, 8), GOLD]); if (k < 8) P.push([box(4, 0.1, 0.1, x + 2, 0.82, 14.5), RED]); }
     // the pedestals (white discs with a gold rim)
-    for (const p of S.pads) P.push([cyl(2.9, 0.18, p.x, 0.09, p.z, 28), WHITE], [cyl(2.95, 0.06, p.x, 0.2, p.z, 28), GOLD]);
+    for (const p of S.pads) P.push([cyl(2.95, 0.12, p.x, 0.06, p.z, 28), GOLD], [cyl(2.75, 0.1, p.x, 0.15, p.z, 28), WHITE]);
     g.add(merged(P, solid, "Solid"));
     // the glass front (one transparent pane)
     const glass = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.08), new THREE.MeshStandardMaterial({ color: "#A9C6D9", roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.32, depthWrite: false }));
