@@ -50,6 +50,7 @@ export const SIGNS = {
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
     realty: ["BRICK BY BRICK REALTY", "Mendel Brick · up-and-coming since 1962"],   // features/realestate (uses.realty)
     bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
+    simchahall: ["THE AVENUE M BALLROOM", "weddings · vorts · bar mitzvahs · since 1987"],   // features/family (uses.simchahall)
     makolet: ["YANKY'S 24-HOUR MAKOLET", "open 24 hrs · closed Shabbos · it's complicated"],   // features/shops (uses.makolet)
     dealer: ["UNCLE REFAEL'S PRE-LOVED CARS — BROOKLYN", "the Coney Island Ave branch · we also do tires (badly)"],   // features/shops (uses.dealer)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)

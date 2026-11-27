@@ -1380,7 +1380,7 @@ function meetAvigail(outcome) {
     const w = F.walker;
     F.avigailDone = true;
     const rel = avigailRel();
-    const wedCh = rel >= 65 ? 0.25 : 0.10;
+    const wedCh = 0;          // (ci/family: no random wedding — it plays at the hall on Kings Hwy, when she walks in)
     const r = Math.random();
     const forced = outcome || ctx.foot.force.avigail;
     const res = forced || (r < wedCh ? "wedding" : r < wedCh + 0.2 ? "busy" : "join");
@@ -1408,14 +1408,16 @@ function meetAvigail(outcome) {
     A.sfxCloseCall(4);
 }
 
-function goWedding() {
+/** opts (features/family's hall): { hall: true — staged in the Avenue M Ballroom, paid(): false → the dancing only, no coins } */
+function goWedding(opts = {}) {
     F.handoff = "wedding";
     H.prompt("");
     S.weddings++; saveSoon();
     startWedding({
-        rel: avigailRel(),
+        rel: avigailRel(), hall: !!opts.hall,
         luluKey: luluKey(), luluColors: luluColors(F.disguise),
         onReward(caught) {
+            if (opts.paid && !opts.paid(caught)) { bumpAvigail(caught ? 4 : 2); return 0; }      // (the hall: a second wedding the same real day — the dancing only)
             const n = caught ? 40 : 15;
             addCoins(n, "wedding");
             if (caught) addCoins(1, "wedding star");   // the 2D footAwardStar: +1 ⭐ (= the coin wallet)
@@ -2201,6 +2203,8 @@ ctx.foot = {
         handoffInterior(id, door);
         return true;
     },
+    /** 💍 Avigail's wedding NOW (on foot, in footRun): features/family's hall — opts { hall, paid(caught) → bool }. */
+    wedding(opts = {}) { if (!F || ctx.state !== "footRun") return false; goWedding(opts); return true; },
     /** The soft edges + nudges (bounds.js): { EDGE, NUDGE, state, zone, visuals, debug } */
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */
@@ -2214,7 +2218,7 @@ ctx.foot = {
         spawnParked: o => F && spawnParked(o), spawnPed: o => F && spawnPed(o), spawnAnimal: o => F && spawnAnimal(o),
         spawnAvigail: o => F && spawnAvigail(o), spawnBooth: o => F && spawnBooth(o), startChase: o => F && startFootChase(o),
         interactables: () => F && interactables(), nextDoorAt, weddingState, allDoors,
-        wedding: () => { if (!F) return false; goWedding(); return true; },
+        wedding: (o) => { if (!F) return false; goWedding(o); return true; },
         /** Hop into her own car (as ✋ GET IN would) — tests. */
         getIn: () => { if (!F || !F.car || !F.car.drivable || !F.car.stub) return false; doInteract({ kind: "own", ent: F.car.stub }); return true; },
     },
