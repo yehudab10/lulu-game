@@ -45,7 +45,8 @@ export function beatNow() {
 function placeFor(b) {
     const T = ctx.town, sp = T && T.spot && T.spot(b.spot);
     if (!sp) return null;
-    const nx = sp.nx, nz = sp.nz, ux = sp.ux != null ? sp.ux : nz, uz = sp.uz != null ? sp.uz : -nx;
+    // (a spot without a facing — Lakewood's lake: the shore is its +x side, the path runs along z)
+    const nx = sp.nx != null ? sp.nx : 1, nz = sp.nz != null ? sp.nz : 0, ux = sp.ux != null ? sp.ux : nz, uz = sp.uz != null ? sp.uz : -nx;
     let ox = sp.x, oz = sp.z;
     if (b.door && sp.door && typeof sp.door === "object") { ox = sp.door.x; oz = sp.door.z; }
     const x = ox + ux * (b.u || 0) + nx * (b.door ? 1.0 : b.n || 0), z = oz + uz * (b.u || 0) + nz * (b.door ? 1.0 : b.n || 0);
@@ -118,8 +119,10 @@ function tick(dt) {
     if (d > 70) return;
     const S = CP.ppl.shloime, T = CP.ppl.toby, I = CP.ppl.ima, G = CP.ppl.gitty;
     const talk = CP.busy;
-    if (CP.beat.walk && !talk && S && T) {        // a slow walk along the lake, the stroller in front
-        const s = Math.sin(CP.t * 0.1) * 7, dir = Math.cos(CP.t * 0.1) >= 0 ? 1 : -1, yaw = Math.atan2(CP.at.ux * dir, CP.at.uz * dir);
+    const close = S && Math.hypot(S.obj.position.x - me.x, S.obj.position.z - me.z) < 4;      // (they stop when she walks up)
+    if (CP.beat.walk && !talk && !close && S && T) {        // a slow walk along the lake, the stroller in front
+        CP.wt = (CP.wt || 0) + dt;
+        const s = Math.sin(CP.wt * 0.1) * 7, dir = Math.cos(CP.wt * 0.1) >= 0 ? 1 : -1, yaw = Math.atan2(CP.at.ux * dir, CP.at.uz * dir);
         S.obj.position.set(CP.at.x + CP.at.ux * s - CP.at.nx * 0.5, 0, CP.at.z + CP.at.uz * s - CP.at.nz * 0.5); S.obj.rotation.y = yaw;
         T.obj.position.set(CP.at.x + CP.at.ux * s + CP.at.nx * 0.5, 0, CP.at.z + CP.at.uz * s + CP.at.nz * 0.5); T.obj.rotation.y = yaw;
         if (CP.str) { CP.str.position.set(S.obj.position.x + Math.sin(yaw) * 0.8, 0, S.obj.position.z + Math.cos(yaw) * 0.8); CP.str.rotation.y = yaw; if (G) { G.obj.position.set(CP.str.position.x, 0.42, CP.str.position.z); G.obj.rotation.y = yaw; } }
@@ -272,4 +275,4 @@ on("town:enter", () => {
 });
 on("town:leave", () => { clear(); hideBeacon("family:ride"); });
 on("run:start", () => { if (CP.ride) { CP.ride = null; hideBeacon("family:ride"); } });      // (a new run: Toby took the bus — the beat waits)
-export { C as COUPLE, COUPLE_AFTER };
+export { C as COUPLE, COUPLE_AFTER, spot as COUPLE_SPOT };
