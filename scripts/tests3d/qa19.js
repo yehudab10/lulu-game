@@ -53,7 +53,9 @@ module.exports = {
     await g(`(L3.setState("title"), true)`);
     await t.frames(60);
     t.check("back on the title after 'Later': not asked again right away", !await card());
-    t.check("…coins untouched", (await coins()) === c0, `${c0} → ${await coins()}`);
+    // (the first run of a day pays the daily streak — 25 × streak, once a day, as ever: meta/progress.js)
+    const dc = (await coins()) - c0;
+    t.check("…coins untouched (apart from the once-a-day streak, 25 × n)", dc === 0 || (dc > 0 && dc % 25 === 0 && dc <= 175), `${c0} → ${await coins()}`);
 
     // ── 2 · the server goes down while the card is open ──
     // (⚙️ › 🪪 Your name › 🪪 Pick a name: the same card)
@@ -71,7 +73,7 @@ module.exports = {
       await t.L(`(() => { const b = document.getElementById("acctLater"); if (b) b.click(); return true; })()`);
       await t.frames(10);
       t.check("…Later still closes it", !await card());
-      await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`);
+      await t.L(`import("./js/core/screens.js").then(m => (m.showTitle(true), true))`);
       await t.frames(20);
       await t.click(/PLAY/);
       t.check("…and ▶ PLAY works with the server down", await t.until(`__lulu3d.state === "footRun"`, "playing offline", 60000));
@@ -80,6 +82,10 @@ module.exports = {
     await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`);
     await t.frames(30);
     if (await card()) { await t.L(`document.getElementById("acctLater").click()`); await t.frames(10); }
+    await t.L(`import("./js/core/screens.js").then(m => (m.showTitle(true), true))`);
+    await t.frames(10);
+    // (a name, so there's an account on this relay to delete)
+    console.log("   a name for the delete case →", JSON.stringify(await g(`ctx.accounts.setName("Qa Kugel " + Math.floor(Math.random() * 900 + 100))`)));
 
     // ── 3 · delete my online account, then play on ──
     const has = await g(`!!(ctx.accounts && ctx.accounts.deleteAccount)`);
