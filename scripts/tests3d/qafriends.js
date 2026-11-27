@@ -44,7 +44,7 @@ async function body(t, guests) {
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`, { width: 960, height: 540 });
   guests.push(A);
-  if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing"`, "guest joins Free Roam", 240000)) return;
+  if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing" && !ctx.party.joining`, "guest joins Free Roam (beside the host)", 240000)) return;
   const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
   for (const P of [Hp, A]) await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
   // the watchdog on both screens (the guest's report is checked against the host page's t)
@@ -80,7 +80,8 @@ async function body(t, guests) {
   await t.hold(7, 0.45);
   await Hp.until(`ctx.town.standing.some(b => b.town === "lakewood" && b.ready)`, "host: Lakewood stands at its interchange", 90000);
   await t.hold(7, 0);
-  await A.until(`ctx.town.standing.some(b => b.town === "lakewood" && b.ready)`, "guest: Lakewood stands there too", 90000);
+  if (!await A.until(`ctx.town.standing.some(b => b.town === "lakewood" && b.ready)`, "guest: Lakewood stands there too", 90000))
+    console.log("   STANDDIAG guest", JSON.stringify(await A.game(`({ st: ctx.state, foot: ctx.foot.active, s: Math.round(ctx.car.s), d: +ctx.car.d.toFixed(1), x: Math.round(ctx.car.pos.x), z: Math.round(ctx.car.pos.z), E: ${E}, town: ctx.town.active, standing: ctx.town.standing.map(b => b.town + ":" + b.ready + ":" + Math.round(b.exitS || b.s || 0)), exits: ctx.town.exits.map(e => e.id + "@" + Math.round(e.s)), joining: ctx.party.joining, riding: ctx.openworld.riding, loaded: ctx.town.loaded("lakewood") })`)));
   // the host stops on Lakewood's approach just short of the line; the guest hops in
   const ap = await g(`(() => { const en = ctx.town.debug.S.built.find(e => e.def.id === "lakewood" && e.ready); if (!en) return null;
     const [fx, fz] = en.def.approach.from, [tx, tz] = en.def.approach.to, L = Math.hypot(tx - fx, tz - fz), ux = (tx - fx) / L, uz = (tz - fz) / L, co = Math.cos(en.at.rot), si = Math.sin(en.at.rot);

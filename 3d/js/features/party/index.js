@@ -109,6 +109,8 @@ ctx.party = {
     get inWorld() { return inPartyRun() || lightRoam(); },
     /** 🌍 with friends on her own normal run (no party run). */
     get ownRun() { return lightRoam(); },
+    /** Joining from a link: the teleport to the friend is still waiting for her position. */
+    get joining() { return !!P.lightPending; },
     get host() { return N.host; },
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },

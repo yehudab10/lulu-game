@@ -249,9 +249,17 @@ async function freeRoam(t, guests) {
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 60000)) return;
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: 5.25, speed: 0 }, ctx.hustle.hold(900), true)`);
   // the long road: every kind of slot shows up, the same on both screens — and the big ones build the same
-  const rp = [];
-  for (const p of pages) rp.push(await p.game(`ctx.party.road.list(0, 24000).map(s => ({ key: s.key, id: s.id, s: +s.s.toFixed(2) }))`));
-  t.check("free roam plan: identical on both screens, every feature gets slots", JSON.stringify(rp[0]) === JSON.stringify(rp[1]) && ["roadevents", "cameos", "hustle"].every(i => rp[0].some(x => x.id === i)), `${rp[0].length} slots`);
+  // (each screen plans the road as features reserve their slots: on a slow runner one can still be catching up — compare
+  //  again for a few seconds of game frames before calling it different)
+  let rp = [];
+  for (let i = 0; i < 8; i++) {
+    rp = [];
+    for (const p of pages) rp.push(await p.game(`ctx.party.road.list(0, 24000).map(s => ({ key: s.key, id: s.id, s: +s.s.toFixed(2) }))`));
+    if (JSON.stringify(rp[0]) === JSON.stringify(rp[1])) break;
+    await t.frames(30);
+  }
+  const rdiff = rp[0].findIndex((x, i) => JSON.stringify(x) !== JSON.stringify(rp[1][i]));
+  t.check("free roam plan: identical on both screens, every feature gets slots", JSON.stringify(rp[0]) === JSON.stringify(rp[1]) && ["roadevents", "cameos", "hustle"].every(i => rp[0].some(x => x.id === i)), `${rp[0].length}/${rp[1].length} slots; first difference at ${rdiff}: ${JSON.stringify(rp[0][rdiff])} ≠ ${JSON.stringify(rp[1][rdiff])}`);
   // (friends = the same game: 🌍 Free Roam rides on each one's OWN run now — her own highway set pieces, payphones and
   //  traffic, like solo; the seeded road plan is the 🏡 Road Trip's, checked above. What's shared in Free Roam: the towns'
   //  loop traffic + the org cruisers below, the claims, the friends themselves.)
