@@ -1173,7 +1173,7 @@ function fmtGap(m) { return Math.abs(m) < 1 ? "·" : (m > 0 ? "+" : "−") + (Ma
 on("boot", () => {
     const base = ctx.trip;
     ctx.trip = {
-        get prio() { return inPartyRun() ? H.OBJ.timed : base ? base.prio : null; },      // (ci/hud: a race / a party game's clock on a phone)
+        get prio() { return !inPartyRun() ? (base ? base.prio : null) : N.A && N.A.k === "roam" ? H.OBJ.list - 1 : H.OBJ.timed; },      // (ci/hud: a race / a party game's clock on a phone; 🌍 Free Roam is no clock)
         progress() {
             if (!inPartyRun()) return base ? base.progress() : 1;
             const A = N.A, s = ctx.car.s;
