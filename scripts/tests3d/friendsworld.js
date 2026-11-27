@@ -4,13 +4,15 @@
 //             taken BESIDE A (a teleport); A's run is untouched: same run, spot, hearts, coins, car, town; B keeps hers
 //   LIVES     with friends a crash costs a heart (no party run: no bounce-only rules), 0 hearts → the wreck → the ER like
 //             solo — and the group stays together; a friend's bump costs nothing
+//   FLAG&GRAB own-run traffic is each screen's, so the ONE car is shared by the claim: A flags a car (it stops on her
+//             screen) → B's screen gets the same car parked there (same key, kind) → B jacks it → FLAG & GRAB on both
 //   LEAVE     one tap: B stays exactly where she is, alone, same run
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 let relay = null;
 const PORT = 33000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=party,openworld,foot,town,phone,friends,cameos,places,law&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=party,openworld,foot,town,phone,friends,cameos,places,law,streets,partners&mpurl=${encodeURIComponent(url)}`;
 const COINS = `JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`;
 
 module.exports = {
@@ -88,6 +90,19 @@ async function body(t, pages) {
   await B.game(`(() => { const c = ctx.car; c.place(${a0.x.toFixed(2)} + 1.2, ${a0.z.toFixed(2)} + 0.5, c.h); c.vx = c.vz = 0; c.vF = 0; return true; })()`);
   await A.until(`ctx.party._debug.P.bonks > 0`, "A: a BONK with B", 30000);
   t.check("a friend's bump costs no heart", (await A.game(`ctx.G.hearts`)) === 2);
+
+  // ── 🚗 flag & grab: the one car is shared by the claim ──
+  await A.L(`(() => { window.__pj = []; import("./js/core/ctx.js").then(m => m.on("partners:job", e => window.__pj.push(e.kind))); return true; })()`);
+  await B.L(`(() => { window.__pj = []; import("./js/core/ctx.js").then(m => m.on("partners:job", e => window.__pj.push(e.kind))); return true; })()`);
+  const key = await A.game(`(() => { const tr = ctx.traffic, n = tr.road.nearest(ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, {}); const c = tr.add("sedan", n.s - 20, n.d, 1, 8); ctx.party._debug.lightFlag(c, 8); return c.data.party; })()`);
+  t.check("A flags a car on her own run (a light claim)", /^lc:/.test(key || ""), String(key));
+  const shared = await B.until(`ctx.traffic.cars.some(c => c.data && c.data.party === ${JSON.stringify(key)} && c.kind === "sedan")`, "B: the same car on her screen", 60000);
+  t.check("…B's screen gets the SAME car, parked where it stopped (same key + kind)", shared);
+  const sp = await B.game(`(() => { const c = ctx.traffic.cars.find(c => c.data && c.data.party === ${JSON.stringify(key)}); return c ? { x: c.x, z: c.z } : null; })()`);
+  const ap = await A.game(`(() => { const c = ctx.traffic.cars.find(c => c.data && c.data.party === ${JSON.stringify(key)}); return c ? { x: c.x, z: c.z } : null; })()`);
+  t.check("…at the same spot on both screens", !!sp && !!ap && Math.hypot(sp.x - ap.x, sp.z - ap.z) < 1, JSON.stringify([ap, sp]));
+  await B.L(`import("./js/core/ctx.js").then(m => { m.emit("streets:carjack", { kind: "sedan", key: ${JSON.stringify(key)} }); return true; })`);
+  t.check("B jacks it → 🚗 FLAG & GRAB on both screens", await B.until(`(window.__pj || []).includes("grab")`, "B: FLAG & GRAB", 30000) && await A.until(`(window.__pj || []).includes("grab")`, "A: FLAG & GRAB", 30000));
 
   // ── lives are on: a crash costs a heart; 0 hearts → the wreck → the ER, the group together ──
   await A.game(`(ctx.G.invT = 0, ctx.G.invSoft = false, L3.damage(1, "QA", "qa"), true)`);

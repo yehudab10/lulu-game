@@ -179,7 +179,7 @@ ctx.party = {
     /** My car jumped somewhere new (a warp, another frame): friends snap behind a poof instead of sliding. */
     respawned() { P.rs = (P.rs + 1) % 1000; P.lastS = ctx.car ? ctx.car.s : P.lastS; P.lastT = clock(); },
     visuals: { CarVisual: R.CarVisual, NameTag: R.NameTag, Bubble: R.Bubble },
-    _debug: { N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
+    _debug: { lightFlag: (c, L = 10) => lightFlag(c, L), N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
         P.trace = on ? [] : null; for (const rc of R.cars.values()) rc.trace = on ? [] : null; return true; },
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
         place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
@@ -1598,11 +1598,63 @@ function flagCandidate(fp) {
     }
     return best;
 }
+// ── 🚗 flag & grab on her OWN run (🌍 lightRoam): each screen has its own traffic, so the ONE car two friends do it with
+// is shared by the claim itself — she flags a car on her screen (it pulls over), the spot it stopped at + its kind + paint
+// go out once ("lcl"), and a friend nearby gets the same car parked there under the same key: jacking it is partners'
+// FLAG & GRAB on both screens. A car nobody takes drives off after LC_LIFE s.
+const LC = { n: 0 }, LC_LIFE = 90;
+function lightFlagCandidate(fp) {
+    if (!lightRoam() || !ctx.enabled("streets") || ctx.foot.phase !== "walk") return null;
+    let best = null, bl = 1e9;
+    for (const c of ctx.traffic.cars) {
+        if (c.hit || c.ai || c.free || c.speed < 3 || (c.data && c.data.party)) continue;
+        if (!(ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind])) continue;
+        const dx = fp.x - c.x, dz = fp.z - c.z;
+        if (Math.abs(dx) > 90 || Math.abs(dz) > 90) continue;
+        const fx = Math.sin(c.h), fz = Math.cos(c.h), lon = dx * fx + dz * fz, lat = dx * fz - dz * fx;
+        if (Math.abs(lat) < 1.9 || Math.abs(lat) > 7 || lon < c.speed * c.speed / 16 + 4 || lon > 85 || lon >= bl) continue;
+        best = { c, lon, lat, light: true }; bl = lon;
+    }
+    return best;
+}
+function paintOf(c) { let hex = ""; c.obj.traverse(o => { if (!hex && o.isMesh && o.material && o.material.name === "Paint") hex = "#" + o.material.color.getHexString(); }); return hex; }
+function lightFlag(c, L) {
+    const key = `lc:${N.uid}:${++LC.n}`;
+    c.data = Object.assign(c.data || {}, { party: key, lightClaim: true });
+    const a = Math.max(2.5, c.speed * c.speed / (2 * Math.max(4, L)));
+    let sent = false, t = 0;
+    c.keep = true;
+    c.ai = (dt, car) => {
+        t += dt;
+        if (t > LC_LIFE) { car.ai = null; car.keep = false; return; }       // (nobody took it: it drives on)
+        car.speed = Math.max(0, car.speed - a * dt);
+        car.s += car.speed * car.dir * dt;
+        if (car.speed === 0 && !sent) {
+            sent = true;
+            NET.broadcast("lcl", key, car.kind, paintOf(car), Math.round(car.x * 10), Math.round(car.z * 10), Math.round(car.h * 1000));
+        }
+    };
+    emit("party:claim", { key, how: "hail", hail: true });
+    return true;
+}
+// a friend flagged a car down near me: the same car, parked where it stopped on her screen (same key: jackable)
+on("party:bc", ({ p, k, a }) => {
+    if (k !== "lcl" || !lightRoam() || !p || !Array.isArray(a) || typeof a[0] !== "string" || a[0].length > 40) return;
+    const key = a[0], kind = a[1], x = (a[3] | 0) / 10, z = (a[4] | 0) / 10, h = (a[5] | 0) / 1000;
+    if (!(ctx.streets && ctx.streets.rides && ctx.streets.rides[kind]) || !isFinite(x) || !isFinite(z)) return;
+    if (Math.hypot(x - ctx.car.pos.x, z - ctx.car.pos.z) > 400 || ctx.traffic.cars.some(c => c.data && c.data.party === key)) return;
+    const n = ctx.traffic.road.nearest(x, z, ctx.car.s, {});
+    let t = 0;
+    const c = ctx.traffic.add(kind, n.s, n.d, 1, 0, { keep: true, data: { party: key, lightClaim: true }, ai: (dt, car) => { t += dt; car.speed = 0; if (t > LC_LIFE) ctx.traffic.remove(car); } });
+    c.free = true; c.x = x; c.z = z; c.h = h;
+    if (typeof a[2] === "string" && /^#[0-9a-f]{6}$/i.test(a[2])) c.obj.traverse(o => { if (o.isMesh && o.material && o.material.name === "Paint") { o.material = o.material.clone(); o.material.color.set(a[2]); } });
+    ctx.traffic.place(c, 0);
+});
 const flagSpot = {
     r: 2.6, short: "FLAG",
     pos() {
         const fp = ctx.foot && ctx.foot.pos;
-        CLAIM.flag = fp && N.want ? flagCandidate(fp) : null;
+        CLAIM.flag = fp && N.want ? (flagCandidate(fp) || lightFlagCandidate(fp)) : null;
         if (!CLAIM.flag) return null;
         const c = CLAIM.flag.c, s = Math.sign(CLAIM.flag.lat) || 1;
         return { x: fp.x - Math.cos(c.h) * s * 1.1, z: fp.z + Math.sin(c.h) * s * 1.1 };
@@ -1611,6 +1663,7 @@ const flagSpot = {
     act() {
         const f = CLAIM.flag;
         if (!f || !ctx.foot.active) return;
+        if (f.light) { if (lightFlag(f.c, Math.max(f.c.speed * f.c.speed / 16 + 2, f.lon))) { CLAIM.cool = 2.5; claimFeedback(f.c, "hail"); if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "TAXI!! …or whatever you are!", 1.6); } return; }
         if (claimShared(f.c, { L: Math.max(f.c.speed * f.c.speed / 16 + 2, f.lon), hail: true, how: "hail" })) { CLAIM.cool = 2.5; claimFeedback(f.c, "hail"); if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "TAXI!! …or whatever you are!", 1.6); }
     },
 };
