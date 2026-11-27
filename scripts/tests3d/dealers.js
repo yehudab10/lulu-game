@@ -99,7 +99,7 @@ module.exports = {
       await g(`(ctx.dealers.debug.lux.V.talk = id => { window.__talked = id; }, true)`);
       await t.L(`document.getElementById("luxAct").click()`);
       await t.until(`!!window.__talked`, "the button calls Sal", 3000);
-      t.check("🤵 Sal comes in only on \"Talk to Sal — make an offer\" (for the car on screen)", await t.L(`window.__talked`) === "geltspyder" && !await t.L(`!!document.querySelector("#screenCard .lux")`), String(await t.L(`window.__talked`)));
+      t.check("🤵 Sal comes in only on \"Talk to Sal — make an offer\" (for the car on screen)", await t.L(`window.__talked`) === "geltspyder" && !await g(`ctx.dealers.debug.lux.V.open`), String(await t.L(`window.__talked`)));
       await t.frames(3);
     });
 
@@ -249,7 +249,7 @@ module.exports = {
       t.check("…the second does: a fixed price, no haggling — the car + its options", ord.ok && c1 - await coins() === 10400 && (await save()).ownedSkins.includes("tushla_oy"), JSON.stringify(ord));
       t.check("…a delivery: it rolls out of the showroom by itself", await g(`!!${C}.CF.roll`));
       await t.frames(12);
-      t.check("her Tushla wears what she picked (Challah Gold)", await g(`(() => { let hex = ""; ctx.car.model.traverse(o => { if (o.isMesh && o.material && o.material.name === "Body") hex = o.material.color.getHexString(); }); return ctx.car.skinKey === "tushla_oy" && hex === "c9a227"; })()`));
+      t.check("her Tushla wears what she picked (Challah Gold)", await g(`(() => { let hex = ""; ctx.car.model.traverse(o => { if (!hex && o.isMesh && o.material && o.material.name === "Body") hex = o.material.color.getHexString(); }); return ctx.car.skinKey === "tushla_oy" && hex === "c9a227"; })()`));
       // 🔑 a test drive from the screen: seated in it; when the time's up, an "over-the-air update" makes it her car again
       t.check("🔑 test drive from the screen (the Tushla Shh)", await g(`${C}.testDrive("tushla_shh")`));
       await t.until(`__lulu3d.state === "playing" && __lulu3d.ctx.car.skinKey === "tushla_shh"`, "seated in the test car", 8000);
