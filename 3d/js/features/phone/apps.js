@@ -83,7 +83,7 @@ export const JOB_EXTRAS = [];
 function jobsBlock() {
     const G = ctx.G, h = ctx.hustle;
     if (h.job) return null;
-    if (partyOn() ? !(ctx.G.mode === "party" && ctx.party.activity && /^(trip|roam)$/.test(ctx.party.activity.k)) : G.mode !== "cruise") return "Side jobs only work when you're out driving around.";
+    if (partyOn() ? !(ctx.party.inWorld && ctx.party.activity && /^(trip|roam)$/.test(ctx.party.activity.k)) : G.mode !== "cruise") return "Side jobs only work when you're out driving around.";
     if (partyOn() && ctx.town && ctx.town.active) return "Get back on the highway first 🛣️";
     if (!inCarNow()) return "Get back in a car first 🚗";
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted >= 2)) return "Lose the cops first 🚓";

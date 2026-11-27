@@ -7,7 +7,7 @@
 //   ctx.group.roaming    …and out in the open world together (🌍 Free Roam), not a lobby activity (race, road trip…)
 //   ctx.group.members    [{ uid, name, me, friend }] — friend = on MY friends list (their x.fid)
 //   ctx.group.size       how many, me included (0 when alone)
-//   ctx.group.leave()    leave the group with one tap and carry on alone: back home on foot (onegame's "everything
+//   ctx.group.leave()    leave the group with one tap and carry on alone (on her own run: right where she is; out of a game: home on foot — onegame's "everything
 //                        ends back home"), not the title screen; your friends keep playing; the friends list stays
 //   ctx.group.away       (step 2) a line when she's pulled into a town none of her friends are in — friends' ui shows
 //                        it as ONE quiet chip ("leave the group?" — never automatic: the tap only opens 👯)
@@ -32,7 +32,11 @@ export const group = {
     leave() {
         const p = P();
         if (!p || !p.active) return false;
-        if (ctx.onegame && ctx.onegame.home) { p.leave(false); ctx.onegame.home({ via: "group" }); }
+        // on her own run (🌍 with friends — party lightRoam) she just stays where she is, alone, same run; out of a
+        // party run (an opt-in game) she carries on from home
+        const own = !!ctx.G && ctx.G.mode !== "party" && (ctx.state === "playing" || ctx.state === "footRun");
+        if (own) p.leave(false);
+        else if (ctx.onegame && ctx.onegame.home) { p.leave(false); ctx.onegame.home({ via: "group" }); }
         else p.leave();
         emit("group:left", {});
         return true;
