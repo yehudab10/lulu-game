@@ -660,6 +660,9 @@ function footUpdate(dt, P) {
         arrivedOnFoot();
         if (!F) return;
     }
+    // (a ✋ / a doorway took her into a room THIS frame — the state changed under us and exit() already put the street's
+    //  overlays away: re-showing the bubbles here left "No car? No problem." frozen over the room for the whole visit)
+    if (ctx.state !== "footRun") { showBubbles(false); return; }
     stats(dt);
     hud(dt);
     showBubbles(!ctx.paused && !H.screenOpen());
