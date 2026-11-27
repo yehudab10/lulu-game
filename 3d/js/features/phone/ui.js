@@ -10,6 +10,7 @@ import { input, glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import { resume, showPauseMenu } from "../../core/screens.js";
+import { current as roomNow } from "../interiors/engine.js";
 
 /** The registered apps, by order. */
 export const APPS = [];
@@ -18,8 +19,22 @@ export const PH = { open: false, app: null, arg: null, fromPause: false, focus: 
 /** The home screen's notification cards (inbox.js): () => html with [data-open="<app>"][data-thread] buttons. */
 export function setHomeWidget(fn) { PH.widget = fn; }
 
-/** States the phone opens in (free driving / walking). Elsewhere the corner button is ❚❚. */
-export const PHONE_STATES = new Set(["playing", "footRun"]);
+/** States the phone opens in (free driving / walking — and inside a room: ci/doors made the doors walk-through, so a 📱
+ *  that turned into ❚❚ at every doorway was a seam; the coordinator for the owner, 2026-11-27). Elsewhere the corner is ❚❚. */
+export const PHONE_STATES = new Set(["playing", "footRun", "interior"]);
+/** In a room: the room, when it's one she's just standing / walking in (not loading, leaving, mid-chat or a mini-game). */
+export function roomFree() {
+    const r = roomNow();
+    return !!(r && r.ready && !r.disposed && !r.leaving && !r.busy && !r.lock && !r.active && !r.mode);
+}
+/** The room she's in → { name } | null (the apps say where she is). */
+export function roomHere() {
+    if (ctx.state !== "interior") return null;
+    const r = roomNow();
+    if (!r || !r.def) return null;
+    const nm = r.def.name || r.def.short || (r.def.title || "").replace(/^\S+\s/, "");
+    return { name: nm || "a room" };
+}
 export const partyOn = () => !!(ctx.party && ctx.party.active);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 export { esc };
@@ -49,6 +64,7 @@ export function canOpen() {
     if (!def || !def.pausable || ctx.dialogOpen || ctx.skipping || ctx.view || H.screenOpen()) return false;
     if (ctx.cutscene && ctx.cutscene.active()) return false;
     if (ctx.streets && ctx.streets.jacking) return false;
+    if (ctx.state === "interior" && !roomFree()) return false;        // (a chat, a mini-game, the doorway: not now)
     return true;
 }
 const pauseMenuUp = () => ctx.paused && H.screenOpen() && !!H.screenCard().querySelector(".pause-menu");
@@ -163,6 +179,8 @@ export function refresh() {
 function safe(fn) { try { return fn() || ""; } catch (e) { console.error("[phone] widget", e); return ""; } }
 function homeHello() {
     const G = ctx.G;
+    const rm = roomHere();
+    if (rm) return `🚪 inside ${esc(rm.name)}`;
     if (ctx.foot && ctx.foot.active) return "🚶‍♀️ on foot";
     if (ctx.hustle && ctx.hustle.job) { const d = ctx.hustle.job.def || {}; return `💼 on the clock · ${d.emoji || ""} ${esc(d.name || "")}`; }
     if (G.mode === "story" && ctx.trip && ctx.trip.label && ctx.trip.label()) return `📖 ${esc(ctx.trip.label())}`;
