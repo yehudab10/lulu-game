@@ -98,14 +98,20 @@ module.exports = {
     await t.frames(6);
     await t.shot("depart-handoff");
     if (viaPhone) {
-      // (🏡 Family & places is a contact in the 📞 Phone app now — features/community; the phone stays 9 apps)
-      t.check("📱 the 📞 Phone app is on the phone (🏡 Family & places inside it)", (await g(`ctx.phone.apps()`)).includes("community") && !(await g(`ctx.phone.apps()`)).includes("family"));
+      // (🏡 Family & places — who lives where along the Story Trip + who she's visited — is a contact in 📞 Contacts while
+      //  the Story Trip is on; with it hidden (onegame/switches.js) the contact is too: it's look-only, the trip's places
+      //  aren't in the world, and the 🗺️ Map lists every real place. QA 2026-11-27, roadmap 39.)
+      const story = await t.L(`import("./js/features/onegame/switches.js").then(m => !!m.ONEGAME.story)`);
+      t.check("📱 the 📞 Contacts app is on the phone, no 🏡 Family app of its own", (await g(`ctx.phone.apps()`)).includes("community") && !(await g(`ctx.phone.apps()`)).includes("family"));
       await g(`ctx.phone.openPhone("community")`);
       await t.frames(4);
-      await t.click(/Family & places/);
-      await t.frames(6);
-      t.check("the family app lists who lives where", await t.L(`!!document.querySelector("#screenCard .wmap") && /Bubbe/.test(document.querySelector("#screenCard .wmap").textContent)`));
-      await t.shot("family-app");
+      const fam = await t.L(`!!document.querySelector('#lpApp [data-ct="family"]')`);
+      if (story) {
+        await t.click(/Family & places/);
+        await t.frames(6);
+        t.check("the family app lists who lives where", await t.L(`!!document.querySelector("#screenCard .wmap") && /Bubbe/.test(document.querySelector("#screenCard .wmap").textContent)`));
+        await t.shot("family-app");
+      } else t.check("the Story Trip is hidden → so is 🏡 Family & places (no contact)", !fam);
       await g(`ctx.phone.closePhone()`);
       await t.frames(4);
     }

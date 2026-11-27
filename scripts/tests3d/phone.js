@@ -225,7 +225,8 @@ module.exports = {
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.G.invT = 1e6, true)`);
     await t.key("Tab");
     await clickSel("#lpa_jobs");
-    t.check("in Story the jobs are off (hustle's rules), with a reason", await t.L(`document.querySelectorAll(".lp-job[disabled]").length >= 2 && /Cruise|driving around/.test(document.querySelector(".lp-note").textContent)`));
+    // (QA 2026-11-27: none takeable → the reason FIRST + one line of what's waiting, no greyed-out rows)
+    t.check("in Story the jobs are off (hustle's rules), with a reason first + one line, no dead rows", await t.L(`document.querySelectorAll(".lp-job").length === 0 && !!document.querySelector(".lp-jobswait") && /Cruise|driving around/.test(document.querySelector("#lpApp .lp-note").textContent)`));
     await t.key("Tab");
 
     // ── calls still work while driving ────────────────────────────────────
