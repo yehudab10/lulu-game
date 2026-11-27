@@ -105,6 +105,10 @@ ctx.party = {
     clock: () => clock(),
     get synced() { return NET.clockSynced(); },
     get isHost() { return N.isHost; },
+    /** With friends out in the world: a party run (a game, an old client's roam) OR 🌍 on her own run (lightRoam). */
+    get inWorld() { return inPartyRun() || lightRoam(); },
+    /** 🌍 with friends on her own normal run (no party run). */
+    get ownRun() { return lightRoam(); },
     get host() { return N.host; },
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
