@@ -1860,6 +1860,39 @@ gateLabel(), release(how), panel(), breakIn(), debug }`; events `impound:<held |
 `impoundPaid`, `impoundReleases`, `impoundBreakIns`, `impoundBreakOuts`, `impoundBreakClean`, `impoundBreakBusts`. Test
 `scripts/tests3d/impound.js`.
 
+**Speed cameras (cameras, `features/cameras` — ci/cameras, roadmap 36):** 📸 the owner (2026-11-27): "speed cameras… only on
+ocean parkway for now at 25mph and only trigger if going above 35mph… a flash… a few days later it'll come on the mail to one of
+lulus houses with the pic attached and the fine… court or cops will come after her… speed cameras to all schools as well with
+maybe a 15mph limit for that block". THE POLES (built on the town tick, keyed by town id + ORIGIN so a town placed somewhere new
+gets new poles; disposed on `town:leave` / title; one baked mesh + a canvas sign each, school ones + a beacon): Ocean Parkway
+(Midwood) — `PKWY.at` local z 95 + 200 (between the avenues), on the sidewalk (`st.outer + 1`); the zone is the whole boulevard
+(|lx − c| < outer + 1, ±6 m along). Every school block — town spots `school` / `yeshiva` / `baisyaakov`: the same street as the
+spot (`road.nearest`) within `SCHOOL.reach` m; only in school hours (device clock, `SCHOOL_HOURS`: Sun–Thu 7:30–16:30, Fri to 13:00,
+never Shabbos) — the beacon blinks then. Numbers (all in `data.js`): parkway limit 25, fires ONLY above 35, fine 40; school limit
+15, fires above 25, fine 60. One ticket per pass (re-armed `TUNE.rearm` m past the pole), ≤ `TUNE.dayCap` (3) a REAL day, never in
+a chase / as a fugitive, never outside cruise / story mode, never a self-driving car. THE FLASH (`fire()`): a white overlay pop
+(`#camFlash`; reduced motion → a fainter, slower fade), a point light on the car for 0.15 s, Lulu's one bubble line (banter, only
+when `H.bubbleOk`) — no toast; and THE PICTURE: the scene rendered from the pole into a 192 × 112 target (a pale clear colour for
+the sky), gamma-fixed, a caption strip (mph · limit · where) → a ~5 kB JPEG data URL kept on the ticket (≤ `TUNE.photos`; the
+oldest closed ticket's picture goes first). THE LADDER runs on `cityhall:day` (City Hall's played-day clock, `tax.ledger.played` —
+playing rarely never misses a step, not playing can't dodge one): `mailAfter` (2) played days after the flash → `addLine("fine",
+…)` on City Hall's ledger (paid at the Taxes window / 📞 Contacts › City Hall like the property tax, `cityhall:paid` closes the
+ticket), the notice is unread, ONE `need: true` 💬 line ("📬 Mail from the Borough of Midwood"), Ima's one line when the day
+starts at the family house, and "📬 You have mail" on the objective line's LOWEST slot (`H.OBJ.info`, `.cam-chip`) until she reads
+it; + `dueAfter` (3) unpaid → a late fee (`TUNE.lateFee` 20, another line) + a SECOND NOTICE; + `summonsAfter` (3) → a SUMMONS: a
+case `cameras:<id>` in that town's Courtroom 2B (`ctx.civic.courts.addCase`, the Borough Attorney, three defences; `rule()`:
+dismissed `TUNE.dismiss` → its lines waived, else upheld → she pays what she has, the rest stays owed, never below 0); an
+unanswered summons `warrantAfter` (3) played days, or `warrantUnpaid` (3) OVERDUE tickets at once → a BENCH WARRANT on law's own
+file (`ctx.law.addWarrant("UNPAID SPEED CAMERA TICKETS")` — a cop who gets a good look at her lights her up; only a judge clears
+it; the charge's cop / Lulu / court lines via `law.addCharge`); `law:arrest` while it's on → the warrant's served (its open
+tickets closed). Licence points: none. THE MAILBOX: where her day starts — `ctx.home.startAt.door` (her own house, realestate's
+"🏠 Start my day here") or the family house's mailbox (house-local 3.0, 12.4 — decor/props.js); a `ctx.foot.addSpot` (`first`,
+"📬 MAIL FROM THE CITY") while anything's unread → `read()`: one `H.showScreen` card, every notice with its photo, where, the speed,
+the fine owed and the pay-by. 📱 Map: a "Pay tickets here" pin (`ctx.pins`, cat mine) at the city hall of the town she owes in.
+`ctx.cameras { cams, tickets(), unread(), mailbox(), read(), schoolHours(), warrant, debug }`; events `cameras:<built | flash |
+capped | skip | mail | late | summons | ruled | paid | warrant | served | read>`; stats `camFlashes`, `camPaid`, `camDismissed`,
+`camUpheld`, `camWarrants`. Test `scripts/tests3d/cameras.js` (tests set `debug.CM.force.manual` and drive `check()` themselves).
+
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;
 never in a party — friends have Crimes for two — or Dina's mode; `ctx.enabled("crime")`). Each: a spot / a moment in the world →

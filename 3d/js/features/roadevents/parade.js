@@ -177,7 +177,11 @@ export async function spawnParade(opts = {}) {
         count("bonks");
         const car = ctx.car;
         car.vx *= 0.95; car.vz *= 0.95;
-        if ((car.speed > 30 || ctx.G.boosting) && copWitness(90) && ctx.law && ctx.law.arrest) { ctx.law.arrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"], { source: "roadevents" }); ctx.scene.remove(person.obj); return; }
+        if ((car.speed > 30 || ctx.G.boosting) && copWitness(90) && ctx.law && ctx.law.arrest) {
+            // (mid-chase: no automatic bust — law.struck piles the charges on; the marcher flies on as usual)
+            if (ctx.law.struck && ctx.law.chasing) ctx.law.struck(["HIT AND RUN", "RECKLESS ENDANGERMENT"], { source: "roadevents" });
+            else { ctx.law.arrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"], { source: "roadevents" }); ctx.scene.remove(person.obj); return; }
+        }
         // reuse the walker flight
         const from = person.obj.position.clone();
         let t = 0;
