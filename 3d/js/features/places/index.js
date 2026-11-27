@@ -29,6 +29,9 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const JUDGE_HW = ["I've got a tee time at two. Let's make this quick. QUICK. *bangs a putter*",
     "Welcome to the Highway Traffic Court. Yes, it's a trailer. No, the gavel's not a putter. …It's a putter.",
     "Order! In this trailer! I'm the judge, the bailiff's at lunch, and the clock says 1:40."];
+const JUDGE_VIDEO = ["*on a video screen, from Boca* Can you hear me? You're on mute. No — I'M on mute. Order!",
+    "*the screen freezes, then* …and that's why I'm in Boca. Now: YOUR case. Dot, which one is she?",
+    "*a visor, a palm tree behind him* The Weigh Station Court is in session. Make it quick, the pool closes at five."];
 const inTown = () => !!(ctx.town && ctx.town.active);
 const townId = () => (inTown() && ctx.town.id) || "lakewood";
 /** The names of the buildings she's at / taken to: a roadside place's (roadside.js) or the town's. */
@@ -191,6 +194,6 @@ ctx.civic = {
      *  { town } | { hw } along the lap, either way round. */
     roadside: ROADSIDE, nearest: (kind, m) => nearestPlace(kind, m),
     /** Judge Kessler's opener in the Highway Traffic Court (law/court.js), else null. */
-    judgeLine: () => (STAY.place && STAY.place.hw === "trooper" ? pick(JUDGE_HW) : null),
+    judgeLine: () => (STAY.place && STAY.place.hw === "trooper" ? pick(JUDGE_HW) : STAY.place && STAY.place.hw === "weigh" ? pick(JUDGE_VIDEO) : null),
     debug: { C, DOORS, lobbyDef, STAY, impoundedCar },
 };

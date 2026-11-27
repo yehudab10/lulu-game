@@ -3,10 +3,13 @@
 //
 // Three short pull-offs, each ONCE a lap at a fixed lap metre (world.js LAP — the same place every lap, every friend's
 // screen), with a fixed address ("hw:…", like the rest areas'):
-//   🚑 HATZALAH HIGHWAY STATION   4.8 km  hw:hatzalah          a two-bay garage, an ambulance, Yossi the very calm medic
-//   🚔 TROOPER POST 13           13.2 km  hw:trooper · hw:court  the barracks (two-bunk holding cell) + its impound yard +
-//                                                                the HIGHWAY TRAFFIC COURT in a double-wide next door
-//   🩹 DOC-IN-A-BOX              15.4 km  hw:clinic            a mint-green box clinic; a receptionist who's seen it all
+//   🚔 TROOPER POST 7     6.8 km  hw:trooper · hw:court  the barracks (two-bunk holding cell, a first-aid room) + its
+//                                                       impound yard + the HIGHWAY TRAFFIC COURT in a double-wide next door
+//   🚑 HATZALAH STATION  10.7 km  hw:hatzalah           a two-bay garage, an ambulance, Yossi the very calm medic
+//   ⚖️ THE WEIGH STATION 15.7 km  hw:weigh · hw:clinic   a scale house with a one-bunk lock-up + a judge on a video screen,
+//                                                       an impound corner, and DOC-IN-A-BOX (a mint-green clinic) next door
+// They halve the lap's gaps (the coordinator, 2026-11-27): the worst a jail / court is from anywhere is ~2.6 km (inside
+// JFK's zone), a hospital / clinic ~2.0 km.
 // ONE rule (`nearest(kind)`): an arrest / a knock-out takes her to the nearest place of that kind ALONG THE LAP from where
 // it happened, either way round, the towns' buildings included (Midwood 3.6 km, Lakewood 12 km) — places/out.js claim().
 // The scenes are law's / the ER's as always (same fines, bail, bills); only the door she walks out of is here.
@@ -23,29 +26,33 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 /** Doors are model-local (+Z toward the road): the door itself; `spot` (what ctx.civic.spot gives) is 2.5 m out from it. */
 export const ROADSIDE = [
     {
-        id: "hatzalah", addr: "hw:hatzalah", m: 4800, kinds: ["er"], emoji: "🚑", name: "Hatzalah Highway Station", short: "Hatzalah",
+        id: "trooper", addr: "hw:trooper", court: "hw:court", m: 6800, kinds: ["law", "er"], emoji: "🚔", name: "Trooper Post 7", short: "Trooper Post",
+        sign: { bg: "#263238", lines: ["★ STATE TROOPERS", "POST 7 · TRAFFIC COURT", "NEXT RIGHT"] },
+        doors: { precinct: { x: -14, z: -5 }, court: { x: 9, z: -6 }, impound: { x: 24, z: -2 }, hospital: { x: -25, z: -5 } }, park: { x: -2, z: 4 }, car: { x: 24, z: -8 },
+        names: {
+            precinct: { name: "Trooper Post 7", title: "🚔 TROOPER POST 7 — STATE POLICE", tagline: "Sunflower seeds · patience · paperwork" },
+            court: { name: "the Highway Traffic Court", title: "⚖️ HIGHWAY TRAFFIC COURT — (IT'S A TRAILER)", tagline: "Judge Kessler presiding · tee time at 2" },
+            hospital: { name: "the Trooper Post's first-aid room", title: "🩹 TROOPER POST 7 — FIRST AID", tagline: "a cot, a kit, Trooper Ruthie" },
+        },
+        hello: ["Sgt. Feldman, from the porch: 'Slow down, kiddo. The road's not going anywhere. It's a LOOP.'", "*crunch* *crunch* — Sgt. Feldman, eating sunflower seeds, nods at you."],
+    },
+    {
+        id: "hatzalah", addr: "hw:hatzalah", m: 10700, kinds: ["er"], emoji: "🚑", name: "Hatzalah Highway Station", short: "Hatzalah",
         sign: { bg: "#1565C0", lines: ["H  HATZALAH", "HIGHWAY STATION", "NEXT RIGHT"] },
         doors: { hospital: { x: 10.5, z: -3 } }, park: { x: 0, z: 4 },
         names: { hospital: { name: "Hatzalah Highway Station", title: "🚑 HATZALAH HIGHWAY STATION", tagline: "open 24/6 · calm since 1979" } },
         hello: ["Yossi waves from the garage: 'You look fine. Have a rugelach.'", "*the ambulance radio crackles* '…and that's why you don't eat gas-station sushi. Over.'"],
     },
     {
-        id: "trooper", addr: "hw:trooper", court: "hw:court", m: 13200, kinds: ["law"], emoji: "🚔", name: "Trooper Post 13", short: "Trooper Post",
-        sign: { bg: "#263238", lines: ["★ STATE TROOPERS", "POST 13 · TRAFFIC COURT", "NEXT RIGHT"] },
-        doors: { precinct: { x: -14, z: -5 }, court: { x: 9, z: -6 }, impound: { x: 24, z: -2 } }, park: { x: -2, z: 4 }, car: { x: 24, z: -8 },
+        id: "weigh", addr: "hw:weigh", court: "hw:weigh", clinic: "hw:clinic", m: 15700, kinds: ["law", "er"], emoji: "⚖️", name: "the Weigh Station", short: "Weigh Station",
+        sign: { bg: "#455A64", lines: ["WEIGH STATION · OPEN", "LOCK-UP · URGENT CARE", "NEXT RIGHT"] },
+        doors: { precinct: { x: -10, z: -4 }, court: { x: -6, z: -4 }, impound: { x: -19.5, z: -3 }, hospital: { x: 10, z: -3 } }, park: { x: 2, z: 4 }, car: { x: -19.5, z: -8 },
         names: {
-            precinct: { name: "Trooper Post 13", title: "🚔 TROOPER POST 13 — STATE POLICE", tagline: "Sunflower seeds · patience · paperwork" },
-            court: { name: "the Highway Traffic Court", title: "⚖️ HIGHWAY TRAFFIC COURT — (IT'S A TRAILER)", tagline: "Judge Kessler presiding · tee time at 2" },
-            hospital: { name: "Doc-in-a-Box", title: "🩹 DOC-IN-A-BOX — URGENT CARE", tagline: "" },
+            precinct: { name: "the Weigh Station", title: "⚖️ THE WEIGH STATION — LOCK-UP", tagline: "trucks weighed · drivers judged · one bunk" },
+            court: { name: "the Weigh Station's video court", title: "📺 THE WEIGH STATION — VIDEO COURT", tagline: "Judge Pfeffer, live (mostly) from Boca" },
+            hospital: { name: "Doc-in-a-Box", title: "🩹 DOC-IN-A-BOX — URGENT CARE", tagline: "no appointment · no idea · no problem" },
         },
-        hello: ["Sgt. Feldman, from the porch: 'Slow down, kiddo. The road's not going anywhere. It's a LOOP.'", "*crunch* *crunch* — Sgt. Feldman, eating sunflower seeds, nods at you."],
-    },
-    {
-        id: "clinic", addr: "hw:clinic", m: 15400, kinds: ["er"], emoji: "🩹", name: "Doc-in-a-Box", short: "Doc-in-a-Box",
-        sign: { bg: "#00897B", lines: ["H  DOC-IN-A-BOX", "URGENT CARE · WALK-INS", "NEXT RIGHT"] },
-        doors: { hospital: { x: 0, z: -3 } }, park: { x: 9, z: 4 },
-        names: { hospital: { name: "Doc-in-a-Box", title: "🩹 DOC-IN-A-BOX — URGENT CARE", tagline: "no appointment · no idea · no problem" } },
-        hello: ["The receptionist, through the window: 'Walk-ins welcome. Drive-ins, less so.'", "A sign in the window: 'NOW SERVING: whoever's here.'"],
+        hello: ["Officer Dot, from the scale house: 'You're not a truck, hon. But you can still say hi.'", "The scale's display flickers: 'YOUR CAR: 1 MINIVAN. ACCEPTABLE.'"],
     },
 ];
 export const BY_ID = Object.fromEntries(ROADSIDE.map(R => [R.id, R]));
@@ -72,7 +79,8 @@ export function doorSpot(R, door, s) {
     if (!D) return null;
     const F = frame(s), dw = toW(F, D.x, D.z), at = toW(F, D.x, D.z + 2.5);
     const nx = F.sn, nz = F.c, ux = F.c, uz = -F.sn;
-    const sp = { x: at.x, z: at.z, nx, nz, ux, uz, rot: F.rot, door: dw, hw: R.id, addr: door === "court" && R.court ? R.court : R.addr, s };
+    const addr = door === "court" && R.court ? R.court : door === "hospital" && R.clinic ? R.clinic : R.addr;
+    const sp = { x: at.x, z: at.z, nx, nz, ux, uz, rot: F.rot, door: dw, hw: R.id, addr, s };
     if (door === "impound" && R.car) { const c = toW(F, R.car.x, R.car.z); sp.car = { x: c.x, z: c.z, h: F.rot + Math.PI }; sp.cx = c.x; sp.cz = c.z; }
     // the parking stalls out front, nose-in toward the building (partners' cars side by side)
     sp.kerbAt = ahead => { const k = toW(F, R.park.x + ahead * 0.6, R.park.z), n = road().nearest(k.x, k.z, s, {}); return { x: k.x, z: k.z, h: F.rot + Math.PI, s: n.s, d: n.d }; };
@@ -162,12 +170,14 @@ function buildHatzalah() {
 }
 function buildTrooper() {
     const g = new THREE.Group(); g.name = "RoadsideTrooper";
-    apron(g, -26, 31);
+    apron(g, -30, 31);
     // the barracks: brick, a grey roof, the flag
     box(g, mat("#8d4b3a"), -22, -6, 0, 4.2, -14, -5);
     box(g, mat("#546e7a"), -22.4, -5.6, 4.2, 4.7, -14.4, -4.6);
     door(g, -14, -5, "#37474f"); windows(g, -20, -17, -5); windows(g, -11, -8, -5);
-    sign(g, ["STATE TROOPERS", "POST 13"], "#263238", -14, 5.6, -4.55, 8, 1.6, "#ffd54f");
+    sign(g, ["STATE TROOPERS", "POST 7"], "#263238", -14, 5.6, -4.55, 8, 1.6, "#ffd54f");
+    box(g, mat("#eceff1"), -27.5, -22.5, 0, 3.2, -12, -5);                          // the first-aid room (a white annex)
+    door(g, -25, -5, "#b71c1c"); box(g, mat("#e53935"), -25.5, -24.5, 3.4, 3.7, -5, -4.9); box(g, mat("#e53935"), -25.15, -24.85, 3.05, 4.05, -5, -4.9);
     box(g, mat("#bdbdbd"), -4.1, -3.9, 0, 7, -6, -5.8);
     box(g, mat("#1565c0"), -3.9, -2.2, 6.0, 6.9, -5.92, -5.88); box(g, mat("#e53935"), -3.9, -2.2, 5.4, 6.0, -5.92, -5.88);
     // the Highway Traffic Court: a double-wide on cinder blocks, a porch, a flag, a golf bag by the steps
@@ -187,25 +197,39 @@ function buildTrooper() {
     sign(g, ["IMPOUND"], "#f9a825", 24, 3.1, -2.0, 3.2, 0.8, "#212121");
     return g;
 }
-function buildClinic() {
-    const g = new THREE.Group(); g.name = "RoadsideClinic";
-    apron(g, -12, 16);
-    box(g, mat("#a5d6a7"), -7, 7, 0, 4.0, -10, -3);
-    box(g, mat("#ffffff"), -7.3, 7.3, 4.0, 4.4, -10.3, -2.7);
-    door(g, 0, -3, "#ffffff"); windows(g, -5, -2.6, -3); windows(g, 2.6, 5, -3);
-    sign(g, ["DOC-IN-A-BOX", "URGENT CARE · WALK-INS"], "#00897b", 0, 5.3, -2.65, 9, 1.7);
-    box(g, mat("#e53935"), 7.5, 8.5, 0, 2.0, -4.2, -3.4);                            // the vending machine out front
-    box(g, mat("#9e9e9e"), -10.1, -9.9, 0, 4.2, 1, 1.2); sign(g, ["H"], "#1565c0", -10, 4.6, 1.25, 1.6, 1.6);
+function buildWeigh() {
+    const g = new THREE.Group(); g.name = "RoadsideWeigh";
+    apron(g, -27, 38);
+    // the scale house: a squat grey box, two doors (OFFICE · HEARINGS), a satellite dish for the judge's video
+    box(g, mat("#90a4ae"), -13, -3, 0, 3.4, -11, -4);
+    box(g, mat("#37474f"), -13.3, -2.7, 3.4, 3.8, -11.3, -3.7);
+    door(g, -10, -4, "#263238"); door(g, -6, -4, "#263238");
+    sign(g, ["WEIGH STATION", "OPEN"], "#455a64", -8, 4.6, -3.65, 7, 1.5, "#ffeb3b");
+    box(g, mat("#bdbdbd"), -4.4, -4.2, 3.8, 5.0, -8, -7.8); box(g, mat("#eeeeee"), -5.0, -3.6, 4.9, 5.2, -8.4, -7.4);
+    // the scale itself: a long steel plate in the lane, yellow edges
+    box(g, mat("#78909c", { metalness: 0.5, roughness: 0.4 }), 20, 34, 0.06, 0.12, 0, 5);
+    box(g, mat("#fdd835"), 20, 34, 0.06, 0.14, -0.2, 0); box(g, mat("#fdd835"), 20, 34, 0.06, 0.14, 5, 5.2);
+    // the impound corner
+    const fence = mat("#b0bec5", { transparent: true, opacity: 0.45 });
+    box(g, fence, -25, -15, 0, 2.4, -12, -11.9); box(g, fence, -25, -24.9, 0, 2.4, -12, -3); box(g, fence, -15.1, -15, 0, 2.4, -12, -3);
+    box(g, fence, -25, -21, 0, 2.4, -3.1, -3); box(g, fence, -18, -15, 0, 2.4, -3.1, -3);
+    sign(g, ["IMPOUND"], "#f9a825", -19.5, 2.9, -3.0, 3.0, 0.7, "#212121");
+    // DOC-IN-A-BOX next door
+    box(g, mat("#a5d6a7"), 4, 16, 0, 4.0, -10, -3);
+    box(g, mat("#ffffff"), 3.7, 16.3, 4.0, 4.4, -10.3, -2.7);
+    door(g, 10, -3, "#ffffff"); windows(g, 5.5, 7.5, -3); windows(g, 12.5, 14.5, -3);
+    sign(g, ["DOC-IN-A-BOX", "URGENT CARE · WALK-INS"], "#00897b", 10, 5.3, -2.65, 9, 1.7);
+    box(g, mat("#9e9e9e"), 17.9, 18.1, 0, 4.2, 1, 1.2); sign(g, ["H"], "#1565c0", 18, 4.6, 1.25, 1.6, 1.6);
     return g;
 }
-const BUILD = { hatzalah: buildHatzalah, trooper: buildTrooper, clinic: buildClinic };
+const BUILD = { hatzalah: buildHatzalah, trooper: buildTrooper, weigh: buildWeigh };
 for (const R of ROADSIDE) { const k = "roadside_" + R.id; if (!models[k]) models[k] = BUILD[R.id](); }
 
 /** Colliders (world circles) for the copy's buildings: their footprints, filled with ~1.6 m circles. */
 const FOOT = {
     hatzalah: [[-8, 13, -12, -3]],
-    trooper: [[-22, -6, -14, -5], [2, 16, -12, -6], [19, 29, -14, -13.6], [19, 19.4, -14, -2], [28.6, 29, -14, -2], [19, 22.6, -2.3, -2], [25.4, 29, -2.3, -2]],
-    clinic: [[-7, 7, -10, -3]],
+    trooper: [[-22, -6, -14, -5], [-27.5, -22.5, -12, -5], [2, 16, -12, -6], [19, 29, -14, -13.6], [19, 19.4, -14, -2], [28.6, 29, -14, -2], [19, 22.6, -2.3, -2], [25.4, 29, -2.3, -2]],
+    weigh: [[-13, -3, -11, -4], [4, 16, -10, -3], [-25, -15, -12, -11.6], [-25, -24.6, -12, -3], [-15.4, -15, -12, -3], [-25, -21, -3.3, -3], [-18, -15, -3.3, -3]],
 };
 function colliders(R, F) {
     const out = [];

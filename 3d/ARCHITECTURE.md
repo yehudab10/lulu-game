@@ -891,8 +891,8 @@ seed by lap chunk (`k % (LAP / CHUNK)`: the same trees every lap). `s` keeps cou
 PLACE comes round once a lap at a FIXED lap metre — the same place, not a copy: Midwood's exit 3600 (home, E 34th St) ·
 rest area 5700 · JFK 8800 (`airport/plan.js` › `AIR.every = LAP`) · Lakewood 12000 (`towns/index.js` › `ROUTE`, period
 `LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · the roadside places
-(ci/roadside): Hatzalah 4800 (`hw:hatzalah`), Trooper Post 13 + the Highway Traffic Court 13200 (`hw:trooper`, `hw:court`),
-Doc-in-a-Box 15400 (`hw:clinic`) · Gas 'n' Go 1300 / 6900 +
+(ci/roadside): Trooper Post 7 + the Highway Traffic Court 6800 (`hw:trooper`, `hw:court`), Hatzalah 10700 (`hw:hatzalah`),
+the Weigh Station + Doc-in-a-Box 15700 (`hw:weigh`, `hw:clinic`) · Gas 'n' Go 1300 / 6900 +
 the Lookout 2400 / 8200 (`world/places.js`) · the roadside storefront blocks (`foot/street.js`: the first lap's, repeated).
 The Story Trip's family stops (Bubbe's, the beach…) are its own road: not built on the lap (Story is hidden for now).
 Test `exits` › "lap". **ADDRESSES (stage 2):** a place's identity is a fixed string — the same every lap, every run, every
@@ -1312,16 +1312,19 @@ touch button) — on foot (solo + party: ↑ has no other job on foot) and in a 
 top of foot's in a `hud` hook (`person.update(0, pose)`), moving off cancels it. Test: `scripts/tests3d/partyhang.js`.
 
 **Roadside places (places/roadside.js, ci/roadside; the owner 2026-11-27: "more hospitals and different prisons/jails/courts
-to the highway so people don't end up back in the city")**: three short pull-offs, once a lap at fixed lap metres, code-built
-(one model each, shared materials), each with a sign 190 m before and a hello if she stops in the bay (world/places
-`addPlace`, kind `roadside`): 🚑 **Hatzalah Highway Station** 4800 (`hw:hatzalah`: a two-bay garage, the ambulance, Yossi),
-🚔 **Trooper Post 13** 13200 (`hw:trooper`: the barracks + its impound yard, Sgt. Feldman, Lenny in the two-bunk cell; and
-`hw:court`: the **Highway Traffic Court** in a double-wide next door, Judge Kessler with a tee time — `ctx.civic.judgeLine`
-in law/court.js), 🩹 **Doc-in-a-Box** 15400 (`hw:clinic`). `ctx.civic.spot(door)` on the highway is the roadside door
-(`hwSpot`: `sp.hw`, `sp.addr`, `sp.kerbAt(ahead)` its stalls, `sp.car` the impound bay); walking in → their own rooms
-(`places/roadrooms.js`, code-built on the interiors engine, lines only); the scenes are law's / the ER's unchanged (same
-fines, bail, bills). A 🎉 party on the highway keeps the old flow (as for towns). On the 📱 🗺️ map (lapmap `kind: roadside`).
-Test `roadside`.
+to the highway so people don't end up back in the city")**: three short pull-offs, once a lap at fixed lap metres where they
+halve the gaps between the towns, code-built (one model each, shared materials), each with a sign 190 m before and a hello if
+she stops in the bay (world/places `addPlace`, kind `roadside`): 🚔 **Trooper Post 7** 6800 (`hw:trooper`: the barracks —
+Sgt. Feldman, Lenny in the two-bunk cell — its first-aid room with Trooper Ruthie, its impound yard; and `hw:court`: the
+**Highway Traffic Court** in a double-wide next door, Judge Kessler with a tee time), 🚑 **Hatzalah Highway Station** 10700
+(`hw:hatzalah`: the garage, the ambulance, Yossi), ⚖️ **the Weigh Station** 15700 (`hw:weigh`: a scale house with a one-bunk
+lock-up, Officer Dot, Judge Pfeffer on a video screen from Boca, an impound corner; and `hw:clinic`: **Doc-in-a-Box** next
+door). The judges' openers: `ctx.civic.judgeLine` (law/court.js). Worst distance from anywhere on the lap: a jail / court
+2.6 km (inside JFK's zone), a hospital / clinic 1.95 km (the towns alone: 4.2 km). `ctx.civic.spot(door)` on the highway is
+the roadside door (`hwSpot`: `sp.hw`, `sp.addr`, `sp.kerbAt(ahead)` its stalls, `sp.car` the impound bay); walking in → their
+own rooms (`places/roadrooms.js`, code-built on the interiors engine, lines only); the scenes are law's / the ER's unchanged
+(same fines, bail, bills). A 🎉 party on the highway keeps the old flow (as for towns). On the 📱 🗺️ map (lapmap `kind:
+roadside`). Test `roadside`.
 
 **Places (places): jail, court and the ER are real places in town** (roadmap 4). **The buildings are town DATA**: each
 town's `uses.civic` (`places_precinct` + — its `with` entries are landmarks too, build.js `layoutFace` — `places_court` and
