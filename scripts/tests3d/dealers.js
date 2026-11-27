@@ -276,9 +276,19 @@ module.exports = {
       await t.stick(0.8); await t.frames(4); await t.stick(0); await t.frames(2);
       t.check("steering takes the wheel back (a chime)", !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "you" && !await g(`ctx.G.selfDriving`));
       await t.frames(10);
-      await g(`ctx.dealers.schlep.engage()`); await t.frames(20);
+      // (it may decline to start for a reason of its own — a work zone just ahead: move on up the road and try once more)
+      let eng = await g(`ctx.dealers.schlep.engage()`), why = await g(`ctx.dealers.schlep.debug.why`);
+      if (!eng) {
+        await W.pause(t, false);
+        await g(`(() => { const s = ctx.car.s + 600, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+        await t.frames(6); await W.pause(t, true); await W.moved(t);
+        eng = await g(`ctx.dealers.schlep.engage()`);
+      }
+      await t.frames(20);
+      const onBefore = await g(`ctx.dealers.schlep.on`);
       await g(`(ctx.law.startChase("SPEEDING"), true)`); await t.frames(6);
-      t.check("a chase hands the wheel back", !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "chase");
+      t.check("a chase hands the wheel back", onBefore && !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "chase",
+        `engaged ${eng} (first try: ${why || "ok"}) · on before ${onBefore} · last ${await g(`ctx.dealers.schlep.debug.last`)} · chasing ${await g(`!!ctx.law.chasing`)}`);
       t.check("…and it won't start again while she's wanted", !await g(`ctx.dealers.schlep.engage()`));
       await g(`(ctx.law.lose && ctx.law.lose("lost"), true)`);
     });

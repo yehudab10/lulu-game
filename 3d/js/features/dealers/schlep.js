@@ -100,6 +100,7 @@ function chime(up) {
 /** Engage. → started? (a toast says why not) */
 export function engage() {
     const b = blocker();
+    SD.why = b;
     if (b) {
         H.toast(b === "sub" ? "⚡ Full Schlep Driving needs a subscription (Tushla's tablet)" : b === "car" ? "⚡ Only a Tushla can drive itself" : BACK[b] || "⚡ Not now", "", { key: "schlep" });
         return false;
