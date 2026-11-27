@@ -9,7 +9,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ctx, emit, on } from "../../core/ctx.js";
 import { store, saveSoon } from "../../core/save.js";
 import { setDresser } from "../../core/people.js";
-import { SLOTS, BASE, pieceById } from "./data.js";
+import { SLOTS, BASE, pieceById, OWN } from "./data.js";
 
 /** Save: owned piece ids, what she wears per slot, saved outfits, totals. */
 export const S = store("clothes", { owned: [], wear: {}, saved: [], spent: 0, bought: 0, changes: 0 });
@@ -27,7 +27,7 @@ export function clean(o) {
 }
 /** What she has on now (a copy). */
 export const current = () => clean(S.wear);
-export const owns = id => S.owned.includes(id);
+export const owns = id => OWN.includes(id) || S.owned.includes(id);
 
 // ── the compact form other players get (party / EVERYONE state: d.x.ot) — a few short ids, "" = nothing ──
 export const encode = o => { const c = clean(o); return SLOT_IDS.map(k => c[k] || "").join(","); };
@@ -231,6 +231,8 @@ function dressCar() {
     });
 }
 on("boot", () => dressCar());
+on("title", () => setTimeout(dressCar, 0));
+setInterval(() => { try { dressCar(); } catch (e) { /* no car yet */ } }, 2000);     // (a car rebuilt by anyone: her shirt within 2 s)
 on("skin", () => setTimeout(dressCar, 0));
 on("run:start", () => dressCar());
 

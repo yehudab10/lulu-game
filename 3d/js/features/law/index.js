@@ -165,7 +165,8 @@ on("crash", e => {
     if (!/ped|person|walker|hitch|kid|jogger|crossing|guard/i.test(kind)) return;
     const p = ctx.car.pos;
     if (!copSees(p.x, p.z, 70)) return;
-    if (ctx.car.speed * MPH > 45 && ctx.G.invT <= 0) law.arrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
+    // (mid-chase: never an automatic bust — law.struck piles the charges on and the chase carries on)
+    if (ctx.car.speed * MPH > 45 && ctx.G.invT <= 0) law.struck(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
     else beginChase("RECKLESS ENDANGERMENT", { msg: "🚨 BUSTED!" });
 });
 

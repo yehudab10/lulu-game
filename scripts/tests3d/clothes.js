@@ -76,7 +76,8 @@ module.exports = {
     await t.until(`__lulu3d.state === "footRun" && !!__lulu3d.ctx.foot.obj`, "out on foot", 15000);
     t.check("…on foot she's her old self (sky-blue top, no extra shapes)", await topOf(`ctx.foot.obj`) === "#4fc3f7" && await shapes(`ctx.foot.obj`) === 0, String(await topOf(`ctx.foot.obj`)));
     t.check("every piece has a price, a slot, a shop and one line; the shop prices sit in 40–900",
-      await g(`ctx.clothes.pieces.every(p => p.price > 0 && p.slot && p.shop && p.line && p.brand) && ctx.clothes.pieces.filter(p => p.shop !== "jfk").every(p => p.price >= 40 && p.price <= 900)`));
+      await g(`ctx.clothes.pieces.every(p => (p.price > 0 || p.shop === "own") && p.slot && p.shop && p.line && p.brand) && ctx.clothes.pieces.filter(p => p.shop === "midwood" || p.shop === "lakewood").every(p => p.price >= 40 && p.price <= 900)`));
+    t.check("her own clothes are real pieces she owns from the start (top · skirt · tights · shoes, free)", await g(`["lulu_top", "lulu_skirt", "lulu_tights", "lulu_shoes"].every(id => ctx.clothes.owns(id) && ctx.clothes.pieces.find(p => p.id === id).price === 0)`));
     t.check("🛍️ Where to shop lists the clothing shops", await g(`ctx.shops.places().some(r => r.id === "clothes" && /Simcha/.test(r.where) && /Avenue J/.test(r.where))`));
 
     // ════ 2. Lakewood: Simcha's Classic Clothing ════
@@ -137,6 +138,23 @@ module.exports = {
     // ════ 3. Midwood: Avenue J'adore ════
     if (!await town("midwood")) return;
     t.check("Midwood: Avenue J'adore is walk-in", await walkIn(/AVENUE J'ADORE/));
+    // the walk to the fitting room (the owner: "sometimes she doesn't make it into the changing room … and changes right
+    // then"): from every rack spot — and once with something dropped right in the way — the change starts INSIDE the cubicle
+    {
+      const spots = await g(`__interiors.room.hots.filter(h => ["rackA", "rackB", "table", "mannequin", "counter", "shopper", "wall"].includes(h.id)).map(h => ({ id: h.id, x: h.x, z: h.z }))`);
+      const bad = [];
+      for (const [k, sp] of spots.entries()) {
+        const block = k === spots.length - 1;
+        await g(`(() => { const rt = __interiors.room; rt.lulu.obj.position.set(${sp.x}, 0, ${sp.z}); ${block ? `rt.cols.push({ id: "testBlock", x0: 1.0, x1: 3.4, z0: -1.3, z1: -0.7, on: true });` : ""} return true; })()`);
+        await t.frames(2);
+        await run(`return D.fittingRoom(rt)`);
+        await idle("the twirl in the fitting room");
+        const at = await g(`(() => { const L = ctx.clothes.debug.shop.lastChange; return { x: +L.x.toFixed(2), z: +L.z.toFixed(2), inside: ctx.clothes.debug.shop.inCubicle(L) }; })()`);
+        if (!at.inside) bad.push(`${sp.id}${block ? "+block" : ""}@${at.x},${at.z}`);
+        if (block) await g(`(__interiors.room.cols = __interiors.room.cols.filter(c => c.id !== "testBlock"), true)`);
+      }
+      t.check(`from every spot in the shop (${spots.length}, the last with a box dropped in the way) the change starts inside the fitting room`, spots.length >= 5 && !bad.length, bad.join(" "));
+    }
     t.check("…its own stock (the puffer, the It Bag, the iced coffee)", await g(`["mw_puffer", "mw_itbag", "mw_coffee"].every(id => ctx.clothes.pieces.find(p => p.id === id).shop === "midwood")`));
     await run(`return D.tryOn(rt, P("mw_coffee"))`);
     await t.until(`__lulu3d.ctx.dialogOpen`, "the mirror's question", 12000);
@@ -273,5 +291,32 @@ module.exports = {
       await g(`(__interiors.room.leave(), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "back out", 30000);
     }
+
+    // ════ 7. what she wears is PERMANENT until she changes: a reload, jail, a save code on another device ════
+    await g(`(ctx.clothes.debug.S.owned.includes("lk_blouse") || ctx.clothes.debug.S.owned.push("lk_blouse"), ctx.clothes.wear({ outer: "lk_coat", top: "lk_blouse" }, "test"), true)`);
+    t.check("wearing the coat + the white blouse", await g(`ctx.clothes.current().outer === "lk_coat" && ctx.clothes.current().top === "lk_blouse"`));
+    await t.L(`import("./js/core/save.js").then(m => (m.flushShared(), m.saveNow(), true))`);
+    await W.pause(t, false);
+    await t.boot();                                            // (a reload: the same browser, the same saves)
+    t.check("after a reload: still the coat + blouse (the save)", await g(`ctx.clothes.current().outer === "lk_coat" && ctx.clothes.current().top === "lk_blouse"`));
+    await t.frames(60);
+    t.check("…the car's Lulu on the title: the coat's colour", await g(`(() => { let c = null; ctx.car.driver && ctx.car.driver.traverse(o => { if (o.isMesh && (o.userData.clBase || o.material).name === "Shirt") c = "#" + o.material.color.getHexString(); }); return c; })()`) === "#1d2a5c");
+    await t.click(/PLAY/);
+    if (await t.until(`__lulu3d.state === "footRun" && !!__lulu3d.ctx.foot.obj`, "on foot at home after the reload", 60000)) {
+      t.check("…on foot at home: in the coat", await topOf(`ctx.foot.obj`) === "#1d2a5c" && await shapes(`ctx.foot.obj`) === 1, String(await topOf(`ctx.foot.obj`)));
+    }
+    const jail = await t.L(`import("./js/features/law/scene.js").then(m => { const top = o => { let c = null; o.traverse(x => { if (x.isMesh && x.material && (x.userData.clBase || x.material).name === "Top" && !c) c = "#" + x.material.color.getHexString(); }); return c; }, n = o => { let k = 0; o.traverse(x => { if (x.userData.outfit) k++; }); return k; };
+      const a = m.lulu(true), b = m.lulu(false); return { jumpsuit: top(a.obj), jShapes: n(a.obj), after: top(b.obj), aShapes: n(b.obj) }; })`);
+    t.check("jail: the jumpsuit replaces it (orange, no coat) … and out again she's back in the coat", jail.jumpsuit === "#ff6d2e" && jail.jShapes === 0 && jail.after === "#1d2a5c" && jail.aShapes === 1, JSON.stringify(jail));
+    const pic = await t.L(`import("./js/features/meta/portraits.js").then(m => m.portrait("luluPerson", { size: 64 })).then(u => typeof u === "string" && u.length > 100)`);
+    t.check("…her scrapbook portrait renders (dressed)", pic);
+    // a save code onto a fresh device
+    const code = await t.L(`import("./js/features/meta/screens.js").then(m => m.saveToCode())`);
+    await t.L(`(() => { const code = ${JSON.stringify(code)}; const s = JSON.parse(decodeURIComponent(escape(atob(code.slice(6))))); const three = s.lulu3d; delete s.lulu3d; localStorage.clear(); localStorage.setItem("luluSaveV2", JSON.stringify(s)); localStorage.setItem("lulu3dSave", JSON.stringify(three)); sessionStorage.setItem("__seeded", "1"); return true; })()`);
+    await t.boot();
+    t.check("a save code on another device: still the coat + blouse, the coat still hers", await g(`ctx.clothes.current().outer === "lk_coat" && ctx.clothes.owns("lk_coat")`));
+    // back to her own look, piece by piece (her own pieces are in the closet)
+    await g(`(ctx.clothes.wear({ outer: "lk_coat", top: "lulu_top" }, "test"), true)`);
+    t.check("her own top is wearable (the original sky-blue, the coat stays)", await g(`ctx.clothes.debug.wear.colorsOf(ctx.clothes.current()).shirt === "#4FC3F7" && ctx.clothes.current().outer === "lk_coat"`));
   },
 };

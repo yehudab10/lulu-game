@@ -257,8 +257,10 @@ function bonk(ped) {
     count("bonks");
     emit("roadevents:bonk", { reckless, witness: !!witness });
     if (reckless && witness && ctx.law) {
-        if (ctx.law.arrest) { ctx.law.arrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"], { source: "roadevents" }); return; }
-        if (ctx.law.startChase) ctx.law.startChase("reckless");
+        // (mid-chase: no automatic bust — law.struck piles the charges on and the walker flies on as usual)
+        if (ctx.law.struck && ctx.law.chasing) ctx.law.struck(["HIT AND RUN", "RECKLESS ENDANGERMENT"], { source: "roadevents" });
+        else if (ctx.law.arrest) { ctx.law.arrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"], { source: "roadevents" }); return; }
+        else if (ctx.law.startChase) ctx.law.startChase("reckless");
     }
     flyIntoCar(ped.p, { who: "walker" });
     if (witness && !reckless && ctx.law && ctx.law.startChase) ctx.law.startChase("reckless");

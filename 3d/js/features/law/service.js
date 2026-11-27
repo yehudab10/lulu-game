@@ -99,6 +99,19 @@ export const law = {
         if (ctx.state === "playing" || ctx.state === "intro") L.pending = go; else go();
         return true;
     },
+    /**
+     * She hit someone (a walker, a parade marcher, a hitchhiker…) and a cop SAW it. Outside a chase: the arrest, as
+     * before. MID-CHASE (the owner, 2026-11-27: "cops shouldn't be able to pull a player over automatically if the
+     * player hits a person while being chased"): never an automatic bust — the charges go on the chase's sheet, the
+     * heat goes up a star, and the chase carries on; she's caught only the usual ways (boxed in / stopped / a net /
+     * wrecked with a cruiser on her tail). → "chase" (piled on) | "arrest"
+     */
+    struck(charges = ["HIT AND RUN"], opts = {}) {
+        const ch = (charges && charges.length ? charges : ["HIT AND RUN"]).slice();
+        if (L.chase) { beginChase(ch[0], { charges: ch, msg: opts.msg || "🚨 HIT AND RUN — MORE UNITS!" }); return "chase"; }
+        law.arrest(ch, opts);
+        return "arrest";
+    },
     get wanted() {
         if (L.chase) return L.chase.heat;
         if (L.fug) return fugitiveStars(L.fug.t);
