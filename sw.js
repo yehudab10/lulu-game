@@ -86,7 +86,7 @@ async function removeSelf() {
 async function networkFirst(req) {
     try {
         const res = await fetch(req);
-        if (res.ok && res.type === "basic") openCache(PAGES).then(c => c && c.put(req, res.clone())).catch(() => { });
+        if (res.ok && res.type === "basic") { const copy = res.clone(); openCache(PAGES).then(c => c && c.put(req, copy)).catch(() => { }); }   // (cloned NOW: the page reads res)
         return res;
     } catch (err) {
         const cache = await openCache(PAGES);
