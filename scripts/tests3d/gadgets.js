@@ -6,7 +6,7 @@ module.exports = {
   name: "gadgets",
   viewport: { width: 1280, height: 720 },
   query: `&enable=homes,town,law,foot,atmos,interiors,seasons,houseitems,crime,garage,life,family,cameras`,
-  save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", missiles: 4, pepperSpray: 3 },
+  save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", missiles: 9, pepperSpray: 3 },
   async run(t) {
     const g = t.game, I = `ctx.houseitems`, D = `ctx.houseitems.debug`;
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };

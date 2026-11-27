@@ -1272,6 +1272,27 @@ again → off), SHOW. Used-up things are gone. Using a stolen thing within 12 m 
 (`ctx.homes.noticed(key)`: they remember it). Things from Fayge's (`home.family`) or her own homes aren't stolen. Nothing
 pays coins; no toasts (bubbles). `ctx.houseitems` { bag, hand, inHand, add(id, from, stolen), use(), swap(), addTarget }.
 
+**House items, round 2 (features/houseitems — `props.js`, `contexts.js`, `gadgets.js`):** (1) more pickups — rolling pin,
+rugelach, challah, lampshade, bowling trophy, black hat, broom, spray bottle (`ITEMS[id].make` → a code-built prop,
+`props.js`; `pickup` = the surface homes puts it on: two extras per house by seed through `ctx.homes.addPickup(id, def)` →
+homes/data.js `EXTRA`, with the room's reactions). The trophy + the hat only GIVE back to their owners (`giveOwnerOnly`).
+(2) The hand item works FROM THE CAR (`ITEMS[id].car`, one button, nothing that takes her eyes off the road): TOSS (kugel /
+water balloon / challah out of the window — a road-rager is splooshed and gives up, a cruiser behind within 45 m swerves +
+slows), HORN (the rubber chicken squeaks instead of honking), GIVE_AVIGAIL (rugelach to Avigail riding shotgun: the meter
++4, quietly), WEAR (the lampshade / hat on her head at the wheel, `ctx.car.attach("head")`). The pepper spray is one more
+slot in the swap cycle; while a house item is in hand it doesn't spray. (3) MORE WAYS — `contexts.js CONTEXTS` is DATA:
+item × where (`street` | `room:<interior id>`) × who / what is near (`PROBES`: pigeons, a leaf pile, a protest, a car alarm,
+a Lag BaOmer bonfire, a stall, Fayge) × when (`WHEN`: the calendar) → an effect (`EFFECTS` in index.js: scatter / feed
+the pigeons, kick a pile, muffle an alarm, spend a pepper, a line) + lines; the first match wins, else the item's own
+verbs. Rooms call `ctx.houseitems.inRoom(room, P)` from the interiors engine's Room.update (not Ima's home): a black hat
+on the shul's hat rack, the trophy to Pothole Phil at City Hall, the lampshade in the fitting-room mirror, pepper into the
+Shabbos kiddush cholent / at herself in the fitting room. (4) 🚀 on foot (the fire button, `gadgets.js fireOnFoot`):
+straight UP only = a firework (the Ballroom on a wedding evening, Lag BaOmer: their own lines), at the impound gate "nice
+try"; never at a person, never indoors and never by a school in school hours (`ctx.cameras.schoolHours()`) — a line,
+nothing spent. A cop who sees one → crime's `footCrime("firework", "ILLEGAL FIREWORKS")` (a ⚠️ look, the second a chase);
+a rocket from the car that hits a cruiser (`missile:hit`) → `ctx.law.startChase("FIRING A ROCKET AT A POLICE CRUISER")`.
+Pepper on a cop stays what law already says. Nothing pays coins; hearts stay capped; Dina's mode untouched.
+
 **Fayge's family (features/family, roadmap 32 — `fayge.js`, `scenes.js`, `data.js`):** Lulu's older married sister Fayge,
 her husband Ash (a mashgiach at a Lakewood catering hall; four words a day) and Chani (2) live in the BASEMENT of the
 landlords' house on East 15th St, Midwood (Avenue M → L; the house at town-local (26, −21) — the landlords stay an
