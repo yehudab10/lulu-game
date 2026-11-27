@@ -63,3 +63,4 @@ import "./houseitems/index.js";   // 🍳 the things she takes from houses DO so
 import "./impound/index.js";      // 🚗 getting an impounded car back: pay the release (the lot's window · City Hall's Permits window · 📞 Contacts › City Hall) → the gate → drive out; or break in past Bruno the night guard and hotwire her own car (one try a real day)
 import "./cars/index.js";         // 🚗 every car she owns is somewhere: left where she parked it (any lap, a reload, a new day), ✋ get in to swap, 📱 🗺️ Map › Your cars
 import "./cameras/index.js";      // 📸 speed cameras: Ocean Parkway (25, fires above 35) + every school block in school hours (15, fires above 25) — the flash + a photo, the ticket comes in the mail at her home, City Hall's ledger, then late fee → summons (Courtroom 2B) → a bench warrant
+import "./looktest/index.js";      // 🎨 the LOOK TEST (ci/looktest): an improved car / a skinned Lulu / better light — ONLY with ?look=2 (asleep otherwise)

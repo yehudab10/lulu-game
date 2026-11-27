@@ -57,7 +57,7 @@ async function open({ query = "", quality = "medium", viewport = { width: 1280, 
       await page.waitForTimeout(150);
     }
   };
-  const q = `&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00&randomCalls=0&enable=atmos,town,world,homes,life,feel,foot,interiors${query}`;
+  const q = `&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00&randomCalls=0&enable=atmos,town,world,homes,life,feel,foot,interiors,bloom${query}`;
   await page.goto(`${base}/3d/?test${q}`);
   await until(`window.__lulu3d && __lulu3d.state === "title"`, "boot", 240000);
   return {
