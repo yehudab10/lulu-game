@@ -79,7 +79,8 @@ async function body(t, guests) {
   const cB = await B.game(`L3.wallet.coins`);
   await B.L(`__lulu3d.ctx.playershops.debug.visitShop(__lulu3d.ctx.playershops.debug.frontById(${FJ}), __lulu3d.ctx.playershops.others().find(x => x.id === ${FJ}))`);
   if (!await B.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "B inside A's shop", 30000)) return;
-  t.check("…her shelves as A stocked them", await B.game(`window.__interiors.room.data.V.slots.length === 1`));
+  const RI = await B.game(`(() => { const r = window.__interiors.room, P = ctx.playershops.debug; return { slots: r.data.V.slots.length, units: r.data.V.unitAt.length, cur: P.ROOM.cur ? { mode: P.ROOM.cur.mode, shelf: (P.ROOM.cur.friend && P.ROOM.cur.friend.shelf || []).filter(Boolean) } : null, hots: r.hots.map(h => h.id) }; })()`);
+  t.check("…her shelves as A stocked them", RI.slots === 1, JSON.stringify(RI));
   const opts = () => B.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden").map(b => b.textContent)`);
   const pickOpt = async re => { for (let i = 0; i < 60; i++) { const o = await opts(); if (o.length) { const k = o.findIndex(x => re.test(x)); if (k < 0) return false; await B.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${k}].click()`); await sleep(400); return true; } await B.L(`(document.querySelector("#dialog") || document.body).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))`); await sleep(300); } return false; };
   await B.game(`(r => { r.hots.find(h => h.id === "shelf:0").action(r); return true; })(window.__interiors.room)`);
