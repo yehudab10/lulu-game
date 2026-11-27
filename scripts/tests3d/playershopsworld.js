@@ -74,8 +74,8 @@ async function body(t, guests) {
   const tk = await B.L(`__lulu3d.ctx.playershops.debug.SVR.claim(${FJ}, "kugel")`);
   t.check("…B can't take it (the relay: taken)", tk.ok === false && tk.why === "taken", JSON.stringify(tk));
   await B.game(`(() => { const Fp = ctx.foot.debug.F, n = ctx.world.road.nearest(${F.ap.x}, ${F.ap.z}, Fp.s, {}); Fp.pos.set(${F.ap.x} - ${F.nx} * 0.4, 0.05, ${F.ap.z} - ${F.nz} * 0.4); Fp.s = n.s; Fp.d = n.d; ctx.foot.obj.position.copy(Fp.pos); return true; })()`);
-  await sleep(2500);
-  const lab = await B.game(`((ctx.foot.debug.interactables() || {}).label || "")`);
+  await B.until(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return !!(f && f.sid && /^other:/.test(P.CL.get(f.sid) || "")); })()`, "B's storefront ✋ follows A's shop", 20000);
+  const lab = await B.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return f && f.sid && ctx.storefronts ? String(ctx.storefronts.debug.label(f.sid) || "") : ((ctx.foot.debug.interactables() || {}).label || ""); })()`);
   t.check("B at the door: ✋ 🛍️ SHOP AT <A>'S", /SHOP AT/.test(lab) && lab.includes(names.a.toUpperCase()), lab);
   // in → shelf 1 → the kugel → ✅ Buy it
   const cB = await B.game(`L3.wallet.coins`);
