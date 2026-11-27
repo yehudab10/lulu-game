@@ -128,6 +128,8 @@ module.exports = {
     // ── 👜 JFK's Maison de Gelt: walk straight in from the pavement (a door: true + walkIn like the towns' clothes shops) ──
     await t.page.setViewportSize({ width: 412, height: 915 }); await L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
     await playing();
+    // (a quick start is the first-drive lesson — no airport during it: plan it where the test wants it)
+    await g(`(ctx.airport && (ctx.airport.debug.enable(true), !ctx.airport.planned && ctx.airport.debug.placeAt(ctx.car.s + 1500)), true)`);   // (test pages: the airport is off unless named)
     if (await t.until(`!!__lulu3d.ctx.airport && !!__lulu3d.ctx.airport.planned`, "the airport planned", 60000)) {
       const E = await g(`ctx.airport.planned.s`);
       await W.moved(t);
@@ -141,8 +143,11 @@ module.exports = {
         await g(`ctx.foot.start("droveOff")`);
         if (await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot at the kerb", 30000)) {
           await t.frames(40);
+          await t.until(`!!__lulu3d.ctx.clothes.debug.air.D.at`, "Maison de Gelt's door is on the terminal", 10000);    // (its sign + door are placed every 0.8 s)
           await W.moved(t);
-          const md = await g(`(() => { const s = ctx.foot.spots().find(x => x.short === "MAISON"); const a = s && s.pos(); if (!a) { const D = ctx.clothes.debug.air.D; const F = ctx.foot.debug.F; F.pos.set(D.at.x, 0.05, D.at.z); return null; }
+          await g(`(() => { const D = ctx.clothes.debug.air.D; if (D.at) { const F = ctx.foot.debug.F; F.pos.set(D.at.x, 0.05, D.at.z); } return true; })()`);
+          await t.frames(4);
+          const md = await g(`(() => { const s = ctx.foot.spots().find(x => x.short === "MAISON"); const a = s && s.pos(); if (!a) return null;
             const F = ctx.foot.debug.F; F.peds.length = 0; F.phase = "walk"; F.pos.set(a.x + a.nx * 2.2, 0.05, a.z + a.nz * 2.2); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); F.camFree = true; ctx.cam.free.yaw = Math.atan2(-a.nx, -a.nz); ctx.cam.snap(); return { x: a.x, z: a.z, nx: a.nx, nz: a.nz }; })()`);
           await t.frames(40);
           await t.stick(0, -1);
