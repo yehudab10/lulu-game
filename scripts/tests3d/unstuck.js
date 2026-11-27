@@ -370,7 +370,8 @@ module.exports = {
         const out = await g(`({ bad: ctx.unstuck.debug.badNow(), why: ctx.unstuck.normal(ctx.car.pos.x, ctx.car.pos.z, "car"), d: +ctx.car.d.toFixed(1), log: ctx.unstuck.debug.U.log.slice(${n0}) })`);
         console.log(`   ${id}: the car left inside a house →`, JSON.stringify(out));
         t.check(`${id}: the car left inside a house → out of it (the game's push or the rescue)`, out.bad == null && out.why !== "block", JSON.stringify(out));
-        if (fired) await carOK(`${id}: auto out of the house`, block, { shield: false });     // (5 s on: the 2.5 s shield is over)
+        // (5 s on: the 2.5 s shield is over — and a town car may have nudged her in her lane by then: not "still")
+        if (fired) await carOK(`${id}: auto out of the house`, block, { shield: false, still: false });
         await W.reset(t);
       }
       // 14 · the lake (Lakewood): the car in the water → out (automatic)
