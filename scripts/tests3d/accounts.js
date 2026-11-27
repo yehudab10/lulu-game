@@ -61,7 +61,10 @@ async function phone(t, label, store, viewport = { width: 640, height: 360 }, qu
   await P.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title");
   return P;
 }
-const tWrap = t => ({ label: "A", page: t.page, errors: t.errors, L: t.L, game: t.game, frames: n => t.frames(n), until: (c, w, ms) => t.until(c, "A: " + w, ms) });
+// (page A = the harness page; its waits go through party3d's waitOn, which has `ctx` in scope — the harness's own
+//  t.until evaluates the bare expression, so a `ctx.…` there could never come true)
+const tWrap = t => ({ label: "A", page: t.page, errors: t.errors, L: t.L, game: t.game, frames: n => t.frames(n),
+  async until(c, w, ms = 90000) { if (await waitOn(t.page, c, ms)) return true; t.check("A: " + w, false, "timed out in " + await t.game(`ctx.state + " @ frame " + L3.frames`).catch(() => "?")); return false; } });
 
 module.exports = {
   name: "accounts",
