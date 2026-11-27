@@ -61,9 +61,9 @@ export const player = {
             for (const [k, s] of SECTIONS) { try { sx[k] = s.get(); } catch (e) { /* skip */ } }
             if (Object.keys(sx).length) P().sx = sx; else delete P().sx;
         },
-        code: () => import("../features/meta/screens.js").then(m => m.saveToCode()),
+        code: () => import("../features/meta/screens.js").then(m => m.saveToShortCode()),
         /** → a promise of false (not a save code) or true (restoring: the page reloads). */
-        restore: code => import("../features/meta/screens.js").then(m => { const o = m.codeToSave(code); if (!o) return false; m.applySave(o); return true; }),
+        restore: code => import("../features/meta/screens.js").then(async m => { const o = (await m.readCode(code)).obj; if (!o) return false; m.applySave(o); return true; }),
     },
 };
 P();
