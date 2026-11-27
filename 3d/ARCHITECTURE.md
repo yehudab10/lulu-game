@@ -1275,6 +1275,23 @@ flamingo flock, Bubbe's portrait…); the 🎤 mystery-singer poster is the only
 `scripts/tests3d/decor.js` (the soft cut in, preview / ask / buy, swap free, can't go below 0, nothing pays out, the mailbox from
 outside, a set, a party refuses, the picker fits phone / TV, reload → still there on the title).
 
+**Friends = the same game (ci/friends, 2026-11-27).** 🌍 Free Roam with friends now rides on each player's OWN
+▶ PLAY run (`G.mode === "cruise"`): no party run, no reset, no lobby. `party/index.js` `lightRoam()` (🌍 + her own run)
+and the service's `ctx.party.inWorld` (a party run OR 🌍 on her own run) / `ctx.party.ownRun`. Hosting from a run keeps
+the run (`hostParty({act: "roam"})` / `hostRoam()` skip `bankSoloRun` + the lobby); joining is a TELEPORT: openworld's
+roam `lightJoin(A)` takes her to the friend with Go-there's soft cut (`warpTo`: on foot beside them / at their door, or
+in her own car just behind them) — the joined friend sees nothing change; from the title her run starts at home first
+(`ctx.onegame.home({via: "group"})`, `P.lightPending`), then the teleport. Leaving is one tap and she stays where she
+is (`ctx.group.leave()`). Lives and the normal rules stay on (the damage hook only blanks hearts in a party RUN — a
+lobby game); a friend's bump is harmless (`bonks`). Missiles + pepper are hers again (her own traffic). What is
+shared on her own run: friends' cars + walkers (publish `m=3`), presence + extras, one sky (atmos uses the party
+clock when `inWorld`), the towns' loop traffic + org cruisers (shared clock — claims work on them too: `claimWorld()`),
+the airport's planes, rooms, missions, crimes for two, the bank job, the law crew. Each screen's OWN: the highway
+traffic and roadside set pieces (like EVERYONE's ghosts) — her traffic follows a friend's car as a lead
+(`traffic.leads`, so it never drives through her from behind). 🚗 Flag & grab's ONE car on her own run: `lightFlag`
+stops a car of hers and broadcasts `"lcl"` [key, kind, paint, x, z, h] → friends within 400 m add the same car
+parked there under the same key (`data.lightClaim`, jackable for 90 s). Party GAMES (race, dash, tag, the Road Trip)
+are still lobby activities with a party run (and the shared seeded highway). Test: `friendsworld`.
 **Open world (openworld):** 🌍 **Free Roam** is a party lobby activity registered through `ctx.party.addActivity("roam", …)`:
 everyone drives the seeded highway and can take the town exits (planned from s = 0 for every friend, all of them up to
 `startS + 1800` at run start so a late joiner's first chunks already have their ramps; `planFirst` makes the party
