@@ -9,9 +9,9 @@ import { ctx, emit } from "../../core/ctx.js";
 import { saveSoon } from "../../core/save.js";
 import { pick } from "../interiors/engine.js";
 import { openCard, cardTick, closeCard, cardOpen, cardSay } from "../shops/card.js";
-import { SLOTS, LULU, pieceById, BASE } from "./data.js";
+import { SLOTS, LULU, pieceById, BASE, OWN } from "./data.js";
 import { S, current, owns, wear, dress, clean } from "./wear.js";
-import { changeAnim, mirrorOn } from "./stage.js";
+import { changeAnim, mirrorOn, walkPath } from "./stage.js";
 import { tagOf as limitedTag } from "./limited.js";
 
 export const MAX_LOOKS = 3;
@@ -62,7 +62,7 @@ export function closetTick(rt, dt) {
 async function openCloset(rt) {
     const C = rt.data.closet;
     if (!C || rt.disposed) return;
-    await rt.walkTo(C.spot.x, C.spot.z, 2.5);
+    await walkPath(rt, C.spot.x, C.spot.z, 6);
     if (rt.disposed) return;
     C.want = 1;
     // she turns to the camera (the room's front: the mirror), the open closet beside her
@@ -75,20 +75,22 @@ async function openCloset(rt) {
     S.saved.slice(0, MAX_LOOKS).forEach((o, i) => tiles.push({ id: "look" + i, icon: "⭐", name: `Look ${i + 1}`, desc: () => describe(clean(o)),
         tag: () => (sameLook(look, clean(o)) ? "On" : ""), state: () => "owned", act: () => { look = keepOwned(clean(o)); preview(); } }));
     for (const sl of SLOTS) {
-        const mine = S.owned.map(pieceById).filter(p => p && p.slot === sl.id);
-        if (!mine.length) continue;
-        tiles.push({ id: "plain:" + sl.id, icon: sl.icon, name: sl.id === "outer" ? "No coat" : sl.id === "acc" ? "No extra" : `My old ${sl.name.toLowerCase()}`,
-            dot: BASE[sl.id] || null, desc: () => (sl.id === "outer" ? "Nothing over it." : sl.id === "acc" ? "Nothing extra." : `Her own ${sl.name.toLowerCase()} — the one she always wears.`), state: () => "owned", tag: () => (!look[sl.id] ? "On" : ""),
-            act: () => { delete look[sl.id]; preview(); } });
+        const mine = S.owned.map(pieceById).filter(p => p && p.slot === sl.id && p.shop !== "own");
+        const own = OWN.map(pieceById).find(p => p.slot === sl.id);
+        if (own) {
+            // her own piece is always there (the original look) — wearing it = no shop piece in that slot
+            tiles.push({ id: own.id, dot: own.color, name: own.name, desc: () => `<b>${own.brand}</b> · ${own.line}`, state: () => "owned",
+                tag: () => (!look[sl.id] || look[sl.id] === own.id ? "On" : "Mine"), act: () => { delete look[sl.id]; preview(); } });
+        } else if (mine.length) {
+            tiles.push({ id: "plain:" + sl.id, icon: sl.icon, name: sl.id === "outer" ? "No coat" : "No extra",
+                desc: () => (sl.id === "outer" ? "Nothing over it." : "Nothing extra."), state: () => "owned", tag: () => (!look[sl.id] ? "On" : ""),
+                act: () => { delete look[sl.id]; preview(); } });
+        }
         for (const p of mine) {
             const lt = () => limitedTag(p.id);          // (👜 a numbered piece: "No. 17 of 50")
             tiles.push({ id: p.id, dot: p.color, name: p.name, desc: () => `<b>${p.brand}</b> · ${lt() ? `<b>${lt().line}</b> ` : ""}${p.line}`, state: () => "owned",
                 tag: () => (look[sl.id] === p.id ? "On" : lt() ? lt().tag : ""), act: () => { look[sl.id] = p.id; preview(); } });
         }
-    }
-    if (!tiles.length) {
-        mirrorOn(rt, false); C.want = 0; rt.faceTo = null;
-        return rt.say("Lulu", "Just my usual stuff in here. The clothing shops are in town — Main St in Lakewood, Avenue J in Midwood.", { emoji: "👗" });
     }
     await rt.runMode({
         start() {
@@ -118,7 +120,8 @@ async function openCloset(rt) {
 }
 
 const keepOwned = o => { for (const k of Object.keys(o)) if (!owns(o[k])) delete o[k]; return o; };
-const sameLook = (a, b) => SLOTS.every(s => (a[s.id] || "") === (b[s.id] || ""));
+const plain = id => (!id || OWN.includes(id) ? "" : id);       // (her own piece = the original look = nothing in that slot)
+const sameLook = (a, b) => SLOTS.every(s => plain(a[s.id]) === plain(b[s.id]));
 function describe(o) {
     const names = Object.values(o).map(id => (pieceById(id) || {}).name).filter(Boolean);
     return names.length ? names.join(" · ") : "Her usual look.";

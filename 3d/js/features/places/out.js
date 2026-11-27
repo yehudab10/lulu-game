@@ -16,6 +16,8 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { person, lulu, walkTo, cuffs, disposeCuffs } from "../law/scene.js";
 import { OUT_LINES } from "./data.js";
+import { LAP } from "../../world.js";
+import { BY_ID, copyS, nearest, hwSpot } from "./roadside.js";
 
 const inTown = () => !!(ctx.town && ctx.town.active);
 const party = () => !!(ctx.party && ctx.party.active);
@@ -36,18 +38,22 @@ export function claim(kind = "law") {
     }
     // on the highway: the nearest interchange's town — only in a solo Cruise (a 🎉 party keeps the old flow: a warp into
     // a town would split her from her friends; Story / the Shabbos run have no towns)
-    if (party() || !ctx.G || ctx.G.mode !== "cruise" || !ctx.town.prebuild || !ctx.town.exits) return null;
-    const s = ctx.car.s, p = ctx.car.pos;
-    let best = null, bd = 1e9;
-    for (const x of ctx.town.exits) {
-        if (!hosts(x.id) || !ctx.town.towns[x.id].attach) continue;
-        const at = ctx.town.placeOf(x.id, x.s);
-        const d = at ? Math.hypot(at.x - p.x, at.z - p.z) : Math.abs(x.s - s) + 400;
-        if (d < bd) { bd = d; best = x; }
+    if (party() || !ctx.G || ctx.G.mode !== "cruise" || !ctx.town.prebuild) return null;
+    // 🚔🚑 ci/roadside — THE rule: the nearest place of this kind ALONG THE LAP from where it happened, either way round,
+    // the towns' buildings and the roadside ones alike (roadside.js nearest) — the same answer on every lap
+    const n = nearest(kind), s = ctx.car.s;
+    if (!n) return null;
+    if (n.hw) {
+        STAY.place = { kind, id: n.hw.id, hw: n.hw.id, s: copyS(n.hw, s), here: false };
+        return STAY.place;
     }
-    if (!best || bd > 9000) return null;
-    STAY.place = { kind, id: best.id, exitS: best.s, here: false };
-    if (ctx.town.load) ctx.town.load(best.id);
+    if (!hosts(n.town) || !ctx.town.exitOf) return null;
+    // (that town's copy nearest her: its first exit after half a lap back)
+    let exitS = null;
+    try { exitS = ctx.town.exitOf(n.town, s - LAP / 2); } catch (e) { exitS = null; }
+    if (exitS == null) return null;
+    STAY.place = { kind, id: n.town, exitS, here: false };
+    if (ctx.town.load) ctx.town.load(n.town);
     return STAY.place;
 }
 export function clear() { STAY.place = null; }
@@ -55,7 +61,7 @@ export function clear() { STAY.place = null; }
 /** Per frame while she's in a set (the cell, court, the ER): build the town she'll walk out into, ~3 ms a frame. */
 export function tick() {
     const P = STAY.place;
-    if (!P || P.built || P.here) return;
+    if (!P || P.built || P.here || P.hw) return;
     try { P.built = !!ctx.town.prebuild(P.id, P.exitS, 3); } catch (e) { console.error("[places] prebuild", e); P.built = false; }
 }
 /** Can she walk out of the building right now (the town's there — or ready to step into — and the doors exist)? */
@@ -63,6 +69,7 @@ export function ready() {
     const P = STAY.place;
     if (!P) return false;
     if (P.here) return inTown() && ctx.town.id === P.id;
+    if (P.hw) return !!BY_ID[P.hw];              // (a roadside place: code-built, there on every lap — walkOut builds its chunks)
     tick();
     return !!P.built;
 }
@@ -71,13 +78,20 @@ export function ready() {
 const IMP = { obj: null, town: null };
 export function showImpounded(on) {
     if (IMP.obj) { if (IMP.obj.parent) IMP.obj.parent.remove(IMP.obj); IMP.obj = null; IMP.town = null; }
-    if (!on || !inTown() || !models.lulu) return;
+    if (!on || !models.lulu) return;
     const sp = ctx.civic.spot("impound");
-    if (!sp || sp.cx == null) return;
+    if (!sp || sp.cx == null || !(inTown() || sp.car)) return;
     // (features/cars: the car that's actually held — she may have come in another of hers)
     const sk = SKINS[(ctx.impound && ctx.impound.held && ctx.impound.held.key) || ctx.car.skinKey] || SKINS.pink;
     const o = cloneWithColors(models.lulu, { Body: sk.body, BodyLight: sk.light, BodyDark: sk.dark });
     for (const n of [...findNodes(o, "Driver"), ...findNodes(o, "Hair_")]) n.visible = false;
+    if (sp.car) {
+        // (a roadside yard — Trooper Post 13's, roadside.js: its own bay)
+        o.position.set(sp.car.x, 0, sp.car.z); o.rotation.y = sp.car.h;
+        ctx.scene.add(o);
+        IMP.obj = o; IMP.town = null;
+        return;
+    }
     // (the lot's Anchor_car: its left bay, nose-in — model left = -X; the lot's local frame turns with the face)
     const a = models.places_impound ? findNodes(models.places_impound, "Anchor_car")[0] : null;
     const ax = a ? a.position.x : -1.5, az = a ? a.position.z : 3.0;
@@ -103,11 +117,16 @@ export function walkOut({ door = "precinct", car = false, reason = "copWalk", li
     const P = STAY.place;
     if (!P || !ctx.foot || !ctx.foot.start) return false;
     const swap = () => {
-        if (!inTown() || ctx.town.id !== P.id) {
+        if (P.hw) {
+            // a roadside place (roadside.js): out on the highway at its copy on THIS lap — its chunks built under the cut
+            if (inTown()) ctx.town.leave("reset");
+            if (ctx.world.prebuild) ctx.world.prebuild(P.s);
+        } else if (!inTown() || ctx.town.id !== P.id) {
             if (inTown()) ctx.town.leave("reset");
             if (!ctx.town.enter({ town: P.id, exitS: P.exitS, speed: 0 })) return false;
         }
-        const sp = ctx.civic.spot(door);
+        // (by P, not STAY: a dissolve runs this after STAY.place is cleared)
+        const sp = P.hw ? hwSpot(door, P) : ctx.civic.spot(door);
         if (!sp) return false;
         // (a walk that was suspended by the scene — she was on foot when it began — ends first: ending it puts the car
         //  anchor back where her old parked car was, and her car is about to be somewhere else)
@@ -119,7 +138,7 @@ export function walkOut({ door = "precinct", car = false, reason = "copWalk", li
         if (car) {
             // her car at the kerb right out front — the stretch in front of each civic building is kept clear of parked
             // cars (the town data's clearParking: POLICE / AMBULANCE ONLY) — facing the way the traffic on that side goes
-            const k = kerbAt(sp, 5 + side * 4);      // (partners' cars one behind the other)
+            const k = sp.kerbAt ? sp.kerbAt(5 + side * 4) : kerbAt(sp, 5 + side * 4);      // (partners' cars one behind the other; a roadside place: its stalls)
             c.place(k.x, k.z, k.h); c.s = k.s; c.d = k.d;
         } else {
             const n = ctx.world.road.nearest(at.x, at.z, c.s, {});
@@ -131,7 +150,7 @@ export function walkOut({ door = "precinct", car = false, reason = "copWalk", li
         if (!ok) return false;
         if (ctx.cam && ctx.cam.free) ctx.cam.free.yaw = face + Math.PI;     // (looking at her from the street side… then the door behind her)
         if (!car && impound) showImpounded(true);
-        emit("places:out", { kind: P.kind, door, town: P.id, car: !!car, here: !!P.here });
+        emit("places:out", { kind: P.kind, door, town: P.hw ? null : P.id, hw: P.hw || null, car: !!car, here: !!P.here });
         emit("stat", { id: "placesWalkOuts", n: 1 });
         return true;
     };

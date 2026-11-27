@@ -24,6 +24,13 @@ on:
         required: false
         default: ""
 
+# ONE run per branch: starting a new run on a branch cancels that branch's older run, so a superseded run never
+# keeps machines busy (they are shared by every agent — jobs were waiting 15–50 min for one). Put everything you
+# need into ONE dispatch (`only` / `groups`) instead of starting two side by side.
+concurrency:
+  group: full-suite-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   plan:
     runs-on: ubuntu-24.04
@@ -57,7 +64,7 @@ jobs:
     needs: plan
     name: ${{ matrix.group }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 150     # (the slowest file, calm, takes ~85 min; a hung job must not hold a machine for 5 hours)
     strategy:
       fail-fast: false
       matrix:

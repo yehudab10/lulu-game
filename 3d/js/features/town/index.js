@@ -1006,6 +1006,8 @@ ctx.town = {
     load: id => load(id ? TOWNS[id] : townFor(0)),
     /** Is this town's model set loaded? */
     loaded: id => !!S.ok[id || townFor(0).id],
+    /** The model keys a town needs (its set + the landmarks it borrows): progress lines (onegame/playgate.js). */
+    needs: id => { const def = TOWNS[id] || townFor(0); return [...new Set(needsOf(def).concat(Object.values(def.uses || {}).map(u => u.key)))]; },
     get transitioning() { return !!S.trans; },
     /** In a town that stands attached to the highway (she drove in off the interchange, or warped to one there). */
     get attached() { return !!(S.active && S.att); },

@@ -253,3 +253,9 @@ function buildSeg(W, sg, group) {
     }
 }
 export function inWorkZone(s) { return R.zone === "construction" && s >= R.zoneS0 && s <= R.zoneS1; }
+/** Is a work zone's cone within `ahead` metres in front of highway metre s (on our side)? (features/dealers' self-drive
+ *  hands the wheel back before a construction zone.) */
+export function zoneAhead(s, ahead = 150) {
+    for (const c of cones) if (c.zone && !c.down && c.s > s && c.s - s < ahead && c.d > -0.5) return true;
+    return false;
+}

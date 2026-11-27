@@ -82,11 +82,11 @@ export function openGarage() {
     openCard({
         title: "🔑 My cars",
         head: () => n > 1 ? `Which one today? <small>(${n} in the garage)</small>` : GARAGE_LINES.one,
-        tiles: ORDER.map(k => ({
+        tiles: ORDER.concat(Object.keys(SKIN_SHOP).filter(k => !ORDER.includes(k) && SKINS[k] && owns("car", k))).map(k => ({
             id: k, name: SKINS[k].name, dot: SKINS[k].body,
             state: () => (owns("car", k) ? (ctx.car.skinKey === k ? "placed" : "owned") : "na"),
             tag: () => (owns("car", k) ? (ctx.car.skinKey === k ? "✓ In the driveway" : away(k) ? `📍 ${away(k)}` : "Yours") : `🚗 ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰`),
-            desc: () => (owns("car", k) ? `<i>${SKIN_SHOP[k].flavor}</i>` : `At <b>Uncle Refael's Pre-Loved Cars</b> — Lakewood (Route 9) or Midwood (Coney Island Ave).`),
+            desc: () => (owns("car", k) ? `<i>${SKIN_SHOP[k].flavor}</i>` : SKIN_SHOP[k].where ? `At <b>${SKIN_SHOP[k].where}</b>.` : `At <b>Uncle Refael's Pre-Loved Cars</b> — Lakewood (Route 9) or Midwood (Coney Island Ave).`),
             act: () => {
                 if (!owns("car", k)) { cardSay(`Not yours (yet!) — <b>Uncle Refael's</b> lot has it: ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰.`); return; }
                 if (ctx.car.skinKey === k) return;
