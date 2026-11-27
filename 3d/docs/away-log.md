@@ -1,3 +1,14 @@
+# While you were away (Shabbos, 2026-11-27 → 11-28)
+
+A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edges found by playing the game and reading
+the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
+machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
+
+- 2026-11-27 21:15 UTC — Started the fix sweep (three at a time: the tests that are red on main, the game's rules and
+  coins, and this week's new places; then the road, the screen / phone, friends, and phone speed).
+
+---
+
 # While you were away (Shabbos, 2026-11-20 → 11-21)
 
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
