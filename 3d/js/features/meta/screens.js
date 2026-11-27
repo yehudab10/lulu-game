@@ -260,22 +260,22 @@ function statsTab(S) {
         ["👮 Speed traps passed legally (3D)", fmt(stat(S, "legalTraps3d"))],
     ];
     return `<div class="mb-paper mb-stats nav" id="mbStats">${rows.map(r => `<div class="mb-line"><span>${r[0]}${r[2] ? `<small>${r[2]}</small>` : ""}</span><b>${r[1]}</b></div>`).join("")}</div>
-      <div class="mb-backup">💾 Moving to a new phone? Back up your progress (works in the 2D game too):</div>
+      <div class="mb-backup">💾 Moving to another device? Back up your progress:</div>
       <div class="mb-bk-row"><button class="btn mb-copy" id="mbCopy">📋 Copy save code</button><button class="btn alt mb-load" id="mbLoad">📥 Load save code</button></div>`;
 }
 function wireStats(card) {
     card.querySelector("#mbCopy").addEventListener("click", () => { xferBack = null; showCopyCode(); });
     card.querySelector("#mbLoad").addEventListener("click", () => { xferBack = null; showLoadCode(); });
 }
-// ── 📲 Move to another phone: the same two save-code cards, straight from ⚙️ Settings (they were only at the bottom of the
+// ── 📲 Move to another device: the same two save-code cards, straight from ⚙️ Settings (they were only at the bottom of the
 //    scrapbook's 📊 Stats page, where nobody looks for them) ──
 let xferBack = null;
 export function openTransfer(back) {
     const again = () => openTransfer(back);
     const done = () => { xferBack = null; document.body.classList.remove("meta-open"); if (back) back(); else H.hideScreen(); };
     xferBack = again;
-    open(`<h2>📲 Move to another phone</h2><p>Everything moves with a <b>save code</b>: your coins, cars, progress and your online name.</p>
-        <p class="fine"><b>On the old phone:</b> copy your save code and send it to yourself. <b>On the new phone:</b> open this page and load it. Loading replaces what's on that phone.</p>`,
+    open(`<h2>📲 Move to another device</h2><p>Everything moves with a <b>save code</b>: your coins, cars, progress and your online name.</p>
+        <p class="fine"><b>On the old device:</b> copy your save code and send it to yourself. <b>On the new device:</b> open this page and load it. Loading replaces what's on that device.</p>`,
         [{ label: "📋 Copy my save code", id: "mbXCopy", action: () => showCopyCode() },
          { label: "📥 Load a save code", id: "mbXLoad", action: () => showLoadCode() },
          { label: `⬅ Back ${glyph("back")}`, id: "mbXBack", cls: "alt", action: done }],
@@ -297,14 +297,67 @@ export function saveToCode() {
     s.lulu3d = three;
     return SAVE_CODE_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify(s))));
 }
+const okSave = obj => obj && typeof obj === "object" && !Array.isArray(obj) && typeof obj.totalCoins === "number" ? obj : null;
+/** The long (2D-format) code → a save object or null. Forgiving: the code may sit anywhere in a pasted message, and
+ *  anything a chat app slipped into it (spaces, line breaks, invisible characters) is dropped. */
 export function codeToSave(code) {
-    code = String(code || "").replace(/\s+/g, "");
-    if (code.indexOf(SAVE_CODE_PREFIX) !== 0) return null;
+    code = String(code || "");
+    const at = code.toUpperCase().indexOf(SAVE_CODE_PREFIX);
+    if (at < 0) return null;
     try {
-        const obj = JSON.parse(decodeURIComponent(escape(atob(code.slice(SAVE_CODE_PREFIX.length)))));
-        return obj && typeof obj === "object" && !Array.isArray(obj) && typeof obj.totalCoins === "number" ? obj : null;
+        return okSave(JSON.parse(decodeURIComponent(escape(atob(code.slice(at + SAVE_CODE_PREFIX.length).replace(/[^A-Za-z0-9+/=]/g, ""))))));
     } catch (e) { return null; }
 }
+
+// ── the SHORT code: "LULU2:" + <payload length, base 36> + ":" + base64url(deflate(JSON)) ──
+// About a third of the long code's length (a fresh save: ~5,100 → ~2,300 characters), so it survives being texted, and
+// it carries its own length, so a code a chat app cut short is reported as exactly that. The 3D game makes this one;
+// it still reads (and can still show) the long LULU1 code, which is the only one Classic 2D understands.
+export const SHORT_CODE_PREFIX = "LULU2:";
+const canShort = () => typeof CompressionStream === "function" && typeof DecompressionStream === "function";
+async function pump(stream, bytes) {
+    const w = stream.writable.getWriter();
+    w.write(bytes).catch(() => {}); w.close().catch(() => {});
+    return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+}
+const b64u = bytes => { let t = ""; for (let i = 0; i < bytes.length; i += 0x8000) t += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(t).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+const unb64u = t => { const b = atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)); const out = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i); return out; };
+/** → a promise of the short code (or the long one where this browser can't compress). */
+export async function saveToShortCode() {
+    const long = saveToCode();
+    if (!canShort()) return long;
+    try {
+        const json = decodeURIComponent(escape(atob(long.slice(SAVE_CODE_PREFIX.length))));
+        const pay = b64u(await pump(new CompressionStream("deflate-raw"), new TextEncoder().encode(json)));
+        return SHORT_CODE_PREFIX + pay.length.toString(36) + ":" + pay;
+    } catch (e) { return long; }
+}
+/** Read ANY save code out of pasted text → a promise of { obj } or { err: "none" | "cut" | "bad" | "old", got?, want? }. */
+export async function readCode(text) {
+    text = String(text || "");
+    const up = text.toUpperCase(), a2 = up.indexOf(SHORT_CODE_PREFIX), a1 = up.indexOf(SAVE_CODE_PREFIX);
+    if (a2 >= 0 && (a1 < 0 || a2 <= a1)) {
+        const m = /^([0-9a-z]{1,8}):/i.exec(text.slice(a2 + SHORT_CODE_PREFIX.length));
+        if (!m) return { err: "bad" };
+        const want = parseInt(m[1], 36), pay = text.slice(a2 + SHORT_CODE_PREFIX.length + m[0].length).replace(/[^A-Za-z0-9_-]/g, "").slice(0, want);
+        if (!(want > 0)) return { err: "bad" };
+        if (pay.length < want) return { err: "cut", got: pay.length, want };
+        if (!canShort()) return { err: "old" };
+        try {
+            const obj = okSave(JSON.parse(new TextDecoder().decode(await pump(new DecompressionStream("deflate-raw"), unb64u(pay)))));
+            return obj ? { obj } : { err: "bad" };
+        } catch (e) { return { err: "bad" }; }
+    }
+    if (a1 < 0) return { err: "none" };
+    const obj = codeToSave(text);
+    if (obj) return { obj };
+    // (a long code that won't decode is nearly always one that was cut off: say so)
+    return { err: "cut", got: text.slice(a1).replace(/\s+/g, "").length };
+}
+const READ_WHY = r => r.err === "none" ? "🤔 I can't find a save code in that. It starts with LULU2: or LULU1:."
+    : r.err === "cut" ? `✂️ This code is cut short${r.want ? ` — ${fmt(r.got)} of ${fmt(r.want + 0)} characters arrived` : ""}. The app it was sent with shortened it. Copy it again and send it by email or a notes app.`
+    : r.err === "old" ? "This device's browser is too old for the short code. On the other device, tap “Long code” and send that one."
+    : "🤔 That code is damaged. Copy it again on the other device.";
 /** Replace this device's progress with a save object (2D save + optional lulu3d), then reload. */
 export function applySave(obj) {
     flushShared();
@@ -342,21 +395,29 @@ async function copyText(text) {
     } catch (e) { /* no */ }
     return false;
 }
-function showCopyCode() {
-    const code = saveToCode();
+async function showCopyCode(long = false) {
+    const code = long ? saveToCode() : await saveToShortCode();
+    const isShort = code.indexOf(SHORT_CODE_PREFIX) === 0;
     const back = xferBack || (() => { tab = 3; renderScrapbook("mbCopy"); });
-    const card = open(`<h2>💾 Your save code</h2><p>Copy it and keep it somewhere safe. Paste it into <b>📥 Load save code</b> — here or in the 2D game — to get everything back.</p>
-        ${codeBox("mbCodeOut", code, true)}<p class="fine">${fmt(code.length)} characters · coins, cars, badges, quests, story and your 3D progress</p>`,
-        [{ label: `📋 Copy to clipboard ${glyph("confirm")}`, id: "mbDoCopy", action: async () => {
-            const ok = await copyText(code);
-            metaToast(ok ? "📋 Save code copied! Paste it somewhere safe." : "Select the code and copy it by hand 🙂", ok ? "green" : "");
-        } }, { label: `⬅ Back ${glyph("back")}`, cls: "alt", action: back }],
-        { onBack: back, cls: "meta-book meta-code nopop", wide: true });
+    const btns = [{ label: `📋 Copy to clipboard ${glyph("confirm")}`, id: "mbDoCopy", action: async () => {
+        const ok = await copyText(code);
+        metaToast(ok ? "📋 Save code copied! Paste it somewhere safe." : "Select the code and copy it by hand 🙂", ok ? "green" : "");
+    } }];
+    // (the share sheet — AirDrop, email, Notes — carries a long text whole; a text message may not)
+    if (typeof navigator.share === "function") btns.push({ label: "📤 Send it to my other device", id: "mbDoShare", action: async () => {
+        try { await navigator.share({ text: code }); } catch (e) { /* closed */ }
+    } });
+    btns.push(isShort ? { label: "Long code (for Classic 2D)", id: "mbLongCode", cls: "alt", action: () => showCopyCode(true) }
+        : canShort() ? { label: "Short code", id: "mbShortCode", cls: "alt", action: () => showCopyCode(false) } : null);
+    btns.push({ label: `⬅ Back ${glyph("back")}`, cls: "alt", action: back });
+    const card = open(`<h2>💾 Your save code</h2><p>Copy it and keep it somewhere safe. Paste it into <b>📥 Load a save code</b> on the other device to get everything back.</p>
+        ${codeBox("mbCodeOut", code, true)}<p class="fine">${fmt(code.length)} characters · coins, cars, badges, quests, story and your 3D progress${isShort ? "" : " · this long one also loads in Classic 2D"}</p>`,
+        btns.filter(Boolean), { onBack: back, cls: "meta-book meta-code nopop", wide: true });
     wireCodeBox(card, "mbCodeOut");
 }
 function showLoadCode(prefill = "") {
     const back = xferBack || (() => { tab = 3; renderScrapbook("mbLoad"); });
-    const card = open(`<h2>📥 Load a save code</h2><p>Paste a code that starts with <b>${SAVE_CODE_PREFIX}</b> (from the 2D or 3D game). It <b>replaces</b> the progress on this device.</p>
+    const card = open(`<h2>📥 Load a save code</h2><p>Paste your save code here (it starts with <b>LULU2:</b> or <b>LULU1:</b>). It <b>replaces</b> the progress on this device.</p>
         ${codeBox("mbCodeIn", prefill, false)}<div class="mb-err" id="mbErr"></div>`,
         [{ label: "📋 Paste from clipboard", id: "mbPaste", action: async () => {
             try { const t = await navigator.clipboard.readText(); if (t) { ta.value = t.trim(); } } catch (e) { metaToast("Long-press the box and paste the code there 🙂"); }
@@ -365,11 +426,11 @@ function showLoadCode(prefill = "") {
         { onBack: back, cls: "meta-book meta-code nopop", wide: true, focus: prefill ? "mbDoLoad" : 0 });
     const ta = wireCodeBox(card, "mbCodeIn");
 }
-function tryLoad(text) {
-    const obj = codeToSave(text);
+async function tryLoad(text) {
+    const r = await readCode(text), obj = r.obj;
     if (!obj) {
         const e = document.getElementById("mbErr");
-        if (e) e.textContent = "🤔 That doesn't look like a save code.";
+        if (e) e.textContent = READ_WHY(r);
         tone(220, 0.18, "square", 0.08);
         return;
     }

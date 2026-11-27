@@ -150,7 +150,7 @@ export function accountCard(back) {
         } });
     }
     rows.push({ label: `👀 Other players' names <b>${S.hide ? "Off" : "On"}</b>`, id: "acctHide", action: () => { setHide(!S.hide); accountCard(back); } });
-    if (ctx.meta && ctx.meta.openTransfer) rows.push({ label: "📲 Move to another phone", id: "acctMove", action: () => ctx.meta.openTransfer(again) });
+    if (ctx.meta && ctx.meta.openTransfer) rows.push({ label: "📲 Move to another device", id: "acctMove", action: () => ctx.meta.openTransfer(again) });
     if (!S.off && (name || A.on)) rows.push({ label: "🗑️ Delete my online account", id: "acctDel", action: () => deleteCard(back) });
     rows.push({ label: `Back ${glyph("back")}`, id: "acctBack", cls: "alt", action: () => back() });
     const sub = S.off ? "You deleted your online account. Pick a name to make a new one."

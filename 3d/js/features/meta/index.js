@@ -32,10 +32,10 @@ import { tutorialCalm, tutorialActive, tutState } from "./tutorial.js";
 import { openScrapbook, openQuests, addScrapbookTab, openTransfer } from "./screens.js";
 import { BADGES } from "./badges.js";
 
-// ⚙️ › 📲 Move to another phone — always there (the 🪪 Your name card has it too): the save-code copy / load cards
+// ⚙️ › 📲 Move to another device — always there (the 🪪 Your name card has it too): the save-code copy / load cards
 addMenuItem("settings", {
     id: "transfer", order: 57.5,
-    label: () => "📲 Move to another phone",
+    label: () => "📲 Move to another device",
     action: (b, back) => { setTimeout(() => openTransfer(back), 0); return "card"; },
 });
 
@@ -48,7 +48,7 @@ ctx.meta = {
     calm: () => tutorialCalm(),
     get tutorial() { return tutorialActive(); },
     openScrapbook, openQuests,
-    /** 📲 Move to another phone: the save-code copy / load cards (back → the caller's screen). */
+    /** 📲 Move to another device: the save-code copy / load cards (back → the caller's screen). */
     openTransfer,
     /** Another feature's scrapbook page: { id, icon, name, render(S) → html, wire?(card, rerender) } — open it with openScrapbook(from, id). */
     addScrapbookTab,
