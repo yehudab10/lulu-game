@@ -22,13 +22,15 @@ async function film(look, dir) {
   fs.mkdirSync(dir, { recursive: true });
   const s = await L.open({ query: look ? "&look=2" : "", viewport: { width: 960, height: 540 }, scale: 1 });
   await L.toMidwood(s, ["Avenue J", 150, 1.75]);
+  await L.timeOfDay(s, "noon");                      // (atmos runs its day while she drives: set it before she gets out)
   await s.g(`ctx.foot.start("droveOff")`);
   await s.until(`__lulu3d.state === "footRun"`, "on foot");
   await s.frames(90);                                 // (the hop out of the car finishes)
-  await L.timeOfDay(s, "noon");
   await L.clean(s);
-  await s.g(`(ctx.car.obj.visible = false, true)`);  // (the parked car would block the side view)
-  await L.pinCamera(s, { pos: [5.2, 1.5, 1.2], look: [0, 0.85, 0.4], fov: 42, follow: "foot" });
+  await L.pinCamera(s, { pos: [-4.2, 1.9, 4.4], look: [0, 0.8, 0.6], fov: 40, follow: "foot", hideCar: true });
+  // (a short walk away from the parked cars first, not filmed)
+  await s.page.keyboard.down("KeyW"); await s.frames(36); await s.page.keyboard.up("KeyW"); await s.frames(30);
+  await L.pinCamera(s, { pos: [-4.2, 1.9, 4.4], look: [0, 0.8, 0.6], fov: 40, follow: "foot", hideCar: true });
   let n = 0;
   const info = [];
   await s.g(`(ctx.hold = true, true)`);

@@ -420,6 +420,10 @@ def _palette_name(c, where, wheel):
 
 def build_kenney_car():
     import bpy
+    # the improved car was built first in this file: free the names the game looks for (ws, LuluCar_body, Driver…)
+    for o in list(bpy.data.objects):
+        if o.name in ("ws", "LuluCar_body", "SteeringWheel", "Driver", "Hair_sheitel") or o.name.startswith(("Wheel_", "Anchor_")):
+            o.name = "prev_" + o.name
     coll = scene_coll("KenneyCar")
     root = root_empty(coll, "KenneyCar")
     before = set(bpy.data.objects)
@@ -432,9 +436,9 @@ def build_kenney_car():
     img = next(i for i in bpy.data.images if i.size[0] > 0)
     W, H = img.size
     px = img.pixels[:]
-    COLORS = {"Body": "#E91E63", "Chrome": "#9EA3B5", "Rim": "#E8EAF2", "Tire": "#262626", "Taillight": "#FF1744",
+    COLORS = {"Body": "#E91E63", "Chrome": "#B7BCCB", "Rim": "#E8EAF2", "Tire": "#262626", "Taillight": "#FF1744",
               "Headlight": "#FFF8E1", "Glass": "#9FD8FF", "DarkTrim": "#2E2E34"}
-    M = {k: mat(k, v, rough=0.3 if k == "Body" else 0.5, metal=0.6 if k == "Chrome" else 0.0,
+    M = {k: mat(k, v, rough=0.3 if k == "Body" else 0.5, metal=0.25 if k == "Chrome" else 0.0,
                 emit=2.0 if k == "Headlight" else 1.2 if k == "Taillight" else 0.0) for k, v in COLORS.items()}
     M["Body"] = mat("Body", COLORS["Body"], rough=0.28, metal=0.05)
     SX, SY = 1.40, 1.58                # across, along (fit a 4 m long, 1.82 m wide car)
@@ -453,8 +457,7 @@ def build_kenney_car():
             v = sum(uv[i].uv[1] for i in p.loop_indices) / p.loop_total
             x, y = min(W - 1, max(0, int(u * W))), min(H - 1, max(0, int(v * H)))
             k = (y * W + x) * 4
-            lin_c = px[k:k + 3]
-            srgb = tuple((12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055) for c in lin_c)
+            srgb = tuple(px[k:k + 3])          # (an 8-bit image's pixels are its stored sRGB values, 0..1)
             nm = _palette_name(srgb, o.matrix_world @ p.center, wheel)
             if nm not in slots:
                 slots.append(nm)

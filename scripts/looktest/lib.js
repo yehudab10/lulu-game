@@ -87,13 +87,14 @@ async function timeOfDay(s, name) {
 
 /** Our camera: every frame, right before the draw (the "prerender" hook), the game camera is put here.
  *  pos / look are relative to the car (x right, z forward in the car's frame) unless world: true. */
-async function pinCamera(s, { pos, look, fov = 50, world = false, follow = "car" }) {
+async function pinCamera(s, { pos, look, fov = 50, world = false, follow = "car", hideCar = false }) {
   await s.L(`import("/3d/js/core/ctx.js").then(m => {
     const L3 = __lulu3d, c = L3.ctx;
     if (window.__lookPin) window.__lookPin.off = true;
-    const P = window.__lookPin = { pos: ${JSON.stringify(pos)}, look: ${JSON.stringify(look)}, fov: ${fov}, world: ${world}, follow: ${JSON.stringify(follow)}, off: false };
+    const P = window.__lookPin = { pos: ${JSON.stringify(pos)}, look: ${JSON.stringify(look)}, fov: ${fov}, world: ${world}, follow: ${JSON.stringify(follow)}, hideCar: ${hideCar}, off: false };
     m.hook("prerender", (dt, cam) => {
       if (P.off) return;
+      if (P.hideCar && c.car && c.car.obj) c.car.obj.visible = false;
       let ox = 0, oz = 0, h = 0;
       if (!P.world) {
         const who = P.follow === "foot" && c.foot && c.foot.obj ? c.foot.obj : null;
