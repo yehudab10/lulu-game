@@ -272,4 +272,4 @@ on("town:enter", () => {
 });
 on("town:leave", () => { clear(); hideBeacon("family:ride"); });
 on("run:start", () => { if (CP.ride) { CP.ride = null; hideBeacon("family:ride"); } });      // (a new run: Toby took the bus — the beat waits)
-export { C as COUPLE, COUPLE_AFTER };
+export { C as COUPLE, COUPLE_AFTER, spot as COUPLE_SPOT };

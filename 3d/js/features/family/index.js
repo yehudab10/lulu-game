@@ -7,13 +7,18 @@
 //              sister banter tied to features/decor's move-out days, Chani's whole vocabulary, two tiny capped jobs.
 //   data.js    every name, hour, line and number.
 //
-//  ctx.family { where() → { where, scene, ash }, isFamily(x, z), visit(), debug }
+//  couple.js / couple-data.js — 🤫 Shloime + Toby, the secret couple: six beats out in the world, one a real day.
+//
+//  ctx.family { where() → { where, scene, ash }, isFamily(x, z), fayge, secret, debug }
 //  Events: family:place {where} · family:knock · family:talk · family:chani · family:circle {paid} · family:bags {paid}
 //  Stats: familyVisits, familyCircle
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on } from "../../core/ctx.js";
 import { F, SAVE, init, now, isFamily, placeOf, talk, live } from "./fayge.js";
 import { FAYGE, dayOf } from "./data.js";
+import { stroller } from "./fayge.js";
+import { CP, COUPLE, COUPLE_SPOT, beatNow, play, initCouple, setStroller } from "./couple.js";
+import { BEATS } from "./couple-data.js";
 
 ctx.family = {
     /** Where Fayge is right now: { where: "home" | "playgroup" | "makolet" | "bakery" | "clothes" | "ima" | "walk" | "away", scene, ash } */
@@ -21,6 +26,16 @@ ctx.family = {
     /** Fayge's house (the landlords' front door or her own side door) — features/realestate never lists it. */
     isFamily,
     get fayge() { return F.fay ? { x: F.fay.obj.position.x, z: F.fay.obj.position.z, where: F.where } : null; },
-    debug: { F, SAVE, FAYGE, dayOf, placeOf, talk, live, force: F.force, home: () => F.home && { key: F.home.key, ap: Object.assign({}, F.home.ap), door: Object.assign({}, F.home.door) } },
+    /** 🤫 Shloime + Toby: how far the secret has got ({ n: beats done of BEATS.length, day }). */
+    get secret() { return { n: COUPLE.n, of: BEATS.length, day: COUPLE.day }; },
+    debug: {
+        couple: {
+            C: COUPLE, CP, force: CP.force, play, beat: () => (CP.beat ? CP.beat.id : null), now: () => { const b = beatNow(); return b ? b.id : null; },
+            at: () => CP.at && { x: CP.at.x, z: CP.at.z, nx: CP.at.nx, nz: CP.at.nz }, extra: () => (CP.extra ? CP.extra.key : null),
+            spot: () => !!COUPLE_SPOT.pos(), label: () => (CP.beat ? CP.beat.label : null),
+            reset() { COUPLE.n = 0; COUPLE.day = ""; COUPLE.cover = []; COUPLE.picks = []; CP.ride = null; return true; },
+            nextDay() { COUPLE.day = ""; return true; },
+        },
+        F, SAVE, FAYGE, dayOf, placeOf, talk, live, force: F.force, home: () => F.home && { key: F.home.key, ap: Object.assign({}, F.home.ap), door: Object.assign({}, F.home.door) } },
 };
-on("boot", () => init());
+on("boot", () => { init(); initCouple(); setStroller(stroller); });
