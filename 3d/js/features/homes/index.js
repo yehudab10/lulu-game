@@ -533,7 +533,8 @@ function backOutside() {
     if (L.reported) rec.reported = (rec.reported | 0) + 1;
     if (broke && (L.spotted || L.looted.length)) CR.burgled = home.name;
     try { if (ctx.memory && ctx.memory.remember && broke) ctx.memory.remember("homes", { fam: home.name, town: home.town, spotted: !!L.spotted, reported: !!L.reported, items: L.used.slice(0, 4) }); } catch (e) { /* no memory */ }
-    emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted, scene: L.scene || null, guest: welcomed });
+    emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted, scene: L.scene || null, guest: welcomed,
+        held: L.held || null, own: !!(home.family || claimOf(home) === "mine") });
     HS.log.push({ ev: "exit", key: home.key, exit: L.exit, reported: L.reported });
     // the group chat always knows
     if (L.spotted && broke) groupText(L.reported ? `🚨 The ${plural(home.name)} just called the Shomrim. Someone was IN THEIR HOUSE. With a ${L.used[0] || "seltzer"}.` : `👀 Chani says somebody was creeping around the ${plural(home.name)}'. Lock your doors, ladies.`);
@@ -589,6 +590,9 @@ ctx.homes = {
     livedIn: id => { const h = HS.byId.get(id); return !!h && lived(h); },
     /** Mark doors as someone else's: fn(id, home) → null (the family's) | a status string ("mine", "listed", "packing",
      *  "empty", "rented", "friend"…). Homes gives those doors up entirely. Returns an unregister function. */
+    /** features/houseitems: a family saw her USING their stolen thing (they remember: cooler) / she gave it back (a favour). */
+    noticed(key, item) { const h = HS.byId.get(key); const r = h ? rec0(h) : S.fam[key]; if (!r) return false; r.kept = (r.kept | 0) + 1; r.seen = (r.seen | 0) + 1; saveSoon(); emit("homes:noticed", { key, item }); return true; },
+    returned(key, item) { const h = HS.byId.get(key); const r = h ? rec0(h) : S.fam[key]; if (!r) return false; r.favours = (r.favours | 0) + 1; saveSoon(); emit("homes:returned", { key, item }); return true; },
     /** Another feature's small jobs on homes' ledger (features/family): add({ type: { emoji, name, pay, cap, deliver? } }),
      *  pay(type) → coins actually paid (inside the job's cap + homes' DAY_CAP), errand({ type, to, fromName, label }) → a
      *  delivery to door `to` (the beacon + its ✋ menu). */

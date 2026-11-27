@@ -1483,9 +1483,11 @@ function updateChase(dt) {
         if (ch.giveUp <= 0) { ctx.scene.remove(o); F.chase = null; }
         return;
     }
-    const speed = Math.min(6.9, 6.0 + F.level * 0.06);
+    // (features/houseitems: a BONK spun his hat / a kugel on the pavement — he stops for a moment, looking)
+    const stunned = ch.stunT > 0;
+    const speed = stunned ? 0 : Math.min(6.9, 6.0 + F.level * 0.06);
     const dx = F.pos.x - o.position.x, dz = F.pos.z - o.position.z, dist = Math.hypot(dx, dz);
-    if (dist > 0.01 && F.phase !== "knock") {
+    if (dist > 0.01 && F.phase !== "knock" && !stunned) {
         const k = Math.min(dist, speed * dt) / dist;
         o.position.x += dx * k; o.position.z += dz * k;
     }
@@ -1506,7 +1508,7 @@ function updateChase(dt) {
         }
     } else ch.escapeT = 0;
     if (ch.sprayed) { caught(["ASSAULTING AN OFFICER", "PEPPER-SPRAYING A COP"]); return; }   // (garage: pepper spray on the cop on her tail)
-    if (dist < 1.1 && F.phase === "walk") caught();
+    if (dist < 1.1 && F.phase === "walk" && !stunned) caught();
 }
 
 function startFootChase(from) {
