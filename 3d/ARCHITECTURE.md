@@ -2142,6 +2142,31 @@ driveway); the others stand on Ima's kerb spaces (`kerbSlots`: picked once with 
 a house she owns (`ctx.home.startAt`, door id `town:lx:lz`) starts with a car left within `TUNE.atHouse` of it. Tests
 `scripts/tests3d/cars.js` (stages 1–2) + `cars2.js` (tows, Tuvia, the impound, the minivan).
 
+**The car-care row (carcare, `features/carcare` — ci/carcare, roadmap 43 b):** 🧽 storefronts keeps Midwood's Coney Island
+Ave row + both Minivan Washes for us (`NAMED` rows with `reserved: "carcare"`); on the way into a town carcare CLAIMS the
+named ones (`ctx.storefronts.claim(id, { label, enter })` — the ✋ at that door is ours) and stands an attendant at each
+door while she's on foot nearby (≤ 45 m, gone past 60 m). Each car's CONDITION is saved WITH ITS CARS RECORD
+(`ctx.cars.care(key)` → the live object in `cars` › `SAVE.care[key]`, so the 💾 save code carries it): `{ dirt 0..1,
+dents 0..3, tire, tireAt, muf, shine }`. A shop works on her car if it's parked within 35 m (her own stub or one of her
+parked cars — `ctx.cars.props()`); Ima's minivan / a borrowed car get a line instead. The services are `shops/card.js`
+cards through `garage/buy.js` › `buyExtra` (never below 0):
+• 🧽 **wash** 8 — dirt builds with distance (`TUNE.dirtKm` 40 km, × 3 on a wet road, + 0.03 a puddle splash — life's
+  `carSplashes`); it SHOWS (the Body paints toward grime, rougher; `look.js`, re-dressed only when its look changes); a
+  wash = clean + 10 real minutes of sparkle (glossier, twinkles, no dirt meanwhile). Dirty (≥ 0.6): law's `copLook` × 1.1
+  and Ima texts at the door once a real day. Ima's minivan: always a bit dirty (looks only).
+• 🔧 **body shop** — every lost heart in her own car (`damage`) = a dent level (≤ 3; 2 decals each, raycast onto the lulu
+  model's body once); 25 a level, or 🪠 10 to pop them herself (`dents.js`: 20 s, an arrow + a green zone, ✋/tap).
+• 🛞 **tires** — All-season (free) · Sport 60 (grip × 1.12 dry, × 0.92 wet) · Rain 50 (× 1.18 wet, top × 0.98), blended
+  by `ctx.atmos.wet`, fading to 1 over 3 real days; the same set again half price. Applied as `car.mods = { grip, top }`
+  (car.js multiplies them in `step`; null when she isn't in her own car — a ride's / shell's stats stay theirs).
+• 🔊 **mufflers** — Stock · LOUD 30 (pops + a flame puff when she lifts off above 12 m/s; law's `copHear` × 1.2 on the
+  "they still hear her" gap) · QUIET 30 (at night `copLook` × 0.85). Law: `copMul(name)` multiplies the hooks' numbers
+  into the trap / patrol / BOLO / warrant looks and the search gap.
+• ☕ **Gas & Gossip** — free: one TRUE fact about today, picked by the real hour (`gossip.js` reads cityhall's protest
+  hours + topic, the mayor's edict, the parody days, the Ballroom's wedding nights, storefronts' late hours, the cameras).
+  The pump is ci/fuel's. Nothing is sent to friends (the relay only carries the car's model key). Every number + line
+  in `carcare/data.js`. Test `carcare`.
+
 **Speed cameras (cameras, `features/cameras` — ci/cameras, roadmap 36):** 📸 the owner (2026-11-27): "speed cameras… only on
 ocean parkway for now at 25mph and only trigger if going above 35mph… a flash… a few days later it'll come on the mail to one of
 lulus houses with the pic attached and the fine… court or cops will come after her… speed cameras to all schools as well with

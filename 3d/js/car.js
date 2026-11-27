@@ -183,7 +183,9 @@ export class PlayerCar {
         const off = env.offroad;
 
         // ── longitudinal ──
-        const top = 42 * st.top * (this.boosting ? (st.nitroTop || 1.32) : 1) * (1 - off * 0.45);
+        // (this.mods: what's fitted to THIS car on top of its stats — features/carcare's tires: { grip, top } multipliers)
+        const md = this.mods, gm = md ? md.grip || 1 : 1;
+        const top = 42 * st.top * (md ? md.top || 1 : 1) * (this.boosting ? (st.nitroTop || 1.32) : 1) * (1 - off * 0.45);
         let a = 0;
         if (ctl.throttle > 0.02 && vF > -0.5) {
             const k = Math.max(0, 1 - Math.pow(Math.max(0, vF) / top, 2));
@@ -218,13 +220,13 @@ export class PlayerCar {
         const maxAngle = 0.62 / (1 + Math.abs(vF) / 13);
         const delta = this.steerVal * maxAngle;
         let yaw = vF * Math.tan(delta) / WHEELBASE;          // + = turning right
-        const latMax = 13.5 * st.grip * (ctl.handbrake ? 1.45 : 1) * (1 - off * 0.25);
+        const latMax = 13.5 * st.grip * gm * (ctl.handbrake ? 1.45 : 1) * (1 - off * 0.25);
         const lim = latMax / Math.max(Math.abs(vF), 3);
         yaw = Math.max(-lim, Math.min(lim, yaw));
         if (ctl.handbrake && Math.abs(vF) > 6) yaw *= 1.35;
 
         // ── lateral grip ──
-        const grip = (ctl.handbrake ? 1.4 : 9.5 - off * 4) * st.grip;
+        const grip = (ctl.handbrake ? 1.4 : 9.5 - off * 4) * st.grip * gm;
         vR *= Math.exp(-grip * dt);
         this.slip = Math.min(1, Math.abs(vR) / 6 + (ctl.handbrake && Math.abs(vF) > 5 ? 0.35 : 0) +
             (ctl.brake > 0.8 && vF > 15 ? 0.25 : 0));
