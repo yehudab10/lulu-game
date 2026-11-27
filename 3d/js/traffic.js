@@ -211,6 +211,13 @@ export class Traffic {
                     const g = (o.s - c.s) * c.dir;
                     if (g > 0 && g < gap) { gap = g; ahead = o; }
                 }
+                // …and LULU herself, when she's in its lane ahead of it (our direction): a car she just passed used to plough
+                // into her the moment she braked or stopped ("Tailgating doesn't pay" — for being rear-ended). Her CAR only
+                // (it has a vF): on foot (foot's PROXY) the drivers' own rules apply (foot/index.js: footAttn / the beep)
+                if (c.dir > 0 && typeof player.vF === "number" && Math.abs(playerD - c.d) < 2.2) {
+                    const g = playerS - c.s;
+                    if (g > 0 && g < gap) { gap = g; ahead = { speed: Math.max(0, player.vF || 0), hit: false }; }
+                }
                 let target = c.want;
                 if (ahead && gap < 26) {
                     target = Math.min(target, ahead.hit ? 0 : ahead.speed - 1.5);
@@ -321,6 +328,10 @@ export class Traffic {
         } else if (!c.hit) {
             c.speed = Math.max(0, c.speed - impact);
         }
-        return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, car: c, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
+        // who was moving into whom (along the contact line, n points from them to her): a car that drove into a slower Lulu
+        // (a rear-end, a cruiser ramming her) is THEIR fault — law + the crash lines read it
+        const herIn = -(player.vx * nx + player.vz * nz), theirIn = cvx * nx + cvz * nz;
+        const fault = theirIn > herIn + 1 ? "them" : "lulu";
+        return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, fault, car: c, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
     }
 }

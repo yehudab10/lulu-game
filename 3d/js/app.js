@@ -272,6 +272,8 @@ function nextPlace(s) {
     try { const T = ctx.town; if (T && T.exits) for (const e of T.exits) { const k = mod(e.s); const p = pts.find(q => Math.abs(q.s - k) < 5);
         if (p) { if (!p.names.includes(e.name)) p.names.push(e.name); } else pts.push({ s: k, names: [e.name], kind: "exit" }); } } catch (e) { /* no towns */ }
     try { if (ctx.exits && ctx.exits.rests) for (const r of ctx.exits.rests) pts.push({ s: mod(r.s), kind: "rest" }); } catch (e) { /* no rest areas */ }
+    // ✈ the JFK exit (features/airport — its own EXIT 12 boards count down to it: the trip bar used to skip it)
+    try { const ap = ctx.airport && ctx.airport.on && ctx.airport.planned; if (ap) pts.push({ s: mod(ap.s), names: [ap.name], kind: "exit" }); } catch (e) { /* no airport */ }
     let v;
     if (!pts.length) v = { frac: here / LAP, label: "On the highway" };
     else {

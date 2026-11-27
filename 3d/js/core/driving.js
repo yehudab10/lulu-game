@@ -185,10 +185,10 @@ export function recoverFromWreck(info = {}) {
  * Lose a heart. info: power (0..1.2 → crash sound), why (banner text), source (string)
  * Respects invincibility; hooks.damage can veto (shield).
  */
-export function damage(power, why, source = "crash") {
+export function damage(power, why, source = "crash", extra = null) {
     const G = ctx.G;
     if (G.invT > 0 || ctx.state !== "playing") return false;
-    const info = { power, why, source };
+    const info = Object.assign({ power, why, source }, extra);
     if (vetoHooks("damage", info)) return false;
     const { car } = ctx;
     G.hearts--;
@@ -204,15 +204,15 @@ export function damage(power, why, source = "crash") {
     car.fx.burst(car.pos.x, 0.8, car.pos.z, 14, 2, [0.6, 0.6, 0.62], 1.6, 1.2);
     emit("damage", info);
     emit("stat", { id: "crashes", n: 1 });
-    if (G.hearts <= 0) wreck(why, source);
+    if (G.hearts <= 0) wreck(why, source, extra);
     else if (ctx.time - lineAt > 0.25) H.toast(`💥 ${pick(QUIPS)}`, "red", { prio: 1 });    // flavour: the hearts, flash + crash already say it
     return true;
 }
 
 /** Out of hearts: spin out, then (after KO.spin s) let a feature claim it (arrest, the crash comedy…) or knock-out. */
-export function wreck(why, source = "crash") {
+export function wreck(why, source = "crash", extra = null) {
     const G = ctx.G;
-    G.wreckInfo = { why, source };
+    G.wreckInfo = Object.assign({ why, source }, extra);   // extra: e.g. { fault: "them" } — a car drove into her (traffic.js)
     ctx.car.spin += (Math.random() < 0.5 ? -1 : 1) * 5;
     H.banner(`💥 <b>WRECKED!</b><small>${why || "Lulu's car has had enough"}</small>`, 1300, { prio: 2 });
     A.sfxHorn(false);
@@ -381,7 +381,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
         if (e.type === "crash") {
             emit("crash", e);
             if (e.car && e.car.onCrash && e.car.onCrash(e) === false) continue;
-            if (e.impact > 6.5) damage(e.impact / 16, e.oncoming ? "Head-on? REALLY, Lulu?" : "Tailgating doesn't pay", e.kind);
+            if (e.impact > 6.5) damage(e.impact / 16, e.oncoming ? "Head-on? REALLY, Lulu?" : e.fault === "them" ? "They drove right into you!" : "Tailgating doesn't pay", e.kind, { fault: e.fault });
             else if (e.impact > 1.5) { A.sfxBump(); rumble(0.5, 0.5, 150, true); G.shake = Math.max(G.shake, 0.25); }
         } else if (e.type === "nearMiss" && controlsOn && G.invT <= 0 && !G.selfDriving) closeCall(e.oncoming);   // (self-driving: no bonus)
         else if (e.type === "moved") H.toast("📣 Move it, buddy!", "");

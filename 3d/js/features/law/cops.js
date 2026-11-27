@@ -310,7 +310,8 @@ function onCopCrash(u, e) {
         u.downed = true;
         UI.say("💥 COP DOWN!", "gold");
         addScore(250, "copDown");
-        if (L.chase && !L.chase.charges.includes("DESTROYING A POLICE CRUISER")) L.chase.charges.push("DESTROYING A POLICE CRUISER");
+        // (the charge only when SHE drove into it — a cruiser that rammed her and spun out is on them: traffic.js e.fault)
+        if (L.chase && e.fault !== "them" && !L.chase.charges.includes("DESTROYING A POLICE CRUISER")) L.chase.charges.push("DESTROYING A POLICE CRUISER");
     }
     return e.impact > 8 ? undefined : false;
 }

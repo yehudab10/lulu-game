@@ -330,6 +330,9 @@ function nextAhead() {
         for (const e of T.exits) { const a = e.s - car.s; if (a > -120 && a < 1609) { if (!seen.has(e.s)) seen.set(e.s, []); seen.get(e.s).push(e); } }
         for (const [s, list] of seen) { const a = s - car.s; if (!best || a < best.a) best = { kind: "exit", a, list }; }
     }
+    // ✈ the JFK exit (features/airport): its EXIT 12 boards count down like a town's — so does the chip
+    const ap = ctx.airport && ctx.airport.on && ctx.airport.planned;
+    if (ap) { const a = ap.s - car.s; if (a > -120 && a < 1609 && (!best || a < best.a)) best = { kind: "exit", a, list: [{ s: ap.s, id: "airport", no: ap.no, label: "JFK AIRPORT" }] }; }
     for (const R of RS.list) { const a = R.s - car.s; if (a > -60 && a < 1609 && (!best || a < best.a)) best = { kind: "rest", a, R }; }
     return best;
 }
