@@ -67,6 +67,7 @@ const PROFILE = {
 // installed before the game: paint + long-task + resource observers, all kept on window.__ps
 const PROBE = () => {
   const P = window.__ps = { long: [], res: [], fcp: null };
+  try { performance.setResourceTimingBufferSize(5000); } catch (e) { }
   try { new PerformanceObserver(l => { for (const e of l.getEntries()) P.long.push([e.startTime, e.duration]); }).observe({ type: "longtask", buffered: true }); } catch (e) { }
   try { new PerformanceObserver(l => { for (const e of l.getEntries()) if (e.name === "first-contentful-paint") P.fcp = e.startTime; }).observe({ type: "paint", buffered: true }); } catch (e) { }
   try { new PerformanceObserver(l => { for (const e of l.getEntries()) P.res.push([e.startTime, e.responseEnd, e.encodedBodySize || e.transferSize || 0, e.name.replace(location.origin, "")]); }).observe({ type: "resource", buffered: true }); } catch (e) { }
@@ -97,10 +98,25 @@ async function once(browser, base, prof, ctxHolder, warm) {
     page.on("requestfinished", async r => { const e = NET.reqs.get(r); if (!e) return; e.t1 = Date.now(); try { const s = await r.sizes(); e.size = s.responseBodySize; } catch (err) { } });
     page.on("requestfailed", r => { const e = NET.reqs.get(r); if (e) e.t1 = -1; });
   }
+  if (process.env.PERFSTART_BOOTPROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 1000 }); await cdp.send("Profiler.start"); }
   const t0 = Date.now();
   await page.goto(`${base}/3d/${EXTRA ? "?" + EXTRA.replace(/^&/, "") : ""}`);
   await page.waitForFunction(() => window.__lulu3d && __lulu3d.state === "title" && !!document.querySelector("#screenCard #play"), null, { timeout: 300000, polling: 50 });
   const title = await page.evaluate(() => ({ interactive: performance.now(), fcp: window.__ps.fcp }));
+  if (process.env.PERFSTART_BOOTPROFILE) {
+    const { profile } = await cdp.send("Profiler.stop");
+    const byId = new Map(profile.nodes.map(n => [n.id, n])), parent = new Map(); for (const n of profile.nodes) for (const c of (n.children || [])) parent.set(c, n.id);
+    const key = n => `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").slice(-2).join("/")}:${n.callFrame.lineNumber + 1}`;
+    const incl = new Map(), self = new Map(), dt = profile.timeDeltas, smp = profile.samples;
+    for (let i = 0; i < smp.length; i++) { const d = (dt[i] || 0) / 1000; const n0 = byId.get(smp[i]); self.set(key(n0), (self.get(key(n0)) || 0) + d);
+      const seen = new Set(); for (let id = smp[i]; id; id = parent.get(id)) { const k = key(byId.get(id)); if (seen.has(k)) continue; seen.add(k); incl.set(k, (incl.get(k) || 0) + d); } }
+    console.log("    BOOT SELF " + [...self].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${Math.round(v)}ms ${k}`).join("\n              "));
+    console.log("    BOOT INCL " + [...incl].filter(([k]) => /js\//.test(k) || /features|core|app|main|models|world/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => `${Math.round(v)}ms ${k}`).join("\n              "));
+  }
+  if (process.env.PERFSTART_TITLEMIX) console.log("      before the title: " + JSON.stringify(await page.evaluate(() => { const by = {};
+    for (const e of performance.getEntriesByType("resource")) { if (e.startTime > performance.now()) continue; const x = (e.name.split("?")[0].match(/\.(\w+)$/) || [, "other"])[1];
+      const b = by[x] || (by[x] = { n: 0, kb: 0, firstStart: 1e9, lastEnd: 0 }); b.n++; b.kb += (e.encodedBodySize || 0) / 1024; b.firstStart = Math.min(b.firstStart, Math.round(e.startTime)); b.lastEnd = Math.max(b.lastEnd, Math.round(e.responseEnd)); }
+    for (const b of Object.values(by)) b.kb = Math.round(b.kb); return by; })));
   // a player looks at the title a moment (the time the game already uses behind it) — 4 s, then ▶ PLAY
   // (PERFSTART_EXPERIMENT=models: load the models the home start fetches, behind the title, first — the upper bound of a preload)
   // the home is ready (▶ PLAY would start her at home, not on a plain drive): from navigation
