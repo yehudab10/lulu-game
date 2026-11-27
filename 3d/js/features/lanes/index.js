@@ -49,15 +49,7 @@ function hasTrophy() {
 }
 function takeTrophy() {
     if (LG.force.trophy) { LG.force.trophy = false; return true; }
-    const hi = ctx.houseitems;
-    if (!hi) return false;
-    if (typeof hi.take === "function") return !!hi.take("trophy");
-    const B = hi.debug && hi.debug.S;             // (until houseitems has a take(): its own bag, the same way it uses one up)
-    const i = B ? B.bag.findIndex(x => x.id === "trophy") : -1;
-    if (i < 0) return false;
-    B.bag.splice(i, 1); B.hand = Math.max(0, Math.min(B.hand, B.bag.length - 1)); saveSoon();
-    emit("houseitems:gone", { id: "trophy" });
-    return true;
+    return !!(ctx.houseitems && ctx.houseitems.take && ctx.houseitems.take("trophy"));
 }
 
 // ── her bowling shoes (the rental pair, while she's in the alley) ──

@@ -204,8 +204,7 @@ export default defineInterior({
             const s = rt.spot("bake"), at = new THREE.Vector3(s.x, 1.1, s.z - 1.2);
             await rt.say("Bake-sale mom", BAKE(), Object.assign({ person: rt.byId.bakeMom }, BAKE_S));
             if (rt.disposed) return;
-            if (!rt.used.bake) {               // one-time coin reward for the visit…
-                rt.used.bake = true;
+            if (rt.onceToday("bake")) {               // one-time coin reward for the visit…
                 rt.coins(6, "+6 💰 rugelach run!", at);
                 rt.burst(at, ["#FFD700", "#FFCC80", "#A1674A"], 10, 2.0, 0.05);
             } else {                           // …then just a nosh (no more stars: it was an endless tap)

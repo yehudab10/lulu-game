@@ -4,6 +4,19 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-27 23:02 UTC — 🪙 Coins and rules, part 1: no more free-coin loops from restarting. The one-time treats inside
+  buildings (the precinct's free coffee, the bar's seltzer, the beach ice cream, the school bake sale, the hospital
+  snack…) now pay once a DAY — restarting used to refill them. Couch coins in the neighbours' houses really stop for the
+  day, like Lulu says; Hillel's insurance payout is once a day, like he says; the easy on-foot robbery tackle and the
+  moped thief's catch bonus have a daily limit too. Mashing the roll button (or tapping the road on a phone) no longer
+  pays combo coins — mix different moves and it still does, up to 200 a day. Cookie Catch with Dina pays up to 300 a day,
+  then the rounds are free, just for fun. Ima's list no longer asks Lulu to drop the challah at Bubbe's (Bubbe's house
+  isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
+  out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
+  now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-27 22:20 UTC (tests) — Hitting a pothole on the highway no longer pops up a "🕳️ POTHOLE!" message on top of
+  whatever Lulu says about it: the jolt, the thud and her line already say it (one less pop-up while driving). Two
+  automatic checks that had gone out of date were brought up to date.
 - 2026-11-27 21:15 UTC — Started the fix sweep (three at a time: the tests that are red on main, the game's rules and
   coins, and this week's new places; then the road, the screen / phone, friends, and phone speed).
 
