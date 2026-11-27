@@ -10,7 +10,7 @@
 // in ?test mode, so wait in FRAMES (t.frames(n)) or on a condition (t.until), never in milliseconds —
 // under the fast test clock (below) a real-time sleep is worth a different number of frames.
 //
-//   SMOKE3D_FAST=1 / =0     every file on / off the fast test clock (default: each file's own `fast`)
+//   SMOKE3D_FAST=0          every file on the old clock (default: the fast test clock, except `fast: false` files)
 //   SMOKE3D_PROF=1          a PROF line per file: wall, boot, game frames, draws, ms per game frame
 //   SMOKE3D_TIMES=<file>    each file's seconds + pass, as JSON (CI → scripts/durations.js)
 //
@@ -38,12 +38,12 @@ const PROF = !!process.env.SMOKE3D_PROF;
 // a step every browser frame while a test waits (and the old pace between its commands), t.frames / t.until hold
 // the game exactly where they stop, and the page's timers follow game time (scripts/lib/vclock.js). Same game time,
 // same checks — far fewer draws.
-//   SMOKE3D_FAST unset → each file's own `fast` (true = on; the default while it rolls out is off)
-//   SMOKE3D_FAST=1 → every file on (except a file that says `fast: false`: it measures draws / pictures)
-//   SMOKE3D_FAST=0 → every file off (the old clock: one render per 1/30 s step)
+//   ON BY DEFAULT for every file, except a file that says `fast: false` (it measures draws / pictures per frame, or
+//   it's `core`, the real-time canary).  SMOKE3D_FAST=0 → every file on the old clock (one draw per 1/30 s step);
+//   SMOKE3D_FAST=1 → the same as the default.
 const FAST_ENV = process.env.SMOKE3D_FAST;
 const FAST_CFG = { every: +process.env.SMOKE3D_FAST_EVERY || 6, scale: +process.env.SMOKE3D_FAST_SCALE || 0.25 };
-const fastFor = mod => mod.fast === false ? false : FAST_ENV === "1" ? true : FAST_ENV === "0" ? false : !!mod.fast;
+const fastFor = mod => mod.fast === false ? false : FAST_ENV !== "0";
 const ONLY = process.env.SMOKE3D_ONLY ? new RegExp("^(" + process.env.SMOKE3D_ONLY.split(",").join("|") + ")$") : null;
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
   ".png": "image/png", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".glb": "model/gltf-binary", ".json": "application/json" };

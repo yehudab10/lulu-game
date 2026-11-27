@@ -9,8 +9,8 @@
 #   groups — run exactly these groups in parallel, separated by ';'
 #            (e.g. "community;midwood;core,rides"). Overrides `only`. `node scripts/affected.js` prints a ready one
 #            for your change (packed by the recorded durations in scripts/tests3d-durations.json).
-#   clock  — "" (each file's own setting), "fast" (every file on the fast test clock, except the ones that measure
-#            draws / pictures) or "slow" (the old clock everywhere) — see scripts/smoke3d.js › THE FAST TEST CLOCK.
+#   clock  — "" / "fast" (the fast test clock, except the files that say `fast: false`) or "slow" (the old clock
+#            everywhere, e.g. to compare) — see scripts/smoke3d.js › THE FAST TEST CLOCK.
 # Without `groups`, the files are packed onto ≤ 16 machines by their recorded durations (longest first).
 # Works on any branch (pick it in "Use workflow from"): push a test branch and
 # run it there before merging to main.
@@ -28,7 +28,7 @@ on:
         required: false
         default: ""
       clock:
-        description: "Test clock: empty = each file's own · fast = all fast · slow = all the old clock"
+        description: "Test clock: empty / fast = the fast test clock (default) · slow = the old clock everywhere"
         required: false
         default: ""
 

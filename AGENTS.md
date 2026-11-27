@@ -183,6 +183,13 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
 
 ## 4. Setup and tests
 
+> **How to run tests now (2026-11-27, `ci/fasttests`):**
+> 1. `node scripts/affected.js` → the test files YOUR change can break, as a ready `groups=` string (`--why` explains).
+> 2. Paste it: `gh workflow run smoke3d-full.yml --ref ci/<name> -f groups="<that string>"` — one dispatch per branch.
+> 3. Every file runs on the **fast test clock** by default (~5–8× quicker, same checks); `-f clock=slow` = the old one.
+> 4. Locally: `SMOKE3D_ONLY=<files> node scripts/smoke3d.js` (fast too); `SMOKE3D_PROF=1` shows where the time goes.
+> 5. In a test, wait with `t.frames(n)` / `t.until(…)` — never a real-time sleep; a file that measures draws says `fast: false`.
+
 ```bash
 node build.js --check                 # 2D game.js in sync with src/
 node scripts/copy-web.js              # stage www/ for iOS + check every 3D file reference
@@ -219,7 +226,7 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
     ready `groups=` string for YOUR change, packed ~35 min per machine from `scripts/tests3d-durations.json`. Paste
     it instead of guessing a safety list. A core / HUD / world / model / harness change selects everything — then
     one full run on your final head. Refresh the durations after a full run: `node scripts/durations.js <run id>`.
-  - **The fast test clock** (`SMOKE3D_FAST=1`, a file's own `fast: true`, or the workflow's `clock` input):
+  - **The fast test clock** (the DEFAULT; `SMOKE3D_FAST=0` / the workflow's `clock=slow` = the old clock):
     the picture is drawn every 6th frame on a small canvas, `t.frames` / `t.until` (and party3d's waits) hold the
     game exactly where they stop, the page's timers follow game time — same game time, same checks, ~5–8× fewer
     seconds. A file that measures draws / pictures says `fast: false` and keeps the old clock. Details:
