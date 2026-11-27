@@ -11,7 +11,16 @@ module.exports = {
   save2d: { totalCoins: 3000, convictions: 0, offenses: 0, escapes: 0, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
     const st = () => t.game(`ctx.state`);
-    const log = ev => t.game(`${D}.log.filter(e => e.ev === ${JSON.stringify(ev)})`);
+
+    /** Out of a building features/places put her in (the courthouse lobby / out of the precinct's door): a room is left by
+     *  its own door (as she'd walk out), then on her feet → back in a car for the rest of the test. → she got out */
+    const toRoad = async label => {
+      await t.until(`!["lawExit", "lawCourt", "lawJail"].includes(__lulu3d.state)`, `${label}: the scene ends`, 120000);
+      if (await st() === "interior") { await t.game(`(window.__interiors && window.__interiors.room && window.__interiors.room.leave(), true)`); await t.until(`__lulu3d.state !== "interior"`, `${label}: out of the room's door`, 30000); }
+      const ok = ["footRun", "playing", "intro"].includes(await st());
+      if (await st() === "footRun") await t.game(`(ctx.foot.end("test"), L3.setState("playing"), true)`);
+      return ok;
+    };    const log = ev => t.game(`${D}.log.filter(e => e.ev === ${JSON.stringify(ev)})`);
     const save2d = () => t.L(`JSON.parse(localStorage.getItem("luluSaveV2") || "{}")`);
     // advance any open dialogue: ✕ through lines, pick `choice(text)` when options show
     async function talk(untilCode, label, pickRe = null, max = 160) {
@@ -248,7 +257,10 @@ module.exports = {
     if (out.state === "footRun") {
       await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "on her feet, in control", 15000);
       t.check("jailbreak in a town: out of the precinct's front door on foot (≤ 12 m), in control", out.town && out.door != null && out.door <= 12, JSON.stringify(out));
-      t.check("…her own car is behind the impound fence (no car of hers at the kerb)", out.own === "gone" && out.imp, JSON.stringify(out));
+      // (her car: at the kerb out front when it's hers and in one piece, else behind the impound lot's fence — either way
+      //  she knows where it is)
+      const pc = await t.game(`(() => { const c = ctx.foot.parkedCar, F = ctx.foot.debug.F; return c ? { d: +Math.hypot(c.x - F.pos.x, c.z - F.pos.z).toFixed(1), drivable: c.drivable } : null; })()`);
+      t.check("…her car: at the kerb nearby (≤ 25 m, drivable) or behind the impound fence", (out.own === "parked" && pc && pc.d <= 25 && pc.drivable) || (out.own === "gone" && out.imp), JSON.stringify({ out, pc }));
     }
     const sv2 = await save2d();
     t.check("jailbreak counted (shared save.escapes)", sv2.escapes === 1);
@@ -292,7 +304,8 @@ module.exports = {
     await talk(`[...document.querySelectorAll("#dialog .opt")].some(b => b.style.visibility !== "hidden")`, "asked how she pleads");
     t.check("how do you plead (3 defenses + plea bargain)", (await t.L(`[...document.querySelectorAll("#dialog .opt")].map(b => b.textContent).join("|")`)).includes("Plea bargain"));
     await t.shot("court-plead");
-    await talk(`__lulu3d.state === "lawExit" || __lulu3d.state === "intro" || __lulu3d.state === "playing"`, "the plea is accepted", /Plea bargain/);
+    // (features/places: after court she's in the courthouse — its lobby, a room — or out of its door on foot)
+    await talk(`["lawExit", "intro", "playing", "interior", "footRun"].includes(__lulu3d.state)`, "the plea is accepted", /Plea bargain/);
     const after = await save2d();
     const verdict = (await log("law:verdict")).slice(-1)[0] || {};
     t.check("plea bargain → a fine", verdict.verdict === "fine" && verdict.plea === true, JSON.stringify(verdict));
@@ -300,11 +313,10 @@ module.exports = {
     t.check("…and no strike for the plea", (after.convictions || 0) === (before.convictions || 0));
     t.check("court clears the lockup and warrants", !after.lockup && (!after.wanted || after.wanted.length === 0));
     if (await st() === "lawExit") { await t.frames(20); await t.shot("court-exit"); }
-    await t.until(`["intro", "playing"].includes(__lulu3d.state)`, "back on the road after court", 300000);
-    t.check("back on the road after court", ["intro", "playing"].includes(await st()));
+    t.check("out of court: in the courthouse or out of its door, in control", await toRoad("after court"), await st());
 
     // ── a jail verdict: serve the sentence, walk out ──
-    await t.until(`__lulu3d.state === "playing"`, "playing again", 300000);
+    await t.until(`__lulu3d.state === "playing"`, "playing again", 60000);
     await t.game(`(${D}.FORCE.verdict = "jail", ctx.law.arrest(["GRAND THEFT AUTO", "JOYRIDING"], { skipCinematic: true }))`);
     await toCell("booked for GTA");
     await t.game(`document.querySelector("#lawCourtBtn").click()`);
@@ -316,7 +328,7 @@ module.exports = {
     await t.shot("serving");
     await t.game(`${D}.jail().serve.serveDays = ${D}.jail().serve.total - 2`);
     for (let i = 0; i < 6; i++) await t.tap(0);
-    await t.until(`__lulu3d.state === "lawExit" || __lulu3d.state === "intro" || __lulu3d.state === "playing"`, "time served → walk out", 300000);
+    await t.until(`["lawExit", "intro", "playing", "interior", "footRun"].includes(__lulu3d.state)`, "time served → walk out", 300000);
     t.check("time served clears the lockup", !(await save2d()).lockup);
 
     // ── a cop-caused wreck is claimed by law (priority 30) ──
