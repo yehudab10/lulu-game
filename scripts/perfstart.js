@@ -72,12 +72,20 @@ async function once(browser, base, prof, ctxHolder, warm) {
   const cdp = await context.newCDPSession(page);
   if (pr.cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: pr.cpu });
   if (pr.net) { await cdp.send("Network.enable"); await cdp.send("Network.emulateNetworkConditions", pr.net); }
+  const NET = { reqs: new Map() };
+  if (process.env.PERFSTART_NET) {
+    page.on("request", r => NET.reqs.set(r, { url: r.url().replace(base, ""), t0: Date.now(), t1: 0, size: 0 }));
+    page.on("requestfinished", async r => { const e = NET.reqs.get(r); if (!e) return; e.t1 = Date.now(); try { const s = await r.sizes(); e.size = s.responseBodySize; } catch (err) { } });
+    page.on("requestfailed", r => { const e = NET.reqs.get(r); if (e) e.t1 = -1; });
+  }
   const t0 = Date.now();
   await page.goto(`${base}/3d/${EXTRA ? "?" + EXTRA.replace(/^&/, "") : ""}`);
   await page.waitForFunction(() => window.__lulu3d && __lulu3d.state === "title" && !!document.querySelector("#screenCard #play"), null, { timeout: 300000, polling: 50 });
   const title = await page.evaluate(() => ({ interactive: performance.now(), fcp: window.__ps.fcp }));
   // a player looks at the title a moment (the time the game already uses behind it) — 4 s, then ▶ PLAY
   // (PERFSTART_EXPERIMENT=models: load the models the home start fetches, behind the title, first — the upper bound of a preload)
+  // the home is ready (▶ PLAY would start her at home, not on a plain drive): from navigation
+  const homeReadyAt = await page.waitForFunction(() => import("./js/features/world/home.js").then(m => m.home.ready ? performance.now() : 0), null, { timeout: 600000, polling: 250 }).then(h => h.jsonValue()).catch(() => -1);
   if (process.env.PERFSTART_EXPERIMENT === "models") await page.evaluate(() => import("./js/models.js").then(m => { const f = m.modelFiles();
     return m.ensureModels(Object.keys(f).filter(k => /homes_|foot_|town_bochur|avigail_person/.test(f[k]))); }));
   await page.waitForTimeout(4000);
@@ -85,9 +93,26 @@ async function once(browser, base, prof, ctxHolder, warm) {
     window.__progKeys = new Set((L3.renderer.info.programs || []).map(p => p.cacheKey));
     return { now: performance.now(), programs: (L3.renderer.info.programs || []).length, standing: T && T.standing ? T.standing.filter(s => s.ready).length : null,
       heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null }; });
+  if (process.env.PERFSTART_TRACE) console.log("      line at PLAY: " + JSON.stringify(await page.evaluate(() => import("./js/models.js").then(m => m.downloadInfo && m.downloadInfo(true)))));
   if (process.env.PERFSTART_CPUPROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 500 }); await cdp.send("Profiler.start"); }
+  if (process.env.PERFSTART_NET) {
+    const now = Date.now(), open = [...NET.reqs.values()].filter(e => !e.t1);
+    const by = {}; for (const e of open) { const k = (e.url.match(/([a-z]+)_?[^/]*\.(glb|mp3|png|js)/) || [, "other", ""]).slice(1).join("."); by[k] = (by[k] || 0) + 1; }
+    console.log(`      at PLAY: ${open.length} requests still open (${JSON.stringify(by)}); ${NET.reqs.size} requested so far`);
+    NET.clickWall = now;
+  }
   const clickAt = await page.evaluate(() => { const b = document.querySelector("#screenCard #play"); const t = performance.now(); b.click(); return t; });
-  await page.waitForFunction(() => { const c = window.__lulu3d.ctx; return c.state === "footRun" && c.foot && c.foot.phase === "walk"; }, null, { timeout: 300000, polling: 50 });
+  const tw = Date.now();
+  for (;;) {
+    const dl = process.env.PERFSTART_TRACE ? await page.evaluate(() => import("./js/models.js").then(m => m.downloadInfo ? m.downloadInfo() : null)) : null;
+    const st = await page.evaluate(() => { const c = window.__lulu3d.ctx, P = window.__ps;
+      return { ok: c.state === "footRun" && !!c.foot && c.foot.phase === "walk", state: c.state, phase: c.foot && c.foot.phase, view: !!c.view,
+        pending: performance.getEntriesByType("resource").length, res: P.res.length, last: (P.res[P.res.length - 1] || [])[3] }; });
+    if (st.ok) break;
+    if (Date.now() - tw > (+process.env.PERFSTART_WAIT || 300000)) throw new Error("no control after PLAY: " + JSON.stringify(st) + " errors: " + errors.slice(0, 3).join(" | "));
+    if (process.env.PERFSTART_TRACE && (Date.now() - tw) % 5000 < 60) console.log("      … " + Math.round((Date.now() - tw) / 1000) + " s " + JSON.stringify(st) + " line " + JSON.stringify(dl));
+    await page.waitForTimeout(50);
+  }
   if (process.env.PERFSTART_CPUPROFILE) {
     const { profile } = await cdp.send("Profiler.stop");
     // self time by function (top 25) and inclusive time for a few game entry points
@@ -109,8 +134,12 @@ async function once(browser, base, prof, ctxHolder, warm) {
       newProgs: (L3.renderer.info.programs || []).filter(p => !window.__progKeys.has(p.cacheKey)).map(p => p.cacheKey), oldProgs: [...window.__progKeys],
       names: res.map(r => r[3].split('/').pop().split('?')[0] + ':' + Math.round(r[1] - clickAt)),
       heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null }; }, [clickAt]);
+  if (process.env.PERFSTART_NET) {
+    const after = [...NET.reqs.values()].filter(e => e.t0 >= NET.clickWall);
+    console.log(`      requested after PLAY: ${after.map(e => e.url.split("/").pop() + "@" + (e.t0 - NET.clickWall) + "→" + (e.t1 > 0 ? e.t1 - NET.clickWall : "open")).join(" ")}`);
+  }
   await page.close();
-  return { prof, warm, wallBootMs: Date.now() - t0, fcp: Math.round(title.fcp || 0), titleInteractive: Math.round(title.interactive),
+  return { prof, warm, homeReady: Math.round(homeReadyAt), wallBootMs: Date.now() - t0, fcp: Math.round(title.fcp || 0), titleInteractive: Math.round(title.interactive),
     playToControl: Math.round(post.now - clickAt), newPrograms: post.programs - pre.programs, programsAtClick: pre.programs, standingAtClick: pre.standing,
     files: post.files, kb: post.kb, lastFileMs: post.lastFileMs, byExt: post.byExt, longMs: post.longMs, longN: post.longN, maxLong: post.maxLong,
     newProgs: post.newProgs, oldProgs: post.oldProgs, names: post.names, titleFiles: post.titleFiles, titleKb: post.titleKb, heapTitle: pre.heap, heapHome: post.heap, errors };
@@ -127,21 +156,21 @@ const med = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length 
     for (const warm of [false, true]) {
       const r = await once(browser, base, prof, holder, warm);
       all.push(r);
-      console.log(`  ${prof} ${warm ? "warm" : "cold"} #${i + 1}: FCP ${r.fcp} · title ${r.titleInteractive} · PLAY→control ${r.playToControl} ms · ${r.files} files ${r.kb} KB (last ${r.lastFileMs} ms) · long tasks ${r.longMs} ms (${r.longN}, max ${r.maxLong}) · +${r.newPrograms} shaders (${r.programsAtClick} at click) · town slices ${r.standingAtClick} · heap ${r.heapTitle}→${r.heapHome} MB${r.errors.length ? " · ERR " + r.errors[0] : ""}`);
+      console.log(`  ${prof} ${warm ? "warm" : "cold"} #${i + 1}: FCP ${r.fcp} · title ${r.titleInteractive} · home ready ${r.homeReady} · PLAY→control ${r.playToControl} ms · ${r.files} files ${r.kb} KB (last ${r.lastFileMs} ms) · long tasks ${r.longMs} ms (${r.longN}, max ${r.maxLong}) · +${r.newPrograms} shaders (${r.programsAtClick} at click) · town slices ${r.standingAtClick} · heap ${r.heapTitle}→${r.heapHome} MB${r.errors.length ? " · ERR " + r.errors[0] : ""}`);
       if (Object.keys(r.byExt).length) console.log(`      after PLAY by type: ${JSON.stringify(r.byExt)}`);
       if (process.env.PERFSTART_NAMES) console.log(`      files: ${r.names.join(' ')}\n      new programs:\n        ${r.newProgs.join('\n        ')}`);
     }
     await holder.ctx.close();
   }
   await browser.close(); server.close();
-  console.log("\n| profile | cache | FCP | title interactive | ▶ PLAY → control | fetched after PLAY | long tasks after PLAY | new shaders |");
-  console.log("|---|---|---|---|---|---|---|---|");
+  console.log("\n| profile | cache | FCP | title interactive | home ready (PLAY starts at home) | ▶ PLAY → control | fetched after PLAY | long tasks after PLAY | new shaders |");
+  console.log("|---|---|---|---|---|---|---|---|---|");
   const sum = {};
   for (const prof of PROFILES) for (const warm of [false, true]) {
     const rs = all.filter(r => r.prof === prof && r.warm === warm);
-    const row = { fcp: med(rs.map(r => r.fcp)), title: med(rs.map(r => r.titleInteractive)), play: med(rs.map(r => r.playToControl)), files: med(rs.map(r => r.files)), kb: med(rs.map(r => r.kb)), long: med(rs.map(r => r.longMs)), sh: med(rs.map(r => r.newPrograms)) };
+    const row = { fcp: med(rs.map(r => r.fcp)), title: med(rs.map(r => r.titleInteractive)), home: med(rs.map(r => r.homeReady)), play: med(rs.map(r => r.playToControl)), files: med(rs.map(r => r.files)), kb: med(rs.map(r => r.kb)), long: med(rs.map(r => r.longMs)), sh: med(rs.map(r => r.newPrograms)) };
     sum[`${prof}-${warm ? "warm" : "cold"}`] = row;
-    console.log(`| ${prof} | ${warm ? "warm" : "cold"} | ${row.fcp} ms | ${row.title} ms | **${row.play} ms** | ${row.files} files, ${row.kb} KB | ${row.long} ms | ${row.sh} |`);
+    console.log(`| ${prof} | ${warm ? "warm" : "cold"} | ${row.fcp} ms | ${row.title} ms | ${row.home} ms | **${row.play} ms** | ${row.files} files, ${row.kb} KB | ${row.long} ms | ${row.sh} |`);
   }
   if (process.env.PERFSTART_OUT) fs.writeFileSync(process.env.PERFSTART_OUT, JSON.stringify({ when: new Date().toISOString(), query: EXTRA, runs: all, summary: sum }, null, 1));
 })().catch(e => { console.error(e); process.exit(1); });

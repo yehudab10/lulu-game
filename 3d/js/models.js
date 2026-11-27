@@ -8,7 +8,7 @@
 //     await ensureModels(["heshyPool", "heshy"]);  models.heshyPool …
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { ctx } from "./core/ctx.js";
+import { ctx, on } from "./core/ctx.js";
 
 const FILES = {};
 const PRELOAD = new Set();
@@ -43,12 +43,13 @@ export function registerModels(map, { preload = false } = {}) {
 /** Every registered model key → its asset path (tests: the iOS bundle must hold them all). */
 export function modelFiles() { return Object.fromEntries(Object.entries(FILES).map(([k, f]) => [k, `assets/${f}.glb`])); }
 
-function loadOne(key) {
+function loadOne(key, pri = null) {
+    learn(key);
     if (models[key]) return Promise.resolve(models[key]);
-    if (pending.has(key)) return pending.get(key);
+    if (pending.has(key)) { if (!preRun()) bump(key); else if (pri === "first") promote(key); return pending.get(key); }
     const file = FILES[key];
     if (!file) return Promise.reject(new Error(`unknown model "${key}" (registerModels first)`));
-    const p = loader.loadAsync(`assets/${file}.glb`).then(gltf => {
+    const p = download(key, `assets/${file}.glb`, pri).then(gltf => {
         models[key] = prepare(gltf.scene);
         pending.delete(key);
         warmShaders(models[key]);
@@ -94,7 +95,137 @@ function warmShaders(root) {
 }
 
 /** Load models by key (cached). */
-export function ensureModels(keys) { return Promise.all(keys.map(loadOne)); }
+/** opts.first: needed for what the title shows / ▶ PLAY starts in (the home street, its town) — the front of the line. */
+export function ensureModels(keys, opts = null) { const pri = opts && opts.first ? "first" : null; return Promise.all(keys.map(k => loadOne(k, pri))); }
+
+// ── 📥 the download line (roadmap 37e — measured first: scripts/perfstart.js) ───────────────────────
+// On a slow phone network the title used to start ~150 model downloads at once; the few files ▶ PLAY's home start
+// needs then queued behind all of them (minutes on slow 4G, cold). Now:
+//   • on a SLOW connection only (the browser says so, or this page measured < 500 KB/s on its first downloads), before
+//     a run starts a model that isn't boot-critical (PRELOAD) waits in ONE line, 3 at a time (1 on Save-Data);
+//     ensureModels(keys, { first: true }) (the home street, its town) goes to the front; for 8 s after ▶ PLAY the line
+//     holds. On a fast connection — and in the iOS app (local files) — everything goes out together, as before;
+//   • anything asked for once she's playing goes straight out, and the line holds while it downloads; a model still
+//     waiting in the line that she now needs jumps out of it;
+//   • once the title is up and the browser is idle, the HOME START's models go to the front of the line: the ones the
+//     last ▶ PLAY on this device asked for in its first 20 s (localStorage "lulu3dStartSet", ≤ 40), else the measured set.
+// Nothing changes on a fast connection except the order; on Save-Data / 2G–3G the line is narrower.
+const QS0 = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
+const NOLINE = QS0.has("noline"), NOPRELOAD = QS0.has("nopreload");      // (perfstart.js before / after switches)
+const DL = { line: [], jobs: new Map(), out: 0, now: 0, runAt: 0, holdUntil: 0, learning: null, kicked: false };
+const START_KEY = "lulu3dStartSet", START_MAX = 40;
+// (measured 2026-11-27: what ▶ PLAY → walking at home fetched)
+const START_FILES = ["town_bochur", "homes_mail", "homes_delivery", "homes_dog", "homes_street", "homes_mom", "homes_baby", "homes_dad",
+    "avigail_person", "foot_booth", "foot_dozer", "foot_duck", "foot_raccoon", "foot_ostrich", "foot_fence", "foot_trespass", "foot_grass", "foot_mud", "foot_goose"];
+function lineSlots() {
+    const c = typeof navigator !== "undefined" && navigator.connection;
+    if (c && c.saveData) return 1;
+    return 3;
+}
+// is the connection slow? what the browser says (Save-Data, 2G / 3G, < 2 Mbit/s) — or, where it says nothing (Safari),
+// what this page measured on its own first downloads (≥ 300 KB that didn't come from the cache, under 500 KB/s)
+const NET = { bytes: 0, t0: Infinity, t1: 0, files: 0 };
+function measure(url) {
+    try {
+        const e = performance.getEntriesByName(new URL(url, location.href).href).pop();
+        if (!e || !e.transferSize || e.transferSize < 1000) return;          // (cache / local file: says nothing about the network)
+        NET.bytes += e.transferSize; NET.files++;
+        NET.t0 = Math.min(NET.t0, e.startTime); NET.t1 = Math.max(NET.t1, e.responseEnd);
+    } catch (err) { /* no resource timing */ }
+}
+function slowNet() {
+    const c = typeof navigator !== "undefined" && navigator.connection;
+    if (c && (c.saveData || /(^|-)(2g|3g)$/.test(c.effectiveType || "") || (c.downlink && c.downlink < 2))) return true;
+    return NET.bytes >= 300 * 1024 && NET.t1 > NET.t0 && NET.bytes / (NET.t1 - NET.t0) < 500;        // (bytes per ms ≈ KB/s)
+}
+function preRun() { const s = ctx.state; return !s || s === "boot" || s === "loading" || s === "title"; }
+function go(j, now) {
+    j.started = true; DL.out++; if (now) DL.now++;
+    loader.loadAsync(j.url).then(j.res, j.rej).finally(() => { measure(j.url); DL.out--; if (now) DL.now--; DL.jobs.delete(j.key); pump(); });
+}
+function pump() {
+    if (performance.now() < DL.holdUntil) return;
+    // (a fast connection again — or it never was slow: the rest goes out together, as it always did)
+    while (DL.line.length && DL.now === 0 && (DL.out < lineSlots() || !slowNet())) go(DL.line.shift(), false);
+}
+function download(key, url, pri) {
+    return new Promise((res, rej) => {
+        const j = { key, url, res, rej, started: false, first: pri === "first" };
+        DL.jobs.set(key, j);
+        if (NOLINE || !preRun() || PRELOAD.has(key)) { go(j, true); return; }
+        if (!slowNet() && !DL.line.length) { go(j, false); return; }        // (a fast connection: straight out, as always)
+        if (j.first) { let i = 0; while (i < DL.line.length && DL.line[i].first) i++; DL.line.splice(i, 0, j); }
+        else DL.line.push(j);
+        pump();
+    });
+}
+/** A model waiting in the line that's needed first: to the front (behind the other firsts). */
+function promote(key) {
+    const j = DL.jobs.get(key);
+    if (!j || j.started || j.first) return;
+    const i = DL.line.indexOf(j);
+    if (i < 0) return;
+    DL.line.splice(i, 1); j.first = true;
+    let k = 0; while (k < DL.line.length && DL.line[k].first) k++;
+    DL.line.splice(k, 0, j);
+}
+/** A model still waiting in the line that she needs now: out it goes. */
+function bump(key) {
+    const j = DL.jobs.get(key);
+    if (!j || j.started) return;
+    const i = DL.line.indexOf(j);
+    if (i >= 0) DL.line.splice(i, 1);
+    go(j, true);
+}
+/** The home start's models: what the last ▶ PLAY here asked for, else the measured set (keys registered by now). */
+function startKeys() {
+    let keys = null;
+    try { const v = JSON.parse(localStorage.getItem(START_KEY) || "null"); if (Array.isArray(v) && v.length) keys = v; } catch (e) { /* none yet */ }
+    if (!keys) { const want = new Set(START_FILES); keys = Object.keys(FILES).filter(k => want.has(FILES[k])); }
+    return keys.filter(k => FILES[k] && !models[k]).slice(0, START_MAX);
+}
+/** Behind the title: the home start's models to the front of the line (never before the title has painted). */
+function warmStart() {
+    if (DL.kicked) return;
+    DL.kicked = true;
+    for (const k of startKeys()) if (!models[k]) {
+        if (pending.has(k)) promote(k);
+        else loadOne(k, "first").catch(() => { /* a later ensureModels retries */ });
+    }
+    pump();
+}
+/** Drop the home start's models that haven't started downloading (she went somewhere else: Dina's mode, a party…). */
+export function cancelStartPreload() {
+    for (let i = DL.line.length - 1; i >= 0; i--) if (DL.line[i].first) {
+        const j = DL.line.splice(i, 1)[0];
+        DL.jobs.delete(j.key); pending.delete(j.key);
+        j.rej(new Error("preload cancelled"));
+    }
+}
+// learn: the models a ▶ PLAY (an open-world start from the title) asks for in its first 20 s
+function learn(key) { if (DL.learning && !PRELOAD.has(key) && DL.learning.size < START_MAX && performance.now() - DL.runAt < 20000) DL.learning.add(key); }
+on("title", () => {
+    if (DL.kicked || NOPRELOAD || (ctx.party && ctx.party.active) || !ctx.enabled("preload")) return;      // (a ?test page opts in: &enable=preload)
+    // after the title has painted and the browser is idle (two frames, then an idle slot)
+    const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 1500 }) : f => setTimeout(f, 200);
+    requestAnimationFrame(() => requestAnimationFrame(() => idle(() => { if (ctx.state === "title") warmStart(); })));
+});
+on("run:start", ({ mode } = {}) => {
+    DL.runAt = performance.now();
+    const home = mode === "cruise" && !(ctx.party && ctx.party.active) && !ctx.TEST;
+    if (!home) { cancelStartPreload(); DL.learning = null; return; }
+    DL.learning = new Set();
+    // on a slow connection the rest of the line waits a few seconds: the home start's own files + first frames go first
+    if (DL.line.length && slowNet()) { DL.holdUntil = performance.now() + 8000; setTimeout(pump, 8100); }
+    setTimeout(() => {
+        const L = DL.learning; DL.learning = null;
+        if (!L || !L.size) return;
+        try { localStorage.setItem(START_KEY, JSON.stringify([...L].slice(0, START_MAX))); } catch (e) { /* storage full / private mode */ }
+    }, 20500);
+    pump();
+});
+/** Tests / the perf harness: the line's state. */
+export function downloadInfo(detail = false) { return { slow: slowNet(), kbps: NET.t1 > NET.t0 ? Math.round(NET.bytes / (NET.t1 - NET.t0)) : null, keys: detail ? DL.line.slice(0, 40).map(j => FILES[j.key] + (j.first ? "*" : "")) : undefined, line: DL.line.length, first: DL.line.filter(j => j.first).length, out: DL.out, now: DL.now, slots: lineSlots(), kicked: DL.kicked }; }
 
 /** Boot: load everything registered with preload: true. */
 export async function loadModels(onProgress) {
