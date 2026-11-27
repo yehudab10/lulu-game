@@ -23,6 +23,10 @@ Every `run:start` reset re-arms whatever was capped "per run". So any COIN rewar
 | 6 | Walking robberies (the easy flying tackle, ~110–135 coins each) were capped at 2 a RUN — Restart, wait ~95 s by a bank door, tackle. | `heist/robbery.js` `sched` | **fixed** — also `TUNE.robbery.footDay` 4 a real day (`f.heistFoot`); heist test checks it |
 | 7 | The moped snatcher's +15 catch bonus repeats every few minutes she sits still (AGENTS §7 known issue). | `heist/snatch.js` `caught` | **fixed** — the bonus at most `PAY.snatchBonusDay` 3 a real day; what he took always comes back; the banner drops "(+15 bonus)" when there's none |
 | 8 | Cookie Catch (Dina): a repeatable 30-second skill game paying its whole score, uncapped (a good round ≫ the 10 fee). | `dina/cookie.js` | **fixed** — banks at most `COOKIE_DAY_CAP` 300 a real day; past it the rounds are free ("Dina's piggy bank is full for today — more rounds are just for fun!") and still count for the best |
+| 9 | 📝 Ima's list could ask "Drop off Bubbe's challah" (1 day in 4) — but Bubbe's driveway is the Story Trip's road and isn't on the one world's lap (`world/places.js` `familyStops` returns none in a Cruise), so the item never ticked off: no "IMA'S LIST — DONE!", no 40 for coming home. (`day` test emits `world:visit` by hand, so it never saw it.) | `day/index.js` `listFor` | **fixed** — off-map errands are out of the pool; a list already handed out today with it gets today's doable errand instead (progress kept) |
+| 10 | Midwood's street sign "← LAKEWOOD 64 MI" while the highway's own green boards (real lap distances) say ~2.5 mi. | `town/towns/midwood-lines.js` | **fixed** — "LAKEWOOD: NEXT EXIT" |
+| 11 | Inside Midwood's "70½th Precinct" the desk cop answers the phone "Precinct 18½" (Lakewood's). One room serves both towns; `places` renames it. | `interiors/police.js` | **fixed** — a line without a name |
+| 12 | `addCoins(NaN)` turned the HUD's run coins into NaN for the rest of the run. | `core/driving.js` | **fixed** — ignored |
 | 5 | `wallet.spend(-n)` PAID her n coins; `wallet.spend(NaN)` / `wallet.add(Infinity)` could write a non-number. No caller does it today, but a bad sum anywhere would. | `core/save.js` | **fixed** — spend refuses negative / non-finite (0 is free), add ignores non-finite |
 
 ## Judgment calls — owner may want to tune
@@ -43,6 +47,10 @@ Every `run:start` reset re-arms whatever was capped "per run". So any COIN rewar
 - ER paramedic perk (`rides/ambulance.js`): ≤ 30 coins each time she's admitted to the ER after driving patients; the ER
   has a free "RUN for it" option, so a wreck → run → +30. Slow (a wreck takes all her hearts) — left.
 - 🌍 party games pay 20 a win with 2+ players, uncapped: two friends could trade wins. Slow (a game is minutes) — left.
+- 🅿️ Parking Challenge (`parking/index.js` `success`): level × 25 + stars × 15 a park, uncapped and replayable — a full
+  10-level clear is ~1,800 coins (the economy's own estimate is ~650 coins a played day, `impound/data.js`). It's the
+  Classic 2D's formula, it's hard, and it sits behind a 1,000-coin unlock, so it's the game's "earn big by being good"
+  mode — left, but the biggest faucet by far: a daily cap or a lower curve after the first clear of the day is the owner's call.
 - Cookie Catch 300 a day (`COOKIE_DAY_CAP`), robbery foot tackles 4 a day (`TUNE.robbery.footDay`).
 
 ## Faucet / sink table (2026-11-27, main @ 7e29128 + this branch)

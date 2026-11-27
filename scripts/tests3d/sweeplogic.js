@@ -67,6 +67,17 @@ module.exports = {
     })`);
     t.check("homes: couch coins have a REAL-day cap (the lines say 'closed for today')", couch.capKey && couch.dayCap > 0 && couch.again === couch.dayCap, JSON.stringify(couch));
 
+    // ── Ima's list: every errand can be done in the one world (Bubbe's driveway isn't on the Cruise lap) ──
+    const day = await g(`(() => {
+      const D = ctx.day, seen = new Set();
+      for (let k = 0; k < 60; k++) { const d = 20261201 + k; for (const x of D.debug.date(d)) seen.add(x); }
+      return { bubbe: seen.has("bubbe"), errands: [...seen].filter(id => D.ITEMS.errand.some(e => e.id === id)) };
+    })()`);
+    t.check("Ima's list: 60 days of lists never ask for Bubbe's challah (not on the one world's map)", !day.bubbe && day.errands.length >= 2, JSON.stringify(day));
+    const swap = await t.L(`import("./js/core/save.js").then(m => { const D = __lulu3d.ctx.day, s = m.save3d.f.day;
+      D.debug.date(20270102); s.list[0] = "bubbe"; s.prog = {}; const L = D.list().map(x => x.id); D.debug.date(null); return { L }; })`);
+    t.check("Ima's list: an old list with the challah errand gets a doable errand instead", !swap.L.includes("bubbe") && swap.L.length === 3, JSON.stringify(swap));
+
     // ── the style combo: one move mashed pays no coins; a mix does; a daily cap ──
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 30000)) {
