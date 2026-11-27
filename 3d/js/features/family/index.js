@@ -38,4 +38,8 @@ ctx.family = {
         },
         F, SAVE, FAYGE, dayOf, placeOf, talk, live, force: F.force, home: () => F.home && { key: F.home.key, ap: Object.assign({}, F.home.ap), door: Object.assign({}, F.home.door) } },
 };
-on("boot", () => { init(); initCouple(); setStroller(stroller); });
+on("boot", () => {
+    init(); initCouple(); setStroller(stroller);
+    // 📍 on the 📱 🗺️ Map (features/pins): Fayge's door
+    try { if (ctx.enabled("family") && ctx.pins && ctx.pins.add) ctx.pins.add({ id: "family:fayge", name: "Fayge's (downstairs)", icon: "👩‍👧", cat: "town", town: "midwood", local: [FAYGE.host.lx - 10, FAYGE.host.lz], sub: "East 15th St · your sister" }); } catch (e) { /* no pins */ }
+});
