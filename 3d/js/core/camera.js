@@ -154,7 +154,7 @@ export const cam = {
             const r = clip(FREE.tgt, -fx * cp, sp, -fz * cp, D), lim = typeof r === "number" ? r : r.d;
             FREE.noLift = typeof r === "object" && !!r.noLift;
             if (snapped || fresh || lim < FREE.clipD) FREE.clipD = lim;
-            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 4) + dt * 1.5);
+            else FREE.clipD = Math.min(lim, FREE.clipD + Math.min((D - FREE.clipD) * Math.min(1, dt * 4), dt * 7) + dt * 1.5);     // (≤ ~8.5 m/s: a slow frame can't pop it back out in one go — ci/doors)
             D = Math.min(D, FREE.clipD);
         } else { FREE.clipD = 99; FREE.noLift = false; }
         // (pressed right up against a wall: rather than sit in it, the camera rises over her head and looks down)

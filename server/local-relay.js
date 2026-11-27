@@ -400,6 +400,7 @@ const server = http.createServer((req, res) => {
   }
   if (pathname.startsWith("/homes/")) { handleHomes(req, res, pathname); return; }
   if (pathname.startsWith("/acct/")) { handleAcct(req, res, pathname); return; }
+  if (pathname.startsWith("/world/")) { handleWorld(req, res, pathname); return; }
   if (pathname.startsWith("/wear/")) { handleWear(req, res, pathname); return; }
   res.writeHead(426);
   res.end("expected websocket upgrade");
@@ -427,8 +428,30 @@ server.on("upgrade", (req, socket, head) => {
   });
 });
 
+// --- 🌍 one shared world (world.mjs — the SAME code the worker runs): the clock, reliable events, the budget ---------
+let W = null;
+const worldP = import("./world.mjs").then((m) => { W = m; if (process.env.WORLD_KEEP_MS) m.REL.keepMs = Number(process.env.WORLD_KEEP_MS); return m; });
+const roomEvents = new Map();          // room → recent reliable events
+const usage = { day: "", ws: 0, conn: 0, http: 0 };
+function count(kind) { if (!W) return; const d = W.dayOf(Date.now()); if (usage.day !== d) Object.assign(usage, { day: d, ws: 0, conn: 0, http: 0 }); usage[kind]++; }
+function handleWorld(req, res, pathname) {
+  if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
+  worldP.then(() => {
+    if (pathname === "/world/config") { sendBoard(res, 200, { world: W.WORLD, st: Date.now() }); return; }
+    count("http");
+    if (pathname === "/world/usage") {
+      if (process.env.WORLD_RESTING === "1") { sendBoard(res, 503, { resting: 1, resetAt: W.usageOf(null, Date.now()).resetAt }); return; }
+      const u = W.usageOf(usage.day ? usage : null, Date.now());
+      if (/[?&]text=/.test(req.url)) { res.writeHead(200, { ...CORS_HEADERS, "content-type": "text/plain; charset=utf-8" }); res.end(W.usageText(u)); return; }
+      sendBoard(res, 200, u); return;
+    }
+    sendBoard(res, 404, { error: "not found" });
+  });
+}
+
 function handleConnection(ws) {
   const set = roomMembers(ws._room);
+  count("conn");
 
   ws.on("message", (data, isBinary) => {
     // `ws` gives a Buffer; normalize to string and enforce frame size.
@@ -442,6 +465,7 @@ function handleConnection(ws) {
       return;
     }
     if (!msg || typeof msg !== "object") return;
+    count("ws");
 
     const joined = ws._meta && ws._meta.id;
 
@@ -470,7 +494,10 @@ function handleConnection(ws) {
           if (peer._meta.d) p.d = peer._meta.d;
           peers.push(p);
         }
-        sendJson(ws, { t: "h", id, peers });
+        const now = Date.now();
+        const hello = { t: "h", id, peers, st: now };            // 🌍 step 1: the server's clock
+        if (W) { const rec = W.recent(roomEvents.get(ws._room) || [], now); if (rec.length) hello.r = rec; }   // 🌍 step 2
+        sendJson(ws, hello);
         broadcast(set, ws, { t: "+", id, name: ws._meta.name, sk: ws._meta.sk });
         return;
       }
@@ -481,7 +508,7 @@ function handleConnection(ws) {
         const d = msg.d;
         if (d == null || typeof d !== "object") return;
         ws._meta.d = d;
-        broadcast(set, ws, { t: "s", id: ws._meta.id, d });
+        broadcast(set, ws, { t: "s", id: ws._meta.id, d, st: Date.now() });   // 🌍 step 2: when the relay got it
         return;
       }
 
@@ -494,7 +521,23 @@ function handleConnection(ws) {
       }
 
       case "pi": {
-        sendJson(ws, { t: "po" });
+        sendJson(ws, W ? W.pong(msg, Date.now()) : { t: "po" });   // 🌍 step 1
+        return;
+      }
+
+      case "r": {
+        // 🌍 step 2: a reliable one-time event (world.mjs)
+        if (!joined || !W) return;
+        const now = Date.now();
+        ws._rel = ws._rel || {};
+        if (!W.relAllowed(ws._rel, now)) return;
+        const ev = W.cleanEvent(msg, ws._meta.id, now);
+        if (!ev) return;
+        let list = roomEvents.get(ws._room);
+        if (!list) roomEvents.set(ws._room, (list = []));
+        W.remember(list, ev);
+        broadcast(set, ws, ev);
+        sendJson(ws, { t: "ra", id: ev.id, st: now });
         return;
       }
 
@@ -507,7 +550,7 @@ function handleConnection(ws) {
     if (!set.has(ws)) return;
     set.delete(ws);
     if (ws._meta && ws._meta.id) broadcast(set, ws, { t: "-", id: ws._meta.id });
-    if (set.size === 0) rooms.delete(ws._room);
+    if (set.size === 0) { rooms.delete(ws._room); roomEvents.delete(ws._room); }
   };
 
   ws.on("close", cleanup);

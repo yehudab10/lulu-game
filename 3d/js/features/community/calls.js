@@ -165,6 +165,8 @@ export function addContact(def) {
     return def;
 }
 const HELP = ["chaverim", "hatzalah", "shomrim", "police"];
+// (back on the list: the focus on the row she came from, not wherever the slot number lands)
+const refocus = (api, from) => { if (from && api.focus) api.focus(from.startsWith("ct:") ? `[data-ct="${from.slice(3)}"]` : `[data-org="${from}"]`); };
 const row = (attr, O, name, tag, meta = "") => `<button class="btn lp-row" ${attr}><span class="lp-av" style="background:${O.color}">${O.emoji}</span><span class="lp-tx"><b>${esc(name)}</b><small>${esc(tag)}</small></span>${meta}</button>`;
 function where() {
     const cfg = townCfg();
@@ -181,7 +183,7 @@ export function registerApp() {
         id: "community", icon: "📞", name: "Contacts", order: 22, color: "#43A047", color2: "#3949AB",
         visible: () => !(ctx.party && ctx.party.active) || ctx.enabled("community"),
         badge: () => (CM.scene && CM.scene.phase === "wait" ? "!" : null),
-        back(api) { if (CM.view) { CM.view = null; api.refresh(); return true; } return false; },
+        back(api) { if (CM.view) { const from = CM.view; CM.view = null; api.refresh(); refocus(api, from); return true; } return false; },
         render(el, api, arg) {
             if (arg && arg.org && CM.viewArg !== arg) { CM.view = arg.org; CM.viewArg = arg; }
             const org = CM.view;
@@ -191,8 +193,8 @@ export function registerApp() {
                     + row(`data-ima="1"`, ORGS.ima, ORGS.ima.name, ORGS.ima.tag, '<span class="lp-meta">📞</span>')
                     + CONTACTS.map(c => row(`data-ct="${esc(c.id)}"`, { emoji: c.icon, color: c.color || "#78909C" }, c.name, c.tag || "")).join("")
                     + `<p class="lp-fine">Volunteer orgs, a hotline, the actual police, and your mother. Not affiliated with anyone real.</p>`;
-                el.querySelectorAll("[data-org]").forEach(b => b.addEventListener("click", () => { CM.view = b.dataset.org; api.refresh(); }));
-                el.querySelectorAll("[data-ct]").forEach(b => b.addEventListener("click", () => { CM.view = "ct:" + b.dataset.ct; api.refresh(); }));
+                el.querySelectorAll("[data-org]").forEach(b => b.addEventListener("click", () => { CM.view = b.dataset.org; api.refresh({ top: true }); }));
+                el.querySelectorAll("[data-ct]").forEach(b => b.addEventListener("click", () => { CM.view = "ct:" + b.dataset.ct; api.refresh({ top: true }); }));
                 const ima = el.querySelector("[data-ima]");
                 if (ima) ima.addEventListener("click", () => { CM.view = null; api.close(); callIma(); });
                 return;
@@ -217,7 +219,7 @@ export function registerApp() {
                 }));
             }
             const bk = el.querySelector("#cmBack");
-            if (bk) bk.addEventListener("click", () => { CM.view = null; api.refresh(); });
+            if (bk) bk.addEventListener("click", () => { const from = CM.view; CM.view = null; api.refresh(); refocus(api, from); });
         },
     });
 }

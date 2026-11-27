@@ -72,9 +72,9 @@ module.exports = {
     const shopsOnly = await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].every(b => /^(midwood|lakewood):(dealer|bling|makolet|clothes|pizza|bakery|van)$|^jfk:gelt$|^hw:(mazelati|tushla)$/.test(b.dataset.pin))`);
     t.check("🛍️ Shops filter: only shops", shopsOnly);
     await t.shot("map-shops");
-    await t.L(`document.querySelector('#lpApp [data-pin="midwood:clothes"]').click()`); await t.frames(3);
-    await t.L(`document.querySelector('#lpApp [data-ping]').click()`); await t.frames(10);
-    t.check("tap a place → 📍 Ping → pinned, the phone closes", await g(`ctx.pins.current === "midwood:clothes" && !ctx.phone.isOpen`));
+    // (QA 2026-11-27: one tap on the row pings it — no drawer with a lone 📍 Ping button)
+    await t.L(`document.querySelector('#lpApp [data-pin="midwood:clothes"]').click()`); await t.frames(10);
+    t.check("tap a place (ONE tap) → pinned, the phone closes", await g(`ctx.pins.current === "midwood:clothes" && !ctx.phone.isOpen`));
     if (await g(`ctx.foot.active`) === false) { await g(`(ctx.foot.start("parked", { noIntro: true }), true)`); await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000); }
     // stand away from it
     await g(`(() => { const T = ctx.pins.target(); const F = ctx.foot.debug.F; F.pos.set(T.x + 60, 0.05, T.z + 20); return true; })()`);

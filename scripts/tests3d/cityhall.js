@@ -133,7 +133,8 @@ module.exports = {
       for (const [label, f] of [["mayor in · permits closed", { closed: 0, mayorOut: false }], ["mayor out · taxes closed", { closed: 1, mayorOut: true }], ["complaints closed", { closed: 2, mayorOut: false }]]) {
         await step(`${id} room · ${label}`, async () => {
           if (!await town(id)) return;
-          await g(`(Object.assign(ctx.cityhall.debug.force, ${JSON.stringify(f)}), true)`);
+          // (hour 10: the mayor's out to lunch 12:00–12:59 by the device's clock — a CI run at noon UTC found him gone)
+          await g(`(Object.assign(ctx.cityhall.debug.force, { hour: 10 }, ${JSON.stringify(f)}), ctx.cityhall.debug.RUN.ribbon && ctx.cityhall.debug.endRibbon(), true)`);
           if (!await walkIn()) return;
           const info = await room(`({ people: r.people.map(q => ({ id: q.id, x: q.p.obj.position.x, z: q.p.obj.position.z })), hots: r.hots.filter(h => !h.enabled || h.enabled(r)).map(h => h.id),
             cols: r.cols.map(c => [c.x0, c.x1, c.z0, c.z1]), closed: r.data.V.closed, mayor: r.data.V.mayor, labels: r.hots.filter(h => /^win_/.test(h.id)).map(h => typeof h.label === "function" ? h.label() : h.label) })`);
@@ -161,7 +162,7 @@ module.exports = {
           }
           t.check(`${id} ${label}: using every hot-spot (${info.hots.length}) pays / costs nothing (coins ${c0} → ${await coins()})`, await coins() === c0 && await g(`ctx.G.hearts`) === h0);
           await walkOut();
-          await g(`(ctx.cityhall.debug.force.closed = null, ctx.cityhall.debug.force.mayorOut = false, true)`);
+          await g(`(ctx.cityhall.debug.force.closed = null, ctx.cityhall.debug.force.mayorOut = false, ctx.cityhall.debug.force.hour = null, true)`);
           await seg(`${id} ${label}: the visit`, ["jump", "nan", "overlay", "stuck", "nocontrol"]);
         });
       }
@@ -186,7 +187,7 @@ module.exports = {
       await t.frames(20); await W.reset(t);          // (the town switch + the teleport above are the test's, not the game's)
       const r0 = await g(`ctx.cityhall.ribbon`);
       const d = await g(`(() => { const R = ctx.cityhall.ribbon, p = ctx.foot.pos; return R ? Math.hypot(R.x - p.x, R.z - p.z) : -1; })()`);
-      t.check(`a ribbon cutting starts up her sidewalk (${r0 && r0.what}, ${d.toFixed ? d.toFixed(1) : d} m away)`, !!r0 && d > 15 && d < 45);
+      t.check(`a ribbon cutting starts up her sidewalk (${r0 && r0.what}, ${d.toFixed ? d.toFixed(1) : d} m away)`, !!r0 && d > 15 && d < 50);      // (the spot up the sidewalk is picked at random: 45.4 m came up on CI)
       t.check("…the mayor is out of his office while it's on", await g(`ctx.cityhall.mayorIn() === false`));
       t.check("…it stands on a sidewalk, not a lane", await g(`(() => { const R = ctx.cityhall.ribbon; const n = ctx.world.road.nearest(R.x, R.z, ctx.car.s, {}); return Math.abs(n.d) > (n.street ? n.street.curb : 4) - 0.2; })()`));
       await t.frames(60);

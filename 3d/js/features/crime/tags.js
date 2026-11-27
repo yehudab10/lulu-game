@@ -1,6 +1,6 @@
 // features/crime — 🏷️ THE MATTRESS-TAG RING (on foot; a tip from the Fixer — features/underworld's Fixer, his own 💬 thread).
 //
-// Once a REAL day, coming into a town (a chance; never while she's hot — underworld's heat over its maxHeat), the Fixer
+// Once a REAL day, DRIVING into a town (a chance; never while she's hot — underworld's heat over its maxHeat), the Fixer
 // texts: "Mattresses on the kerb, <street>. Tags still on. Rip all 4." Four mattresses lean on the kerb 30–110 m from her.
 // ✋ RIP THE TAG on each (*RRRIP* — passers-by gasp). All four → PAY.tags.all 💰 (once a REAL day) + a little heat. The risk:
 // a cop who SEES a rip — the ⚠️ look, the next one = a foot chase for MATTRESS TAG REMOVAL. The sanitation truck comes
