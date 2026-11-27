@@ -6,8 +6,8 @@ module.exports = (base, name, extra = "") => Object.assign({}, base, {
   name,
   query: "&enable=all" + extra + (/(^|&)mpurl=/.test(base.query || "") ? "&mpurl=" + (base.query.match(/mpurl=([^&]*)/) || [])[1] : ""),
   async run(t) {
-    await t.L(`import("./js/core/save.js").then(m => { const w = m.wallet, add = w.add.bind(w), G = window.__coinG = { min: Infinity, log: [], inCoin: 0 };
-      __lulu3d.L3.on("coin", e => { if (e && e.n) G.log.push([e.n, e.why || "?"]); });
+    await t.L(`Promise.all([import("./js/core/save.js"), import("./js/core/ctx.js")]).then(([m, c]) => { const w = m.wallet, add = w.add.bind(w), G = window.__coinG = { min: Infinity, log: [], inCoin: 0 };
+      c.on("coin", e => { if (e && e.n) G.log.push([e.n, e.why || "?"]); });
       w.add = n => { add(n); const raw = (m.shared ? (m.shared.get().totalCoins || 0) : 0); G.min = Math.min(G.min, w.coins, raw); if (G.log.length > 400) G.log.shift(); return undefined; };
       return true; })`);
     try { await base.run.call(this, t); }
