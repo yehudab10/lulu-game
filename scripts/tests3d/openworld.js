@@ -77,7 +77,7 @@ module.exports = {
   save2d: { totalCoins: 300, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid" },
   async run(t) {
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };
-    await step("solo", () => solo(t));
+    if (process.env.OPENWORLD_ONLY !== "party") await step("solo", () => solo(t));
     await startRelay();
     const guests = [];
     try { await step("party", () => partyRun(t, guests)); }
@@ -247,6 +247,7 @@ async function partyRun(t, guests) {
   const folk = [];
   for (const p of pages) folk.push(JSON.stringify(await p.game(`ctx.town.debug.LIFE.people.map(r => [r.p.obj.position.x.toFixed(2), r.p.obj.position.z.toFixed(2)]).concat(ctx.town.debug.LIFE.geese.map(q => [q.home.x.toFixed(2), q.home.z.toFixed(2)]))`)));
   const fA = JSON.parse(folk[0]), fB = JSON.parse(folk[1]), diff = fA.map((x, i) => JSON.stringify(x) === JSON.stringify(fB[i]) ? null : i).filter(i => i != null);
+  if (folk[0] !== folk[1] || lists[0] !== lists[1]) for (const p of pages) console.log("   TOWNDIAG " + p.label, JSON.stringify(await p.game(`({ mode: ctx.G.mode, st: ctx.state, inWorld: ctx.party.inWorld, own: ctx.party.ownRun, act: ctx.party.activity && ctx.party.activity.k, town: ctx.town.active && ctx.openworld.zone, pt: ctx.openworld.partyTowns && ctx.openworld.partyTowns(), folk: ctx.town.debug.LIFE.people.length, geese: ctx.town.debug.LIFE.geese.length, cars: ctx.openworld.debug.townCarsAt(Math.round(ctx.party.clock())).length, live: ctx.openworld.debug.townLive().length, clock: Math.round(ctx.party.clock()), synced: ctx.party.synced })`)), lists[pages.indexOf(p)].slice(0, 300));
   t.check("townsfolk + geese: seeded the same on both screens (e-bikes ride in a party since round 2 — partyplus)", folk[0] === folk[1], `${fA.length}/${fB.length} placed; differ at ${diff.slice(0, 6).map(i => i + ":" + JSON.stringify(fA[i]) + "≠" + JSON.stringify(fB[i])).join(" ")}`);
 
   // friends see each other on the streets: the guest catches up with the host

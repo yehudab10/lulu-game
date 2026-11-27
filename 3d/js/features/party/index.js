@@ -539,10 +539,12 @@ function enterActivity(A) {
 
 /** 🌍 with friends on her own run: in the group, the traffic hers, then (a joiner) off to the friend. */
 function lightEnter(A) {
-    P.lightPending = null;
-    if (ctx.traffic) ctx.traffic.config.enabled = true;
-    NET.sendEvent("in", A.id);
-    try { ACTS.roam.lightJoin(A); } catch (e) { console.error("[party] join", e); }
+    // (the teleport needs the friend's position: until her snapshots are in, keep it pending — tried each frame, ~20 s max)
+    const first = !P.lightTry;
+    if (first) { P.lightTry = performance.now(); if (ctx.traffic) ctx.traffic.config.enabled = true; NET.sendEvent("in", A.id); }
+    let done = true;
+    try { done = ACTS.roam.lightJoin(A) !== false; } catch (e) { console.error("[party] join", e); }
+    if (done || performance.now() - P.lightTry > 20000) { P.lightPending = null; P.lightTry = 0; }
 }
 /** A fresh party run at (s, d): seeded world, our props, the car placed (rolling at `speed`). */
 function beginRun(s, d, speed) {

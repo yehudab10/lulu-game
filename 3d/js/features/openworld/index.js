@@ -188,14 +188,16 @@ function lateJoin(A) {
 /** 🌍 With friends on her OWN run (party lightEnter): a joiner is taken to the friend with the soft cut Go-there uses —
  *  beside them on foot (or at their door), in her own car just behind them on the road. Her run, hearts, coins, car and
  *  errand stay hers; the friend she joins sees nothing change. The host (the one being joined) never moves. */
+/** → true once handled (joined beside the friend, or nothing to do); false = the friend's position hasn't come in yet. */
 function lightJoin(A) {
-    if (ctx.party.isHost) return;
+    if (ctx.party.isHost) return true;
     const t = findFriend(A);
-    if (!t) return;
+    if (!t) return false;
     if (onFoot() && ctx.foot.drive) { const p = ctx.foot.pos; try { ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } catch (e) { console.error("[openworld] join: back in her car", e); } }
     if (t.zone) { warpTo(t, t.foot ? 8 : 14); if (t.foot) afterWarp(() => joinOnFoot(t), t.zone); }
     else { warpTo({ zone: "", s: t.s, d: t.d }, t.foot ? 10 : 22); if (t.foot) afterWarp(() => joinOnFoot(t)); }
     H.toast(`👯 You're with ${HUD.esc(nameOf(t.uid))}`, "pink", { prio: 2 });
+    return true;
 }
 /** The friend I joined is walking: climb out beside them (a parked car behind her, like any walk). */
 function joinOnFoot(t) {
