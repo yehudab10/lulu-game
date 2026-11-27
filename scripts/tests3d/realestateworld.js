@@ -74,9 +74,10 @@ async function body(t, guests) {
   await (y1.ok ? A : B).game(`(ctx.realestate.debug.SVR.release(${YJ}), true)`);
   // bought OFFLINE on B while A claimed it on the server → B is refunded, every coin
   await A.game(`(ctx.realestate.debug.SVR.poll("lakewood"), true)`);
-  const Z = await B.game(`ctx.realestate.listings().map(r => r.id).find(i => i !== ${XJ} && i !== ${YJ})`), ZJ = JSON.stringify(Z);
   const c0 = await B.game(`L3.wallet.coins`);
   await B.game(`(ctx.realestate.debug.SV.on = false, true)`);
+  // (picked once she's offline: what's for sale on HER screen then — A's homes look unowned, so the starter homes shift)
+  const Z = await B.game(`ctx.realestate.listings().map(r => r.id).find(i => i !== ${XJ} && i !== ${YJ})`), ZJ = JSON.stringify(Z);
   t.check("B (offline) buys a home locally", await B.game(`ctx.realestate.debug.buyNow(${ZJ})`));
   const zA = await A.game(`ctx.realestate.debug.SVR.claim(${ZJ})`);
   t.check("…meanwhile A claims the same home on the server", zA.ok && zA.server, JSON.stringify(zA));
