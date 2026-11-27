@@ -554,11 +554,11 @@ on("town:enter", () => { W.key = ""; W.built = ""; dropClaims(); });
 hook("hud", dt => {
     if ((W.t += dt) < 0.5) return;
     W.t = 0;
-    try {
-        if (ctx.state === "playing" || ctx.state === "footRun") { dayTick(); payTick(); }
-        if (townId()) { layout(); syncClaims(); } else { if (W.group) clearSigns(); if (CL.size) dropClaims(); }
-        depotTick();
-        publish();
-        serverTick();
-    } catch (e) { console.error("[playershops] tick", e); }
+    // (each step on its own: one failing never stops the others — the claims must follow the party / the relay)
+    const step = (name, fn) => { try { fn(); } catch (e) { W.err = `${name}: ${e && e.message}`; console.error("[playershops] " + name, e); } };
+    if (ctx.state === "playing" || ctx.state === "footRun") { step("day", dayTick); step("pay", payTick); }
+    if (townId()) { step("layout", layout); step("claims", syncClaims); } else { step("clear", () => { if (W.group) clearSigns(); if (CL.size) dropClaims(); }); }
+    step("depot", depotTick);
+    step("party", publish);
+    step("server", serverTick);
 });

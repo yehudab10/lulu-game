@@ -62,7 +62,7 @@ async function body(t, guests) {
   await new Promise(r => setTimeout(r, 2000));
   // (the host's own front, as the storefronts ✋ labels it on the guest's screen — next door may be FOR LEASE)
   const lab = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return f && f.sid && ctx.storefronts ? String(ctx.storefronts.debug.label(f.sid) || "") : ((ctx.foot.debug.interactables() || {}).label || ""); })()`);
-  const why = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); return { sid: f && f.sid, cl: f && f.sid ? P.CL.get(f.sid) : null, near: (ctx.foot.debug.interactables() || {}).label || "" }; })()`);
+  const why = await A.game(`(() => { const P = ctx.playershops.debug, f = P.frontById(${FJ}); let err = null; try { P.syncClaims(); } catch (e) { err = String(e && e.stack || e).slice(0, 300); } return { sid: f && f.sid, cl: f && f.sid ? P.CL.get(f.sid) : null, err, tickErr: P.W.err || null, oth: ctx.playershops.others().map(o => o.id), near: (ctx.foot.debug.interactables() || {}).label || "" }; })()`);
   t.check("guest: the host's front says ✋ 👀 LOOK ROUND <host>'S SHOP", /LOOK ROUND/.test(lab), lab + " " + JSON.stringify(why));
   await A.game(`(ctx.playershops.debug.enterShop(ctx.playershops.debug.frontById(${FJ}), "visit", ctx.playershops.debug.SHOP_PARTY.cache.find(x => x.id === ${FJ})), true)`);
   if (await A.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "guest inside the host's shop", 30000)) {
