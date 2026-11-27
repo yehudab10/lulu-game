@@ -524,6 +524,11 @@ export class Room {
         if (this.disposed) return;
         this.t += dt;
         if (!this.ready) return;
+        // features/houseitems: the thing in her hand / her pepper / a rocket, in THIS room (not homes' houses: there the
+        // item button is SNEAK) — a context of its own, or "no rockets indoors"
+        if (P && (P.item || P.fire) && this.def.id !== "home" && ctx.houseitems && ctx.houseitems.inRoom) {
+            try { if (ctx.houseitems.inRoom(this, P)) { P.item = false; P.fire = false; } } catch (e) { console.error("[interiors] houseitems", e); }
+        }
         if (this.fadeIn < 1) {
             this.fadeIn = Math.min(1, this.fadeIn + dt / 0.45);
             setFade(1 - this.fadeIn, "");

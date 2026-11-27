@@ -23,6 +23,10 @@ import { makeProp } from "./props.js";
 import { shared } from "../../core/save.js";
 import { tone } from "../interiors/fx.js";
 import { dropBad } from "../underworld/badguys.js";
+import { CONTEXTS, matchContext } from "./contexts.js";
+import { G as GADGET, fireOnFoot, missilesN, spend, onMissileHit } from "./gadgets.js";
+import { kickNear } from "../life/wind.js";
+import { alarmClear } from "../life/alarm.js";
 import { PORCH, tackle } from "../crime/porch.js";
 
 const S = store("houseitems", { bag: [], hand: 0 });
@@ -134,6 +138,9 @@ export function use() {
     const it = cur();
     if (!it || !onFoot()) return null;
     const D = ITEMS[it.id], name = D.name;
+    // first: does THIS place / person give the thing a special use? (contexts.js — data)
+    const m = matchContext(it.id, "street", R.force.ctx || null);
+    if (m) return useContext(it, m, (t, o) => say(t, o));
     let verb = null, target = null;
     for (const v of D.verbs) {
         if (v === "BONK") { const t = bonkTarget(); if (t) { verb = v; target = t; break; } }
@@ -183,6 +190,40 @@ export function use() {
     if (consumed) { if (R.worn && R.worn.id === it.id) unwear(); gone(); }
     syncProp(true);
     return { verb, target: target ? target.kind : null };
+}
+// ── the context table's effects (contexts.js rows name one) ──
+const EFFECTS = {
+    line: () => true,
+    scatterPigeons: () => { try { ctx.life.debug.scatter(""); } catch (e) { /* */ } return true; },
+    feedPigeons: () => true,
+    kickPile: () => { const me = herPos(); return me ? kickNear(me.x, me.z, 3.4) : false; },
+    muffleAlarm: () => { alarmClear(); return true; },
+    spendPepper: () => { spend("pepper"); return true; },
+};
+/** Use a matched context row: its effect, its line, used up if it says so. sayFn(text, anchor) — a bubble here. */
+function useContext(it, m, sayFn) {
+    const { row } = m, id = it ? it.id : "pepper", name = it ? ITEMS[it.id].name : "pepper spray";
+    try { (EFFECTS[row.do] || EFFECTS.line)(m.target, it); } catch (e) { console.error("[houseitems] context", row.id, e); }
+    sayFn(fill(pick(row.lines), { item: name }), null);
+    log("use", { id, verb: "CTX:" + row.id, target: row.near || null });
+    emit("stat", { id: "houseItemUses", n: 1 });
+    if (row.consume && it) { if (R.worn && R.worn.id === it.id) unwear(); gone(S.bag.indexOf(it)); }
+    syncProp(true);
+    return { verb: "CTX:" + row.id, target: row.near || null };
+}
+/** Inside a room (the interiors engine asks, features/homes' houses excepted — their item button is SNEAK): the item
+ *  button with a thing / the pepper in hand, or the fire button (no rockets indoors). → true = handled */
+export function inRoom(rt, P) {
+    if (!ctx.enabled(ID) || !rt || !rt.def || ctx.dialogOpen) return false;
+    const bubble = t => { try { rt.bubble(t, rt.lulu.obj, 3); } catch (e) { /* */ } };
+    if (P.fire) { if (missilesN() <= 0) return false; bubble(pick(["No rockets INDOORS, Lulu. …that was Ima's voice. In her HEAD.", "*reaches for a rocket* …in a ROOM? No. Even she has limits."])); log("indoors", { room: rt.def.id }); return true; }
+    if (!P.item) return false;
+    const it = cur(), id = it ? it.id : (pepperN() > 0 ? "pepper" : null);
+    if (!id) return false;
+    const m = matchContext(id, "room:" + rt.def.id, R.force.ctx || null);
+    if (!m) return false;
+    useContext(it, m, t => bubble(t));
+    return true;
 }
 function spin(obj) { const t0 = performance.now(); const id = setInterval(() => { const k = (performance.now() - t0) / 600; obj.rotation.y += 0.5; if (k > 1) clearInterval(id); }, 30); }
 function dropProp(id) {
@@ -267,6 +308,7 @@ function actor() {
             }
             if (!onFoot() || ctx.dialogOpen) { R.pressT = -1; return true; }
             const P = input.pressed || {};
+            if (P.fire) fireOnFoot();                    // 🚀 on foot: straight up (gadgets.js) — never at anyone
             if (P.itemSwap) { swap(); syncProp(true); }
             // the item button: once = use (after a beat), twice quickly = swap
             // (the window: 0.3 s or 8 frames, whichever is longer — a slow phone's frames are long)
@@ -371,7 +413,7 @@ ctx.houseitems = {
     get inHand() { return onFoot() && !!cur() && ctx.enabled(ID); },
     /** At the wheel with a car-usable thing in hand: the item button is ours (garage's pepper waits). */
     get carHand() { return driving() && carHand(); },
-    useCar, slots: () => slots(),
+    useCar, slots: () => slots(), inRoom, fireOnFoot,
     add, use, swap, addTarget,
-    debug: { S, R, ITEMS, CAP, clear() { S.bag = []; S.hand = 0; R.eat = 0; unwear(); syncProp(true); saveSoon(); return true; }, prop: () => !!(R.prop && R.prop.parent), worn: () => (R.worn ? R.worn.id : null) },
+    debug: { S, R, ITEMS, CAP, CONTEXTS, GADGET, copHit: onMissileHit, clear() { S.bag = []; S.hand = 0; R.eat = 0; unwear(); syncProp(true); saveSoon(); return true; }, prop: () => !!(R.prop && R.prop.parent), worn: () => (R.worn ? R.worn.id : null) },
 };
