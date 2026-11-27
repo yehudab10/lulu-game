@@ -392,7 +392,7 @@ module.exports = {
       const sp = await g(`ctx.town.spot("realty")`);
       await stand(sp.x + sp.nx * 1.2, sp.z + sp.nz * 1.2, sp.x, sp.z);
       await t.tap(0);
-      t.check("into the office", await roomReady());
+      t.check("into the office", await roomReady(), await hand());
       await g(`(() => { const r = window.__interiors.room, h = r.hots.find(h => h.id === "realtor"); r.lulu.obj.position.set(h.x, 0, h.z + 0.3); r.lulu.obj.rotation.y = Math.PI; return true; })()`);
       await t.frames(4);
       await t.tap(0);

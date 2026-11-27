@@ -142,11 +142,11 @@ export function openBling() {
 }
 
 const spot = {
-    r: 2.0, short: "BLING",
+    r: 2.0, short: "BLING", door: true,
     pos() {
         if (!canShop() || cardOpen()) return null;
         const b = baySpot(), p = ctx.foot.pos;
-        return b && (b.x - p.x) ** 2 + (b.z - p.z) ** 2 < 30 * 30 ? { x: b.x, z: b.z } : null;
+        return b && (b.x - p.x) ** 2 + (b.z - p.z) ** 2 < 30 * 30 ? b.sp : null;        // (with its axes: the ✋ reaches across the bay's front — ci/doors)
     },
     label: () => "✨ REFAEL'S BLING BAY — HORNS & DECOR",
     act: () => openBling(),

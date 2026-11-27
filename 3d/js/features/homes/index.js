@@ -100,7 +100,8 @@ function buildDoors() {
             if (HS.byId.has(id)) return;
             const t2 = (door.x - h.lotX) * h.ux + (door.z - h.lotZ) * h.uz;
             const lot = { x: h.lotX + h.ux * t2, z: h.lotZ + h.uz * t2 };
-            const ap = { x: lot.x + h.nx * 0.7, z: lot.z + h.nz * 0.7 };
+            // (+ the frontage's axes: the ✋ reaches across the front path, step → sidewalk — ci/doors › doorReach)
+            const ap = { x: lot.x + h.nx * 0.7, z: lot.z + h.nz * 0.7, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz };
             // (saves from before stable ids: the family was keyed by its index — move it over once)
             const old = `${def.id}:${i}:${j}`;
             if (mig && S.fam[old] && !S.fam[id]) { S.fam[id] = S.fam[old]; delete S.fam[old]; }
@@ -200,17 +201,24 @@ on("crime:porch", e => {
 
 // ── the front doors: a ✋ spot on foot ───────────────────────────────────
 let nearHome = null;
+/** A house's door strip (ci/doors): narrow along the street (a duplex has two doors side by side), from the step out to
+ *  the sidewalk — walking down the pavement doesn't put every house on the ✋. */
+const HOME_DOOR = { w: 0.8, inn: 1.2, out: 1.6 };
 const doorSpot = {
     r: 2.6, short: "HOUSE",
     pos() {
         nearHome = null;
         if (!ctx.town || !ctx.town.active || !ctx.foot || !ctx.foot.pos || !HS.homes.length || !ctx.enabled("homes")) return null;
         const f = ctx.foot.pos;
-        let bd = 2.6;
-        for (const h of HS.homes) { const d = Math.hypot(h.ap.x - f.x, h.ap.z - f.z); if (d < bd) { bd = d; nearHome = h; } }
+        let bd = 2.6, best = null;
+        for (const h of HS.homes) {
+            if (Math.abs(h.ap.x - f.x) > 8 || Math.abs(h.ap.z - f.z) > 8) continue;
+            const a = ctx.foot.doorReach ? ctx.foot.doorReach(h.ap, HOME_DOOR) : h.ap, d = Math.hypot(a.x - f.x, a.z - f.z);
+            if (d < bd) { bd = d; nearHome = h; best = a; }
+        }
         if (nearHome && !lived(nearHome)) nearHome = null;      // (real estate / her own house: their ✋, not ours)
         if (nearHome && ctx.interiors && ctx.interiors.home && ctx.interiors.home.warm) ctx.interiors.home.warm();     // (at a door: its inside loads now)
-        return nearHome ? { x: nearHome.ap.x, z: nearHome.ap.z } : null;
+        return nearHome ? best : null;
     },
     label() {
         if (!nearHome) return null;
