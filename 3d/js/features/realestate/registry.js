@@ -63,3 +63,10 @@ export const registry = {
     changed(ev) { fire(Object.assign({ remote: true }, ev)); },
 };
 export { S };
+
+// ── d3: usernames (after ci/accounts) — the ONE hook. `ctx.accounts` fills these in from the server's names endpoint
+//    (never from the party wire); until then, and whenever they return nothing, the generated label / "LULU ♥" stays.
+//    NAMES.mine() → her username | null (her mailbox plate) · NAMES.of(houseId, label) → that owner's username | null
+export const NAMES = { mine: () => null, of: () => null };
+export const ownerName = (id, label) => { try { return NAMES.of(id, label) || label; } catch (e) { return label; } };
+export const plateName = () => { try { const n = NAMES.mine(); return n ? String(n).slice(0, 14) : "LULU ♥"; } catch (e) { return "LULU ♥"; } };
