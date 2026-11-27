@@ -20,6 +20,9 @@ module.exports = {
     const seg = async (label, kinds = ["nan", "overlay", "flat", "underground", "inwall", "hidden", "stuck", "inside", "invisible"]) => { const r = await W.report(t); W.log(r); W.check(t, label, r, kinds); await W.reset(t); return r; };
     const log = () => g(`ctx.unstuck.debug.U.log.slice()`);
     const nLog = async () => (await log()).length;
+    // (the game keeps only the LAST 30 rescues: a segment that counted "more entries than before" stopped seeing new ones
+    //  once 30 had happened — so each segment starts from an empty log instead)
+    const mark = async () => g(`(ctx.unstuck.debug.U.log.length = 0, 0)`);
     const ready = () => g(`(ctx.unstuck.debug.U.last = -1e9, ctx.unstuck.debug.U.autoLast = -1e9, true)`);
     const purse = () => g(`({ coins: ctx.G.coins, hearts: ctx.G.hearts, wallet: (window.__lulu3d.wallet || {}).coins })`);
     // the player's way: Options (pad) / ❚❚ (touch) / the touch ❚❚ the hatch shows → 🆘 → "get me out"
@@ -112,7 +115,7 @@ module.exports = {
     };
     // 3,000 frames of a player mashing about (half in the car, half on foot): no automatic rescue may fire
     const noFalse = async (label, seed) => {
-      const n0 = await nLog();
+      const n0 = await mark();
       await g(`(ctx.G.hearts = 99, ctx.G.maxHearts = 99, true)`);      // (a monkey crashes: stay in this place)
       await backIn();
       await t.hold(7, 0.6); await monkey(1500, seed); await t.hold(7, 0);
@@ -153,7 +156,7 @@ module.exports = {
 
     // 2 · NaN → rescued at once (automatic)
     await ready();
-    let n0 = await nLog();
+    let n0 = await mark();
     await W.allow(t, "nan", ".");
     await g(`(ctx.car.pos.x = NaN, true)`);
     if (await autoFired(n0, "nan", "highway: a NaN car")) await carOK("highway: after NaN", null);
@@ -162,7 +165,7 @@ module.exports = {
     // 3 · on foot: off the world's edge → back on the shoulder (automatic)
     if (await onFoot()) {
       await ready();
-      n0 = await nLog();
+      n0 = await mark();
       await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, 300, {}); F.pos.set(p.x, 0, p.z); F.lulu.obj.position.copy(F.pos); return true; })()`);
       await W.moved(t);
       if (await autoFired(n0, "edge", "highway: on foot far off the world's edge")) {
@@ -175,7 +178,7 @@ module.exports = {
       sol = await solidNear(0.8);
       if (sol) {
         await ready();
-        n0 = await nLog();
+        n0 = await mark();
         await putFoot(sol.x, sol.z);
         // (the game's own collision pushes her out of a round thing; the rescue is for what it can't — either way she's out)
         await t.frames(120);
@@ -360,7 +363,7 @@ module.exports = {
         await t.shot(`${id}-car-out-of-house`);
         // the same, automatic (no press): inside a block for > 2 s
         await ready();
-        n0 = await nLog();
+        n0 = await mark();
         await putCar(block.x, block.z);
         // (the town's own collision may shove a car out of a block by itself; the rescue is for when it can't — either way she's out)
         await t.frames(150);         // (a plain wait: no rescue is fine if the town pushed her out)
@@ -375,7 +378,7 @@ module.exports = {
       const lake = await g(`(() => { const W = (ctx.town.def.water || [])[0]; if (!W) return null; return ctx.town.debug.world((W.x0 + W.x1) / 2 + 4, (W.z0 + W.z1) / 2); })()`);
       if (lake) {
         await ready();
-        n0 = await nLog();
+        n0 = await mark();
         await putCar(lake.x, lake.z);
         if (await autoFired(n0, "inside", `${id}: the car in the lake`, 8000)) await carOK(`${id}: out of the lake`, null);
       }
@@ -391,7 +394,7 @@ module.exports = {
       if (block && await onFoot()) {
         for (const y of [0, 6]) {
           await ready();
-          n0 = await nLog();
+          n0 = await mark();
           await putFoot(block.x, block.z, y);
           if (y) {
             // (dropped onto a roof she falls; the landing / the game's own walls may get her out first — either way she's out)
@@ -410,7 +413,7 @@ module.exports = {
         sol = await solidNear(1, ["tree"]);
         if (sol) {
           await ready();
-          n0 = await nLog();
+          n0 = await mark();
           await putFoot(sol.x, sol.z);
           if (await autoFired(n0, "inside", `${id}: on foot inside a tree`, 8000)) await footOK(`${id}: out of the tree`, sol);
         }
