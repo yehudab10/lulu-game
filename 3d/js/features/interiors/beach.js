@@ -217,8 +217,7 @@ export default defineInterior({
         rt.hot({ id: "lifeguard", spot: "lifeguardTalk", r: 1.6, label: "🛟 Talk to the lifeguard", action: rt => { sfx.whistle(); return rt.say("Lifeguard", LIFEGUARD(), GUARD_S); } });
         rt.hot({ id: "icecream", spot: "icecream", who: "vendor", r: 1.5, label: () => rt.used.icecream ? "🍦 Another scoop" : "🍦 Ice cream stand", action: async rt => {
             const s = rt.spot("icecream"), at = new THREE.Vector3(s.x, 1.3, s.z - 1.2);
-            if (!rt.used.icecream) {
-                rt.used.icecream = true;
+            if (rt.onceToday("icecream")) {
                 rt.coins(25, "+25 ⭐", at);
                 wallet.add(1);   // a little beach-day star too (the 2D footAwardStar)
                 tone(880, 0.12, "sine", 0.12, 1320);
