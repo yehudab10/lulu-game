@@ -112,8 +112,8 @@ export default {
         // features/family (roadmap 32 · stage C): the Avenue M Ballroom — Lakewood's simcha-hall model in Midwood, a store row
         // either side; its door is a ✋ (Avigail's wedding plays inside on the hall's evenings — features/family/hall.js)
         simchahall: { key: "town_hall", fallback: "town_mw_store", dims: { w: 34, d: 22, prot: 4.3 }, sign: L.SIGNS.simchahall, spot: "simchaHall",
-            signSize: [15.4, 1.45, 96], signBg: "#4A148C", signFg: ["#F8BBD0", "#FFFFFF"],
-            with: [-34.5, -24, 24, 34.5].map(u => ({ key: "town_mw_store", u, list: "avem" })) },
+            signSize: [15.4, 1.45, 64], signW: 512, signBg: "#4A148C", signFg: ["#F8BBD0", "#FFFFFF"],      // (a small atlas cell: Midwood's one sign atlas is full)
+            with: [-24, 24].map(u => ({ key: "town_mw_store", u, list: "avem" })) },
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [
