@@ -72,6 +72,24 @@ export const PIECES = [
       line: "Velour. A zipper. Royalty, basically." },
     { id: "lk_coat", slot: "outer", shape: "coat", shop: "lakewood", price: 450, color: "#1D2A5C", brand: "Simcha's", name: "Navy Wool Coat", icon: "🧥",
       line: "Lasts twenty years. She'll be told so for all twenty." },
+
+    // ── JFK: Maison de Gelt (the luxury house, Terminal 4½ — a long-term flex: one bag costs more than a house) ──
+    { id: "jfk_slippers", slot: "shoes", shop: "jfk", price: 2000, color: "#E9D3A3", brand: "Maison de Gelt", name: "Velvet Loafers", icon: "🥿",
+      line: "Hand-stitched by a man named Pierre. Pierre is from Monsey." },
+    { id: "jfk_tights", slot: "tights", shop: "jfk", price: 2000, color: "#2A2026", brand: "Maison de Gelt", name: "Silk Tights (Duty Free*)", icon: "🧦",
+      line: "*It is not duty free. Nothing here is duty free." },
+    { id: "jfk_silk", slot: "top", shop: "jfk", price: 3500, color: "#F3E2C4", brand: "Maison de Gelt", name: "Hand-Ironed Silk Blouse", icon: "👚",
+      line: "Ironed by hand. Then ironed again. By a different hand." },
+    { id: "jfk_shades", slot: "acc", shape: "shades", shop: "jfk", price: 4000, color: "#1A1410", brand: "Maison de Gelt", name: "Les Lunettes Énormes", icon: "🕶️",
+      line: "So big the TSA asked them to go through separately." },
+    { id: "jfk_midi", slot: "skirt", shop: "jfk", price: 5000, color: "#120E14", brand: "Maison de Gelt", name: "The Couture Midi", icon: "🖤",
+      line: "Below the knee, above your budget." },
+    { id: "jfk_wrap", slot: "acc", shape: "scarf", shop: "jfk", price: 6500, color: "#8E1B3A", brand: "Maison de Gelt", name: "Cashmere Travel Wrap", icon: "🧣",
+      line: "For the plane. She is not getting on a plane. Still." },
+    { id: "jfk_trench", slot: "outer", shape: "coat", shop: "jfk", price: 12000, color: "#D9C29A", brand: "Maison de Gelt", name: "The Gold-Button Trench", icon: "🧥",
+      line: "Comes with a garment bag, a certificate and a small speech." },
+    { id: "jfk_bag", slot: "acc", shape: "bag", shop: "jfk", price: 25000, color: "#B5121B", brand: "Maison de Gelt", name: "Le Sac Kugel", icon: "👜",
+      line: "Costs more than a house. In this game: literally. Holds one kugel." },
 ];
 export const pieceById = id => PIECES.find(p => p.id === id) || null;
 
@@ -122,6 +140,30 @@ export const SHOPS = {
         wall2: { label: "🪧 The sign by the stairs", lines: ["'SHEITELS: UPSTAIRS. Please do not ask Mrs. Rosenbaum about sheitels.' Someone asked.",
             "'We close early Fridays. Earlier in winter. You'll know.'"] },
     },
+};
+
+// (JFK's luxury house: its own room on the same engine — the door is the airport's to give: 3d/docs/airport-plan.md › Sync log)
+SHOPS.jfk = {
+    name: "Maison de Gelt", title: "👜 MAISON DE GELT", tagline: "duty free (it isn't)",
+    where: "JFK, Terminal 4½ — past security, between the gate and the pretzels",
+    sign: ["MAISON DE GELT", "paris · milan · terminal 4½"],
+    floor: ["#1B1B1F", "#2A2A30"], wall: "#F4EFE6", trim: "#C9A227", counter: "#111114", rack: "#C9A227", curtain: "#5B0F1E",
+    clerk: { name: "Giselle (born Gittel)", key: "npcWoman", colors: { Top: "#111114", Bottom: "#111114", Hair: "#1A1A1A" } },
+    other: [{ name: "a very rich traveller", key: "npcMan", colors: { Top: "#E9E3D6", Bottom: "#3E2723", Hair: "#BDBDBD" } }],
+    hello: ["Bonjour. …Lulu? From Midwood? I'm Gittel. Giselle. Here I'm Giselle.",
+        "Welcome to Maison de Gelt. Please don't touch the bag. The bag is resting.",
+        "Duty free? Darling, nothing is free. Especially duty."],
+    look: ["Magnifique. Also: mamash shayn.", "Très chic. Your Bubbe would say 'for THAT money?'. Ignore her.", "It's you. It's very expensive you."],
+    bought: ["Félicitations! I'll wrap it in tissue. Gold tissue. Don't ask.", "Mazel tov. Wear it on the plane you're not taking.",
+        "Done! The bag comes with a smaller bag. And a receipt you should hide."],
+    poor: ["Ah. You're a little short. A little a lot. Come back when you've sold a house."],
+    owned: ["You already own this! You have taste AND money. Rare."],
+    tried: ["The fitting room has velvet walls. Also a chair. Also a smaller chair for the bag."],
+    other_lines: ["I'll take one in every colour. My jet has a closet.", "Is this duty free? …It's NOT? Then I'll take two, out of spite.",
+        "I'm on a layover. Nine hours. I've bought four coats."],
+    counter: { label: "💳 Pay at the counter", sign: "MAISON DE GELT\nno refunds · no exchanges\nno touching the bag" },
+    wall2: { label: "🖼️ The price list", lines: ["A price list in gold ink. The prices are also in gold ink. Ima would faint.",
+        "'All prices include VAT, GST, and a small fee for breathing near the merchandise.'"] },
 };
 
 /** Lulu's own lines (tried on · bought · can't afford). */

@@ -205,5 +205,22 @@ module.exports = {
       const c = m.spawnPerson("luluPerson", { colors: { Top: "#FF6D2E", Bottom: "#FF6D2E" } });
       return n(a.obj) === 1 && n(b.obj) === 0 && n(c.obj) === 0;
     })`));
+
+    // ════ 6. JFK's luxury house (built + waiting for its door from the airport: direct entry) ════
+    t.check("Maison de Gelt's stock: 8 pieces at 2,000–25,000; the bag costs more than the cheapest house",
+      await g(`(() => { const L = ctx.clothes.pieces.filter(p => p.shop === "jfk"); const bag = L.find(p => p.id === "jfk_bag"); return L.length === 8 && L.every(p => p.price >= 2000 && p.price <= 25000) && bag.price > 7000; })()`));
+    await W.pause(t, false);
+    await g(`ctx.clothes.enterAs("jfk", { exit: () => L3.setState("footRun", { resume: "interior" }) })`);
+    if (await t.until(`__lulu3d.state === "interior" && ${room("clothesShop")}`, "inside Maison de Gelt", 60000)) {
+      await t.frames(20);
+      t.check("…walk in: MAISON DE GELT, Giselle (born Gittel) at the counter", /MAISON DE GELT/.test(await g(`__interiors.room.def.title`)) && /Gittel/.test(await g(`__interiors.room.byId.clerk.name`)));
+      await t.shot("maison-de-gelt");
+      const W2 = await coins();
+      await run(`return D.buyAtCounter(rt, P("jfk_bag"), false)`);
+      await idle("no sale at Maison de Gelt");
+      t.check("…Le Sac Kugel (25,000) with " + W2 + " coins: no sale, nothing spent", await coins() === W2 && await g(`!ctx.clothes.owns("jfk_bag")`));
+      await g(`(__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "back out", 30000);
+    }
   },
 };
