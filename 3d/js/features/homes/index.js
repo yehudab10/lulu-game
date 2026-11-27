@@ -215,7 +215,7 @@ const doorSpot = {
     label() {
         if (!nearHome) return null;
         const n = plural(nearHome.name).toUpperCase();
-        if (nearHome.label && !deliveryFor(nearHome)) return typeof nearHome.label === "function" ? nearHome.label(nearHome) : nearHome.label;
+        if (nearHome.label) return typeof nearHome.label === "function" ? nearHome.label(nearHome) : nearHome.label;
         return deliveryFor(nearHome) ? `${JOBS[deliveryFor(nearHome).type].emoji} THE ${n} — DELIVER` : invited(nearHome) ? `🙋 THE ${n} — WAVING YOU IN` : `🏠 THE ${n}`;
     },
     act() { if (nearHome) doorMenu(nearHome); },
