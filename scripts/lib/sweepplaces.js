@@ -407,7 +407,7 @@ function make(t) {
     oneOffs.forEach((x, k) => t.check(`bought ${x.name} (${x.where}) is in the save (${a[k]}) and survives a reload (${b[k]})`, a[k] && b[k]));
   };
 
-  return { sweepFronts, persisted, BUYS, g, st, coins, log, shot, playing, start, town, onFoot, findDoors, room, dialogFit, flood, facts, drive, useHot, audit, enter, leave, carPos, sweepTown };
+  return { report, sweepFronts, persisted, BUYS, g, st, coins, log, shot, playing, start, town, onFoot, findDoors, room, dialogFit, flood, facts, drive, useHot, audit, enter, leave, carPos, sweepTown };
 }
 
 module.exports = { make, W };
