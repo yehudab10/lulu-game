@@ -933,7 +933,11 @@ on("state", ({ from, to }) => {
 hook("damage", () => (inPartyRun() ? false : undefined), 90);
 
 hook("update", (dt, P_, controlsOn) => {
-    if (!inPartyRun()) { if (lightRoam() && ctx.state === "playing") bonks(dt); return; }      // (friends bump harmlessly on her own run too)
+    if (!inPartyRun()) {
+        if (ctx.traffic) ctx.traffic.leads = lightRoam() ? friendLeads() : null;
+        if (lightRoam() && ctx.state === "playing") bonks(dt);      // (friends bump harmlessly on her own run too)
+        return;
+    }
     P_.fire = false; P_.item = false;                  // missiles / pepper would hit traffic on ONE screen only
     const car = ctx.car, A = N.A, t = clock();
     const own = ACTS[A.k] && ACTS[A.k].ownTraffic && ACTS[A.k].ownTraffic();
@@ -988,6 +992,16 @@ hook("update", (dt, P_, controlsOn) => {
     P.lastS = car.s; P.lastT = t;
 }, 40);
 on("coin", ({ n, why }) => { if (inPartyRun() && P.convoy.on && why === "road") addCoins(n, "convoy"); });
+
+// 🌍 on her own run each screen has its own traffic: it follows a friend's car like any car ahead (traffic.js leads) —
+// it slows behind her or changes lanes, never drives through her from behind. (Town traffic is the shared loops.)
+const LEADS = [];
+function friendLeads() {
+    if (ctx.town && ctx.town.active) return null;
+    LEADS.length = 0;
+    for (const rc of R.cars.values()) if (rc.shown && !rc.foot) LEADS.push({ s: rc.s, d: rc.d, dir: rc.speed >= 0 ? 1 : -1, speed: Math.abs(rc.speed || 0), hit: false });
+    return LEADS.length ? LEADS : null;
+}
 
 // BONK! symmetric self-detection: each screen bounces its own car off the friend it sees
 function bonks(dt) {
