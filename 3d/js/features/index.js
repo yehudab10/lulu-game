@@ -51,6 +51,7 @@ import "./shul/index.js";         // 🕍 shul: a walk-in shul in each town (the
 import "./shops/index.js";        // 🛍️ shops: the shop moved into the world — 🚗 Uncle Refael's Pre-Loved Cars in each town (look, test drive, buy), 🔑 pick your car in your garage at home, 🛍️ Where to shop (directions, not a store)
 import "./dealers/index.js";      // 🏎️ dealers: Mazelati of Monsey (luxury, Sal's haggle + F&I, real perks) + ⚡ Tushla (EVs + Full Schlep Driving)
 import "./clothes/index.js";      // 👗 clothing shops (Midwood: Avenue J'adore · Lakewood: Simcha's Classic Clothing) — racks, the fitting room (try on: a curtain + a spin), buy at the counter; outfits on Lulu herself
+import "./lanes/index.js";        // 🎳 East Midwood Lanes on Kings Hwy — really bowl (swipe / hold-and-let-go), alone, vs. the house bowler, or with whoever's in the alley
 import "./pins/index.js";         // 📍 places on the 📱 🗺️ Map + one PING (a beam, one edge pointer, the objective line's lowest slot); friends see it in their colour
 import "./storefronts/index.js";  // 🏪 every shopfront has a state (a one-joke shop · closed by its hours · coming soon · for lease · saved for a feature) + a 🗺️ street directory on each shopping street
 import "./netping/index.js";      // 📶 ⚙️ Show connection (ping): an optional, off-by-default readout of the relay round trip
@@ -64,4 +65,6 @@ import "./family/index.js";       // 👨‍👩‍👧 more of Lulu's family: F
 import "./houseitems/index.js";   // 🍳 the things she takes from houses DO something: one in hand, the item button — BONK a crook / a chasing cop, GIVE (its owner knows it), EAT (a heart, capped), DROP (a distraction), WEAR, SHOW
 import "./impound/index.js";      // 🚗 getting an impounded car back: pay the release (the lot's window · City Hall's Permits window · 📞 Contacts › City Hall) → the gate → drive out; or break in past Bruno the night guard and hotwire her own car (one try a real day)
 import "./cars/index.js";         // 🚗 every car she owns is somewhere: left where she parked it (any lap, a reload, a new day), ✋ get in to swap, 📱 🗺️ Map › Your cars
+import "./carcare/index.js";      // 🧽 the car-care row: the Minivan Wash (dirt), Bumper to Bumper (dents), Tire-d of It (tires), the Muffler shop, Gas & Gossip (one true thing a real hour) — each car's condition saved with ctx.cars
 import "./cameras/index.js";      // 📸 speed cameras: Ocean Parkway (25, fires above 35) + every school block in school hours (15, fires above 25) — the flash + a photo, the ticket comes in the mail at her home, City Hall's ledger, then late fee → summons (Courtroom 2B) → a bench warrant
+import "./install/index.js";      // 📥 install on this PC / phone (optional): the service worker (/sw.js) + one quiet ⚙️ row when the browser offers it

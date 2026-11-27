@@ -101,6 +101,9 @@ export const PIECES = [
     { id: "jfk_bag", slot: "acc", shape: "bag", shop: "jfk", price: 25000, color: "#B5121B", brand: "Maison de Gelt", name: "Le Sac Kugel", icon: "👜",
       line: "Costs more than a house. In this game: literally. Holds one kugel." },
 ];
+// 🎳 earned, never sold (features/lanes: a first 200+ game at East Midwood Lanes) — `prize`: not on any shop's rack
+PIECES.push({ id: "lanes_shirt", slot: "top", shop: "prize", prize: true, price: 0, color: "#B71C1C", brand: "East Midwood Lanes", name: "The LANES bowling shirt", icon: "🎳",
+    line: "Earned, not bought: a 200 game. Sheldon stitched her name on the pocket himself. Spelled it wrong. Kept it." });
 export const pieceById = id => PIECES.find(p => p.id === id) || null;
 /** Her own pieces (owned from the start, never sold). */
 export const OWN = PIECES.filter(p => p.shop === "own").map(p => p.id);

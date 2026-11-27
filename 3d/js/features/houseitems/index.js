@@ -415,5 +415,7 @@ ctx.houseitems = {
     get carHand() { return driving() && carHand(); },
     useCar, slots: () => slots(), inRoom, fireOnFoot,
     add, use, swap, addTarget,
+    /** Another feature takes one thing out of her bag (features/lanes: the 1994 trophy back in Sheldon's case) → true if she had it. */
+    take(id) { const i = S.bag.findIndex(x => x.id === id); if (i < 0) return false; gone(i); syncProp(true); return true; },
     debug: { S, R, ITEMS, CAP, CONTEXTS, GADGET, copHit: onMissileHit, clear() { S.bag = []; S.hand = 0; R.eat = 0; unwear(); syncProp(true); saveSoon(); return true; }, prop: () => !!(R.prop && R.prop.parent), worn: () => (R.worn ? R.worn.id : null) },
 };
