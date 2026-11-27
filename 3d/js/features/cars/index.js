@@ -28,7 +28,7 @@ import { MAP_EXTRAS } from "../phone/apps.js";
 import { lapPlaces, myLapM, ahead, miles } from "../world/lapmap.js";
 import { ID, TUNE, L } from "./data.js";
 
-export const SAVE = store(ID, { v: 1, cars: {}, pend: null });
+export const SAVE = store(ID, { v: 1, cars: {}, pend: null, slots: null });
 const S = { t: 0, last: null, props: {}, swapping: false, migrated: false, log: [] };
 const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -105,7 +105,8 @@ function inOwnCar() {
 /** She left car k at `last` (foot's stub pose): parked there, or home if that IS home. */
 function leaveIt(k, last, why) {
     const p = last.pose;
-    if (last.wrecked || !p.town || atFamily(p)) setRec(k, { kind: "home" });       // (stage 3: the highway / a wreck → Tuvia's tow)
+    if (last.wrecked || !p.town) setRec(k, { kind: "home" });                       // (stage 3: the highway / a wreck → Tuvia's tow)
+    else if (atFamily(p)) setRec(k, { kind: "home", town: p.town, lx: +p.lx.toFixed(2), lz: +p.lz.toFixed(2), h: +p.h.toFixed(3) });   // on Ima's lot: it stays where she put it
     else setRec(k, { kind: "left", town: p.town, lx: +p.lx.toFixed(2), lz: +p.lz.toFixed(2), h: +p.h.toFixed(3), day: today() });
     log("left", { key: k, why, town: p.town || null });
     // foot let go of it (she's in a borrowed ride): our parked car takes its place
@@ -192,20 +193,63 @@ function drop(k) {
 }
 function dropAll() { for (const k of Object.keys(S.props)) drop(k); }
 function herPos() { const o = ctx.foot && ctx.foot.active && ctx.foot.obj; return o ? o.position : ctx.car ? ctx.car.pos : null; }
+// ── home: the cars at Ima's stand in the driveway / along her kerb ──
+function homeTown() { const Hm = ctx.home; return Hm && Hm.site === "town" && Hm.ready && Hm.park ? Hm.town : null; }
+/** Ima's kerb spaces (her street, by the lot): picked once with the town's own kerb finder, saved in the town's local frame. */
+function kerbSlots(n) {
+    const town = homeTown();
+    if (!town || !plan() || ctx.town.id !== town || !ctx.town.curbSpot) return [];
+    if (!SAVE.slots || SAVE.slots.town !== town || !Array.isArray(SAVE.slots.list)) SAVE.slots = { town, list: [] };
+    const sl = SAVE.slots.list, park = ctx.home.park;
+    for (let i = 0; sl.length < Math.min(n, TUNE.slots) && i < 30; i++) {
+        const k = ctx.town.curbSpot({ near: park, minD: 5, maxD: 40 + i * 2, len: 6, still: true });
+        if (!k) break;
+        const l = poseOf(k);
+        if (Math.hypot(k.x - park.x, k.z - park.z) < 6 || sl.some(q => Math.hypot(q.lx - l.lx, q.lz - l.lz) < 6.5)) continue;
+        sl.push({ lx: +l.lx.toFixed(2), lz: +l.lz.toFixed(2), h: +l.h.toFixed(3) });
+        saveSoon();
+    }
+    return sl;
+}
+/** Her own car (the one she's using) stands in Ima's driveway right now. */
+function drivewayTaken() {
+    const park = ctx.home.park, fc = ownStub();
+    const at = fc && T().cars.includes(fc.stub) ? fc.stub : inOwnCar() ? ctx.car.pos : null;
+    return !!at && Math.hypot(at.x - park.x, at.z - park.z) < 3.5;
+}
+function homeWants(me, want) {
+    const town = homeTown();
+    if (!town || ctx.town.id !== town || (ctx.state !== "footRun" && ctx.state !== "playing")) return;
+    const ks = owned().filter(k => rec(k).kind === "home");
+    if (!ks.length) return;
+    const park = ctx.home.park, busy = drivewayTaken(), slots = kerbSlots(ks.length);
+    let i = 0;
+    for (const k of ks) {
+        const r = rec(k);
+        let w = r.town === town && r.lx != null ? worldOf(r) : null;
+        if (w && busy && Math.hypot(w.x - park.x, w.z - park.z) < 3.5) w = null;     // (the car she's using has the driveway)
+        if (!w && i < slots.length) w = worldOf(Object.assign({ town }, slots[i++]));
+        if (w && Math.hypot(w.x - me.x, w.z - me.z) < (S.props[k] ? TUNE.far : TUNE.near)) want[k] = w;
+    }
+}
 function syncProps() {
     const me = herPos();
     const want = {};
-    if (me && plan()) for (const k of owned()) {
-        const r = rec(k);
-        if (r.kind !== "left") continue;
-        const w = worldOf(r);
-        if (!w) continue;
-        const d = Math.hypot(w.x - me.x, w.z - me.z);
-        if (d < (S.props[k] ? TUNE.far : TUNE.near)) want[k] = w;
+    if (me && plan()) {
+        for (const k of owned()) {
+            const r = rec(k);
+            if (r.kind !== "left") continue;
+            const w = worldOf(r);
+            if (!w) continue;
+            const d = Math.hypot(w.x - me.x, w.z - me.z);
+            if (d < (S.props[k] ? TUNE.far : TUNE.near)) want[k] = w;
+        }
+        homeWants(me, want);
     }
     for (const k of Object.keys(S.props)) {
-        const p = S.props[k];
-        if (!want[k] || !T().cars.includes(p.c)) drop(k);     // (out of range, or a town warp cleared the road: built again below)
+        const p = S.props[k], P = p.c.data.carsPose, w = want[k];
+        // (out of range, moved to another spot, or a town warp cleared the road: built again below)
+        if (!w || !T().cars.includes(p.c) || !P || Math.hypot(P.x - w.x, P.z - w.z) > 0.5) drop(k);
     }
     for (const k of Object.keys(want)) if (!S.props[k]) { const p = spawn(k, want[k]); if (p) S.props[k] = p; }
 }
@@ -270,7 +314,17 @@ hook("runStart", (G, opts) => {
         // (stage 1: the impound's own rule — a new run, the car's home again; stage 3 keeps it there)
         for (const x of owned()) if (rec(x).kind === "impound") setRec(x, { kind: "home" });
         const k = sel(), r = rec(k);
-        if (r.kind === "with" || r.kind === "home") { if (r.kind !== "with") setRec(k, { kind: "with" }); return; }
+        if (r.kind === "with") return;
+        // a day that starts at a house she owns (features/realestate): a car she left there
+        const there = startHome();
+        const atIt = there && owned().find(x => { const q = rec(x); return q.kind === "left" && q.town === there.town && Math.hypot(q.lx - there.lx, q.lz - there.lz) < TUNE.atHouse; });
+        if (atIt) {
+            if (atIt !== k) { S.swapping = true; try { equipSkin(atIt); } finally { S.swapping = false; } }
+            setRec(atIt, { kind: "with" });
+            log("pick", { key: atIt, instead: k, at: "owned" });
+            return;
+        }
+        if (r.kind === "home") { setRec(k, { kind: "with" }); return; }
         const alt = owned().find(x => rec(x).kind === "home");
         if (alt) {
             S.swapping = true;
@@ -284,6 +338,12 @@ hook("runStart", (G, opts) => {
         log("fallback", { key: k });
     } catch (e) { console.error("[cars] runStart", e); }
 }, 50);
+
+/** The house a day starts at when it isn't Ima's (ctx.home.startAt, its door id "town:lx:lz") → { town, lx, lz } | null. */
+function startHome() {
+    const a = ctx.home && ctx.home.startAt, m = a && typeof a.key === "string" && /^([a-z]+):(-?[\d.]+):(-?[\d.]+)$/.exec(a.key);
+    return m ? { town: m[1], lx: +m[2], lz: +m[3] } : null;
+}
 
 // ── 📱 🗺️ the Map: where each car is ──
 function whereLine(k) {
@@ -320,9 +380,11 @@ ctx.cars = {
     /** [{ key, name, kind, town?, where }] for every car she owns. */
     list() { return owned().map(k => Object.assign({ key: k, name: nameOf(k), where: whereLine(k) }, rec(k))); },
     where(k) { return SKINS[k] ? Object.assign({}, rec(k)) : null; },
+    /** Ima's kerb spaces (local frame) — features/shops' old picker steps aside while cars stand there. */
+    get slots() { return SAVE.slots ? SAVE.slots.list.slice() : []; },
     atHome(k) { const r = SKINS[k] ? rec(k) : null; return !!r && (r.kind === "home" || r.kind === "with"); },
     /** Someone else decides where a car is (features/shops' dealer: the old car waits on the lot). rec { kind, town, lx, lz, h, … }. */
     leaveAt(k, r) { if (!SKINS[k] || !r || !r.kind) return false; setRec(k, Object.assign({ day: today() }, r)); return true; },
     getIn,
-    debug: { S, SAVE, rec, migrate, track, resolve, syncProps, worldOf, poseOf },
+    debug: { S, SAVE, rec, migrate, track, resolve, syncProps, worldOf, poseOf, kerbSlots, startHome },
 };

@@ -1818,7 +1818,11 @@ before. Another pick (the 🔑 garage picker, a new car bought → `skin` event)
 road from `lapmap`). Off in Dina's mode and in a party (friends: each player's cars are her own; no network traffic).
 `ctx.cars { list(), where(key), atHome(key), leaveAt(key, rec), getIn(key), debug }` — `leaveAt` is how another feature says
 where a car is (ci/dealers: the old car waits on the lot, `{ kind: "dealer", town, lx, lz, h, name }`); events `cars:change {key,
-kind}`, `cars:getin {key}`. Stage 2: home slots (Ima's driveway + kerb, her owned homes) + the walk-up picker; stage 3: tows, 📞
+kind}`, `cars:getin {key}`. HOME (stage 2): a car left on Ima's lot is `home` with its pose (drawn where she put it, unless the car she's using has the
+driveway); the others stand on Ima's kerb spaces (`kerbSlots`: picked once with `ctx.town.curbSpot({ near: park, still: true })`,
+≥ 6.5 m apart, saved in the local frame — `ctx.cars.slots`; the town's own parked cars are seeded, so a saved space stays free)
+— walk up + ✋ GET IN is the picker (the 🔑 MY CARS card in `shops/home.js` steps aside while `cars` is on). A day that starts at
+a house she owns (`ctx.home.startAt`, door id `town:lx:lz`) starts with a car left within `TUNE.atHouse` of it. Stage 3: tows, 📞
 Tuvia's delivery, no auto-return from the impound, Ima's minivan. Test `scripts/tests3d/cars.js`.
 
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.

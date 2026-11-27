@@ -185,6 +185,28 @@ module.exports = {
       t.check("the save code round-trips where every car is", /"purple":\{"kind":"left","town":"lakewood"/.test(back) && /"orange":\{"kind":"with"/.test(back), back.slice(0, 300));
     });
 
+    // ════ home: three cars at Ima's — the one she uses in the driveway, the others along her kerb; walk up to pick ════
+    await step("home", async () => {
+      await g(`(ctx.cars.leaveAt("pink", { kind: "home" }), ctx.cars.leaveAt("purple", { kind: "home" }), true)`);
+      if (await g(`ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+      await g(`(ctx.onegame && ctx.onegame.home ? ctx.onegame.home({ via: "test" }) : L3.startRun({ home: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "home, on foot", 30000);
+      await t.frames(6); await tick(); await tick();
+      const at = await g(`(() => { const P = ctx.home.park, out = {}; for (const k of ["pink", "purple"]) { const p = ${D}.S.props[k]; out[k] = p ? +Math.hypot(p.c.x - P.x, p.c.z - P.z).toFixed(1) : -1; } const c = ctx.foot.parkedCar; out.drive = c ? +Math.hypot(c.x - P.x, c.z - P.z).toFixed(1) : -1; out.sel = ctx.car.skinKey; return out; })()`);
+      t.check("at Ima's: orange in the driveway, pink + purple stand along her kerb (two different spaces, close by)", at.sel === "orange" && at.drive >= 0 && at.drive < 1 && at.pink > 5 && at.pink < 60 && at.purple > 5 && at.purple < 60
+        && await g(`(() => { const a = ${D}.S.props.pink.c, b = ${D}.S.props.purple.c; return Math.hypot(a.x - b.x, a.z - b.z) > 5; })()`), JSON.stringify(at));
+      t.check("…the 🔑 MY CARS card steps aside (the cars are right there)", !(await t.L(`(() => { const e = document.querySelector(".prompt"); return e ? e.textContent : ""; })()`)).includes("MY CARS"));
+      const slots = await g(`JSON.stringify(ctx.cars.slots)`);
+      const p = await prop("purple");
+      await footAt(p.x + 1.6 * Math.cos(p.h), p.z - 1.6 * Math.sin(p.h));
+      await t.frames(6);
+      t.check("✋ purple at the kerb → she's driving it", await press(`L3.state === "playing" && ctx.car.skinKey === "purple"`));
+      await tick(); await tick();
+      const o = await g(`(() => { const p = ${D}.S.props.orange, P = ctx.home.park; return p ? +Math.hypot(p.c.x - P.x, p.c.z - P.z).toFixed(2) : -1; })()`);
+      t.check("…orange stays in the driveway (at home), pink still at the kerb", await kind("orange") === "home" && o >= 0 && o < 0.5 && await kind("purple") === "with" && !!(await prop("pink")), JSON.stringify({ o, r: await recs() }));
+      t.check("…Ima's kerb spaces are kept (the same ones next time)", (await g(`JSON.stringify(ctx.cars.slots)`)) === slots, slots);
+    });
+
     const r = await W.report(t); W.log(r);
     W.check(t, "cars (after the reload)", r, ["nan", "flat", "underground"]);
   },

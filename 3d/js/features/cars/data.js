@@ -7,6 +7,8 @@ export const TUNE = {
     getIn: 3.3,             // m: ✋ reach to a parked car
     moved: 1.0,             // m a parked car must move before its saved spot is written again
     familyR: 10,            // m round Ima's driveway that counts as "at home"
+    slots: 7,               // Ima's kerb spaces (her driveway holds the car she's using; the rest stand along her street)
+    atHouse: 45,            // m from a house she owns: a car parked that close is "there" for a day that starts there
 };
 
 export const L = {

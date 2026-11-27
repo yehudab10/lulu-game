@@ -31,6 +31,7 @@ function garageAt() {
 function nearHome() {
     if (ctx.state !== "footRun" || !ctx.foot || !ctx.foot.pos || ctx.foot.chasing) return false;
     if (ctx.party && ctx.party.active) return false;
+    if (ctx.cars && ctx.enabled("cars")) return false;        // (features/cars: her cars stand in the driveway + along the kerb — she walks up to one)
     const g = garageAt();
     if (!g) return false;
     const p = ctx.foot.pos;
