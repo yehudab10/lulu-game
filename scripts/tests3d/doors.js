@@ -117,6 +117,7 @@ module.exports = {
       return { bad, moved: V.moved || [], rooms: rooms.map(x => x.type).join("+") };
     })()`);
     const houseRun = async (label, setup, id) => {
+      console.log(`  · ${label}: from ${await st()}`);
       // (the real way in: on foot in town, through foot's hand-off — the same path the homes / real estate doors use)
       await onFoot();
       await g(`Promise.resolve(${setup}).then(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff(${JSON.stringify(id)}, { id: ${JSON.stringify(id)}, s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })`);
@@ -128,6 +129,10 @@ module.exports = {
       return f;
     };
     await town("midwood");
+    // (CI saw the page navigate away mid-houses: say where it went + the last words before it)
+    const tail = [];
+    t.page.on("console", m => { tail.push(`${m.type()}: ${m.text().slice(0, 160)}`); if (tail.length > 12) tail.shift(); });
+    t.page.on("framenavigated", f => { if (f === t.page.mainFrame()) console.log(`  · NAVIGATED → ${f.url()}\n    last console: ${tail.join("\n      ")}`); });
     const offenders = new Map();
     const CASTS = [["dad", "mom"], ["dad", "mom", "boy"], ["bubbe", "dad", "mom", "baby"], ["zeidy", "girl"]];
     for (const cast of CASTS) for (let seed = 1; seed <= 10; seed++) {
