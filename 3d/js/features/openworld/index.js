@@ -205,10 +205,13 @@ function joinOnFoot(t) {
 }
 /** Out of her car: if the friend is off the street (her porch, a lot), walk-cut right beside them — the first surely
  *  normal spot 1.6–3 m around them (ctx.unstuck.normal); her car stays parked at the kerb. */
-function besideFriend(uid, tries = 40) {
-    if (!onFoot() || ctx.foot.phase !== "walk") { if (tries > 0) setTimeout(() => besideFriend(uid, tries - 1), 100); return; }
-    const rc = ctx.party.remoteCar && ctx.party.remoteCar(uid), fp = ctx.foot.pos;
-    if (!rc || !rc.shown || !fp || Math.hypot(rc.x - fp.x, rc.z - fp.z) < 8) return;
+function besideFriend(uid, tries = 300, from = null) {
+    // (waits — up to ~30 s on a crawling phone — for her to be out and walking and the friend to be drawn; she walked off
+    //  herself meanwhile → leave her be)
+    const rc = ctx.party.remoteCar && ctx.party.remoteCar(uid), fp = onFoot() && ctx.foot.phase === "walk" ? ctx.foot.pos : null;
+    if (fp && !from) from = { x: fp.x, z: fp.z };
+    if (!fp || !rc || !rc.shown) { if (tries > 0 && ctx.party.active) setTimeout(() => besideFriend(uid, tries - 1, from), 100); return; }
+    if (Math.hypot(fp.x - from.x, fp.z - from.z) > 4 || Math.hypot(rc.x - fp.x, rc.z - fp.z) < 8) return;
     const ok = (x, z) => !(ctx.unstuck && ctx.unstuck.normal) || !ctx.unstuck.normal(x, z, "foot");
     const a0 = Math.atan2(fp.x - rc.x, fp.z - rc.z);         // (the side she's coming from first)
     for (const r of [1.8, 2.6, 3.2]) for (const k of [0, 1, -1, 2, -2, 3, -3, 4]) {
