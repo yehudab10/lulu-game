@@ -18,6 +18,7 @@ import { sfx } from "../interiors/fx.js";
 import { SLOTS, slotById, optOf, LINES } from "./data.js";
 import { buildOption, disposeObj, wallTex, couchCover, Kit, animate } from "./props.js";
 import { dissolve } from "../../core/transition.js";
+import { doorZones, fit, roomLim } from "../interiors/clear.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
 const KCX = -W, LCX = 0, RCX = W;          // kitchen · living room · Lulu's room (centres)
@@ -120,10 +121,20 @@ function build(rt) {
     }
 
     // ── furniture ──
+    // (nothing solid in a doorway, inside the front door or at Dina's door — interiors/clear.js)
+    const zones = V.clearZones = doorZones({ xs: [X0 + W, X0 + 2 * W], g0, g1, doorX: DOOR_X, D })
+        .concat([{ x0: X1 - 1.2, x1: X1 + 1, z0: DINA_DOOR_Z - 0.8, z1: DINA_DOOR_Z + 0.8 }]);
     const put = (name, x, z, ry = 0, cw = 0, cd = 0) => {
+        let hw = 0, hd = 0, gone = false;
+        if (cw) {
+            const sw = Math.abs(Math.cos(ry)) > 0.5; hw = (sw ? cw : cd) / 2; hd = (sw ? cd : cw) / 2;
+            const f = fit(zones, x, z, hw, hd, roomLim(x, X0, W, 3, D));
+            if (f) { x = f.x; z = f.z; } else gone = true;
+        }
         const o = kit(name); o.position.set(x, 0, z); o.rotation.y = ry; rt.add(o);
         o.traverse(m => { if (m.isMesh) m.castShadow = false; });
-        if (cw) { const sw = Math.abs(Math.cos(ry)) > 0.5, hw = (sw ? cw : cd) / 2, hd = (sw ? cd : cw) / 2; col(name, x - hw, x + hw, z - hd, z + hd); }
+        if (gone) o.visible = false;
+        else if (cw) col(name, x - hw, x + hw, z - hd, z + hd);
         return o;
     };
     const bz = -D / 2;

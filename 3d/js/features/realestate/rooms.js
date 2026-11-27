@@ -3,6 +3,7 @@
 // homes' kit (homes_kit.glb: Kit_<name>) + boxes. Used by the realtor's office and the house interiors.
 import * as THREE from "three";
 import { models, findNodes } from "../../models.js";
+import { doorZones, fit, roomLim } from "../interiors/clear.js";
 
 export const W = 6.2, D = 5.6, WALL = 2.7;     // (the same rooms as decor's house: its decorations fit as they are)
 
@@ -54,10 +55,19 @@ export function rooms(rt, n, opts = {}) {
     const door = kit("Door"); door.position.set(doorX, 0, D / 2); rt.add(door);
     rt.spots.door = { x: doorX, z: D / 2 - 0.8, ry: Math.PI };
     /** A kit piece at (x, z), turned ry, with a collision box cw × cd (0 = walk-through). */
+    // (nothing solid in a doorway / inside the front door — interiors/clear.js: slid along the wall, or left out)
+    const zones = rt.data.clearZones = doorZones({ xs: cx.slice(1).map(c => c - W / 2), g0, g1, doorX, D });
     const put = (name, x, z, ry = 0, cw = 0, cd = 0, y = 0) => {
+        let hw = 0, hd = 0, gone = false;
+        if (cw) {
+            const sw = Math.abs(Math.cos(ry)) > 0.5; hw = (sw ? cw : cd) / 2; hd = (sw ? cd : cw) / 2;
+            const f = fit(zones, x, z, hw, hd, roomLim(x, X0, W, n, D));
+            if (f) { x = f.x; z = f.z; } else gone = true;
+        }
         const o = kit(name); o.position.set(x, y, z); o.rotation.y = ry; rt.add(o);
         o.traverse(m => { if (m.isMesh) m.castShadow = false; });
-        if (cw) { const sw = Math.abs(Math.cos(ry)) > 0.5, hw = (sw ? cw : cd) / 2, hd = (sw ? cd : cw) / 2; col(name + x.toFixed(1), x - hw, x + hw, z - hd, z + hd); }
+        if (gone) o.visible = false;            // (nowhere it fits: not shown, not solid — callers still get an object)
+        else if (cw) col(name + x.toFixed(1), x - hw, x + hw, z - hd, z + hd);
         return o;
     };
     return { cx, doorX, X0, X1, box, col, put, mat };

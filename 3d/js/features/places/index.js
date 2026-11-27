@@ -86,7 +86,7 @@ function doorPos(kind) {
     if (!sp || !p || !id || !ctx.interiors[id]) return null;
     // (walking up to it: the inside starts loading now, so the step in is a soft cut)
     if (ctx.interiors[id].warm && Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors[id].warm();
-    return { x: sp.x, z: sp.z };
+    return sp;          // (with its axes: foot stretches the ✋ across the doorway — ci/doors)
 }
 /** Dress the interiors for this town (their names / titles). */
 function nameInteriors() {
@@ -120,7 +120,7 @@ const impounded = () => !!(ctx.foot && ctx.foot.active && ctx.foot.ownCar === "g
 function gatePos() {
     if (!inTown() && !(ctx.G && ctx.G.mode === "cruise")) return null;
     const sp = spot("impound");
-    return sp ? { x: sp.x, z: sp.z } : null;
+    return sp || null;
 }
 async function gate() {
     // (features/impound: pay the release / show the slip → the car rolls out)
@@ -157,9 +157,12 @@ on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) {
         for (const kind of Object.keys(DOORS)) {
             const D = DOORS[kind];
-            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, label: D.label, short: D.short, act: () => enter(kind) });
+            // (walkIn.n: a roadside place's buildings are a row of 4 m collision circles that stand ~2.5 m out in front of the
+            //  door — she stops at about n 1.1 from the spot and never reached the town default (−0.9): the push counts
+            //  from there. ci/qa, 2026-11-27 — qa27.)
+            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, door: true, walkIn: { id: () => roomId(kind, spot(kind)), get n() { const sp = spot(kind); return sp && sp.hw ? 1.8 : null; } }, label: D.label, short: D.short, act: () => enter(kind) });
         }
-        ctx.foot.addSpot({ pos: gatePos, r: 2.4, label: () => (ctx.impound && ctx.impound.gateLabel && ctx.impound.gateLabel()) || (impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT"), short: "IMPOUND", act: gate });
+        ctx.foot.addSpot({ pos: gatePos, r: 2.4, door: { w: 2.4 }, label: () => (ctx.impound && ctx.impound.gateLabel && ctx.impound.gateLabel()) || (impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT"), short: "IMPOUND", act: gate });
     }
 });
 on("town:enter", () => { C.said.clear(); nameInteriors(); });

@@ -22,7 +22,8 @@
 // handlers) so idle rooms are evicted from memory and cost nothing.
 
 import { createHomes, sqlStore } from "./homes.mjs";   // 🏘️ the world-wide property registry (ci/realestate, owner-approved 2026-11-20)
-import { createAccounts, doSql } from "./accounts.mjs"; // 🪪 accounts + usernames + friends (ci/accounts, owner-approved 2026-11-26)
+import { createAccounts, doSql } from "./accounts.mjs";
+import * as W from "./world.mjs";                      // 🌍 one shared world: the clock, reliable events, the free-plan budget (ci/oneserver, owner-approved 2026-11-27) // 🪪 accounts + usernames + friends (ci/accounts, owner-approved 2026-11-26)
 import { createWear } from "./wear.mjs";               // 👜 limited luxury pieces: a world-wide stock counter (ci/clothes, owner-approved 2026-11-27)
 
 const MAX_MEMBERS = 24;
@@ -129,6 +130,22 @@ export class Room {
     // In-memory rate-limit windows, keyed by WebSocket. Rebuilt lazily after
     // hibernation — losing it just resets a client's window, which is fine.
     this.rate = new Map();
+    this.recentEv = [];                 // 🌍 reliable events of the last 20 s (world.mjs)
+    this.relRate = new Map();           // 🌍 per-socket reliable-event limit
+    this.count = { ws: 0, conn: 0, at: Date.now() };   // 🌍 the free-plan budget: what this room received, told to the Board now and then
+  }
+
+  // 🌍 tell the Board what this room received (every 2,000 messages or 10 minutes — ~1 % more requests)
+  tally(kind) {
+    const c = this.count;
+    c[kind]++;
+    if (c.ws + c.conn < 2000 && Date.now() - c.at < 600000) return;
+    const body = JSON.stringify({ ws: c.ws, conn: c.conn });
+    this.count = { ws: 0, conn: 0, at: Date.now() };
+    try {
+      const stub = this.env.BOARD.get(this.env.BOARD.idFromName("global"));
+      this.state.waitUntil(stub.fetch("https://relay/world/_count", { method: "POST", body }).catch(() => {}));
+    } catch (_) { /* the budget counter is best-effort */ }
   }
 
   // Every joined member carries its identity on the socket attachment so it
@@ -191,11 +208,13 @@ export class Room {
     // Hibernation-aware accept: the runtime will re-deliver messages to
     // webSocketMessage / webSocketClose even after the DO is evicted.
     this.state.acceptWebSocket(server);
+    this.tally("conn");
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(ws, message) {
+    this.tally("ws");
     // Enforce max frame size (message may be string or ArrayBuffer).
     const size =
       typeof message === "string"
@@ -242,7 +261,12 @@ export class Room {
           if (m.meta.d) p.d = m.meta.d;
           peers.push(p);
         }
-        this.send(ws, { t: "h", id, peers });
+        // 🌍 step 1: the server's clock; step 2: the room's recent reliable events (a late joiner gets them)
+        const now = Date.now();
+        const hello = { t: "h", id, peers, st: now };
+        const rec = W.recent(this.recentEv, now);
+        if (rec.length) hello.r = rec;
+        this.send(ws, hello);
 
         // "+" peer-joined -> everyone else
         this.broadcast(ws, { t: "+", id, name: meta.name, sk: meta.sk });
@@ -257,7 +281,7 @@ export class Room {
         // remember for future joiners' hello snapshot
         attach.d = d;
         ws.serializeAttachment(attach);
-        this.broadcast(ws, { t: "s", id: attach.id, d });
+        this.broadcast(ws, { t: "s", id: attach.id, d, st: Date.now() });   // 🌍 step 2: when the relay got it
         return;
       }
 
@@ -270,7 +294,22 @@ export class Room {
       }
 
       case "pi": {
-        this.send(ws, { t: "po" });
+        this.send(ws, W.pong(msg, Date.now()));          // 🌍 step 1: { t: "po", st, n? } (old clients ignore st)
+        return;
+      }
+
+      case "r": {
+        // 🌍 step 2: a reliable one-time event — passed on once, acknowledged, remembered 20 s for late joiners
+        if (!joined) return;
+        const now = Date.now();
+        const slot = this.relRate.get(ws) || {};
+        this.relRate.set(ws, slot);
+        if (!W.relAllowed(slot, now)) return;
+        const ev = W.cleanEvent(msg, attach.id, now);
+        if (!ev) return;
+        W.remember(this.recentEv, ev);
+        this.broadcast(ws, ev);
+        this.send(ws, { t: "ra", id: ev.id, st: now });
         return;
       }
 
@@ -302,6 +341,7 @@ export class Room {
   dropped(ws) {
     const attach = ws.deserializeAttachment();
     this.rate.delete(ws);
+    this.relRate.delete(ws);
     if (attach && attach.id) {
       // announce departure to remaining members
       this.broadcast(ws, { t: "-", id: attach.id });
@@ -371,6 +411,28 @@ export class Board {
     return this.wear;
   }
 
+  // 🌍 today's counts (one row per UTC day; written at most every 50 requests or on a room's report)
+  usageRow() {
+    const day = W.dayOf(Date.now());
+    if (!this.use || this.use.day !== day) {
+      this.sql.exec("CREATE TABLE IF NOT EXISTS world_usage (day TEXT PRIMARY KEY, ws INTEGER, conn INTEGER, http INTEGER)");
+      const r = this.sql.exec("SELECT * FROM world_usage WHERE day = ?", day).toArray()[0];
+      this.use = r ? { day, ws: r.ws, conn: r.conn, http: r.http, dirty: 0 } : { day, ws: 0, conn: 0, http: 0, dirty: 0 };
+      this.sql.exec("DELETE FROM world_usage WHERE day < ?", W.dayOf(Date.now() - 14 * 86400000));
+    }
+    return this.use;
+  }
+  usageAdd(ws, conn, http, flush) {
+    try {
+      const u = this.usageRow();
+      u.ws += ws; u.conn += conn; u.http += http; u.dirty++;
+      if (flush || u.dirty >= 50) {
+        u.dirty = 0;
+        this.sql.exec("INSERT INTO world_usage (day, ws, conn, http) VALUES (?, ?, ?, ?) ON CONFLICT (day) DO UPDATE SET ws = excluded.ws, conn = excluded.conn, http = excluded.http", u.day, u.ws, u.conn, u.http);
+      }
+    } catch (_) { /* best-effort */ }
+  }
+
   clientIp(request) {
     return request.headers.get("CF-Connecting-IP") || "0.0.0.0";
   }
@@ -401,6 +463,19 @@ export class Board {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
+
+    // 🌍 the free-plan budget (world.mjs): rooms report what they received; every HTTP request here counts too
+    if (path === "/world/_count" && method === "POST") {
+      const b = await this.readBody(request);
+      this.usageAdd(Math.max(0, Number(b && b.ws) || 0), Math.max(0, Number(b && b.conn) || 0), 1, true);
+      return corsJson({ ok: true });
+    }
+    this.usageAdd(0, 0, 1, false);
+    if (path === "/world/usage") {
+      const u = W.usageOf(this.usageRow(), Date.now());
+      if (url.searchParams.get("text")) return new Response(W.usageText(u), { headers: { ...CORS_HEADERS, "content-type": "text/plain; charset=utf-8" } });
+      return corsJson(u);
+    }
 
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -541,6 +616,24 @@ export default {
 
     // Async board (phase 2): everything under /board/* → the single global
     // Board Durable Object. Handles GET/POST + OPTIONS preflight itself.
+    // 🌍 /world/config — the kill switches + the server's clock, answered by the Worker itself (no Durable Object, so
+    // it still answers when the Durable Objects are over the free daily allowance)
+    if (url.pathname === "/world/config") {
+      return new Response(JSON.stringify({ world: W.WORLD, st: Date.now() }), { headers: { ...CORS_HEADERS, "content-type": "application/json", "cache-control": "no-store" } });
+    }
+    if (url.pathname === "/world/usage") {
+      try {
+        const r = await env.BOARD.get(env.BOARD.idFromName("global")).fetch(request);
+        if (r.status >= 500) throw new Error("board " + r.status);
+        return r;
+      } catch (e) {
+        // the Durable Objects refused: almost always the free daily allowance — online play rests until midnight UTC
+        const now = Date.now();
+        const reset = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() + 1);
+        return new Response(JSON.stringify({ resting: 1, resetAt: reset, why: String(e && e.message || e).slice(0, 120) }), { status: 503, headers: { ...CORS_HEADERS, "content-type": "application/json" } });
+      }
+    }
+
     if (parts[0] === "board" || parts[0] === "homes" || parts[0] === "acct" || parts[0] === "wear") {
       const id = env.BOARD.idFromName("global");
       const stub = env.BOARD.get(id);

@@ -29,7 +29,7 @@ hook("update", (dt, P, controlsOn) => {
     const t = ctx.G.runTime;
     if (T.tick("heshyPool", dt) && t > 12 && !RS.heshyOut()) RS.spawnHeshy();
     if (T.tick("avigailCar", dt) && t > 15 && !AV.avigailOut()) AV.spawnAvigailCar();
-    if (T.tick("avigail", dt) && t > 18 && !AV.avigailOut() && !AV.rideActive()) AV.spawnAvigailWalker();
+    // (no roadside Avigail walker any more — ci/family, the owner 2026-11-27: she's at HER HOUSE in Midwood, features/family)
     if (T.tick("uncle", dt) && t > 15 && !RS.uncleOut()) RS.spawnUncle();
     if (T.tick("salon", dt) && t > 30 && !SL.salonShopOut()) SL.spawnSalonShop();
     if (T.tick("sasquatch", dt) && t > 35 && !RS.sasquatchOut()) RS.spawnSasquatch();

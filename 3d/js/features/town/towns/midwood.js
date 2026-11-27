@@ -67,7 +67,7 @@ export default {
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts", w: "luluHome" } },
         "0,Kings Hwy": { faces: { s: "kh", w: "pkwy", n: "avem" } }, "1,Kings Hwy": { faces: { s: "kh", n: "avem", e: "cia" } },
         "2,Kings Hwy": { faces: { s: "kh", n: "avem", w: "cia" } }, "3,Kings Hwy": { faces: { s: "kh", n: "avem", w: "rowhouses", e: "rowhouses" } },
-        "4,Kings Hwy": { faces: { s: "kh", n: "avem", e: "apts" } },
+        "4,Kings Hwy": { faces: { s: "kh", n: "simchahall", e: "apts" } },      // (features/family: the Avenue M Ballroom — Avigail's wedding)
     },
     // landmark uses modelled by other features (build.js › layoutFace): the bank on Avenue J (features/heist) —
     // the same model as Lakewood's, in Brooklyn limestone + a green roof, between two storefronts
@@ -109,6 +109,11 @@ export default {
             with: [{ key: "town_mw_store", u: -10.5, list: "avem" }, { key: "town_mw_store", u: 10.5, list: "avem" }, { key: "town_mw_store", u: -21, list: "avem" }, { key: "town_mw_store", u: 21, list: "avem" }] },
         // features/cityhall (roadmap 17): Midwood Borough Hall on Avenue K, across from the precinct + courthouse, a house either side
         cityhall: cityhallUse("midwood", { with: [{ key: "town_mw_house", u: -21 }, { key: "town_mw_house", u: 21 }] }),
+        // features/family (roadmap 32 · stage C): the Avenue M Ballroom — Lakewood's simcha-hall model in Midwood, a store row
+        // either side; its door is a ✋ (Avigail's wedding plays inside on the hall's evenings — features/family/hall.js)
+        simchahall: { key: "town_hall", fallback: "town_mw_store", dims: { w: 34, d: 22, prot: 4.3 }, sign: L.SIGNS.simchahall, spot: "simchaHall",
+            signSize: [15.4, 1.45, 64], signW: 512, signBg: "#4A148C", signFg: ["#F8BBD0", "#FFFFFF"],      // (a small atlas cell: Midwood's one sign atlas is full)
+            with: [-24, 24].map(u => ({ key: "town_mw_store", u, list: "avem" })) },
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [
