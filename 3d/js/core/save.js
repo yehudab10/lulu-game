@@ -108,13 +108,17 @@ export const wallet = {
     get coins() { return Math.max(0, (shared.get().totalCoins || 0) + pendingCoins); },
     /** Add (or remove, with a negative n) coins. Batched; flushed within a second. */
     add(n) {
-        if (!n) return;
+        // (a NaN / Infinity from a bad sum would poison the shared save's totalCoins for good — both games)
+        if (!n || !Number.isFinite(n)) return;
         pendingCoins += n;
         scheduleFlush();
         emit("wallet", { delta: n });
     },
     /** Spend if affordable. Returns true on success. Writes immediately. */
     spend(n) {
+        // (a negative "price" would PAY her, a NaN one silently fails — only a real, non-negative amount spends)
+        if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return false;
+        if (n === 0) return true;
         flushShared();
         let ok = false;
         shared.update(s => {

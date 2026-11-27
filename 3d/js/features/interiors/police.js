@@ -349,8 +349,7 @@ export default defineInterior({
         rt.hot({ id: "coffee", spot: "coffee", r: 1.3, label: "☕ Precinct coffee", action: async rt => {
             const s = rt.spot("coffee"), at = new THREE.Vector3(s.x, 1.1, s.z - 0.9);
             for (let i = 0; i < 8; i++) rt.particles.emit(at.x, 0.8, at.z - 0.2, rand(-0.1, 0.1), rand(0.3, 0.6), 0, 0.05, 1.2, "#ECEFF1", -0.2);
-            if (!rt.used.coffee) {
-                rt.used.coffee = true;
+            if (rt.onceToday("coffee")) {
                 rt.luluHold("Cup");
                 rt.coins(30, "+30", at);
                 rt.burst(at, ["#FFD700", "#6F4E37", "#FFF8B0"], 12, 2.0, 0.05);
