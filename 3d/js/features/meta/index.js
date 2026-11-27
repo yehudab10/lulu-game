@@ -29,8 +29,15 @@ import {
 import { badgeSync, badgeTotals, scrapHasNew } from "./badges.js";
 import { currentHoliday, holidayIs, holidayHat, holidayGiftTick } from "./holidays.js";
 import { tutorialCalm, tutorialActive, tutState } from "./tutorial.js";
-import { openScrapbook, openQuests, addScrapbookTab } from "./screens.js";
+import { openScrapbook, openQuests, addScrapbookTab, openTransfer } from "./screens.js";
 import { BADGES } from "./badges.js";
+
+// ⚙️ › 📲 Move to another phone — always there (the 🪪 Your name card has it too): the save-code copy / load cards
+addMenuItem("settings", {
+    id: "transfer", order: 57.5,
+    label: () => "📲 Move to another phone",
+    action: (b, back) => { setTimeout(() => openTransfer(back), 0); return "card"; },
+});
 
 ctx.meta = {
     stat: (id, n = 1) => questAdd(id, n),
@@ -41,6 +48,8 @@ ctx.meta = {
     calm: () => tutorialCalm(),
     get tutorial() { return tutorialActive(); },
     openScrapbook, openQuests,
+    /** 📲 Move to another phone: the save-code copy / load cards (back → the caller's screen). */
+    openTransfer,
     /** Another feature's scrapbook page: { id, icon, name, render(S) → html, wire?(card, rerender) } — open it with openScrapbook(from, id). */
     addScrapbookTab,
     /** Another feature's 3D badge (same shape as BADGES; `three: true` is implied). */

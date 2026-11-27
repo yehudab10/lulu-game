@@ -128,6 +128,24 @@ module.exports = {
     await t.tap(1); await t.frames(3);
     t.check("○ closes the scrapbook to the title", await t.game(`ctx.state === "title"`) && await t.L(`!!document.getElementById("metaScrapbook")`));
     t.check("…with the cursor back on 📒 Scrapbook", await t.L(`document.getElementById("metaScrapbook").classList.contains("focus")`));
+
+    // 📲 Move to another phone — straight from ⚙️ Settings (the save code was only at the bottom of the Stats page)
+    await t.game(`(L3.openMenuItem("title", "settings"), true)`); await t.frames(6);
+    t.check("⚙️ Settings lists 📲 Move to another phone", await t.L(`/Move to another phone/.test((document.getElementById("set_x_transfer") || {}).textContent || "")`));
+    await t.L(`document.getElementById("set_x_transfer").click()`); await t.frames(6);
+    t.check("⚙️ › 📲 Move to another phone: copy + load buttons", await t.L(`!!document.getElementById("mbXCopy") && !!document.getElementById("mbXLoad")`));
+    await t.shot("move-phone");
+    await t.L(`document.getElementById("mbXCopy").click()`); await t.frames(3);
+    t.check("…its copy card shows the same save code", (await t.L(`(document.querySelector("#mbCodeOut") || {}).value`)) === code);
+    await t.tap(1); await t.frames(3);
+    t.check("…○ goes back to the Move card (not the scrapbook)", await t.L(`!!document.getElementById("mbXCopy") && !document.querySelector("#mbStats")`));
+    await t.L(`document.getElementById("mbXLoad").click()`); await t.frames(3);
+    t.check("…its load card takes a pasted code", await t.L(`!!document.querySelector("#mbCodeIn") && !!document.getElementById("mbDoLoad")`));
+    await t.tap(1); await t.frames(3);
+    await t.tap(1); await t.frames(4);
+    t.check("…and ○ leaves it, back in ⚙️ Settings", await t.L(`!document.getElementById("mbXCopy") && !document.querySelector("#mbCodeIn") && !!document.getElementById("set_x_transfer")`));
+    await t.tap(1); await t.frames(6);
+    t.check("…and ○ again is the title", await t.game(`ctx.state === "title"`) && await t.L(`!document.getElementById("set_x_transfer")`));
     await t.tap(17); await t.frames(3);
     t.check("the touchpad (map) opens the scrapbook", await t.L(`!!document.querySelector(".card.meta-book")`));
     await t.tap(1); await t.frames(3);

@@ -264,8 +264,22 @@ function statsTab(S) {
       <div class="mb-bk-row"><button class="btn mb-copy" id="mbCopy">📋 Copy save code</button><button class="btn alt mb-load" id="mbLoad">📥 Load save code</button></div>`;
 }
 function wireStats(card) {
-    card.querySelector("#mbCopy").addEventListener("click", () => showCopyCode());
-    card.querySelector("#mbLoad").addEventListener("click", () => showLoadCode());
+    card.querySelector("#mbCopy").addEventListener("click", () => { xferBack = null; showCopyCode(); });
+    card.querySelector("#mbLoad").addEventListener("click", () => { xferBack = null; showLoadCode(); });
+}
+// ── 📲 Move to another phone: the same two save-code cards, straight from ⚙️ Settings (they were only at the bottom of the
+//    scrapbook's 📊 Stats page, where nobody looks for them) ──
+let xferBack = null;
+export function openTransfer(back) {
+    const again = () => openTransfer(back);
+    const done = () => { xferBack = null; document.body.classList.remove("meta-open"); if (back) back(); else H.hideScreen(); };
+    xferBack = again;
+    open(`<h2>📲 Move to another phone</h2><p>Everything moves with a <b>save code</b>: your coins, cars, progress and your online name.</p>
+        <p class="fine"><b>On the old phone:</b> copy your save code and send it to yourself. <b>On the new phone:</b> open this page and load it. Loading replaces what's on that phone.</p>`,
+        [{ label: "📋 Copy my save code", id: "mbXCopy", action: () => showCopyCode() },
+         { label: "📥 Load a save code", id: "mbXLoad", action: () => showLoadCode() },
+         { label: `⬅ Back ${glyph("back")}`, id: "mbXBack", cls: "alt", action: done }],
+        { onBack: done, cls: "meta-book meta-code nopop" });
 }
 
 // ── save code backup / restore: "LULU1:" + base64(UTF-8 JSON) — the 2D format ──
@@ -330,7 +344,7 @@ async function copyText(text) {
 }
 function showCopyCode() {
     const code = saveToCode();
-    const back = () => { tab = 3; renderScrapbook("mbCopy"); };
+    const back = xferBack || (() => { tab = 3; renderScrapbook("mbCopy"); });
     const card = open(`<h2>💾 Your save code</h2><p>Copy it and keep it somewhere safe. Paste it into <b>📥 Load save code</b> — here or in the 2D game — to get everything back.</p>
         ${codeBox("mbCodeOut", code, true)}<p class="fine">${fmt(code.length)} characters · coins, cars, badges, quests, story and your 3D progress</p>`,
         [{ label: `📋 Copy to clipboard ${glyph("confirm")}`, id: "mbDoCopy", action: async () => {
@@ -341,7 +355,7 @@ function showCopyCode() {
     wireCodeBox(card, "mbCodeOut");
 }
 function showLoadCode(prefill = "") {
-    const back = () => { tab = 3; renderScrapbook("mbLoad"); };
+    const back = xferBack || (() => { tab = 3; renderScrapbook("mbLoad"); });
     const card = open(`<h2>📥 Load a save code</h2><p>Paste a code that starts with <b>${SAVE_CODE_PREFIX}</b> (from the 2D or 3D game). It <b>replaces</b> the progress on this device.</p>
         ${codeBox("mbCodeIn", prefill, false)}<div class="mb-err" id="mbErr"></div>`,
         [{ label: "📋 Paste from clipboard", id: "mbPaste", action: async () => {
