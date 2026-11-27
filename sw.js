@@ -34,7 +34,7 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
     const req = e.request;
-    if (req.method !== "GET") return;
+    if (gone || req.method !== "GET") return;                   // (removed: the page it still looks after goes straight to the network)
     const url = new URL(req.url);
     if (url.origin !== self.location.origin) return;
     if (url.searchParams.has("sw") || url.pathname.endsWith("/sw.json") || url.pathname.endsWith("/sw.js")) return;
@@ -52,10 +52,8 @@ async function start(e, req) {
     if (f && f.off) e.waitUntil(removeSelf());
     return res;
 }
-let flagsAt = 0, flagsP = null;
+let flagsP = null, gone = false;
 function readFlags() {
-    if (flagsP && Date.now() - flagsAt < 30000) return flagsP;
-    flagsAt = Date.now();
     return flagsP = (async () => {
         try {
             const r = await fetch(ROOT + "sw.json", { cache: "no-store" });
@@ -76,6 +74,7 @@ async function applyAssets(v) {
     return was != null;
 }
 async function removeSelf() {
+    gone = true;
     for (const k of await caches.keys()) if (k.startsWith("lulu-sw-")) await caches.delete(k);
     await self.registration.unregister();
 }
@@ -132,7 +131,7 @@ async function trim() {
 self.addEventListener("message", e => {
     const d = e.data || {};
     if (Array.isArray(d.keep)) e.waitUntil((async () => {
-        await readFlags();
+        await (flagsP || readFlags());
         const cache = await caches.open(BIG);
         let kept = 0;
         for (const u of d.keep.slice(0, 400)) {
@@ -144,4 +143,5 @@ self.addEventListener("message", e => {
         if (e.source) e.source.postMessage({ kept });
     })());
     else if (d === "trim") trim().catch(() => { });
+    else if (d === "gone") e.waitUntil(removeSelf());          // (the game's ?sw=off / kill switch)
 });

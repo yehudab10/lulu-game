@@ -34,6 +34,7 @@ window.addEventListener("appinstalled", () => { I.installed = true; I.prompt = n
 /** Remove the worker + its caches (?sw=off, the /sw.json kill switch). */
 async function removeWorker() {
     I.killed = true;
+    try { if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("gone"); } catch (e) { /* none */ }
     try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { /* none */ }
     try { for (const k of await caches.keys()) if (k.startsWith("lulu-sw-")) await caches.delete(k); } catch (e) { /* none */ }
     I.registered = false;

@@ -131,12 +131,13 @@ module.exports = {
       // the kill switch
       S.over["/sw.json"] = JSON.stringify(Object.assign({}, sw, { off: true }));
       await start(Q, "a start with the kill switch on");
-      t.check("kill switch (\"off\": true in sw.json): the worker + its caches are gone after one start", await wait(`navigator.serviceWorker.getRegistrations().then(r => r.length === 0)`, 30000) && (await kept()) === 0, `${await regs()} registrations, ${await kept()} caches`);
+      t.check("kill switch (\"off\": true in sw.json): the worker + its caches are gone after one start", await wait(`navigator.serviceWorker.getRegistrations().then(r => r.length === 0)`, 60000) && await wait(`caches.keys().then(ks => !ks.some(k => k.startsWith("lulu-sw-")))`, 30000), `${await regs()} registrations, ${await kept()} caches`);
       delete S.over["/sw.json"];
       await start(Q, "a start after the kill switch");
       t.check("…switched back on, the next start registers again", await wait(`navigator.serviceWorker.controller && __lulu3d.ctx.install.info().registered`, 60000));
       await start(Q + "&sw=off", "a start with ?sw=off");
-      t.check("?sw=off removes it too", await wait(`navigator.serviceWorker.getRegistrations().then(r => r.length === 0)`, 60000) && (await kept()) === 0);
+      t.check("?sw=off removes it too", await wait(`navigator.serviceWorker.getRegistrations().then(r => r.length === 0)`, 60000)
+        && await wait(`caches.keys().then(ks => !ks.some(k => k.startsWith("lulu-sw-")))`, 30000), `${await regs()} registrations, ${await kept()} caches`);
 
       // the iOS app: never
       await page.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios", Plugins: {} }; });
