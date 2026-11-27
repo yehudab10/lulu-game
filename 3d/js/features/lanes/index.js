@@ -274,7 +274,7 @@ function doorPos() {
     const p = herPos(), sp = doorWorld();
     if (!sp || !p) return null;
     const d = Math.hypot(sp.x - p.x, sp.z - p.z);
-    if (d < 60 && ctx.interiors.lanes && ctx.interiors.lanes.warm) ctx.interiors.lanes.warm();
+    if (d < 24 && ctx.interiors.lanes && ctx.interiors.lanes.warm) ctx.interiors.lanes.warm();
     const c = claimed();
     if (c && c.length) return null;                 // (storefronts' own ✋ on each claimed front walks in)
     if (OUT.at && ctx.time < OUT.t && Math.hypot(p.x - OUT.at.x, p.z - OUT.at.z) < 4) return null;
