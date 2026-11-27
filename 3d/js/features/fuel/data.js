@@ -33,6 +33,13 @@ export const HOME = { price: 1500, move: 300, cord: 0.3, reach: 25, box: [1.4, 0
 
 /** The gauge: the low badge below this fraction. */
 export const LOW = 0.15;
+/** Step 3 — running dry. RESERVE: past E there are this many km of "fumes" (longer than any gap between two pumps); in a
+ *  chase the burn stops with CHASE_KEEP km of it left (cops end chases, not the gauge). An empty car on the shoulder isn't
+ *  towed for GRACE real minutes (features/cars asks ctx.fuel.dryGrace). */
+export const DRY = { reserveKm: 3, chaseKeepKm: 1, graceMin: 10, warnJob: 0.2 };
+/** Getting going again: 📞 Chaverim's splash (free once a real day, then `fee`, on account if she's broke) or 🛢️ a can
+ *  from any pump (on foot: `price`, walk it back, pour it in). EVs: Chaverim's portable battery (the same rule). */
+export const RESCUE = { chaverim: { wait: 20, splash: 0.15, fee: 10 }, can: { price: 5, amount: 0.15, reach: 30 } };
 /** A borrowed / hotwired car's tank: a random level in this range (kept for that ride). */
 export const BORROWED = [0.3, 0.9];
 
@@ -70,5 +77,19 @@ export const L = {
     charging: "🔋 Charging… (get out if you like — it keeps going)",
     charged: cost => `🔋 Charged${cost ? ` — ${cost} 💰` : ""}. *ding*`,
     chargeBroke: "🔋 Out of coins — the charger stopped. (It's not personal. It's a charger.)",
+    fumes: "⛽ It's on E. E means 'Enough', right? (Running on fumes — a few km left.)",
+    dry: "⛽ *sputter*… Out of gas. Coast onto the shoulder — 📞 Chaverim brings a splash, or walk a 🛢️ can over from a pump.",
+    dryEV: "🔋 *a sad little chime*… Out of charge. Coast over — 📞 Chaverim has a portable battery.",
+    dryChip: "Out of gas · 📞 Chaverim · 🛢️ a can",
+    chavReason: ev => (ev ? "I'm out of charge (for real)" : "I'm out of gas (for real)"),
+    chavSub: free => (free ? "a splash to get you to a pump · free today" : "a splash to get you to a pump · 10 💰"),
+    chavCall: "📞 Chaverim: \"A splash? Twenty minutes.\" (It's twenty seconds. They say twenty minutes to be safe.)",
+    chavHere: ev => (ev ? "🔋 Chaverim's Yossi plugs in a portable battery. +15 %. \"Drive to a charger. NOW.\"" : "⛽ Chaverim's Yossi pours in a splash. +15 %. \"Next pump. Don't be a hero.\""),
+    canBuy: "🛢️ A CAN OF GAS — 5 💰",
+    canGot: "🛢️ Got a can. Walk it back to the car.",
+    canPour: "🛢️ POUR IT IN",
+    canDone: "🛢️ Glug glug. +15 %. Now to a pump, for real.",
+    jobLow: "⛽ You're almost on E — the nearest pump is pinged on the 📱 Map. (Or go anyway. It's your adventure.)",
+    selfLow: "⚡ Low battery — heading to the nearest charger. (Clear the 📍 ping to stop it.)",
     evAtPump: "⛽ Yanky eyes the Tushla: \"Electric? I got a toaster outlet in the back. Try a charger.\"",
 };

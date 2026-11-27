@@ -9,6 +9,9 @@
 //   • step 2 — 🔋: a Tushla at a pump gets Yanky's joke (no fill); stopped at a charger it CHARGES (fast to 80 %), paying as
 //     it goes, and keeps going with her out of the car; a chime when full. The HOME CHARGER: needs a home she owns; bought
 //     → a Tushla parked at that house is full; Ima's extension cord trickles to 30 % once a day; selling the home boxes it
+//   • step 3 — running dry: past E a hidden 3 km reserve ("fumes"), a chase can't empty it, then she coasts (no throttle,
+//     no nitro); 📞 Chaverim's splash (free once a day, then 10), 🛢️ a can from a pump on foot; an empty car isn't towed
+//     for 10 minutes; a job starting near E pings the nearest pump; a self-driving Tushla running low heads for a charger
 module.exports = {
   name: "fuel",
   viewport: { width: 1280, height: 720 },
@@ -121,7 +124,8 @@ module.exports = {
       await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("tushla_nu"))`); await t.frames(10);
       t.check("🔋 in a Tushla the gauge is a battery", await g(`ctx.fuel.key() === "tushla_nu"`) && (await g(`ctx.fuel.gauge`)).icon === "🔋");
       await g(`(ctx.fuel.set("tushla_nu", 0.5), true)`);
-      t.check("a Tushla at a gas pump: Yanky's joke, no fill", (await g(`ctx.fuel.fill("test")`)).why === "ev" && await g(`ctx.fuel.level()`) === 0.5);
+      const fr = await g(`ctx.fuel.fill("test")`);
+      t.check("a Tushla at a gas pump: Yanky's joke, no fill", fr.why === "ev" && Math.abs(await g(`ctx.fuel.level()`) - 0.5) < 0.002, `${JSON.stringify(fr)} · ${await g(`ctx.fuel.level()`)} · ${await g(`ctx.fuel.key()`)}`);
       const c0 = await coins();
       await g(`(() => { const P = ctx.fuel.debug.pads(-1.85)[0]; ctx.car.place(P.x, P.z, P.h); ctx.car.s = P.hs; ctx.car.d = P.hd; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
       await t.frames(100);
@@ -155,6 +159,63 @@ module.exports = {
       t.check("…only once a real day", Math.abs(await g(`ctx.fuel.level("tushla_nu")`) - 0.1) < 0.01);
       await g(`ctx.realestate.registry.release("midwood:120:60")`); await t.frames(80);
       t.check("the home's sold: the charger comes back in a box", await g(`!ctx.fuel.home && ctx.fuel.debug.FS.boxed === true`));
+    });
+
+    await step("dry", async () => {
+      await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("pink"))`); await t.frames(6);
+      await t.L(`import("./js/core/ctx.js").then(m => { window.__dry = []; for (const n of ["fuel:empty", "fuel:rescue"]) m.on(n, e => __dry.push(n + ":" + JSON.stringify(e))); })`);
+      await place(`ctx.car.s + 300`, 5.25, 25);
+      await g(`(ctx.pins.clear(), ctx.fuel.set("pink", 0.0002), true)`);
+      await g(`(window.__auto = true, true)`);
+      await t.frames(30);
+      const chip = await t.L(`(document.querySelector(".fuel-chip") || {}).textContent || ""`);
+      t.check("past E: the reserve (fumes) — it still drives, the chip says so", await g(`ctx.fuel.fumes() && !ctx.fuel.dry() && ctx.car.speed > 10`) && /fumes/.test(chip), chip);
+      await g(`(ctx.law.startChase("SPEEDING"), ctx.fuel.debug.FS.fumes.pink = 1200, true)`); await t.frames(90);
+      t.check("🚨 in a chase the reserve can't run out (cops end chases, not the gauge)", await g(`ctx.fuel.debug.FS.fumes.pink`) >= 1000, String(await g(`ctx.fuel.debug.FS.fumes.pink`)));
+      await g(`(ctx.law.lose && ctx.law.lose("lost"), ctx.law.hold(99999), ctx.fuel.debug.FS.fumes.pink = 3, true)`); await t.frames(20);
+      const v0 = await g(`ctx.car.speed`); await t.frames(60); const v1 = await g(`ctx.car.speed`);
+      t.check("dry: no throttle — she coasts (and steers)", await g(`ctx.fuel.dry() && ctx.G.fuelDry === true`) && v1 < v0 - 1, `${v0.toFixed(1)} → ${v1.toFixed(1)}`);
+      t.check("…an empty car isn't towed for a while (features/cars asks)", await g(`ctx.fuel.dryGrace("pink")`));
+      await g(`(window.__auto = false, ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, true)`); await t.frames(30);
+      // 📞 Chaverim
+      t.check("📞 Chaverim has a reason: out of gas (for real)", (await g(`ctx.community.reasons("chaverim")`)).includes("fuel"));
+      const c0 = await coins();
+      await g(`ctx.community.call("chaverim", "fuel")`); await t.frames(4);
+      await g(`(ctx.fuel.debug.dry.D.chav && (ctx.fuel.debug.dry.D.chav.at = ctx.time), true)`); await t.frames(6);
+      t.check("…a splash (+15 %), free the first time today — and she's going again", Math.abs(await g(`ctx.fuel.level()`) - 0.15) < 0.01 && !await g(`ctx.fuel.dry()`) && await coins() === c0);
+      await g(`(ctx.fuel.set("pink", 0), true)`);
+      await g(`(ctx.fuel.debug.dry.callChaverim(), ctx.fuel.debug.dry.D.chav.at = ctx.time, true)`); await t.frames(6);
+      t.check("…the second time today: 10 coins", c0 - await coins() === 10, `${c0 - await coins()}`);
+      // 🛢️ the can, on foot
+      await g(`(ctx.fuel.set("pink", 0), true)`);
+      await g(`(() => { const P = ctx.fuel.debug.pads(-1.85)[0]; ctx.car.place(P.x, P.z, P.h); ctx.car.s = P.hs; ctx.car.d = P.hd; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+      await t.frames(6);
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
+      t.check("🛢️ on foot by a pump: ✋ a can of gas", !!await g(`ctx.fuel.debug.dry.canSpot.pos()`));
+      const c1 = await coins();
+      await g(`(ctx.fuel.debug.dry.canSpot.act(), true)`);
+      t.check("…5 coins, a can in hand → ✋ pour it in at her car", c1 - await coins() === 5 && !!await g(`ctx.fuel.debug.dry.pourSpot.pos()`));
+      await g(`(ctx.fuel.debug.dry.pourSpot.act(), true)`);
+      t.check("…+15 %", Math.abs(await g(`ctx.fuel.level("pink")`) - 0.15) < 0.01);
+      await g(`(ctx.foot.end("test"), true)`); await t.frames(3);
+      if (await g(`L3.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); }
+      // a job starting near E
+      await g(`(ctx.pins.clear(), ctx.fuel.set("pink", 0.1), true)`);
+      await t.L(`import("./js/core/ctx.js").then(m => m.emit("hustle:start", { id: "test" }))`); await t.frames(3);
+      t.check("💼 a job starting near E: the nearest pump is pinged (she can go anyway)", /^hw:fuel:/.test(await g(`ctx.pins.current || ""`)), await g(`ctx.pins.current`));
+      // a self-driving Tushla running low heads for a charger
+      await g(`(ctx.pins.clear(), ctx.dealers.schlep.subscribe(), true)`);
+      if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(10); if (await g(`L3.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); } }
+      await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("tushla_nu"))`); await t.frames(6);
+      await place(`ctx.car.s + 200`, 5.25, 20);
+      await g(`(ctx.fuel.set("tushla_nu", 0.1), true)`);
+      const eng = await g(`ctx.dealers.schlep.engage()`);
+      t.check("⚡ self-driving on a low battery…", eng, JSON.stringify(await g(`({ why: ctx.dealers.schlep.debug.why, wanted: ctx.law.wanted, chasing: ctx.law.chasing, st: L3.state, sk: ctx.car.skinKey, sub: ctx.dealers.schlep.active() })`)));
+      await t.frames(10);
+      const pin = await g(`ctx.pins.current || ""`);
+      t.check("…it pings the nearest charger and heads there", /charge|charger|hw:fuel:(rest|midwood|lakewood)/.test(pin), pin);
+      await g(`(ctx.dealers.schlep.handBack("you"), true)`);
     });
 
     t.check("⛽ the pumps + 🔋 chargers are on the 📱 Map (help: always shown)", await g(`["hw:fuel:gng0", "hw:fuel:rest0", "hw:fuel:midwood", "hw:charge:tushla", "midwood:charger"].every(id => { const p = ctx.pins.get(id); return p && p.cat === "help"; })`));

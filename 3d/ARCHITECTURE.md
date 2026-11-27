@@ -1937,8 +1937,16 @@ forecourt, the rest areas' pump bays, each town interchange's pad, and a kerbsid
 (`ctx.realestate`) — a wall box by the door; a Tushla parked there (`ctx.cars.where(k)`: left at that house, or her
 parked car by it) is set full; moving it to another of her homes costs `HOME.move`; a home she no longer owns → it
 comes back in a box (`fuel.boxed`). Ima's house: no charger; the extension cord trickles a Tushla there (`ctx.cars`
-kind "home") up to `HOME.cord` once a real day. Next: running dry — the reserve, coasting, the jerrycan, Chaverim /
-Tuvia, the job warnings, self-drive to a pump (3). `ctx.fuel` = { level(key?), set, range(key?), key(), fill };
+kind "home") up to `HOME.cord` once a real day. Step 3 (`dry.js`, `DRY` + `RESCUE`): past E a hidden reserve of
+`DRY.reserveKm` ("fumes": the chip says so — longer than any gap between two pumps); in a chase the burn stops with
+`chaseKeepKm` left; truly dry → `ctx.G.fuelDry`: no throttle (a `controls` hook at −100), no nitro (core/driving.js) —
+she coasts + steers; a self-driving Tushla hands back ("dry"). Getting going: 📞 Chaverim (`ctx.community.addReason`:
+"I'm out of gas (for real)") — a splash `RESCUE.chaverim.splash` after `wait` s, free once a real day then `fee` (on
+account when broke), an EV gets a portable battery; or on foot ✋ 🛢️ a can at any pump (`RESCUE.can`), walk it back, ✋
+pour it in. An empty car on the shoulder isn't towed for `DRY.graceMin` real minutes (features/cars' tow tick asks
+`ctx.fuel.dryGrace(k)`). A 💼 job starting under `DRY.warnJob` pings the nearest pump (one line; she can go anyway); a
+self-driving Tushla under 15 % with no ping pings the nearest charger once and drives there (`ctx.fuel.nearestPump`).
+(Chaverim's splash is a timer + a line for now — no truck drives up yet.) `ctx.fuel` = { level(key?), set, range(key?), key(), fill };
 event `fuel:fill`.
 
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).

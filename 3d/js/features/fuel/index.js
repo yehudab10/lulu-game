@@ -29,10 +29,12 @@ import { buyExtra } from "../garage/buy.js";
 import { X, X_IN, XW } from "../town/exit.js";
 import { RANGE, NITRO_BURN, PRICE, IOU, TIME, LOW, BORROWED, PUMPS, PINS, NO_GAUGE, L, HOME } from "./data.js";
 import { initCharge, chargeDebug, buyHome } from "./charge.js";
+import { initDry, burnFumes, refilled, isDry, onFumes, dryGrace, nearestPump, dryDebug } from "./dry.js";
 
 export const FS = store("fuel", { cars: {}, iou: 0, fills: 0, km: 0 });
 const F = { ride: new Map(), anim: null, pad: { armed: true, t: 0 }, ui: null, fill: null, chip: null, chipTxt: "", log: [] };
 initCharge(FS, F);
+initDry(FS);
 function log(ev, d = {}) { F.log.push(Object.assign({ ev, t: +(ctx.time || 0).toFixed(1) }, d)); if (F.log.length > 40) F.log.shift(); }
 
 // ── which tank, how big ──
@@ -74,6 +76,7 @@ export function set(k, v) {
     if (!k) return;
     v = Math.max(0, Math.min(1, v));
     if (k.startsWith("ride:")) F.ride.set(k, v); else { FS.cars[k] = +v.toFixed(5); saveSoon(); }
+    if (v > 0.001) refilled(k);
 }
 // a borrowed ride is a new tank each time (another car, another level)
 on("streets:carjack", () => F.ride.clear());
@@ -89,7 +92,7 @@ hook("update", (dt, P, controlsOn) => {
     if (m <= 0.001) return;
     const burn = m / 1000 / range(k) * (ctx.G.boosting ? NITRO_BURN : 1);
     const v = level(k);
-    if (v <= 0) return;
+    if (v <= 0) { burnFumes(k, m * (ctx.G.boosting ? NITRO_BURN : 1)); return; }      // (past E: the reserve — dry.js)
     if (k.startsWith("ride:")) F.ride.set(k, Math.max(0, v - burn));
     else { FS.cars[k] = Math.max(0, v - burn); if ((saveT += dt) > 5) { saveT = 0; saveSoon(); } }
     FS.km += m / 1000;
@@ -195,7 +198,7 @@ hook("hud", dt => {
     const icon = k && isEV(k) ? "🔋" : "⛽";
     if (icon !== u.icon) { u.icon = icon; u.ic.textContent = icon; }
     // the badge: one quiet line on the objective line while she's low
-    const txt = k && v < LOW ? `${v <= 0.001 ? L.empty.replace(/^⛽ /, "") : L.low.replace(/^⛽ /, "")} · ${Math.round(v * range(k))} km left` : "";
+    const txt = !k || v >= LOW ? "" : isDry(k) ? L.dryChip : v <= 0.001 ? `${L.empty.replace(/^⛽ /, "")} · running on fumes` : `${L.low.replace(/^⛽ /, "")} · ${Math.round(v * range(k))} km left`;
     if (!F.chip && txt) {
         F.chip = document.createElement("div");
         F.chip.className = "fuel-chip";
@@ -215,8 +218,12 @@ on("boot", () => {
 });
 
 ctx.fuel = {
-    level, set, range, key, fill, buyHome, HOME,
+    level, set, range, key, fill, buyHome, HOME, nearestPump,
+    /** Out of gas right now (past the reserve: she coasts)? / on the reserve? */
+    dry: (k = key()) => isDry(k), fumes: (k = key()) => onFumes(k),
+    /** features/cars: an empty car on the shoulder isn't towed for a while. */
+    dryGrace,
     get home() { return FS.home || null; },
     get gauge() { return F.ui ? { w: F.ui.w, cls: F.ui.cls, icon: F.ui.icon } : null; },
-    debug: { FS, F, charge: chargeDebug, townPad, price, pads: (dd = 0) => { const hw = ctx.world.highway || ctx.world.road; return X.exits.map(e => { const u = X_IN + XW + dd, p = hw.point(e.s + u, PUMPS.towns.d, {}); return { s: e.s, hs: e.s + u, hd: PUMPS.towns.d, x: p.x, z: p.z, h: p.h }; }); } },
+    debug: { FS, F, charge: chargeDebug, dry: dryDebug, townPad, price, pads: (dd = 0) => { const hw = ctx.world.highway || ctx.world.road; return X.exits.map(e => { const u = X_IN + XW + dd, p = hw.point(e.s + u, PUMPS.towns.d, {}); return { s: e.s, hs: e.s + u, hd: PUMPS.towns.d, x: p.x, z: p.z, h: p.h }; }); } },
 };
