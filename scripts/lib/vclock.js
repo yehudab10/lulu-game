@@ -15,17 +15,18 @@
 /* eslint-disable no-global-assign */
 function installVirtualClock(cfg) {
   window.__luluFast = cfg;
-  // A page that talks to the (test) relay keeps REAL clocks: its net code reads performance.timeOrigin + now() as the
-  // wall clock it shares with the relay and the other pages (the party clock, presence). It still gets the fast
-  // clock's pace, gates and small canvas — only its timers / now() stay real.
-  if (/[?&]mpurl=/.test(location.search)) return;
+  // A page that talks to the (test) relay keeps a REAL performance.now() (+ rAF timestamp): its net code reads
+  // performance.timeOrigin + now() as the wall clock it shares with the relay and the other pages (the party clock,
+  // presence). Its TIMERS still follow game time — a chip refreshed every 400 ms must refresh as often per game
+  // frame as it does for a player, or "4 frames later the chip says…" depends on how fast the test machine is.
+  const realClock = /[?&]mpurl=/.test(location.search);
   const R = {
     now: performance.now.bind(performance), ST: window.setTimeout.bind(window), CT: window.clearTimeout.bind(window),
     raf: window.requestAnimationFrame.bind(window),
   };
   window.__luluRealNow = R.now;
   const CAP = 4;                 // (ms of real time the clock may move inside one step)
-  const V = { started: false, base: 0, s0: 0, last: 0, q: new Map(), id: 1e9, armT: 0, idleAt: 0 };
+  const V = { started: false, base: 0, s0: 0, last: 0, q: new Map(), id: 1e9, armT: 0, idleAt: 0, inPump: false };
   function now() {
     const r = R.now();
     const t = V.started ? V.base + Math.min(CAP, Math.max(0, r - V.s0)) : r;
@@ -35,7 +36,10 @@ function installVirtualClock(cfg) {
   // ── timers ──
   function add(fn, ms, a, every) {
     const id = V.id++;
-    V.q.set(id, { at: now() + Math.max(0, +ms || 0), fn, a, every });
+    // (set from inside a timer: at least 4 ms later, as browsers clamp nested timers — so a setTimeout(0) chain runs
+    //  ~8 links between two frames, as it does for a player, not one per frame)
+    const d = Math.max(V.inPump ? 4 : 0, +ms || 0);
+    V.q.set(id, { at: now() + d, fn, a, every });
     arm();
     return id;
   }
@@ -46,16 +50,22 @@ function installVirtualClock(cfg) {
     V.armT = R.ST(() => { V.armT = 0; pump(); }, Math.max(0, due - R.now()));
   }
   let pumping = null;
-  /** Fire the timers that are due now (in due order). Returns a promise that settles after their microtasks. */
+  const FRAME = 1000 / 30;
+  /** Fire every timer that comes due before the next game frame, in due order — including ones those timers set —
+   *  the way a browser runs its timer tasks between two frames. While one runs, the clock reads its due time.
+   *  Returns a promise that settles after their microtasks. */
   function pump() {
     if (pumping) return pumping;
     pumping = (async () => {
-      const t = now();
-      const due = [...V.q.entries()].filter(([, e]) => e.at <= t).sort((x, y) => x[1].at - y[1].at || x[0] - y[0]);
-      for (const [id, e] of due) {
-        if (!V.q.has(id)) continue;
-        if (e.every) e.at = Math.max(e.at + e.every, t + 0.001); else V.q.delete(id);
-        try { e.fn(...e.a); } catch (err) { R.ST(() => { throw err; }, 0); }
+      const horizon = V.started ? V.base + FRAME : R.now();
+      for (let guard = 0; guard < 5000; guard++) {
+        let id = 0, e = null;
+        for (const [k, x] of V.q) if (x.at <= horizon && (!e || x.at < e.at || (x.at === e.at && k < id))) { id = k; e = x; }
+        if (!e) break;
+        if (V.started && e.at > V.last) V.last = e.at;
+        if (e.every) e.at += Math.max(4, e.every); else V.q.delete(id);
+        V.inPump = true;
+        try { e.fn(...e.a); } catch (err) { R.ST(() => { throw err; }, 0); } finally { V.inPump = false; }
         for (let k = 0; k < 4; k++) await null;
       }
     })().finally(() => { pumping = null; arm(); });
@@ -65,8 +75,8 @@ function installVirtualClock(cfg) {
   window.setInterval = (fn, ms, ...a) => typeof fn === "function" ? add(fn, ms, a, Math.max(1, +ms || 0)) : R.ST(fn, ms, ...a);
   window.clearTimeout = window.clearInterval = id => { if (!V.q.delete(id)) R.CT(id); };
   // ── clocks ──
-  performance.now = now;
-  window.requestAnimationFrame = cb => R.raf(() => cb(now()));
+  if (!realClock) performance.now = now;
+  if (!realClock) window.requestAnimationFrame = cb => R.raf(() => cb(now()));
   // ── the game drives it (3d/js/core/testclock.js) ──
   window.__luluClock = {
     /** The game loop's first step: from here on, time moves with the game. */
