@@ -144,4 +144,6 @@ self.addEventListener("message", e => {
     })());
     else if (d === "trim") trim().catch(() => { });
     else if (d === "gone") e.waitUntil(removeSelf());          // (the game's ?sw=off / kill switch)
+    // (registered again right after a removal, the browser can hand back the same worker: it looks after pages again)
+    else if (d === "claim") { gone = false; e.waitUntil(self.clients.claim()); }
 });

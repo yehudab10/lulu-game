@@ -52,10 +52,12 @@ async function startWorker() {
         const first = !navigator.serviceWorker.controller;
         await navigator.serviceWorker.register(SW_FILE, { scope: SITE });
         I.registered = true;
+        const ready = await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller && ready.active) ready.active.postMessage("claim");
         // the worker's very first start: hand it the big files this start already downloaded (it keeps them, mostly
         // from the browser's own cache — so the NEXT start is the fast one)
         if (first) {
-            const reg = await navigator.serviceWorker.ready;
+            const reg = ready;
             const keep = performance.getEntriesByType("resource").map(r => r.name)
                 .filter(u => u.startsWith(location.origin) && /\.(glb|mp3|ogg|png|jpg|webp)$|\/vendor\//i.test(new URL(u).pathname));
             navigator.serviceWorker.addEventListener("message", m => { if (m.data && m.data.kept != null) I.kept = m.data.kept; });
