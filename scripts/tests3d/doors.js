@@ -217,7 +217,7 @@ module.exports = {
         await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 0.6, 0.05, a.z + a.nz * 0.6); F.vel.set(0, 0, 0);
           F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); F.camFree = true; ctx.cam.free.yaw = Math.atan2(-a.nx, -a.nz); return true; })()`);
         await t.frames(30);          // (standing by the door: the room is warmed)
-        await t.until(`(() => { const s = __lulu3d.ctx.foot.spots()[${d.i}]; const r = __lulu3d.ctx.interiors[s.walkIn.id]; return r.ready(); })()`, `${d.name}: the room is ready before she reaches the door`, 60000);
+        await t.until(`(() => { const s = __lulu3d.ctx.foot.spots()[${d.i}]; const id = typeof s.walkIn.id === "function" ? s.walkIn.id() : s.walkIn.id, r = __lulu3d.ctx.interiors[id]; return !!(r && r.ready()); })()`, `${d.name}: the room is ready before she reaches the door`, 60000);
         await t.stick(0, -1);
         let seen = "", went = false;
         for (let k = 0; k < 90 && !went; k++) { await t.frames(2); const c = await curtain(); if (c) seen = c; went = await st() === "interior"; }

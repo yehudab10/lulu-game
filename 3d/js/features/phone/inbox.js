@@ -113,7 +113,11 @@ function houseNote() {
     const D = ctx.decor;
     if (!D || !D.summary) return null;
     const s = D.summary();
-    return { s, near: s.sets.filter(x => !x.done && x.have > 0 && x.need - x.have <= 1) };
+    // (QA 2026-11-27: nothing bought → no row — "My house · 0 things" sent her to decorate Ima's house, which she can't
+    //  (roadmap 23); her things live in boxes until her first own home)
+    if (!s.bought.length) return null;
+    const own = !!(ctx.realestate && ctx.realestate.count && ctx.realestate.count() > 0);
+    return { s, own, near: s.sets.filter(x => !x.done && x.have > 0 && x.need - x.have <= 1) };
 }
 /** 📝 Ima's list for today (features/day) as a pinned note at the top of Messages — null when there's no list (a party, Dina). */
 function imaNote() {
@@ -148,7 +152,8 @@ addApp({
             const done = s.sets.filter(x => x.done).length;
             el.innerHTML = `<div class="lp-chat-h"><span class="lp-av" style="--c:#8E24AA">🏠</span><b>My house · ${s.bought.length} things</b></div>
                 <div class="lp-chat">${s.sets.map(x => `<div class="lp-bub" style="--c:${x.done ? "#43A047" : "#8E24AA"}">${x.icon} <b>${esc(x.name)}</b> ${x.done ? "✅ complete" : x.have + "/" + x.need}${!x.done && x.missing.length && x.need - x.have <= 1 ? `<small>nearly! just ${esc(x.missing.join(", "))}</small>` : ""}</div>`).join("")}
-                <div class="lp-bub" style="--c:#8E24AA">${s.bought.length ? s.bought.map(b => `${b.icon} ${esc(b.name)}`).join(" · ") : "Nothing bought yet — ✋ the mailbox, the porch or the front yard (or go inside) to decorate."}</div></div>
+                <div class="lp-bub" style="--c:#8E24AA">${s.bought.map(b => `${b.icon} ${esc(b.name)}`).join(" · ")}</div>
+                ${hn.own ? "" : `<div class="lp-bub" style="--c:#8E24AA">📦 Packed in boxes in your room at Ima's — they go up in your first home of your own.</div>`}</div>
                 <button class="btn lp-row lp-mini" id="lpHouseBack">‹ All messages</button>`;
             el.querySelector("#lpHouseBack").addEventListener("click", () => { V.house = false; api.refresh(); });
             return;

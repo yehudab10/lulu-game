@@ -23,6 +23,7 @@ import { addTouchButton, input, rumble } from "../../input.js";
 import * as H from "../../hud.js";
 import { showTitle } from "../../core/screens.js";
 import * as N from "./net.js";
+import * as WC from "./worldclock.js";
 import { MP, DI_PER_M, X_PER_M, X_MID } from "./net.js";
 import { updateGhosts, clearGhosts, ghostStats, ghostAt, tagOnScreen } from "./ghosts.js";
 import * as U from "./ui.js";
@@ -280,6 +281,16 @@ for (const ev of ["arrest", "law:arrest", "jail"]) on(ev, e => { if (e && e.char
 // a friend race starts while we're on the title → hop into a cruise in time for GO
 on("mp:raceRun", () => { if (ctx.state === "title") { H.hideScreen(); startRun({ mode: "cruise" }); } });
 on("mp:status", () => U.uiDirty());
+// 🌍 one shared world (ci/oneserver): the relay's kill switches + clock at boot (and again every 10 min on a hello);
+// when the relay is over its free daily allowance, ONE quiet line — play goes on solo
+on("boot", () => { WC.config(true); });
+on("mp:status", e => { if (e && e.connected) WC.config(); });
+on("world:resting", e => {
+    if (!e || !e.resting) return;
+    const t = e.until ? new Date(e.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "midnight";
+    H.toast(`🌙 Online play is resting until ${t}. You can keep playing.`, "", { prio: 1, key: "worldResting" });
+});
+ctx.mp.event = (k, d) => N.sendRel(k, d);          // 🌍 step 2: a reliable one-time event to the room (→ mp:event on the others)
 on("accounts:names", () => { N.relabel(); U.uiDirty(); });          // (features/accounts: a name came back from the server / ⚙️ names on-off)
 on("mp:riders", () => U.uiDirty());
 

@@ -64,7 +64,7 @@ function home(el, api) {
     const L = ST.S.list, live = X.live();
     if (live && Date.now() - V.lastCheck > 20000 && L.length) { V.lastCheck = Date.now(); BL.checkAll(); }
     const on = L.filter(f => (BL.seen.get(f.f) || {}).on), off = L.filter(f => !(BL.seen.get(f.f) || {}).on);
-    let html = `<div class="lp-card ow-head"><span class="lp-av">👯</span><span class="lp-tx"><b>Friends</b><small>${L.length ? `${on.length} of ${L.length} playing now${BL.checkingNow() ? " (checking…)" : ""}` : "No friends yet. Add one below."}${ST.S.hidden ? ". You appear offline." : ""}</small></span></div>`;
+    let html = `<div class="lp-card ow-head"><span class="lp-av">👯</span><span class="lp-tx"><b>Friends</b><small>${L.length ? `${on.length} of ${L.length} playing now${BL.checkingNow() ? " (checking…)" : ""}` : "No friends yet. Add one below."}${ST.S.hidden ? " · 🙈 you appear offline" : ""}</small></span></div>`;
     if (!live) html += `<p class="lp-note">${ctx.friends && !ctx.friends.ok ? "Friends need a secure connection." : "Friends need an internet connection."}</p>`;
     if (V.wait) html += `<p class="lp-note">⏳ ${esc(V.wait)}</p>`;
     for (const q of BL.joinAsks()) {

@@ -81,7 +81,8 @@ export function showImpounded(on) {
     if (!on || !models.lulu) return;
     const sp = ctx.civic.spot("impound");
     if (!sp || sp.cx == null || !(inTown() || sp.car)) return;
-    const sk = SKINS[ctx.car.skinKey] || SKINS.pink;
+    // (features/cars: the car that's actually held — she may have come in another of hers)
+    const sk = SKINS[(ctx.impound && ctx.impound.held && ctx.impound.held.key) || ctx.car.skinKey] || SKINS.pink;
     const o = cloneWithColors(models.lulu, { Body: sk.body, BodyLight: sk.light, BodyDark: sk.dark });
     for (const n of [...findNodes(o, "Driver"), ...findNodes(o, "Hair_")]) n.visible = false;
     if (sp.car) {
@@ -103,7 +104,7 @@ export function showImpounded(on) {
 on("town:leave", () => showImpounded(false));
 on("run:start", () => showImpounded(false));
 on("title", () => showImpounded(false));
-on("state", ({ to }) => { if (IMP.obj && (to === "playing" && ctx.foot && ctx.foot.ownCar !== "gone")) showImpounded(false); });
+on("state", ({ to }) => { if (IMP.obj && (to === "playing" && ctx.foot && ctx.foot.ownCar !== "gone") && !(ctx.cars && ctx.enabled("cars") && ctx.impound && ctx.impound.held)) showImpounded(false); });
 export const impoundedCar = () => IMP.obj;
 
 /**

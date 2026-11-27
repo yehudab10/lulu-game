@@ -281,7 +281,7 @@ export function wireIA() {
             + ["malka", "tuvia", "pinchas"].filter(gone).map(w => `<p class="lp-fine">${esc(fill(M.iaGone, { who: WHO[w].name }))}</p>`).join("");
         el.querySelectorAll("[data-ia]").forEach(b => b.addEventListener("click", () => { handIn(b.dataset.ia); render(el); }));
     };
-    cm.addContact({ id: "crimeIA", icon: "🕵️", name: M.ia, tag: M.iaTag, color: "#37474F", render });
+    cm.addContact({ id: "crimeIA", icon: "🕵️", name: M.ia.replace(/^🕵️\s*/, ""), tag: M.iaTag, color: "#37474F", render });
 }
 on("boot", wireIA);
 

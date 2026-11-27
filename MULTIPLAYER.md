@@ -362,3 +362,23 @@ friends · nobody) are server calls. A friendship made on the server gets its do
 friendship (AES-GCM under ECDH(my long-term key, their public key) — the server holds only the sealed note). On-device
 friendships from before are "claimed" by each side's hello and become server friendships once both have updated.
 Presence / ▶ JOIN still go through the private doorbell rooms (nothing about where anyone is goes to the server).
+
+## 3D — ONE SHARED WORLD, the wire (ci/oneserver, steps 1 + 2; plan: 3d/docs/oneserver-plan.md)
+
+All additive (`server/world.mjs`, used by both relays). Old clients ignore every new field and never send `r`.
+
+| | message | what's new |
+|---|---|---|
+| step 1 | server → `h` | `st` (server ms); `r`: the room's reliable events of the last 20 s (a late joiner) |
+| step 1 | client → `pi` | optional `n` (≤ 12 chars) — echoed in the pong |
+| step 1 | server → `po` | `st`, `n` |
+| step 2 | server → `s` | `st` = when the relay got that state (on the envelope, not inside `d`) |
+| step 2 | client → `r` `{ id, k, d }` | a reliable one-time event: id `[A-Za-z0-9]{1,16}`, k `[a-z0-9_]{1,12}`, d an object or null, ≤ 512 bytes, ≤ 4 a second per player |
+| step 2 | server → `r` `{ from, id, k, d, st }` | passed on ONCE to everyone else in the room; receivers drop duplicates by from + id |
+| step 2 | server → `ra` `{ id, st }` | the ack to the sender (resend the same id after 2 s if missing) |
+| | `GET /world/config` | `{ world: { clock, reliable, place, claims }, st }` — the kill switches + the clock, answered by the Worker (no Durable Object) |
+| | `GET /world/usage` (`?text=1`) | today's free-plan estimate; **503 `{ resting: 1, resetAt }`** when the Durable Objects are over the free daily allowance |
+
+Client: `features/multiplayer/worldclock.js` → `ctx.worldClock` (`now()`, `synced`, `offset`, `rtt`, `flags`, `resting`);
+`ctx.mp.event(k, d)` → `mp:event` `{ from, peer, k, d, st, late }` on the others. The party's own room gets the same
+`st` / `r` support from the relay (the party client adopts it in `ci/friends`).

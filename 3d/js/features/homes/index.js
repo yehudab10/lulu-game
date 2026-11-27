@@ -33,6 +33,7 @@ import { tone } from "../interiors/fx.js";
 import { C as CR, CROWD_MODELS, startCrowd, stopCrowd, tickCrowd, crowdHonk, crowdTalkSpot, crowdInfo, TUNE } from "./crowd.js";
 import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural, distract, debugSpot } from "./house.js";
 import { current as currentRoom } from "../interiors/engine.js";
+import { ITEMS as ITEMS_, REACT as REACT_, EXTRA as EXTRA_ } from "./data.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
 import { identity, sceneFor, presentCast, when, opinion, OPINION_LINE, byName, LIFE, clockFor, rngOf as lifeRng, hash as lifeHash, TRAITS } from "./life.js";
 import { SCENES } from "./scenes.js";
@@ -533,7 +534,8 @@ function backOutside() {
     if (L.reported) rec.reported = (rec.reported | 0) + 1;
     if (broke && (L.spotted || L.looted.length)) CR.burgled = home.name;
     try { if (ctx.memory && ctx.memory.remember && broke) ctx.memory.remember("homes", { fam: home.name, town: home.town, spotted: !!L.spotted, reported: !!L.reported, items: L.used.slice(0, 4) }); } catch (e) { /* no memory */ }
-    emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted, scene: L.scene || null, guest: welcomed });
+    emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted, scene: L.scene || null, guest: welcomed,
+        held: L.held || null, own: !!(home.family || claimOf(home) === "mine") });
     HS.log.push({ ev: "exit", key: home.key, exit: L.exit, reported: L.reported });
     // the group chat always knows
     if (L.spotted && broke) groupText(L.reported ? `🚨 The ${plural(home.name)} just called the Shomrim. Someone was IN THEIR HOUSE. With a ${L.used[0] || "seltzer"}.` : `👀 Chani says somebody was creeping around the ${plural(home.name)}'. Lock your doors, ladies.`);
@@ -589,6 +591,13 @@ ctx.homes = {
     livedIn: id => { const h = HS.byId.get(id); return !!h && lived(h); },
     /** Mark doors as someone else's: fn(id, home) → null (the family's) | a status string ("mine", "listed", "packing",
      *  "empty", "rented", "friend"…). Homes gives those doors up entirely. Returns an unregister function. */
+    /** features/houseitems: a pickup in every house's rooms (two a house): id, { name, emoji, verb, fx, stun, uses, sfx, surface:
+     *  "counter" | "table" | "couch" | "shelf" | "coat" | "sink", make() → a prop mesh, react: { kind | "*": { line, lulu } } } */
+    addPickup(id, def) { if (!id || !def || ITEMS_[id]) return false; ITEMS_[id] = Object.assign({ verb: "SHOW", fx: "laugh", stun: 2.5, uses: 0, sfx: "poof" }, def, { prop: def.prop || id });
+        if (def.react) REACT_[id] = def.react; EXTRA_.push({ id, prop: ITEMS_[id].prop, surface: def.surface, make: def.make }); return true; },
+    /** features/houseitems: a family saw her USING their stolen thing (they remember: cooler) / she gave it back (a favour). */
+    noticed(key, item) { const h = HS.byId.get(key); const r = h ? rec0(h) : S.fam[key]; if (!r) return false; r.kept = (r.kept | 0) + 1; r.seen = (r.seen | 0) + 1; saveSoon(); emit("homes:noticed", { key, item }); return true; },
+    returned(key, item) { const h = HS.byId.get(key); const r = h ? rec0(h) : S.fam[key]; if (!r) return false; r.favours = (r.favours | 0) + 1; saveSoon(); emit("homes:returned", { key, item }); return true; },
     /** Another feature's small jobs on homes' ledger (features/family): add({ type: { emoji, name, pay, cap, deliver? } }),
      *  pay(type) → coins actually paid (inside the job's cap + homes' DAY_CAP), errand({ type, to, fromName, label }) → a
      *  delivery to door `to` (the beacon + its ✋ menu). */
