@@ -42,7 +42,7 @@ const PROF = !!process.env.SMOKE3D_PROF;
 //   it's `core`, the real-time canary).  SMOKE3D_FAST=0 → every file on the old clock (one draw per 1/30 s step);
 //   SMOKE3D_FAST=1 → the same as the default.
 const FAST_ENV = process.env.SMOKE3D_FAST;
-const FAST_CFG = { every: +process.env.SMOKE3D_FAST_EVERY || 6, scale: +process.env.SMOKE3D_FAST_SCALE || 0.25 };
+const FAST_CFG = { every: +process.env.SMOKE3D_FAST_EVERY || 6, scale: +process.env.SMOKE3D_FAST_SCALE || 0.25, anim: +process.env.SMOKE3D_FAST_ANIM || 8 };
 const fastFor = mod => mod.fast === false ? false : FAST_ENV !== "0";
 const ONLY = process.env.SMOKE3D_ONLY ? new RegExp("^(" + process.env.SMOKE3D_ONLY.split(",").join("|") + ")$") : null;
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
@@ -68,6 +68,14 @@ function fastPage(page, on) {
   if (!on) return page;
   page.addInitScript(installVirtualClock, FAST_CFG);     // (sets window.__luluFast + the page's game-time clock)
   FW.track(page);
+  // CSS transitions / animations run on WALL time: a toast or the phone sliding in took a few game frames on the old
+  // clock (~150–280 ms a frame) but ~7× more frames now — a test measured it mid-slide. Play the page's animation
+  // timeline faster to match (they still play, and still fire their end events)
+  page.context().newCDPSession(page).then(async cdp => {
+    await cdp.send("Animation.enable");
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: FAST_CFG.anim });
+    page.on("framenavigated", f => { if (f === page.mainFrame()) cdp.send("Animation.setPlaybackRate", { playbackRate: FAST_CFG.anim }).catch(() => { }); });
+  }).catch(() => { });
   const shot = page.screenshot.bind(page);
   page.screenshot = async (...a) => {
     await page.evaluate(() => window.__lulu3d && window.__lulu3d.realFrame && window.__lulu3d.realFrame()).catch(() => { });
