@@ -213,3 +213,21 @@ account is still on Free, and set a spending alert (Cloudflare → Billing → n
 - **Voice through this relay.** Voice for friends (roadmap 22c) belongs on a real-time voice service, a separate
   decision.
 - **Changing the room / presence / board protocols in place.** Only new fields and new message types.
+
+## Progress + the free-plan budget (2026-11-27)
+
+- **Approved** by the owner ("Go ahead with this"). They are on the **Free** plan, so step 3 (rooms by place) waits for
+  the switch to Paid; steps 1–2 must not add requests per player.
+- **Steps 1 + 2 are built** (`server/world.mjs`, `features/multiplayer/worldclock.js`, `ctx.mp.event`). What they do to the
+  budget, per player-hour of online play (today ≈ 18,000 messages = 900 billed requests):
+  - step 1: +6 quick pings per connection (the old 25 s heartbeat carries the clock after that) + one `/world/config`
+    every 10 min, which is a Worker request, not a Durable Object one. **≈ +0 %.**
+  - step 2: the server timestamps are on messages going OUT (free). A reliable event is 1 incoming message, but it
+    replaces a one-time thing that used to ride, repeated, inside the 5-a-second state. **≈ 0 %** (slightly less once
+    `ci/friends` moves emotes / bumps over).
+  - the budget counter: rooms report every 2,000 messages or 10 min (+1 request per 100 billed ones) **≈ +1 %.**
+- **Seeing the budget:** open `https://lulu-shared-road.lulu-boats-1f4cdd.workers.dev/world/usage?text=1`. It answers
+  with one sentence, e.g. "about 12 % of the free daily allowance is used… resets in 7 h". The count covers only what
+  the relay sees (it starts at the deploy), so treat it as a close estimate; Cloudflare's dashboard has the exact figure.
+- **When the free allowance runs out:** players get ONE quiet line, "🌙 Online play is resting until 7:00 PM. You can
+  keep playing." (their local time for midnight UTC). Play goes on solo; the game reconnects by itself after the reset.
