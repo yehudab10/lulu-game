@@ -30,7 +30,7 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = process.env.PERFSTART_ROOT ? path.resolve(process.env.PERFSTART_ROOT) : path.resolve(__dirname, "..");      // (PERFSTART_ROOT: serve another copy of the site, e.g. a scratch A / B)
 const RUNS = +(process.env.PERFSTART_RUNS || 3);
 const PROFILES = (process.env.PERFSTART_PROFILES || "desktop,phone,app").split(",");
 const EXTRA = process.env.PERFSTART_QUERY || "";          // extra URL parameters for an A/B (e.g. a feature switch)
@@ -40,7 +40,10 @@ const SAVE2D = { totalCoins: 300, ownedSkins: ["pink"], selectedSkin: "pink" };
 const SAVE3D = { best: 1000, f: { meta: { tutorialDone: true } } };
 
 function serve() {
-  const server = http.createServer((req, res) => {
+  // PERFSTART_H2=<dir with h2key.pem + h2cert.pem>: HTTP/2 over TLS like GitHub Pages (all requests on one connection)
+  const H2 = process.env.PERFSTART_H2;
+  const make = H2 ? fn => require("http2").createSecureServer({ key: fs.readFileSync(path.join(H2, "h2key.pem")), cert: fs.readFileSync(path.join(H2, "h2cert.pem")), allowHTTP1: true }, fn) : fn => http.createServer(fn);
+  const server = make((req, res) => {
     let url = decodeURIComponent(req.url.split("?")[0]);
     if (url.endsWith("/")) url += "index.html";
     const file = path.join(ROOT, url);
@@ -77,7 +80,7 @@ async function once(browser, base, prof, ctxHolder, warm) {
   const pr = PROFILE[prof];
   let context = ctxHolder.ctx;
   if (!context) {
-    context = ctxHolder.ctx = await browser.newContext(pr.ctx);
+    context = ctxHolder.ctx = await browser.newContext(Object.assign({ ignoreHTTPSErrors: true }, pr.ctx));
     await context.addInitScript(({ s2, s3 }) => {
       if (!localStorage.getItem("luluSaveV2")) localStorage.setItem("luluSaveV2", JSON.stringify(s2));
       if (!localStorage.getItem("lulu3dSave")) localStorage.setItem("lulu3dSave", JSON.stringify(s3));
@@ -189,8 +192,8 @@ async function once(browser, base, prof, ctxHolder, warm) {
 const med = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
 (async () => {
   const server = await serve();
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-precise-memory-info", "--autoplay-policy=no-user-gesture-required"] });
+  const base = `${process.env.PERFSTART_H2 ? "https" : "http"}://127.0.0.1:${server.address().port}`;
+  const browser = await chromium.launch({ args: ["--ignore-certificate-errors", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-precise-memory-info", "--autoplay-policy=no-user-gesture-required"] });
   const all = [];
   for (const prof of PROFILES) for (let i = 0; i < RUNS; i++) {
     const holder = { ctx: null };
