@@ -19,6 +19,14 @@ import { heal } from "../../core/driving.js";
 import { input, addTouchButton } from "../../input.js";
 import { models, ensureModels } from "../../models.js";
 import { ID, BAG_MAX, CAP, ITEMS, LINES } from "./data.js";
+import { makeProp } from "./props.js";
+import { shared } from "../../core/save.js";
+import { tone } from "../interiors/fx.js";
+import { dropBad } from "../underworld/badguys.js";
+import { CONTEXTS, matchContext } from "./contexts.js";
+import { G as GADGET, fireOnFoot, missilesN, spend, onMissileHit } from "./gadgets.js";
+import { kickNear } from "../life/wind.js";
+import { alarmClear } from "../life/alarm.js";
 import { PORCH, tackle } from "../crime/porch.js";
 
 const S = store("houseitems", { bag: [], hand: 0 });
@@ -29,7 +37,11 @@ const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ?
 const log = (ev, d = {}) => { R.log.push(Object.assign({ ev }, d)); if (R.log.length > 60) R.log.shift(); emit("houseitems:" + ev, d); };
 const onFoot = () => !!(ctx.foot && ctx.foot.active && ctx.state === "footRun" && ctx.foot.phase === "walk");
 const F = () => (ctx.foot && ctx.foot.debug && ctx.foot.debug.F) || null;
-const cur = () => S.bag[Math.min(S.hand, S.bag.length - 1)] || null;
+// (the hand can also hold the 🌶️ pepper spray she bought: the slot after the bag — then the item button is garage's spray)
+const cur = () => (S.hand < S.bag.length ? S.bag[S.hand] : null);
+const pepperN = () => { try { return shared.get().pepperSpray | 0; } catch (e) { return 0; } };
+const slots = () => S.bag.length + (pepperN() > 0 ? 1 : 0);
+const driving = () => !!(ctx.state === "playing" && ctx.car && !(ctx.foot && ctx.foot.active));
 
 // ── the bag ──────────────────────────────────────────────────────────────
 export function add(id, from = null, stolen = true) {
@@ -50,12 +62,15 @@ function gone(i = S.hand) {
     log("gone", { id: it.id });
 }
 export function swap() {
-    if (S.bag.length < 2) return false;
-    S.hand = (S.hand + 1) % S.bag.length; saveSoon();
+    const n = slots();
+    if (n < 2) return false;
+    S.hand = (S.hand + 1) % n; saveSoon();
     const it = cur();
-    say(`*swaps to the ${ITEMS[it.id].name}* ${ITEMS[it.id].emoji}`);
+    const line = it ? `*swaps to the ${ITEMS[it.id].name}* ${ITEMS[it.id].emoji}` : "*swaps to the pepper spray* 🌶️";
+    if (driving()) carSay(line); else say(line);
     return true;
 }
+function carSay(text) { try { if (ctx.banter && ctx.banter.say) ctx.banter.say(text); } catch (e) { /* no banter */ } }
 
 // ── what's near ──────────────────────────────────────────────────────────
 function herPos() { return ctx.foot && ctx.foot.pos; }
@@ -123,10 +138,13 @@ export function use() {
     const it = cur();
     if (!it || !onFoot()) return null;
     const D = ITEMS[it.id], name = D.name;
+    // first: does THIS place / person give the thing a special use? (contexts.js — data)
+    const m = matchContext(it.id, "street", R.force.ctx || null);
+    if (m) return useContext(it, m, (t, o) => say(t, o));
     let verb = null, target = null;
     for (const v of D.verbs) {
         if (v === "BONK") { const t = bonkTarget(); if (t) { verb = v; target = t; break; } }
-        else if (v === "GIVE") { const t = giveTarget(it); if (t) { verb = v; target = t; break; } }
+        else if (v === "GIVE") { const t = giveTarget(it); if (t && (!D.giveOwnerOnly || t.owner || t.kind === "fayge")) { verb = v; target = t; break; } }
         else if (v === "EAT") { if (ctx.G && ctx.G.hearts < ctx.G.maxHearts) { verb = v; break; } }
         else if (v === "DROP") { verb = v; break; }
         else { verb = v; break; }       // WEAR / SHOW: always
@@ -142,7 +160,7 @@ export function use() {
         consumed = !!it.uses && --it.uses <= 0;
     } else if (verb === "EAT") {
         const full = R.eat >= CAP.eat;
-        say(pick(full ? LINES.EAT.full : LINES.EAT.kugel));
+        say(fill(pick(full ? LINES.EAT.full : LINES.EAT.kugel), { item: name }).replace(/kugel/g, name));
         if (!full) { try { heal(1); } catch (e) { /* no run */ } R.eat++; }
         consumed = true;
     } else if (verb === "DROP") {
@@ -173,6 +191,40 @@ export function use() {
     syncProp(true);
     return { verb, target: target ? target.kind : null };
 }
+// ── the context table's effects (contexts.js rows name one) ──
+const EFFECTS = {
+    line: () => true,
+    scatterPigeons: () => { try { ctx.life.debug.scatter(""); } catch (e) { /* */ } return true; },
+    feedPigeons: () => true,
+    kickPile: () => { const me = herPos(); return me ? kickNear(me.x, me.z, 3.4) : false; },
+    muffleAlarm: () => { alarmClear(); return true; },
+    spendPepper: () => { spend("pepper"); return true; },
+};
+/** Use a matched context row: its effect, its line, used up if it says so. sayFn(text, anchor) — a bubble here. */
+function useContext(it, m, sayFn) {
+    const { row } = m, id = it ? it.id : "pepper", name = it ? ITEMS[it.id].name : "pepper spray";
+    try { (EFFECTS[row.do] || EFFECTS.line)(m.target, it); } catch (e) { console.error("[houseitems] context", row.id, e); }
+    sayFn(fill(pick(row.lines), { item: name }), null);
+    log("use", { id, verb: "CTX:" + row.id, target: row.near || null });
+    emit("stat", { id: "houseItemUses", n: 1 });
+    if (row.consume && it) { if (R.worn && R.worn.id === it.id) unwear(); gone(S.bag.indexOf(it)); }
+    syncProp(true);
+    return { verb: "CTX:" + row.id, target: row.near || null };
+}
+/** Inside a room (the interiors engine asks, features/homes' houses excepted — their item button is SNEAK): the item
+ *  button with a thing / the pepper in hand, or the fire button (no rockets indoors). → true = handled */
+export function inRoom(rt, P) {
+    if (!ctx.enabled(ID) || !rt || !rt.def || ctx.dialogOpen) return false;
+    const bubble = t => { try { rt.bubble(t, rt.lulu.obj, 3); } catch (e) { /* */ } };
+    if (P.fire) { if (missilesN() <= 0) return false; bubble(pick(["No rockets INDOORS, Lulu. …that was Ima's voice. In her HEAD.", "*reaches for a rocket* …in a ROOM? No. Even she has limits."])); log("indoors", { room: rt.def.id }); return true; }
+    if (!P.item) return false;
+    const it = cur(), id = it ? it.id : (pepperN() > 0 ? "pepper" : null);
+    if (!id) return false;
+    const m = matchContext(id, "room:" + rt.def.id, R.force.ctx || null);
+    if (!m) return false;
+    useContext(it, m, t => bubble(t));
+    return true;
+}
 function spin(obj) { const t0 = performance.now(); const id = setInterval(() => { const k = (performance.now() - t0) / 600; obj.rotation.y += 0.5; if (k > 1) clearInterval(id); }, 30); }
 function dropProp(id) {
     const me = herPos();
@@ -186,7 +238,9 @@ function dropProp(id) {
 
 // ── the prop in her hand / on her head ───────────────────────────────────
 function propOf(id) {
-    const D = ITEMS[id], src = models.homesItems;
+    const D = ITEMS[id];
+    if (D && D.make) return makeProp(D.make);
+    const src = models.homesItems;
     if (!D || !src) return null;
     let node = null;
     src.traverse(o => { if (!node && o.name === "Prop_" + D.prop) node = o; });
@@ -231,7 +285,7 @@ on("homes:exit", e => {
 on("run:start", () => { R.eat = 0; unwear(); });
 on("foot:start", () => { ensureModels(["homesItems"]).catch(() => { }); });
 addTouchButton({ id: "hi_use", emoji: "🎒", label: "USE", action: "item", visible: () => onFoot() && !!cur() });
-addTouchButton({ id: "hi_swap", emoji: "🔄", label: "SWAP", action: "itemSwap", visible: () => onFoot() && S.bag.length > 1 });
+addTouchButton({ id: "hi_swap", emoji: "🔄", label: "SWAP", action: "itemSwap", visible: () => (onFoot() || driving()) && slots() > 1 });
 let actorOn = false;
 function actor() {
     if (actorOn) return;
@@ -239,14 +293,22 @@ function actor() {
     addActor({
         foot: true,
         update(dt) {
-            for (const x of tmp) x.t -= dt;
+            for (const x of tmp) { x.t -= dt; if (x.v) { x.v.y -= 9.8 * dt; x.o.position.x += x.v.x * dt; x.o.position.y = Math.max(0.05, x.o.position.y + x.v.y * dt); x.o.position.z += x.v.z * dt; if (x.o.position.y <= 0.05) x.v = null; } }
             tmp = tmp.filter(x => { if (x.t > 0) return true; if (x.o.parent) x.o.parent.remove(x.o); return false; });
             const f = F();
             if (f && f.chase && f.chase.stunT > 0) f.chase.stunT -= dt;
             if (!ctx.enabled(ID)) return true;
             syncProp();
+            if (driving() && !ctx.dialogOpen) {          // at the wheel: one press = the hand item's car use (no double-press: eyes on the road)
+                const P = input.pressed || {};
+                if (P.itemSwap) swap();
+                else if (P.item && carHand()) useCar();
+                R.pressT = -1;
+                return true;
+            }
             if (!onFoot() || ctx.dialogOpen) { R.pressT = -1; return true; }
             const P = input.pressed || {};
+            if (P.fire) fireOnFoot();                    // 🚀 on foot: straight up (gadgets.js) — never at anyone
             if (P.itemSwap) { swap(); syncProp(true); }
             // the item button: once = use (after a beat), twice quickly = swap
             // (the window: 0.3 s or 8 frames, whichever is longer — a slow phone's frames are long)
@@ -263,13 +325,95 @@ function actor() {
     });
 }
 on("foot:start", () => actor());
-on("boot", () => actor());
+on("boot", () => {
+    actor();
+    // the round-2 items are pickups in every house (two a house) — homes stages them, with their code-built props
+    for (const [id, D] of Object.entries(ITEMS)) {
+        if (!D.make || !D.pickup || !ctx.homes || !ctx.homes.addPickup) continue;
+        ctx.homes.addPickup(id, { name: D.name, emoji: D.emoji, verb: (D.bonk || D.verbs[0]), fx: D.food ? "eat" : D.verbs[0] === "BONK" ? "dizzy" : "laugh", stun: D.food ? 8 : 2.6,
+            uses: D.uses || 0, sfx: D.verbs[0] === "BONK" ? "bonk" : "poof", surface: D.pickup, make: () => makeProp(D.make), react: { "*": REACT_IN[id] || REACT_IN._ } });
+    }
+});
+// inside a house, used on a resident (homes' REACT table: one line for everyone)
+const REACT_IN = {
+    rollingpin: { line: "A ROLLING PIN?! That's for DOUGH! Not for— *BONK* ...for DOUGH. 💫", lulu: "It's very good for dough. And this." },
+    rugelach: { line: "Is that MY rugelach?! ...it's good, right? It's good. Take another.", lulu: "Mmf. Amazing." },
+    challah: { line: "That's for SHABBOS! ...fine. One piece. The END piece.", lulu: "The end piece is the BEST piece." },
+    lampshade: { line: "*stares at the lampshade on your head* ...I'm not going to ask.", lulu: "Don't ask. It's a look." },
+    trophy: { line: "My TROPHY?! 1994! I bowled a 212! Put it DOWN!", lulu: "212! Impressive! ...it's going back on the shelf." },
+    hat: { line: "That's my GOOD hat! The SHABBOS one! Off! OFF!", lulu: "It's very slimming, though." },
+    broom: { line: "*SWEEP* — she sweeps your feet. \"Out! OUT! The floor is CLEAN!\"", lulu: "Just helping! Helping!" },
+    spray: { line: "*psst psst* — \"I'm not a FERN!\"", lulu: "You look a little dry." },
+    _: { line: "...?!", lulu: "Oops." },
+};
+
+// ── 🚗 from the car: the hand item's car use (data.js `car`) ─────────────
+/** The hand item can do something from the car (the pepper slot / no car use: the item button stays garage's). */
+function carHand() { const it = cur(); return !!(it && ITEMS[it.id].car && ctx.enabled(ID)); }
+export function useCar() {
+    const it = cur();
+    if (!it || !driving()) return null;
+    const D = ITEMS[it.id], kind = D.car, L = LINES.CAR, name = D.name, f = { item: name, ITEM: name.toUpperCase() };
+    let consumed = false, target = null;
+    if (kind === "TOSS") {
+        target = tossTarget(it.id);
+        carSay(fill(pick(target ? L.TOSS[target.kind] : L.TOSS.none), f));
+        try { target && target.hit && target.hit(); } catch (e) { console.error("[houseitems] toss", e); }
+        tossProp(it.id);
+        consumed = true;
+    } else if (kind === "HORN") {
+        R.chickenHorn = true;
+        carSay(pick(L.HORN));
+        consumed = true;
+    } else if (kind === "GIVE_AVIGAIL") {
+        if (ctx.G && ctx.G.avigailRide) { carSay(fill(pick(L.GIVE_AVIGAIL), f)); try { ctx.avigail && ctx.avigail.bump(4, { quiet: true }); } catch (e) { /* */ } consumed = true; target = { kind: "avigail" }; }
+        else carSay(fill(pick(L.noAvigail), f));
+    } else if (kind === "WEAR") {
+        if (R.carWorn === it.id) { ctx.car.attach("head", null); R.carWorn = null; carSay(fill(pick(L.WEAR.off), f)); }
+        else { const o = propOf(it.id); if (o) { o.position.set(0, 0.08, 0); ctx.car.attach("head", o); } R.carWorn = it.id; carSay(fill(pick(L.WEAR.on), f)); }
+    } else carSay(fill(pick(L.none), f));
+    log("use", { id: it.id, verb: "CAR:" + kind, target: target ? target.kind : null, car: true });
+    emit("stat", { id: "houseItemUses", n: 1 });
+    if (consumed) gone();
+    return { verb: "CAR:" + kind, target: target ? target.kind : null };
+}
+/** Who a tossed thing lands near: a cruiser behind her (it swerves for it — food) · a road-rager (a water balloon: soaked). */
+function tossTarget(id) {
+    const car = ctx.car;
+    if (R.force.toss) return R.force.toss;
+    if (id === "balloon") {
+        const E = ctx.underworld && ctx.underworld.debug && ctx.underworld.debug.E;
+        if (E && E.kind === "rager" && E.car && Math.abs(E.car.s - car.s) < 35) return { kind: "rager", hit: () => { setTimeout(() => { try { dropBad(E); } catch (e) { /* */ } }, 1500); } };
+        return null;
+    }
+    if (!ITEMS[id].food) return null;
+    for (const c of ctx.traffic.cars) {
+        if (!/cop/.test(c.kind) || c.hit) continue;
+        const ds = car.s - c.s;
+        if (ds > 0 && ds < 45) return { kind: "cop", car: c, hit: () => { c.speed *= 0.4; c.d += (Math.random() < 0.5 ? -1 : 1) * 1.6; if (c.data) c.data.kugelT = 3; } };
+    }
+    return null;
+}
+function tossProp(id) {
+    const o = propOf(id);
+    if (!o || !ctx.car) return;
+    const c = ctx.car, side = 1;
+    o.position.set(c.pos.x + Math.cos(c.h) * side * 1.2, 1.0, c.pos.z - Math.sin(c.h) * side * 1.2);
+    ctx.scene.add(o);
+    const v = { x: Math.cos(c.h) * 3 - Math.sin(c.h) * 2, y: 3.5, z: -Math.sin(c.h) * 3 - Math.cos(c.h) * 2 };
+    tmp.push({ o, t: 6, v });
+}
+on("honk", () => { if (R.chickenHorn && driving()) { tone(1500, 0.3, "sawtooth", 0.05, 1800); tone(1200, 0.25, "sawtooth", 0.04, 950, 0.28); } });
+on("run:start", () => { R.chickenHorn = false; R.carWorn = null; });
 
 ctx.houseitems = {
     get bag() { return S.bag.map(x => Object.assign({}, x, { name: ITEMS[x.id].name, emoji: ITEMS[x.id].emoji })); },
     get hand() { const it = cur(); return it ? it.id : null; },
     /** Is something in her hand (on foot)? The pepper spray yields the item button to it. */
     get inHand() { return onFoot() && !!cur() && ctx.enabled(ID); },
+    /** At the wheel with a car-usable thing in hand: the item button is ours (garage's pepper waits). */
+    get carHand() { return driving() && carHand(); },
+    useCar, slots: () => slots(), inRoom, fireOnFoot,
     add, use, swap, addTarget,
-    debug: { S, R, ITEMS, CAP, clear() { S.bag = []; S.hand = 0; R.eat = 0; unwear(); syncProp(true); saveSoon(); return true; }, prop: () => !!(R.prop && R.prop.parent), worn: () => (R.worn ? R.worn.id : null) },
+    debug: { S, R, ITEMS, CAP, CONTEXTS, GADGET, copHit: onMissileHit, clear() { S.bag = []; S.hand = 0; R.eat = 0; unwear(); syncProp(true); saveSoon(); return true; }, prop: () => !!(R.prop && R.prop.parent), worn: () => (R.worn ? R.worn.id : null) },
 };

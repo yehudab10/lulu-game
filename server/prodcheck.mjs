@@ -58,4 +58,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const r = spawnSync(process.execPath, [path.join(here, "test-accounts.mjs"), "--url", BASE], { stdio: "inherit" });
 // 👜 limited luxury pieces (ci/clothes): the stock answers; a throw-away account holds one number and lets it go
 const ws = spawnSync(process.execPath, [path.join(here, "test-wear.mjs"), "--url", BASE], { stdio: "inherit" });
-process.exit(fails || r.status || ws.status ? 1 : 0);
+// 🌍 one shared world (ci/oneserver): the clock, server timestamps, reliable events, the budget — throw-away rooms
+const wd = spawnSync(process.execPath, [path.join(here, "test-world.mjs"), "--url", BASE], { stdio: "inherit" });
+process.exit(fails || r.status || ws.status || wd.status ? 1 : 0);

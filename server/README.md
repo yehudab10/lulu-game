@@ -176,6 +176,16 @@ The game: `scripts/tests3d/accounts.js`, `accountsfriends.js` (two / three real 
 **Rollback:** Cloudflare → Workers & Pages → lulu-shared-road → Deployments → the previous one → Rollback (or
 `npx wrangler rollback`). The new tables stay (harmless; nothing old reads them).
 
+## 🌍 One shared world (`world.mjs`, ci/oneserver — owner-approved 2026-11-27, steps 1 + 2)
+
+The relay's clock in the hello / pong (`st`), a server timestamp on every passed-on state, reliable one-time events
+(`r` → passed on once, acked with `ra`, kept 20 s in memory for late joiners), `GET /world/config` (the kill switches
+`WORLD` — flip a flag to 0 and redeploy to turn a step off) and `GET /world/usage` (the free-plan budget: rooms tell the
+Board what they received every 2,000 messages or 10 minutes; `?text=1` gives a sentence; 503 `{ resting }` when the
+Durable Objects are over the free allowance). Table: `world_usage` (one row per UTC day: messages, connections, HTTP
+requests; 14 days kept) — counts only, nothing about players. Message table: `MULTIPLAYER.md` › ONE SHARED WORLD.
+Tests: `node server/test-world.mjs` (`--url` for a deployment) + the game's `scripts/tests3d/worldclock.js`.
+
 ## Files
 
 - `mp-worker.js` — Cloudflare Worker + `Room` Durable Object (Hibernation API).
@@ -184,6 +194,7 @@ The game: `scripts/tests3d/accounts.js`, `accountsfriends.js` (two / three real 
 - `ws-fallback.js` — zero-dependency WebSocket server used if `ws` is missing.
 - `test-relay.js` — protocol conformance test (`npm test`).
 - `homes.mjs` — 🏘️ the property registry (shared by the worker + the local relay); `test-homes.mjs` its tests.
+- `world.mjs` — 🌍 the clock, reliable events, the kill switches and the free-plan budget (both relays); `test-world.mjs`.
 - `accounts.mjs` — 🪪 accounts, usernames, friends, requests, blocks, reports (worker + local relay); `test-accounts.mjs`.
 - `package.json` — deps (`ws`) + scripts.
 
