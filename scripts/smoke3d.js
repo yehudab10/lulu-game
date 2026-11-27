@@ -200,10 +200,6 @@ async function runFile(browser, base, file) {
       const b0 = Date.now();
       await page.goto(`${base}/3d/?test${query}`);
       const ok = await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title screen", 120000);
-      // (fast clock: the small canvas reaches the title in about half the wall time, before the models the title
-      //  fetches lazily — Midwood's, for the home start — have arrived; the old clock's slow first frames always gave
-      //  them that time. Wait for the network to go quiet, so a test starts from the same settled title either way)
-      if (ok && FAST) await page.waitForLoadState("networkidle", { timeout: 60000 }).catch(() => { });
       bootS += (Date.now() - b0) / 1000;
       return ok;
     },
