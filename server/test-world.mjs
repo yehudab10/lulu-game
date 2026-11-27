@@ -91,6 +91,46 @@ try {
     check("events older than the room keeps them (20 s; 1.5 s in this test) aren't replayed", hd && !(hd.r || []).some((e) => e.id === "ev1"), JSON.stringify(hd && hd.r));
     D.ws.close();
   }
+  // ── step 3 (rooms by place: listeners + the place-room cap) — local only until the owner is on the Paid plan ──
+  if (!REMOTE) {
+    const place = "WZZ" + Math.floor(Math.random() * 1e4);
+    const P1 = client(place), L1 = client(place, "Kugel Kid");
+    await P1.join();
+    await L1.open; L1.send({ t: "j", v: 1, name: "Kugel Kid", sk: "pink", lo: 1 });
+    const hl = await L1.wait((m) => m.t === "h");
+    check("a listener joins (hello)", !!hl);
+    await sleep(200);
+    check("…isn't announced to the players", !P1.msgs.some((m) => m.t === "+"));
+    const P2 = client(place, "Latke Legend");
+    const h2 = await P2.join();
+    check("…isn't listed in a newcomer's hello", h2 && h2.peers.length === 1, JSON.stringify(h2 && h2.peers));
+    P1.send({ t: "s", d: { m: 0, x: 1, di: 7 } });
+    P1.send({ t: "r", id: "pl1", k: "ping", d: {} });
+    check("…hears the room's states and events", !!(await L1.wait((m) => m.t === "s" && m.d.di === 7)) && !!(await L1.wait((m) => m.t === "r" && m.id === "pl1")));
+    L1.send({ t: "s", d: { m: 0, x: 1, di: 99 } });
+    L1.send({ t: "r", id: "lsay", k: "ping", d: {} });
+    await sleep(400);
+    check("…and says nothing (its states / events are dropped)", !P1.msgs.some((m) => (m.t === "s" && m.d.di === 99) || (m.t === "r" && m.id === "lsay")));
+    L1.ws.close(); await sleep(200);
+    check("…and leaves without a goodbye", !P1.msgs.some((m) => m.t === "-"));
+    const many = [];
+    for (let k = 0; k < 38; k++) { const c = client(place, "Kugel Kid"); many.push(c); await c.join(); }
+    const extra = client(place, "Kugel Kid");
+    await extra.open; extra.send({ t: "j", v: 1, name: "Kugel Kid", sk: "pink" });
+    const closed = await new Promise((r) => { extra.ws.onclose = (e) => r(e.code); setTimeout(() => r(0), 3000); });
+    check("a place room holds 40 players, the 41st is refused (4001)", closed === 4001 && many.length + 2 === 40, closed);
+    const L2 = client(place, "Kugel Kid");
+    await L2.open; L2.send({ t: "j", v: 1, name: "Kugel Kid", sk: "pink", lo: 1 });
+    check("…but a listener still gets in", !!(await L2.wait((m) => m.t === "h")));
+    for (const c of [P1, P2, L2, ...many]) c.ws.close();
+    const old = "ZZOLD" + Math.floor(Math.random() * 1e4), olds = [];
+    for (let k = 0; k < 24; k++) { const c = client(old); olds.push(c); await c.join(); }
+    const o25 = client(old); await o25.open; o25.send({ t: "j", v: 1, name: "Kugel Kid", sk: "pink" });
+    const oc = await new Promise((r) => { o25.ws.onclose = (e) => r(e.code); setTimeout(() => r(0), 3000); });
+    check("an old-style room still holds 24", oc === 4001, oc);
+    for (const c of olds) c.ws.close();
+  }
+
   // ── the free-plan budget ──
   const u = await fetch(BASE + "/world/usage").then((r) => r.json());
   check("GET /world/usage: today's estimate", typeof u.pct === "number" && u.freeDoRequests === 100000 && u.resetInMin > 0 && (REMOTE || u.wsMessages > 10), JSON.stringify(u));

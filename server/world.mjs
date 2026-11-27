@@ -77,3 +77,12 @@ export function usageText(u) {
     `(${u.doRequests.toLocaleString("en-US")} of ${u.freeDoRequests.toLocaleString("en-US")} relay requests; ` +
     `about ${u.playerHours} player-hours of online play). It resets in ${h} h ${m} min (midnight UTC).\n`;
 }
+
+// ── STEP 3 — ROOMS BY PLACE (built; NOT to be used on the Free plan — the owner switches to Paid first) ──
+// Place rooms are named "W…" (a lap segment, a town, JFK, a rest area, a building). They hold PLACE.cap players (40,
+// then the game opens "…B"); a join with { lo: 1 } is a LISTENER: it gets everything said in the room, says nothing,
+// isn't announced or listed and doesn't count toward the cap (≤ PLACE.listenCap) — a game near a segment boundary
+// listens to the next one, so crossing it has no blink. Listening costs nothing (messages out are free).
+export const PLACE = { cap: 40, listenCap: 40 };
+export const isPlaceRoom = (room) => /^W[A-Z0-9]{1,11}$/.test(String(room || ""));
+export const capFor = (room, legacyCap) => (isPlaceRoom(room) ? PLACE.cap : legacyCap);
