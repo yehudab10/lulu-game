@@ -325,6 +325,23 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 | Midwood | E 34th St, block 4,1 west face (Avenue L → K), the house nearest local (98, 95) | Avigail's house (an existing house; homes gives the door up) | `ci/family` |
 
 
+### One world: what the client needs from the wire (ci/friends → ci/oneserver, 2026-11-27)
+
+`ci/friends` owns how other players are drawn and the rules (stage 3 "no ghosts", roadmap 28). `ci/oneserver` owns the wire. Stage 3 works on today's relay; these make it better.
+
+**What stage 3 needs from the wire**
+- Rooms by place, not random shards. Today EVERYONE is split at random over `lobby`…`lobby8` (≤ 24 each), so two people on the same street can be in different shards. Wanted: the room is the place (a stretch of the lap, a town, an interior's key), with a handoff as she moves. The client still draws only the nearest 6 on a phone and 8 on a desktop or TV, friends first.
+- One snapshot per player, about 200 bytes at 5–7 a second: where she is (`s`/`d` on the lap, or the town's `x`/`z`), on foot or in a car, which room she's in, the car model + colour, the outfit code (`ctx.clothes.encode`, ≤ 40 characters), hair, what she holds (`ctx.houseitems.hand`, one item id), the emote, and her signed name ticket. Today's limits (2 KB a frame, 8 messages a second) fit this. The relay must pass unknown fields through, not strip them.
+- Reliable one-time events: a bump, an emote starting, entering or leaving a room. Today these ride in snapshots for 1.5 s with a nonce, and the receiver drops duplicates (`party/net.js`). A server ack would replace that.
+- A time ping, so every client knows the server's clock (see below).
+
+**What I'd do with a shared world clock**
+- Town loop traffic (minivans, buses) and the community cruisers are already computed from a seed + a clock in a party (`openworld` `townCarsAt(t)`, `community` `cruisersAt(t)`). I'd switch their clock from the party's to the world's, so every player sees the same loop cars, in a party or not.
+- Highway traffic: a party run already seeds it (`T.configure(seed, t0)`). I'd seed the lap's traffic from the world clock for everyone. A car someone hits or jacks leaves its loop through the existing claim (`cl`), kept per room instead of per party. The extra random cars near you stay per screen, and other players' cars are followed like a car ahead (`traffic.leads`).
+- The sky and weather: shared per party today (`ctx.party.atmosClock`). They would follow the world clock for all.
+- Townsfolk, geese, households' days, seasons and the day's events already come from the calendar + a seed. They'd also match to the second.
+- Until then: ambient traffic may differ between two screens (the owner accepted this). Each other, rooms you're both in, and what you do together must match.
+
 ## 7. Backlog / known rough edges (good next tasks)
 
 - **Friends (`ci/friends`, roadmap 19) — stage 1 (a lasting list, presence, one-tap join) is `features/friends`; known
