@@ -404,6 +404,13 @@ module.exports = {
             await W.reset(t);
             continue;
           }
+          // (as with the car above: the town's own walls may push her out of the block before the rescue is needed — CI's
+          //  diag showed her standing still, nothing wrong, no rescue. Either way she's out; the rescue is checked when it fired)
+          const pushed = await t.L(`new Promise(res => { const t0 = performance.now(); const tick = () => { const C = __lulu3d.ctx, U = C.unstuck.debug.U, F = C.foot.debug.F;
+            if (U.log.length > ${n0}) return res(false);
+            if (F && F.phase === "walk" && C.unstuck.debug.badNow() == null && performance.now() - t0 > 2500) return res(true);
+            if (performance.now() - t0 > 9000) return res(false); setTimeout(tick, 100); }; tick(); })`);
+          if (pushed) { const f = await footOK(`${id}: on foot out of the house (the town's own push)`, block); console.log("   (pushed out by the town's walls, no rescue needed)", JSON.stringify(f)); await W.reset(t); continue; }
           if (await autoFired(n0, "inside", `${id}: on foot inside a house`, 8000)) {
             const f = await footOK(`${id}: on foot out of the house${y ? " roof" : ""}`, block);
             t.check(`${id}: …on a sidewalk`, await g(`(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}), st = n.street; return !!st && Math.abs(n.d) >= st.outer - 0.2 && Math.abs(n.d) <= st.walk + 0.2; })()`), JSON.stringify(f));
