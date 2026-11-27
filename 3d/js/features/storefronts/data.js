@@ -238,3 +238,9 @@ export const LULU_AT = {
     office: ["Offices upstairs. The stairs are behind a door that's always locked."],
     dentist: ["A dentist upstairs. I can hear the drill. I'm walking away now."],
 };
+
+const SMALL = new Set(["OF", "BY", "AND", "THE", "&", "A"]);
+/** "AVENUE M MARKET" → "Avenue M Market" · "SHELF HELP SEFARIM" → "Shelf Help Sefarim" (small words lower, except first). */
+export function titleCase(str) {
+    return String(str || "").split(" ").map((w, i) => (i > 0 && SMALL.has(w) ? w.toLowerCase() : w.charAt(0) + w.slice(1).toLowerCase())).join(" ");
+}

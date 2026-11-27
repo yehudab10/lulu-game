@@ -8,12 +8,14 @@ import { ctx, emit } from "../../core/ctx.js";
 import { defineInterior, pool } from "../interiors/engine.js";
 import { canvasPlane, drawLines, tone } from "../interiors/fx.js";
 import { buyExtra } from "../garage/buy.js";
+import { titleCase } from "./data.js";
 
-const DOOR = { x: 0, z: 2.9 };
+// (the door on the −z side and the shop toward +z: the engine's fixed room camera (yaw 0) looks +z from behind her)
+const DOOR = { x: 0, z: -2.9 };
 function roomKit() {
     const g = new THREE.Group(); g.name = "StorefrontRoomKit";
-    const d = new THREE.Object3D(); d.name = "Spot_door"; d.position.set(DOOR.x, 0, DOOR.z); d.rotation.y = Math.PI; g.add(d);
-    const l = new THREE.Object3D(); l.name = "Spot_lulu"; l.position.set(DOOR.x, 0, DOOR.z - 0.9); l.rotation.y = Math.PI; g.add(l);
+    const d = new THREE.Object3D(); d.name = "Spot_door"; d.position.set(DOOR.x, 0, DOOR.z); d.rotation.y = 0; g.add(d);
+    const l = new THREE.Object3D(); l.name = "Spot_lulu"; l.position.set(DOOR.x, 0, DOOR.z + 0.9); l.rotation.y = 0; g.add(l);
     return g;
 }
 models.storefront_roomkit = models.storefront_roomkit || roomKit();
@@ -32,10 +34,10 @@ function build(rt) {
     const [wallC, shelfC, accent] = R.pal || ["#efe6d2", "#8d6e63", "#1a237e"];
     const mats = new Map();
     const M = c => mats.get(c) || (mats.set(c, rt.own(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }))), mats.get(c));
-    const box = (c, x0, x1, y0, y1, z0, z1) => { const g = rt.own(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0)); const m = new THREE.Mesh(g, typeof c === "string" ? M(c) : c); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.receiveShadow = true; rt.add(m); return m; };
+    const box = (c, x0, x1, y0, y1, z0_, z1_) => { const z0 = -z1_, z1 = -z0_; const g = rt.own(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0)); const m = new THREE.Mesh(g, typeof c === "string" ? M(c) : c); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.receiveShadow = true; rt.add(m); return m; };
     rt.bounds = { x0: -W / 2 + 0.35, x1: W / 2 - 0.35, z0: -D / 2 + 0.4, z1: D / 2 - 0.35 };
     rt.cols.length = 0;
-    const col = (cid, x0, x1, z0, z1) => rt.cols.push({ id: cid, x0, x1, z0, z1, on: true });
+    const col = (cid, x0, x1, z0, z1) => rt.cols.push({ id: cid, x0, x1, z0: -z1, z1: -z0, on: true });      // (the layout below is written door-at-+z: mirrored here, like box())
     // floor, three walls, the shop window's low wall with the door, a trim line
     const f0 = shade(shelfC, 0.25), f1 = shade(shelfC, 0.18);
     const tile = canvasPlane(rt.set, 2, 2, (g, w) => { const n = 4, s = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.fillStyle = (i + j) % 2 ? f0 : f1; g.fillRect(i * s, j * s, s, s); } }, { px: 128 });
@@ -71,17 +73,17 @@ function build(rt) {
     // the shop's own sign over the counter
     const sign = (R.sign || [id]).slice(0, 2);
     const p = canvasPlane(rt.set, 3.0, 0.75, (g, w, h) => { g.fillStyle = shade(wallC, -0.05); g.fillRect(0, 0, w, h); g.fillStyle = accent; g.fillRect(0, 0, w, 6); g.fillRect(0, h - 6, w, 6); drawLines(g, `${R.emoji || ""} ${sign[0]}\n${sign[1] || ""}`, w / 2, h / 2, h * 0.26, [accent, shade(accent, 0.1)]); }, { px: 512 });
-    p.mesh.position.set(0, 2.45, -D / 2 + 0.06); rt.add(p.mesh);
+    p.mesh.position.set(0, 2.45, D / 2 - 0.06); p.mesh.rotation.y = Math.PI; rt.add(p.mesh);
     rt.pointLight("shop", "#fff4e0", 6, 10).position.set(0, 2.7, 0);
     // the person + the two things to do
     const who = R.who || { key: "npcMan", name: "the owner" };
-    rt.person("owner", who.key, { x: 0, z: -2.1, ry: 0 }, { name: who.name, colors: who.colors });
+    rt.person("owner", who.key, { x: 0, z: 2.1, ry: Math.PI }, { name: who.name, colors: who.colors });
     const hi = pool(R.hi || ["Hello!"]);
-    rt.hot({ id: "owner", x: 0, z: -0.6, who: "owner", r: 1.3, label: `${R.emoji || "💬"} Talk to ${who.name}`,
+    rt.hot({ id: "owner", x: 0, z: 0.6, who: "owner", r: 1.3, label: `${R.emoji || "💬"} Talk to ${who.name}`,
         action: rt => { tone(520, 0.06, "sine", 0.08); CUR.said++; return rt.say(who.name, hi(), { emoji: R.emoji, color: accent, person: rt.byId.owner }); } });
     if (R.act) {
         const A = R.act, next = pool(A.lines);
-        rt.hot({ id: "act", x: -2.9, z: 1.3, r: 1.3, label: A.label,
+        rt.hot({ id: "act", x: -2.9, z: -1.3, r: 1.3, label: A.label,
             action: async rt => {
                 if (A.cost) {
                     const res = buyExtra("storefront", id, A.cost);
@@ -108,7 +110,7 @@ const DEF = defineInterior({
 export function dress(id, row, lines = null) {
     CUR.id = id; CUR.row = Object.assign({}, row, { sign: row.sign || lines || [id] });
     const name = CUR.row.sign[0];
-    const title = name.split(" ").map(w => (w.length > 2 ? w[0] + w.slice(1).toLowerCase() : w.toLowerCase())).join(" ").replace(/^./, c => c.toUpperCase());
+    const title = titleCase(name);
     DEF.name = title; DEF.short = title; DEF.emoji = row.emoji || "🏪"; DEF.title = `${row.emoji || "🏪"} ${name}`; DEF.tagline = CUR.row.sign[1] || "";
     const reg = ctx.interiors && ctx.interiors[ROOM_ID];
     if (reg) { reg.name = title; reg.emoji = DEF.emoji; }

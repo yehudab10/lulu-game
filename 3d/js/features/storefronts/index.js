@@ -21,7 +21,7 @@ import * as THREE from "three";
 import { ctx, on, emit, hook, setState } from "../../core/ctx.js";
 import { setFrontNamer } from "../town/fronts.js";
 import { nameFront, soonLines } from "./assign.js";
-import { SHOPS, NAMED, STREETS, LULU_AT } from "./data.js";
+import { SHOPS, NAMED, STREETS, LULU_AT, titleCase } from "./data.js";
 import { openAt, nextOpen, todayText } from "./hours.js";
 import { dress, ROOM_ID } from "./room.js";
 import { openCard, cardTick, cardOpen, closeCard } from "../shops/card.js";
@@ -31,7 +31,7 @@ setFrontNamer(nameFront);
 const F = { town: null, list: [], boards: [], claims: new Map(), near: null, nearT: 0, group: null, tex: null, look: 0, dir: null };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const key = f => `${F.town}:${f.i}`;
-const title = s => String(s || "").split(" ").map(w => (w.length > 2 ? w[0] + w.slice(1).toLowerCase() : w.toLowerCase())).join(" ").replace(/^./, c => c.toUpperCase());
+const title = titleCase;
 
 /** The data row behind a front (a one-joke shop's, a named non-shop's) or null. */
 export function rowOf(f) {
