@@ -119,8 +119,10 @@ function tick(dt) {
     if (d > 70) return;
     const S = CP.ppl.shloime, T = CP.ppl.toby, I = CP.ppl.ima, G = CP.ppl.gitty;
     const talk = CP.busy;
-    if (CP.beat.walk && !talk && S && T) {        // a slow walk along the lake, the stroller in front
-        const s = Math.sin(CP.t * 0.1) * 7, dir = Math.cos(CP.t * 0.1) >= 0 ? 1 : -1, yaw = Math.atan2(CP.at.ux * dir, CP.at.uz * dir);
+    const close = S && Math.hypot(S.obj.position.x - me.x, S.obj.position.z - me.z) < 4;      // (they stop when she walks up)
+    if (CP.beat.walk && !talk && !close && S && T) {        // a slow walk along the lake, the stroller in front
+        CP.wt = (CP.wt || 0) + dt;
+        const s = Math.sin(CP.wt * 0.1) * 7, dir = Math.cos(CP.wt * 0.1) >= 0 ? 1 : -1, yaw = Math.atan2(CP.at.ux * dir, CP.at.uz * dir);
         S.obj.position.set(CP.at.x + CP.at.ux * s - CP.at.nx * 0.5, 0, CP.at.z + CP.at.uz * s - CP.at.nz * 0.5); S.obj.rotation.y = yaw;
         T.obj.position.set(CP.at.x + CP.at.ux * s + CP.at.nx * 0.5, 0, CP.at.z + CP.at.uz * s + CP.at.nz * 0.5); T.obj.rotation.y = yaw;
         if (CP.str) { CP.str.position.set(S.obj.position.x + Math.sin(yaw) * 0.8, 0, S.obj.position.z + Math.cos(yaw) * 0.8); CP.str.rotation.y = yaw; if (G) { G.obj.position.set(CP.str.position.x, 0.42, CP.str.position.z); G.obj.rotation.y = yaw; } }

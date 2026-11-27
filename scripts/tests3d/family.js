@@ -12,7 +12,7 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
     const g = t.game, D = `ctx.family.debug`;
-    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };
+    const step = async (label, fn) => { if (process.env.FAMILY_STEP && !label.includes(process.env.FAMILY_STEP)) return; try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };
     // (a dialog ignores taps for a moment after it opens: wait, click, and again until it's taken)
     const choose = async re => { for (let k = 0; k < 14; k++) { await t.frames(6); if (!await g(`ctx.dialogOpen`)) return false; await t.click(re); await t.frames(4); if (!await t.L(`[...document.querySelectorAll("#dialog button")].some(b => ${re}.test(b.textContent))`)) return true; } return false; };
     const talkThrough = async (max = 30) => { for (let k = 0; k < max; k++) { await t.frames(8); if (!await g(`ctx.dialogOpen`)) return; if (await t.L(`document.querySelectorAll("#dialog button").length > 0`)) return; await t.tap(0); } };
@@ -149,7 +149,7 @@ module.exports = {
         if (!await t.until(`__lulu3d.ctx.family.debug.couple.beat() === "${id}"`, `the ${id} beat is out`, 20000)) return false;
         const p = await g(`${K}.at()`), o = await g(`${K}.who()`);
         await stand(o.x + p.nx * 1.6, o.z + p.nz * 1.6, o.x, o.z); await t.frames(4);
-        t.check(`${id}: ✋ over them`, !!(await g(`${K}.spot()`)), await g(`${K}.label()`));
+        t.check(`${id}: ✋ over them`, !!(await g(`${K}.spot()`)), JSON.stringify({ label: await g(`${K}.label()`), who: await g(`${K}.who()`), me: await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z })`) }));
         await g(`(${K}.play(), true)`);
         return t.until(`__lulu3d.ctx.dialogOpen`, `${id} starts`, 10000);
       };
