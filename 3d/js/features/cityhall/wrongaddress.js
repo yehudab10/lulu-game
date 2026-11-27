@@ -21,7 +21,7 @@ import * as H from "../../hud.js";
 import { ID, WRONG_ADDRESS as WA, PROTEST_TUNE as K } from "./data.js";
 import { inTown, stat } from "./state.js";
 import { signTexture } from "./rooms.js";
-import { now, dayKey, onNow, rng, shuffled } from "./parodyday.js";
+import { PD, now, dayKey, onNow, rng, shuffled } from "./parodyday.js";
 import { PR } from "./protest.js";
 
 const PERSON = ["Body", "Arm_L", "Arm_R", "Leg_L", "Leg_R"];
@@ -46,7 +46,7 @@ export function fill(s, shop) {
 export function waPlan(date = now()) {
     const key = dayKey(date), r = rng(key + ":wa-plan");
     const shops = Object.keys(WA.shops);
-    const shop = shops[Math.floor(r() * shops.length)];
+    const r0 = r(), shop = PD.force.shop && WA.shops[PD.force.shop] ? PD.force.shop : shops[Math.floor(r0 * shops.length)];
     const ids = shuffled(Object.keys(WA.people), r).slice(0, 4 + (r() < 0.5 ? 1 : 0));
     const signs = shuffled(WA.signs, r).slice(0, ids.length - 1);
     const flyer = WA.flyer[r() < 0.75 ? 0 : 1];

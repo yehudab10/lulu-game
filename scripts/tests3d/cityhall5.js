@@ -104,6 +104,20 @@ module.exports = {
       t.check(`a week doesn't repeat (${r.weekWa} / 7 different line-ups, ${r.weekPcn} / 7 meetings)`, r.weekWa >= 6 && r.weekPcn >= 5);
     });
 
+    // ════ 👀 the preview switch (?parody=address | comment &day=N &shop=…) — for this page load only ════
+    await step("preview", async () => {
+      const r = await g(`(() => { const P = ${P}, F = P.PD.force; const keep = JSON.stringify(F), off = P.PD.dayOff;
+        const none = P.fromQuery("?parody=nope");
+        const a = P.fromQuery("?parody=address&day=3&shop=bakery"); const planA = P.waPlan();
+        const on = P.onNow("wa", new Date(2027, 2, 5, 23));          // (a Friday, at 11 pm: forced on anyway)
+        const b = P.fromQuery("?parody=comment"); const onB = P.onNow("pcn", new Date(2027, 2, 6, 9));
+        for (const k of Object.keys(F)) delete F[k]; Object.assign(F, JSON.parse(keep)); P.PD.dayOff = off;
+        return { none, a, shop: planA.shop, on, b, onB, saved: !!localStorage.getItem("parody") }; })()`);
+      t.check("?parody=address&day=3&shop=bakery → on now, whatever the day + hour, the bakery, the line-up 3 days on", !!r.a && r.a.wa && r.a.day === 3 && r.shop === "bakery" && r.on, JSON.stringify(r));
+      t.check("?parody=comment → the meeting on (a Saturday morning, forced)", !!r.b && r.b.pcn && r.onB);
+      t.check("anything else → no preview; nothing saved", r.none === null && !r.saved);
+    });
+
     // ════ the words ════
     await step("words", async () => {
       const txt = await t.L(`import("./js/features/cityhall/data.js").then(X => JSON.stringify([X.WRONG_ADDRESS, X.COMMENT_NIGHT]))`);

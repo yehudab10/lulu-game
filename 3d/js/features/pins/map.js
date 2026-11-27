@@ -10,20 +10,17 @@ import * as PN from "./index.js";
 
 css("pins-map", `
 .lphone .pin-filter { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 2px 0 4px; }
-.lphone .pin-filter .btn.lp-mini { min-height: 34px; padding: 0 2px; font-size: 12px; width: auto; color: #2b1838; }
+.lphone .pin-filter .btn.lp-mini { min-height: 40px; padding: 0 2px; font-size: 12px; width: auto; color: #2b1838; }
 .lphone .pin-filter .btn.lp-mini.on { background: #fff; box-shadow: inset 0 0 0 2px var(--pink, #E91E63); }
 .lphone .btn.lp-mini.pin-go { background: #7C4DFF; color: #fff; }
 .pin-grp { display: flex; justify-content: space-between; align-items: baseline; margin: 8px 2px 3px; font: 700 12px var(--font);
   letter-spacing: .06em; text-transform: uppercase; color: rgba(43,27,46,.62); }
 .pin-grp span { letter-spacing: 0; text-transform: none; font-weight: 600; }
 .pin-row.on { box-shadow: inset 0 0 0 2px #7C4DFF; }
-.pin-act { display: flex; gap: 6px; margin: 0 0 6px; }
-.pin-act .btn { flex: 1; }
 .lphone .lp-card.pin-now { display: flex; flex-direction: row; gap: 8px; align-items: center; padding: 8px 10px; }
 .lphone .pin-now .lp-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .lphone .pin-now .lp-tx small { display: block; opacity: .75; }
 .lphone .pin-now .btn.lp-mini { flex: none; width: auto; min-height: 34px; padding: 0 12px; color: #2b1838; }
-.lphone .pin-act .btn.lp-mini { color: #2b1838; } .lphone .pin-act .btn.lp-mini.pin-go { color: #fff; }
 body.tv .lphone .pin-filter .btn.lp-mini { font-size: 18px; min-height: 52px; } body.tv .pin-grp { font-size: 17px; }
 `);
 
@@ -52,9 +49,9 @@ export function html() {
         for (const p of ps) {
             let meta = "";
             if (here && p.town === here) { const t = PN.target(p.id); if (t && t.kind === "at") meta = fmtDist(Math.hypot(t.x - me.x, t.z - me.z)); }
-            const on = cur && cur.id === p.id, open = F.sel === p.id;
-            out += `<button class="btn lp-row pin-row${on ? " on" : ""}" data-pin="${esc(p.id)}"><span class="lp-av">${p.icon}</span><span class="lp-tx"><b>${esc(p.name)}</b><small>${esc(p.sub || "")}${on ? " · 📍 pinned" : ""}</small></span><span class="lp-meta">${meta || (open ? "▲" : "▼")}</span></button>`;
-            if (open) out += `<div class="pin-act">${on ? `<button class="btn lp-mini" data-unpin="1">✕ Clear ping</button>` : `<button class="btn lp-mini pin-go" data-ping="${esc(p.id)}">📍 Ping</button>`}</div>`;
+            // (QA 2026-11-27: ONE tap pings — the row used to open a drawer holding only "📍 Ping"; the pinned row says ✕)
+            const on = cur && cur.id === p.id, sel = F.sel === p.id;
+            out += `<button class="btn lp-row pin-row${on ? " on" : ""}${sel ? " sel" : ""}" data-pin="${esc(p.id)}"><span class="lp-av">${p.icon}</span><span class="lp-tx"><b>${esc(p.name)}</b><small>${esc(p.sub || "")}${on ? " · 📍 pinned — tap to clear" : ""}</small></span><span class="lp-meta">${on ? "✕" : meta || "📍"}</span></button>`;
         }
     }
     out += `<p class="lp-fine">📍 Ping a place: a light over it, a little arrow at the edge of the screen and how far.</p>`;
@@ -64,9 +61,12 @@ export function html() {
 export function bind(el, api) {
     const q = (s, f) => el.querySelectorAll(s).forEach(b => b.addEventListener("click", () => f(b)));
     q("[data-pcat]", b => { F.cat = b.dataset.pcat; api.refresh(); });
-    q("[data-pin]", b => { F.sel = F.sel === b.dataset.pin ? null : b.dataset.pin; api.refresh(); });
-    q("[data-ping]", b => { PN.ping(b.dataset.ping, { from: "map" }); F.sel = null; api.close(); });
-    q("[data-unpin], #pinClear", () => { PN.clear(); F.sel = null; api.refresh(); });
+    q("[data-pin]", b => {
+        const cur = PN.ctxCurrent(); F.sel = null;
+        if (cur === b.dataset.pin) { PN.clear(); api.refresh(); return; }
+        PN.ping(b.dataset.pin, { from: "map" }); api.close();
+    });
+    q("#pinClear", () => { PN.clear(); F.sel = null; api.refresh(); });
     const cv = el.querySelector("canvas.pin-map");
     if (cv) cv.addEventListener("click", ev => {
         const r = cv.getBoundingClientRect(), k = cv.width / Math.max(1, r.width);
