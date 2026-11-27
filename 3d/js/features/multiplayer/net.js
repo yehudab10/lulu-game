@@ -228,7 +228,9 @@ function handle(msg, src) {
     else if (msg.t === "-") {
         const k = key(msg.id), p = MP.peers[k];
         if (src.prefix) delete MP.alias[src.prefix + msg.id];
-        if (p && (!k.startsWith("S:") || (p.id === msg.id && p.room === src.room))) p.dropping = true, p.left = true;   // (an old connection of someone who moved on: ignored)
+        // (a player kept by her session tag is mid-move most of the time she says goodbye to a room: her next room's
+        //  state follows within seconds — so she's only let go by the usual "nothing heard for 6 s" rule)
+        if (p && !k.startsWith("S:")) p.dropping = true, p.left = true;
     }
     if (!src.main) return;
     if (msg.t === "po" && MP.piAt) {
