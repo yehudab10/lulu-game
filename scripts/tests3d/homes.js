@@ -28,6 +28,7 @@ process.on("exit", () => { try { relay && relay.kill(); } catch (e) { } });
 
 module.exports = {
   name: "homes",
+  fast: false,     // (it measures draws / pictures per frame: the old clock — scripts/smoke3d.js › THE FAST TEST CLOCK)
   viewport: { width: 1280, height: 720 },
   query: `&enable=homes,town,law,foot,atmos,interiors,party&mpurl=${encodeURIComponent(URL)}`,
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, pepperSpray: 3, mpName: "Kugel Kid" },
