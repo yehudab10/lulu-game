@@ -36,8 +36,9 @@ const taxOwed = () => unpaid().filter(b => b.kind === "tax").reduce((a, b) => a 
 /** Her homes that are taxed: hers, not held / lost by the Council. */
 function taxedHomes() {
     const R = RE();
-    if (!R || !R.owned) return [];
-    return R.owned().filter(h => h && !h.seized && !h.lost);
+    const shops = (ctx.playershops && ctx.playershops.taxed ? ctx.playershops.taxed() : []);     // (features/playershops: a shop BUILDING she owns — a lease isn't taxed)
+    if (!R || !R.owned) return shops;
+    return R.owned().filter(h => h && !h.seized && !h.lost).concat(shops);
 }
 /** What the tax is on: the home's listed price (stable — the market's daily wiggle doesn't move her bill; the same with a
  *  mortgage), else what she paid, else today's value. */
