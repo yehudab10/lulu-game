@@ -79,9 +79,12 @@ async function run(id, opts = {}) {
     if (ctx.state === "interior") {
         const r = roomNow();
         if (r) r.leave();
-        if (!await until(() => ctx.state !== "interior", 8000)) return false;
+        // (out by the door is a soft cut + a state or two on the way — wait until she's really out, on foot or driving:
+        //  checking at the first frame that isn't "interior" refused with "Not right now." and nothing happened)
+        if (!await until(() => (ctx.state === "footRun" && ctx.foot && ctx.foot.phase === "walk") || ctx.state === "playing", 8000)) { H.toast("Couldn't get out of here. Try again in a moment.", "red"); return false; }
     }
-    if (goBlock(id, opts).replace(/^On your way already!$/, "")) return false;       // (something happened on the way out)
+    const why = goBlock(id, opts).replace(/^On your way already!$/, "");
+    if (why) { H.toast(why, "red"); return false; }       // (something happened on the way out: say what, never just nothing)
     GO.last = now();
     return new Promise(res => dissolve(() => res(land(id, town)), { ms: 650 }));
 }

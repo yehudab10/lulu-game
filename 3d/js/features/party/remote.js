@@ -488,15 +488,17 @@ function step(rc, p, dt, road, cam) {
 // · 6 wave · 7 busy (hotwire / interact) · 8 sit (sliding into a car) · 9 talk · 10 in the air (a jump); look 0 · 1 jumpsuit
 // · 2 old lady · 3 old man; f[2] (optional) = her feet's height in decimetres (a jump, standing on a bench / a car roof)
 const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
+const look0 = f => (f[1] | 0) === 0;      // (her own clothes show only out of a disguise / the jumpsuit)
 function setForm(rc, p) {
     const f = p.x && Array.isArray(p.x.f) ? p.x.f : null;
     const foot = !!f && !!models.luluPerson;
     if (foot) {
-        const look = Math.max(0, Math.min(3, f[1] | 0)), key = look + "|" + (p.hc || "");
+        const ot = !look0(f) || !ctx.clothes ? "" : (p.x && typeof p.x.ot === "string" ? p.x.ot.slice(0, 160) : "");
+        const look = Math.max(0, Math.min(3, f[1] | 0)), key = look + "|" + (p.hc || "") + "|" + ot;
         if (!rc.walker || rc.walkerKey !== key) {
             if (rc.walker) rc.walker.obj.removeFromParent();
             const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, LOOKS[look]);
-            rc.walker = spawnPerson("luluPerson", { colors });
+            rc.walker = spawnPerson("luluPerson", { colors, outfit: ot ? ctx.clothes.decode(ot) : false });   // (her outfit: features/clothes)
             rc.walker.obj.rotation.order = "YXZ";
             rc.walker.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
             rc.walkerKey = key;

@@ -240,12 +240,23 @@ module.exports = {
     await t.until(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "escape"`, "the jailbreak vignette plays", 60000);
     await t.frames(30);
     await t.shot("jailbreak");
-    await t.until(`["intro", "playing"].includes(__lulu3d.state)`, "back on the road as a fugitive", 120000);
+    // (features/places: out of a REAL precinct she walks out of its front door on foot, in control — her car behind the
+    //  impound lot's fence, a parked car to borrow; with no town to take her, the old flow: back on the road)
+    await t.until(`["intro", "playing", "footRun"].includes(__lulu3d.state)`, "back out as a fugitive (on the road, or on foot at the precinct door)", 120000);
+    const out = await t.game(`(() => { const F = ctx.foot.debug && ctx.foot.debug.F, sp = ctx.civic && ctx.civic.spot && ctx.civic.spot("precinct"); return { state: L3.state, phase: F && F.phase, town: ctx.town.active ? ctx.town.id : null,
+      door: F && sp ? +Math.hypot(F.pos.x - sp.x, F.pos.z - sp.z).toFixed(1) : null, own: ctx.foot.ownCar, imp: !!(ctx.civic && ctx.civic.debug && ctx.civic.debug.impoundedCar && ctx.civic.debug.impoundedCar()) }; })()`);
+    if (out.state === "footRun") {
+      await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "on her feet, in control", 15000);
+      t.check("jailbreak in a town: out of the precinct's front door on foot (≤ 12 m), in control", out.town && out.door != null && out.door <= 12, JSON.stringify(out));
+      t.check("…her own car is behind the impound fence (no car of hers at the kerb)", out.own === "gone" && out.imp, JSON.stringify(out));
+    }
     const sv2 = await save2d();
     t.check("jailbreak counted (shared save.escapes)", sv2.escapes === 1);
     t.check("fugitive lockup persisted", sv2.lockup && sv2.lockup.mode === "fugitive");
     t.check("open charges go on the warrant file", Array.isArray(sv2.wanted) && sv2.wanted.length > 0);
     t.check("ctx.law.fugitive", await t.game(`ctx.law.fugitive && ctx.law.wanted >= 1`));
+    // (on foot: into a car for the high-heat checks below — as a player would borrow one)
+    if (await t.game(`L3.state === "footRun"`)) await t.game(`(ctx.foot.end("test"), L3.setState("playing"), true)`);
     await t.until(`__lulu3d.state === "playing"`, "countdown ends", 60000);
     // high heat: K9, missile, chopper
     await t.game(`(${D}.L.fug.t = 60, ${D}.L.grace = 99, ${D}.spawnK9(), ${D}.fireMissile(), ${D}.ensureChopper())`);

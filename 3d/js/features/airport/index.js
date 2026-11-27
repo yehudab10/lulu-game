@@ -373,6 +373,10 @@ ctx.airport = {
      *  the camera may sit along the unit direction (dx, dy, dz) before it's inside Terminal 4½ or the tower → a distance
      *  (< D), or null (nothing in the way / she's nowhere near the airport). */
     camClip(tgt, dx, dy, dz, D) { return camClip(tgt, dx, dy, dz, D); },
+    /** A point of the landside in its own frame (f along the terminal, r out from the road) → world {x, z, h (yaw facing
+     *  toward the road)} | null until it is built. For OUTSIDE features' doors on the terminal front (features/clothes'
+     *  Maison de Gelt, 2026-11-27 — the owner allowed the luxury store's door here, nothing else). */
+    at(f, r) { if (!S.G || !S.ready) return null; const p = S.G.F.world(f, r, {}); p.h = S.G.F.yaw(0, -1); return p; },
     /** The kerb: `pickup()` → world {x, z, h} of the ARRIVALS pickup point in the kerb lane (f 24 — short of the taxi
      *  line, which queues from f 70 back), heading along the kerb; null until it is built (stage 3: no taxi run away from the airport). */
     kerb: {

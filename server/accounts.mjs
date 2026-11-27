@@ -333,6 +333,8 @@ export function createAccounts(q, opts = {}) {
       q("DELETE FROM blocks WHERE src = ? OR dst = ?", p, p);
       q("DELETE FROM reports WHERE src = ? OR dst = ?", p, p);
       q("DELETE FROM accounts WHERE pid = ?", p);
+      // (👜 her numbered limited pieces go back to the world — wear.mjs, ci/clothes)
+      if (opts.onDelete) { try { opts.onDelete(p); } catch (e) { /* the account is gone either way */ } }
       // (her houses are game progress on the same random id, like her coins — they stay hers; the registry stores no name)
       return ok({ ok: true });
     }

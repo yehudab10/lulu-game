@@ -173,7 +173,9 @@ function seatFor(riderUid) {
     let s = RIDE.seats.get(riderUid);
     if (s) return s;
     if (!models.luluPerson) return null;
-    const person = spawnPerson("luluPerson");
+    // (her outfit: mine when I'm the rider, a friend's from her party record — features/clothes)
+    const me = ctx.party && riderUid === ctx.party.uid, q = !me && ctx.party && ctx.party.peer ? ctx.party.peer(riderUid) : null;
+    const person = spawnPerson("luluPerson", { outfit: me ? undefined : (ctx.clothes && q ? ctx.clothes.outfitOf(q) : false) });
     person.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
     person.obj.scale.setScalar(0.86);
     s = { person, host: null };
