@@ -110,7 +110,7 @@ async function body(t, guests) {
     t.check("B: another kugel → ✅ Buy it → 💝 Tip 5", await pickOpt(/potato kugel/) && await pickOpt(/Buy it/) && await pickOpt(/Tip 5/));
     t.check("…20 of her coins (15 + the tip)", await B.until(`L3.wallet.coins === ${cB2} - 20`, "B paid with the tip", 20000), String(await B.game(`L3.wallet.coins`)) + " " + JSON.stringify(await B.game(`ctx.playershops.debug.SVR.SV.lastBuy`)));
     const cA2 = await A.game(`L3.wallet.coins`);
-    await A.L(`__lulu3d.ctx.playershops.debug.helloNow()`);
-    t.check("…A's till: 12 + the 5 tip", (await A.game(`L3.wallet.coins`)) === cA2 + 17, `${cA2} → ${await A.game(`L3.wallet.coins`)}`);
+    const hr2 = await A.L(`__lulu3d.ctx.playershops.debug.helloNow()`);
+    t.check("…A's till: 12 + the 5 tip", (await A.game(`L3.wallet.coins`)) === cA2 + 17, `${cA2} → ${await A.game(`L3.wallet.coins`)} hello: ${JSON.stringify(hr2)} log: ${JSON.stringify(await A.game(`ctx.playershops.debug.SVR.SV.log.slice(-5)`))} buy: ${JSON.stringify(await B.game(`ctx.playershops.debug.SVR.SV.lastBuy`))}`);
   }
 }
