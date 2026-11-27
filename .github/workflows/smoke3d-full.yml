@@ -50,6 +50,7 @@ jobs:
         env:
           ONLY: ${{ inputs.only }}
           GROUPS: ${{ inputs.groups }}
+          CLOCK: ${{ inputs.clock }}
         run: |
           node -e '
             const fs = require("fs");
@@ -62,7 +63,8 @@ jobs:
               // pack by the recorded durations (longest first onto the least-loaded machine)
               let dur = {};
               try { dur = JSON.parse(fs.readFileSync("scripts/tests3d-durations.json", "utf8")).files || {}; } catch (e) { }
-              const sec = f => (dur[f] && dur[f].fast) || (dur[f] && dur[f].slow) || 300;
+              const slow = process.env.CLOCK === "slow", d = f => dur[f] || {};
+              const sec = f => (slow ? d(f).slow || d(f).fast * 8 : d(f).fast || d(f).slow) || 300;
               const n = Math.min(MAX, files.length);
               const bins = Array.from({ length: n }, () => ({ t: 0, f: [] }));
               for (const f of [...files].sort((a, b) => sec(b) - sec(a))) { const b = bins.reduce((m, x) => x.t < m.t ? x : m); b.t += sec(f); b.f.push(f); }
