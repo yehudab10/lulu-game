@@ -222,11 +222,14 @@ function renderApp(keep) {
     if (keep) { const f = el.querySelector(".focus"); idx = f ? [...el.querySelectorAll("button, .nav")].indexOf(f) : 0; }
     el.innerHTML = "";
     try { app.render(el, api, PH.arg); } catch (e) { console.error(`[phone] ${app.id}.render`, e); el.innerHTML = `<p class="lp-empty">😵 This app crashed.</p>`; }
-    el.querySelectorAll(".btn:not(button)").forEach(b => b.classList.add("nav"));
+    el.querySelectorAll(".btn:not(button):not(.nonav)").forEach(b => b.classList.add("nav"));      // (.nonav: a look-only line — a City Hall bill)
     H.refreshFocus(false);
     const list = [...el.querySelectorAll("button, .nav")].filter(b => !b.disabled && !b.classList.contains("nonav") && b.offsetParent !== null);
     const f = list[Math.min(Math.max(0, idx), list.length - 1)];
     if (f) H.setFocus(f);
+    // (QA 2026-11-27: with fingers a new page starts at its TOP — the focus ring scrolled it to the first usable button,
+    //  so 💼 Jobs on foot opened at the bottom on a phone on its side, the reason why off the screen)
+    if (!keep && input.device === "touch") { const sc = el.closest(".lp-appbody") || el; sc.scrollTop = 0; }
 }
 
 /** A little notice inside the phone (H.toast waits while a menu is open). */
@@ -243,7 +246,11 @@ export function phoneToast(text) {
 export const api = {
     close: () => closePhone(),
     back: () => back(),
-    refresh: () => renderApp(true),
+    /** Re-draw the app. Focus stays on the same slot — a new page inside the app ({ top: true }) starts at its first
+     *  control instead (QA 2026-11-27: a contact opened from far down the list put a controller on its ‹ Back). */
+    refresh: (o) => renderApp(!(o && o.top)),
+    /** Put the focus on `sel` inside the app (back to the row she came from). → bool */
+    focus: sel => { const b = sel && document.querySelector("#lpApp " + sel); if (b && b.offsetParent !== null && !b.disabled) { H.setFocus(b); return true; } return false; },
     toast: text => phoneToast(text),
     /** (extra) open another app: api.open("messages", { thread }) */
     open: (id, arg) => openApp(id, arg),

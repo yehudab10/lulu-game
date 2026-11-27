@@ -46,7 +46,9 @@ module.exports = {
   query: "",
   async run(t) {
     setWallCap(8 * 60000);
+    process.env.WORLD_KEEP_MS = "300000";        // (a CI page takes longer than the real 20 s to boot and connect)
     const relay = await startRelay(PORT);
+    delete process.env.WORLD_KEEP_MS;
     const pages = [];
     let rest = null;
     try {
@@ -74,13 +76,16 @@ module.exports = {
       t.check("A's send was acknowledged", await A.until(`ctx.mp._debug.relOut.size === 0`, "acked", 20000));
       const C = await page(t, "C (arrives later)", Q(URL)); pages.push(C);
       await drive(C);
-      t.check("C, who came later, still gets it (late)", await C.until(`window.__ev.some(e => e.k === "ping" && e.late)`, "C's late event", 30000));
+      const fromA = await A.game(`ctx.mp._debug.myId`);
+      t.check("C, who came later, still gets it (late)", await C.until(`ctx.mp._debug.relSeen.has(${JSON.stringify(fromA + ":" + id)})`, "C's late event", 60000));
 
       // ── resting: the relay is over its free daily allowance ──
       process.env.WORLD_RESTING = "1";
       rest = await startRelay(PORT + 1);
       delete process.env.WORLD_RESTING;
       const D = await page(t, "D (resting relay)", Q(`ws://127.0.0.1:${PORT + 1}`)); pages.push(D);
+      await D.game(`L3.startRun({ mode: "cruise", quick: true })`);
+      await D.until(`__lulu3d.state === "playing"`, "drives");
       await D.L(`import("./js/features/multiplayer/worldclock.js").then(m => m.checkResting())`);
       t.check("a resting relay → one quiet line, and she plays on", await D.until(`ctx.worldClock.resting && [...document.querySelectorAll(".toast")].some(e => /resting until/.test(e.textContent))`, "the resting line", 20000));
       t.check("…and it's the only one", await D.game(`[...document.querySelectorAll(".toast")].filter(e => /resting until/.test(e.textContent)).length`) === 1);

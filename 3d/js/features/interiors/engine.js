@@ -704,13 +704,23 @@ export class Room {
         if (this.root && t > 0.6) {
             RAY.set(RV.set(tgt.x, tgt.y, tgt.z), RD.set(dx, dy, dz).normalize()); RAY.near = 0.2; RAY.far = t + 0.3;
             for (const h of RAY.intersectObject(this.root, true)) {
-                if (!h.object.isMesh || this.fadeable(h.object)) continue;
+                if (!h.object.isMesh || (this.fadeable(h.object) && !this.wallLike(h.object))) continue;
                 t = Math.min(t, h.distance - 0.3);
                 break;
             }
         }
         // (tight: the rig may rise over her head — still under the ceiling, ORBIT.ceil leaves it the room)
         return { d: Math.max(0.6, t), noLift: false };
+    }
+    /** Floor-to-ceiling (≥ 2.2 m tall — a cell's wall, a partition): the camera stops at it rather than passing through and
+     *  fading it (a holding cell's back corner left the lens 0.6 m outside the room). */
+    wallLike(o) {
+        if (o.userData.wallLike == null) {
+            if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+            const b = o.geometry.boundingBox, sy = new THREE.Vector3(); o.getWorldScale(sy);
+            o.userData.wallLike = (b.max.y - b.min.y) * sy.y >= 2.2;
+        }
+        return o.userData.wallLike;
     }
     /** Small enough to be furniture / a partition (faded when it's in the way), not the room's shell (clipped to). */
     fadeable(o) {

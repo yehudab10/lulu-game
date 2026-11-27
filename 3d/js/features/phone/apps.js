@@ -8,6 +8,8 @@ import { addApp, esc, partyOn } from "./ui.js";
 import { lapWorld } from "../../world.js";
 import { drawLap, myLapM } from "../world/lapmap.js";
 import { ONEGAME } from "../onegame/switches.js";
+import * as A from "../../audio.js";
+import { save3d } from "../../core/save.js";
 import * as PINS from "../pins/map.js";
 
 const inCarNow = () => ctx.state === "playing" && !(ctx.foot && ctx.foot.active);
@@ -57,14 +59,18 @@ addApp({
         const ids = new Set(r.stations || STATIONS.map(s => s.id));
         const list = STATIONS.filter(s => ids.has(s.id));
         const now = list.find(s => s.id === cur) || list[0];
-        el.innerHTML = `<div class="lp-card lp-now"><span class="lp-eq${cur === "off" ? " off" : ""}"><i></i><i></i><i></i><i></i></span>
-                <span class="lp-tx"><b>${esc(now.name)}</b><small>${cur === "off" ? "silence is golden" : song ? "♪ " + esc(song) : esc(now.tag)}</small></span></div>
+        // (QA 2026-11-27: with ⚙️ Music off the card said a song was playing — say it's off; picking a station turns it on)
+        const mute = !A.audio.musicOn && cur !== "off";
+        el.innerHTML = `<div class="lp-card lp-now"><span class="lp-eq${cur === "off" || mute ? " off" : ""}"><i></i><i></i><i></i><i></i></span>
+                <span class="lp-tx"><b>${esc(now.name)}</b><small>${cur === "off" ? "silence is golden" : mute ? "🔇 Music is off — pick a station to turn it on" : song ? "♪ " + esc(song) : esc(now.tag)}</small></span></div>
             ${list.map(s => `<button class="btn lp-row lp-st${s.id === cur ? " on" : ""}" data-st="${s.id}"><span class="lp-av">${s.emoji}</span>
                 <span class="lp-tx"><b>${esc(s.name)}</b><small>${esc(s.tag)}</small></span>${s.id === cur ? '<span class="lp-meta">▶</span>' : ""}</button>`).join("")}
             ${quietNow() ? `<p class="lp-note">🕯️ It's the Three Weeks — the radio's music stations are quiet. LULU FM (the game's own driving soundtrack) keeps playing.</p>` : ""}
             ${inCarNow() ? "" : `<p class="lp-note">📻 plays when Lulu's back behind the wheel</p>`}`;
         el.querySelectorAll(".lp-st").forEach(b => b.addEventListener("click", () => {
-            if (b.dataset.st !== r.station) r.tune(b.dataset.st);
+            // (music off + a tap on a station = she wants music: the radio turns it on for the others, LULU FM here)
+            if (!A.audio.musicOn && b.dataset.st === "auto") save3d.music = A.toggleMusic();
+            if (b.dataset.st !== r.station || (!A.audio.musicOn && b.dataset.st !== "off")) r.tune(b.dataset.st);
             api.refresh();
         }));
     },
@@ -102,16 +108,21 @@ addApp({
             html += `<div class="lp-card lp-on"><span class="lp-av">${d.emoji || "💼"}</span><span class="lp-tx"><b>On the clock: ${esc(d.name || job.id)}</b><small>${esc(job.intro || d.blurb || "")}</small></span></div>
                 <button class="btn lp-row lp-mini" id="lpQuitJob">✋ Quit this job</button>`;
         } else {
+            // (QA 2026-11-27: why she can't take one goes FIRST — under six greyed-out rows it was off the bottom of a phone)
+            if (why) html += `<p class="lp-note lp-why">${esc(why)}</p>`;
             const ids = ["cab", "delivery"].concat(ctx.law && !(partyOn() && !ctx.enabled("law")) ? ["getaway"] : [], h.listed ? h.listed() : []);
-            html += ids.filter(id => JOBS[id]).map(id => { const d = JOBS[id]; return `<button class="btn lp-row lp-job" data-job="${id}"${why ? " disabled" : ""}><span class="lp-av" style="--c:${d.color}">${d.emoji}</span>
-                <span class="lp-tx"><b>${esc(d.name)}</b><small>${esc(d.blurb)}</small></span>${why ? "" : '<span class="lp-meta lp-go">Take it</span>'}</button>`; }).join("");
-            if (why) html += `<p class="lp-note">${esc(why)}</p>`;
+            // (QA 2026-11-27: none takeable right now → one line of what's waiting, not six greyed-out rows that pushed
+            //  the reason — and on a phone on its side everything else — off the screen)
+            if (why) html += `<div class="lp-card lp-jobswait"><span class="lp-tx"><b>${ids.filter(id => JOBS[id]).map(id => JOBS[id].emoji).join(" ")}</b><small>${ids.filter(id => JOBS[id]).length} side jobs waiting for you</small></span></div>`;
+            else html += ids.filter(id => JOBS[id]).map(id => { const d = JOBS[id]; return `<button class="btn lp-row lp-job" data-job="${id}"><span class="lp-av" style="--c:${d.color}">${d.emoji}</span>
+                <span class="lp-tx"><b>${esc(d.name)}</b><small>${esc(d.blurb)}</small></span><span class="lp-meta lp-go">Take it</span></button>`; }).join("");
             html += `<p class="lp-fine">…or drive into a ringing ☎️ payphone.</p>`;
         }
         for (const x of JOB_EXTRAS) { try { html += x.html() || ""; } catch (e) { console.error("[phone] jobs extra", x.id, e); } }
-        // (🎨 Paint & Pray: one row here while she's wanted — it isn't an app of its own any more)
+        // (🎨 Paint & Pray: one row here while she's wanted — it isn't an app of its own any more; at the TOP, it's what a
+        //  wanted player opened Jobs for — at the bottom it was under the jobs she can't take while wanted)
         const paint = ctx.law && ctx.law.wanted > 0 && ctx.streets && ctx.streets.paint && ctx.streets.paint.nearest && !partyOn();
-        if (paint) html += `<button class="btn lp-row" id="lpPaint"><span class="lp-av" style="--c:#EC407A">🎨</span><span class="lp-tx"><b>Paint & Pray</b><small>Wanted? A new colour and the cops lose you.</small></span></button>`;
+        if (paint) html = `<button class="btn lp-row" id="lpPaint"><span class="lp-av" style="--c:#EC407A">🎨</span><span class="lp-tx"><b>Paint & Pray</b><small>Wanted? A new colour and the cops lose you.</small></span></button>` + html;
         el.innerHTML = html;
         const pb = el.querySelector("#lpPaint");
         if (pb) pb.addEventListener("click", () => api.open("paint"));

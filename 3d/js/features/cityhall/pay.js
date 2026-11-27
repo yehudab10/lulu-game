@@ -51,7 +51,7 @@ export const CONTACT_EXTRAS = [];
 function contactRender(el) {
     const list = unpaid(), total = owed(), q = quote(wallet.coins);
     let h = `<div class="lp-note">🏛️ <b>${esc(CONTACT.name)}</b>. ${total ? `You owe <b>${total} coins</b>.` : "You owe nothing. Nice!"}${lienOn() ? " 📬 There's a lien notice on your mailbox." : ""}</div>`;
-    h += list.length ? list.slice(0, 8).map(b => `<div class="lp-row btn" style="pointer-events:none"><span class="lp-av">${b.kind === "tax" ? "🏠" : b.kind === "lien" ? "📬" : "🧾"}</span><span class="lp-tx"><b>${esc(b.what)}</b></span><span class="lp-meta">${b.amount} 💰</span></div>`).join("")
+    h += list.length ? list.slice(0, 8).map(b => `<div class="lp-row btn nonav" style="pointer-events:none"><span class="lp-av">${b.kind === "tax" ? "🏠" : b.kind === "lien" ? "📬" : "🧾"}</span><span class="lp-tx"><b>${esc(b.what)}</b></span><span class="lp-meta">${b.amount} 💰</span></div>`).join("")
         : `<p class="lp-empty">No bills. The town has nothing on you.</p>`;
     if (q.n) h += `<button class="btn lp-row" id="chPay"><span class="lp-av">✍️</span><span class="lp-tx"><b>${PH.armed === q.n ? `Tap again to pay ${q.n} coins` : (q.all ? `Pay it all (${q.n} coins)` : `Pay what I can (${q.n} coins)`)}</b><small>${PH.armed === q.n ? "This pays the town" : "Tap twice to pay"}</small></span></button>`;
     else if (total) h += `<p class="lp-fine">${esc(TW.broke)}</p>`;
