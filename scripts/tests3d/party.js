@@ -282,8 +282,13 @@ async function body(t, guests) {
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   await sleep(2500);
   const hs = await t.game(`({ s: ctx.car.s, d: ctx.car.d })`);
-  await A.game(`(ctx.banter.autopilot = null, ctx.party._debug.place(${hs.s.toFixed(2)}, ${(hs.d + 1.3).toFixed(2)}, 0))`);
+  // (A pulls up by DRIVING, as a friend would: put 8 m behind, wait till the host's screen shows her there — a short
+  //  respawn hop glides in on a friend's screen, it doesn't snap — then she rolls forward into the host's side)
+  await A.game(`(ctx.banter.autopilot = null, ctx.party._debug.place(${(hs.s - 8).toFixed(2)}, ${(hs.d + 1.3).toFixed(2)}, 0))`);
   await A.game(`(ctx.banter.autopilot = { d: ${(hs.d + 1.3).toFixed(2)}, speed: 0 }, true)`);
+  const AU = JSON.stringify(await A.game(`ctx.party.uid`));
+  await hostUntil(t, `(() => { const rc = ctx.party.remoteCar(${AU}); return !!rc && rc.shown && Math.abs(rc.s - ${(hs.s - 8).toFixed(2)}) < 1.5; })()`, "the host sees A pulled up behind", 30000);
+  await A.game(`(ctx.banter.autopilot = { d: ${(hs.d + 1.3).toFixed(2)}, speed: 3 }, true)`);
   await hostUntil(t, `ctx.party._debug.P.bonks > 0`, "BONK on the host's screen", 30000);
   await A.until(`ctx.party._debug.P.bonks > 0`, "BONK on the friend's screen", 30000);
   t.check("BONK! symmetric — both screens bounced", await t.game(`ctx.party._debug.P.bonks > 0`) && await A.game(`ctx.party._debug.P.bonks > 0`));
