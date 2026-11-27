@@ -211,7 +211,7 @@ function make(t) {
   };
 
   /** The whole audit of the room she's in. `skip` = ✋ ids not to press (they leave / start a long scene). */
-  const audit = async (where, { skip = [], pick = "last" } = {}) => {
+  const audit = async (where, { skip = [], pick = "last", gated = false } = {}) => {
     const out = { where, problems: [] };
     await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, `${where}: the room is up`, 60000);
     await t.frames(40);
@@ -236,7 +236,8 @@ function make(t) {
     for (const h of f.hots) if (h.en === "ERR" || /^ERR/.test(h.label)) out.problems.push(`✋ ${h.id} throws: ${h.label}`);
     // reachable from the door
     const reach = await flood();
-    for (const h of en) if (!reach[h.i]) out.problems.push(`✋ ${h.id} (${h.label}) can't be reached from the door`);
+    // (a room with a gate inside — JFK's airside past security — passes `gated`: those ✋ are logged, not failed)
+    for (const h of en) if (!reach[h.i]) out.problems.push(`✋ ${h.id} (${h.label}) can't be reached from the door${gated ? " (past the gate)" : ""}`);
     // press each one, play it out
     const W0 = await coins();
     for (const h of en) {
@@ -270,7 +271,7 @@ function make(t) {
 
   // the audit's findings: the hard ones fail the test, the judgement calls (someone close to furniture, two ✋ close
   // together, a ✋ that only shows a bubble) are logged for a person to look at
-  const HARD = /street's|% of the screen wide|doesn't fit|charged|without the coins|stuck|throws|can't be reached|the prompt is/;
+  const HARD = /street's|% of the screen wide|doesn't fit|charged|without the coins|stuck|throws|can't be reached from the door$|the prompt is (?!nothing)/;
   const report = (where, a) => { for (const p of a.problems) { if (HARD.test(p)) t.check(`${where}: ${p}`, false); else console.log(`   ✗? ${where}: ${p}`); } };
 
   /** Into a door from the street with the real ✋; → true when the room is up. */

@@ -36,7 +36,7 @@ module.exports = {
       await W.moved(t);
       await g(`(ctx.airport.debug.enterTerminal(), true)`);
       if (await t.until(`__lulu3d.state === "interior" && window.__interiors.room && window.__interiors.room.def.id === "terminal" && window.__interiors.room.ready`, "inside the JFK terminal", 90000)) {
-        const a = await S.audit("jfk-terminal");
+        const a = await S.audit("jfk-terminal", { gated: true });
         S.report("jfk-terminal", a);
         await S.shot("jfk-terminal-end");
         await g(`(__interiors.room.leave(), true)`);

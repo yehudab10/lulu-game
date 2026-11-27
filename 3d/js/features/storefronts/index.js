@@ -178,7 +178,8 @@ function buildLook() {
         if (!fa) continue;
         const s = f.st ? f.st.state : "use";
         if (s === "open") { quad(fa.x + f.ux * 0.95, 1.55, fa.z + f.uz * 0.95, f.ux, f.uz, f.nx, f.nz, 0.5, 0.5, 0); f.card = pos.length / 3 - 4; }
-        else if (s === "soon" && !(f.st.bowling && ctx.lanes)) for (const o of [-2.5, 2.5])     // (the alley's open: no COMING SOON paper) quad(fa.x + f.ux * o, 1.45, fa.z + f.uz * o, f.ux, f.uz, f.nx, f.nz, 2.1, 1.7, 2);
+        // (the bowling alley's run: no COMING SOON paper once features/lanes is open)
+        else if (s === "soon" && !(f.st.bowling && ctx.lanes)) for (const o of [-2.5, 2.5]) quad(fa.x + f.ux * o, 1.45, fa.z + f.uz * o, f.ux, f.uz, f.nx, f.nz, 2.1, 1.7, 2);
         else if (s === "lease") quad(fa.x + f.ux * 2.4, 1.5, fa.z + f.uz * 2.4, f.ux, f.uz, f.nx, f.nz, 0.8, 0.8, 3);
         else continue;
         F.look++;

@@ -40,8 +40,6 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
 ## Left (owner's call / not a fix)
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
-- In a party, Borough Hall / City Hall, the realtor, the shopfronts and the makolet aren't shared rooms (each friend has
-  an empty copy) — `together/rooms.js` SHARED; adding them is feature work.
 
 ## For other sweeps
 - for `ci/sweep-logic`: free coins from interiors' one-off ✋ (precinct coffee +30, hospital vending +5, Heshy +4…)
