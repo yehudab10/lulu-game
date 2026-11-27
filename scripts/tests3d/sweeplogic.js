@@ -101,5 +101,33 @@ module.exports = {
       t.check("combo: a real mix of moves still pays coins", r.mix.coins >= 10, JSON.stringify(r.mix));
       t.check("combo: the coins stop at the daily cap", r.capped.coins === 3 && r.capped.n === r.capped.cap, JSON.stringify(r.capped));
     }
+
+    // ── a returning player: a Classic 2D save (every field the 2D game writes, a fortnight old) + a 3D save from the first
+    //    3D week (no feature namespaces yet) → the game boots, ▶ PLAY works, nothing throws, the coins are kept ──
+    await g(`(L3.setState("title"), true)`);
+    await t.frames(5);
+    await t.L(`(() => {
+      const old2d = { highScore: 41230, lifetimeScore: 912000, quests: { week: 2944, prog: { escapes2: 1, footDist: 900 }, best: { chain6: 3 }, claimed: {}, notified: {} },
+        totalCoins: 777, ownedSkins: ["pink", "purple"], selectedSkin: "purple", missiles: 2, pepperSpray: 1, shields: 0, distractedUnlocked: false,
+        parkingBestLevel: 3, parkingTotalStars: 7, parkingUnlocked: true, parkingPerfectRuns: 1, luluHair: "#8B5A2B", luluHairStyle: "bouncy",
+        stickerBook: [{ kind: "star", x: 0.4, y: 0.5, rot: 0.1, scale: 1 }], dinaRunsPlayed: 4, footRunsPlayed: 9, footRunHigh: 0.6,
+        convictions: 1, offenses: 2, erVisits: 3, dayNum: 20400, streak: 2, tutorialDone: true, hapticsOff: false, musicMuted: false, calmFx: null,
+        audioMuted: false, postcards: ["avigail", "heshy"], tripBest: 2, storyStop: 2, storyCycle: 0, storyStars: { avigail: true }, ctrlLayout: null,
+        mpAutoOff: false, cruiseUnlocked: true, cruisePlayed: true, horn: "duck", ownedHorns: ["beep", "duck"], decor: "dice", ownedDecor: ["dice"],
+        dinaBest: 31, dinaMedals: { gold: 0, silver: 1, bronze: 2 }, cookieBest: 22, storyTaskTour: { avigail: 0 }, stats: { escapes2: 3, best: { chain6: 4 } },
+        badges: ["firstDrive"], scrapSeen: 1, lockup: null, wanted: ["SPEEDING"], avigailRel: 55 };
+      localStorage.setItem("luluSaveV2", JSON.stringify(old2d));
+      localStorage.setItem("lulu3dSave", JSON.stringify({ best: 1200, bestTime: 0, arrivals: 1, cam: 0, music: true, sound: true, settings: { quality: "low", vibration: true } }));
+      return true;
+    })()`);
+    await t.page.reload();
+    if (await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "an old save boots to the title", 120000)) {
+      t.check("old save: the wallet is kept (777)", await g(`L3.wallet.coins`) === 777, String(await g(`L3.wallet.coins`)));
+      await g(`L3.startRun({ mode: "cruise" })`);
+      await t.until(`["playing", "footRun"].includes(__lulu3d.state)`, "old save: ▶ PLAY starts", 60000);
+      await t.frames(90);
+      t.check("old save: still playing a few seconds in", await g(`["playing", "footRun"].includes(ctx.state)`), await g(`ctx.state`));
+      t.check("old save: the 3D save filled in its new settings", await g(`(() => { const s = JSON.parse(localStorage.getItem("lulu3dSave") || "{}"); return !!(s.settings && "hudMode" in s.settings && s.f); })()`));
+    }
   },
 };
