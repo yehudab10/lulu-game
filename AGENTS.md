@@ -215,6 +215,16 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
     your change can affect + `core,platform` — not a long safety list; (3) `calm` alone takes ~60–85 min: run it once,
     on your final head, not on every iteration; (4) pack small files into shared groups (`groups="a,b,c;d,e"`), one
     machine per ~40 min of tests, instead of one machine per file; (5) a job is killed after 150 min.
+  - **What to run: `node scripts/affected.js`** (vs `origin/main`; `--why` says why each file was picked) prints a
+    ready `groups=` string for YOUR change, packed ~35 min per machine from `scripts/tests3d-durations.json`. Paste
+    it instead of guessing a safety list. A core / HUD / world / model / harness change selects everything — then
+    one full run on your final head. Refresh the durations after a full run: `node scripts/durations.js <run id>`.
+  - **The fast test clock** (`SMOKE3D_FAST=1`, a file's own `fast: true`, or the workflow's `clock` input):
+    the picture is drawn every 6th frame on a small canvas, `t.frames` / `t.until` (and party3d's waits) hold the
+    game exactly where they stop, the page's timers follow game time — same game time, same checks, ~5–8× fewer
+    seconds. A file that measures draws / pictures says `fast: false` and keeps the old clock. Details:
+    `scripts/smoke3d.js` › THE FAST TEST CLOCK, `3d/js/core/testclock.js`. `SMOKE3D_PROF=1` prints where a
+    file's time goes (boot / draws / game step).
 - Minimum before pushing a 3D change: `core,platform,skip,ux` + the test files of
   every feature you touched. Some tests are timing-sensitive on slow runners —
   if one fails, re-run it once before assuming you broke it, and check whether it

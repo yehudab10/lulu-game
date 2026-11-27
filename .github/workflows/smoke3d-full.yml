@@ -99,6 +99,7 @@ jobs:
           SMOKE3D_ONLY: ${{ matrix.group }}
           SMOKE3D_FAST: ${{ inputs.clock == 'fast' && '1' || inputs.clock == 'slow' && '0' || '' }}
           SMOKE3D_TIMES: smoke-times/times-${{ strategy.job-index }}.json
+          SMOKE3D_PROF: "1"        # (a PROF line per file: boot / draws / game step — where the time goes)
         run: node scripts/smoke3d.js --shots
 
       - name: Timings

@@ -7,7 +7,12 @@
 // Each scripts/tests3d/<name>.js exports { name, async run(t) } and gets a FRESH
 // page (headless Chromium, software WebGL via SwiftShader) with a fake,
 // scriptable controller plugged in. The game runs at a fixed 1/30 s per frame
-// in ?test mode, so wait in FRAMES (t.frames(n)), never in milliseconds.
+// in ?test mode, so wait in FRAMES (t.frames(n)) or on a condition (t.until), never in milliseconds —
+// under the fast test clock (below) a real-time sleep is worth a different number of frames.
+//
+//   SMOKE3D_FAST=1 / =0     every file on / off the fast test clock (default: each file's own `fast`)
+//   SMOKE3D_PROF=1          a PROF line per file: wall, boot, game frames, draws, ms per game frame
+//   SMOKE3D_TIMES=<file>    each file's seconds + pass, as JSON (CI → scripts/durations.js)
 //
 // Running several test processes at once on a small machine? Serialize them:
 //   flock /tmp/lulu3d-browser.lock node scripts/smoke3d.js
