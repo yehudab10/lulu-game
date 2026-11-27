@@ -33,8 +33,9 @@ function stand() {
     x.fillStyle = "#FFE082"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "bold 50px sans-serif"; x.fillText("📦 FELDMAN'S", 256, 66);
     x.fillStyle = "#FFFFFF"; x.font = "bold 34px sans-serif"; x.fillText("WHOLESALE · shop owners only", 256, 136);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-    const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.75), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, side: THREE.DoubleSide }));
-    sg.position.set(-1.4, 2.55, -0.6); g.add(sg);
+    // (readable from both sides: two faces back to back, never a mirrored one)
+    const sm = new THREE.MeshBasicMaterial({ map: t, toneMapped: false }), sgeo = new THREE.PlaneGeometry(2.0, 0.75);
+    for (const ry of [0, Math.PI]) { const sg = new THREE.Mesh(sgeo, sm); sg.position.set(-1.4, 2.55, -0.6 + (ry ? -0.01 : 0.01)); sg.rotation.y = ry; g.add(sg); }
     return g;
 }
 /** Keep the stand at the live course nearest her (one stand; cheap). */
