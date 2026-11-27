@@ -39,7 +39,7 @@ export function key() {
     const G = ctx.G, car = ctx.car;
     if (!G || !car || G.mode === "dina") return "";
     const r = ctx.streets && ctx.streets.ride;
-    if (r) return "ride:" + r.kind;
+    if (r) return NO_GAUGE.has(r.kind) ? "" : "ride:" + r.kind;
     const k = car.skinKey || "pink";
     return NO_GAUGE.has(k) ? "" : k;
 }

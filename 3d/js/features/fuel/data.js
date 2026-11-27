@@ -43,8 +43,9 @@ export const PINS = [
     { id: "hw:fuel:midwood", lap: 3780, name: "Fill-a-Kvetch (the Midwood exit)", sub: "⛽ gas · at the T" },
     { id: "hw:fuel:lakewood", lap: 12180, name: "Fill-a-Kvetch (the Lakewood exit)", sub: "⛽ gas · at the T" },
 ];
-/** Cars with no gauge at all (Ima's minivan never runs out). */
-export const NO_GAUGE = new Set(["imaVan", "minivan"]);
+/** Cars / rides with no gauge at all: Ima's family minivan never runs out (features/cars › MINIVAN — she drives it as a
+ *  borrowed shell, so it's matched as a ride kind too). */
+export const NO_GAUGE = new Set(["imaVan", "minivan", "town_minivan", "cars_minivan"]);
 
 export const L = {
     filled: (n, cost) => `⛽ Filled up${cost ? ` — ${cost} 💰` : ""}${n < 0.999 ? ` (${Math.round(n * 100)} %)` : ""}`,
