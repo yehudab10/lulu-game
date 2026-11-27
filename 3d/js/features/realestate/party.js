@@ -72,7 +72,7 @@ export function tick() {
         }
     }
     let changed = next.size !== P.cache.size;
-    if (!changed) for (const [id, o] of next) { const q = P.cache.get(id); if (!q || q.uid !== o.uid) { changed = true; break; } }
+    if (!changed) for (const [id, o] of next) { const q = P.cache.get(id); if (!q || q.uid !== o.uid || JSON.stringify(q.dc) !== JSON.stringify(o.dc)) { changed = true; break; } }
     P.cache = next;
     // a double booking: the earlier buyer keeps it — unless the world-wide registry is up: then the SERVER decides (the
     // first claim to reach it), and the loser is refunded by server.js (two rules at once could make BOTH let go)

@@ -1356,6 +1356,22 @@ Council's or a tenant's home; a 20 s cooldown. With friends she goes alone (the 
 list is cached per COPY of a town (lap 2's doors aren't lap 1's), and "🏠 Start my days here" stores the door of lap 1's
 copy (`startAtFor`) — a house picked on lap 2+ starts the day at the right door. Test `realestatego` (+ realestatefriends).
 
+**Moving out of Ima's + her home is where friends visit** (roadmap 23 d, the owner 2026-11-26). **d1** (data only, no coin
+source): the `STARTER.perTown` (3) cheapest homes nobody owns in each town are ALWAYS listed (`market.js › starters()` — no
+discount: a home's value never depends on it, so nothing to flip); her FIRST home's mortgage (`mortgage.js › offers()`: nothing
+owned, nothing bought yet) asks 10 / 20 / 35 % down over 30 or 45 played days; one goal line at the top of 📞 the realtor's
+contact (`moveOutStep()`: office → look inside a starter home → buy → "Start my days here"; gone once her days start at a home
+of her own). A played day earns ~500–650; starter homes are ~5,200 (Midwood) / ~7,000 (Lakewood). **d2**: a friend in her home
+sees HER decorations — `party.js` publishes them as `d.x.rd` (one base-36 char per decor slot, parallel to `d.x.re`; a separate
+key so older clients ignore it) → `friendDecor(id)` → `house.js` (inside) + `yard.js` (outside); 👯 "Come to my place"
+(`visit.js`, a `ctx.group.invitable`): the home's id rides as `d.x.rv` for 30 s, friends who say yes get 🏠 Go there to it
+(`goBlock(id, { friend: true })`). The five things Ima's house had that her homes didn't: the couch (inside — the kit couch in
+her colours) and the front door's paint, the porch, the mailbox, the front yard (`yard.js`: features/decor's own models moved
+onto HER house by an anchor — the door / the stoop or deck found by one short ray / where her mailbox stands / the lawn —
+mirrored to her lot's open side; the pink LULU mailbox stands aside for a decor one); decorated from inside (✋ "🏡 Decorate the
+outside" → decor's picker, previews on the street). Anything she owns is free to place (ci/moveout's boxes are owned items;
+its `seed` puts her room pieces up in her first home). Tests `realestateyard`, `realestatefriends`, `realestatehome`.
+
 **The mortgage desk** (`mortgage.js`, stage 2): added to heist's `bank` lobby from here on `interior:enter` (a desk, a
 tower of paperwork, a MORTGAGES sign, the banker — Mr. Pinkus in Lakewood, Mrs. Teitelbaum in Midwood — and ONE hotspot;
 heist's file only lists the two rooms in `TOWN_INTERIORS`). 🏠 buy a home with a mortgage = today's listings → 20 / 35 /
