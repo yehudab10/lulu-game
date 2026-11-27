@@ -977,7 +977,8 @@ function dispose(rt) {
     VISIT.last = { key: V.home.key, name: V.home.name, home: V.home, mode: V.mode, startMode: V.hm.mode, via: V.hm.via, exit: V.exit, spotted: V.spotted, reported: V.reported,
         used: V.used.slice(), looted: V.looted.slice(), charges: V.charges.slice(), ate: V.ate, recognized: V.recognized, crouch: V.crouch,
         scene: V.scene && V.scene.def ? V.scene.def.id : null, converted: V.converted || null, caughtBy: (V.caughtBy || []).slice(), wet: V.wetSteps | 0,
-        favour: !!V.favour, job: V.job ? { type: V.job.type, done: V.job.done, paid: V.job.paid } : null };
+        favour: !!V.favour, job: V.job ? { type: V.job.type, done: V.job.done, paid: V.job.paid } : null,
+        held: V.held && ITEMS[V.held] && !ITEMS[V.held].own ? V.held : null };      // (features/houseitems: what she walked out holding comes with her)
     if (ctx.G && V.hint) ctx.G.hint = V.hint;
     VISIT.cur = null;
     DEF.name = "a house"; DEF.title = "🏠 A HOUSE";

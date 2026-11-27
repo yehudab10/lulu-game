@@ -130,7 +130,7 @@ function footActor() {
         update(dt) {
             if (ctx.foot && ctx.foot.active && !isDriving()) {
                 const p = footPose();
-                if (p && input.pressed.item) usePepper(p.pos, p.h, true);
+                if (p && input.pressed.item && !(ctx.houseitems && ctx.houseitems.inHand)) usePepper(p.pos, p.h, true);     // (something from a house in hand: the item button is its — features/houseitems)
                 updateEffects(dt);
             }
             return true;
