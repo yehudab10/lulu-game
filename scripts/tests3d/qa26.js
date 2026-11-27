@@ -45,6 +45,8 @@ async function openP(t, app) {
 async function fitAll(t, tag) {
   const g = t.game;
   t.check(`${tag}: the phone opens`, await openP(t));
+  // (the handset slides up: let it arrive — a slow machine is still mid-slide after 6 frames)
+  await t.until(`(() => { const c = document.querySelector("#screenCard.lphone .lp-scr"); if (!c) return false; const r = c.getBoundingClientRect(); return r.top >= -1 && r.bottom <= innerHeight + 1; })()`, `${tag}: the handset slides in`, 3000);
   const home = await t.L(FIT);
   t.check(`${tag}: the home screen fits (inside the screen, every app ≥ 40 px)`, home.open && home.inVp && !home.bad.length, JSON.stringify(home));
   await t.shot(`${tag.replace(/\W+/g, "-")}-home`);
