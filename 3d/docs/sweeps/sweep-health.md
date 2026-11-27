@@ -29,6 +29,18 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | partners — one court clock | 46006762536 | fixed on main (`ci/friends` a6bd69f) |
 | onegame — next to Dina: ✋ PLAY AS DINA (got 🏠 GO INSIDE) | 46049897488 | re-check on a fresh run |
 
+## Whole suite on main 46073386320 (dedf7de, 2026-11-27 21:55Z) — results as they came in
+
+| check | verdict / status |
+|---|---|
+| qa4 — by her shoved car: ✋ GET BACK IN (got 🏘️ ENTER GOLD STANDARD REALTY → walked into the realty) | REAL: beside her own car's door she is ~2 m from its centre, so a shop door's zone (score floor 0.5) beat it. Her own car now counts as "right next to her" by its body (foot's NEXT_TO rule) — 2b96cbf |
+| qa26 — 🗺️ Map: one tap pings + closes; a tap on the pinned place clears it | stale test: the first row is Ima's house, where she stands — the ping is "arrived" at once. The test pings a place she isn't at — 2b96cbf |
+| qaweekend — phone, driving in Lakewood: HUD … off-screen jtext | test: a text message sliding in / out (jphIn / jphOut, wall-time CSS) is off the edge on purpose; the check skips one mid-slide — 2b96cbf (screenshot: nothing overlaps) |
+| qaweekend — Lakewood on foot in the rain: no inwall glitch (camera inside block@38,38 ×37; inside a tree's leaves ×26) | open: the foot camera's clip vs. the watchdog — needs a repro |
+| qaweekend-party — both screens have the same puddles + pigeons (host 0 sites) | open (party; `ci/friends` area) |
+| partyplus — the claimed minivan pulls over the same way on both screens (guest null) | open (party; `ci/friends` area) |
+| qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame | open (party) |
+
 ## Findings + status
 
 ## Left for other branches
