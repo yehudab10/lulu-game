@@ -1,0 +1,5 @@
+{
+  "off": false,
+  "assets": "ca5868e0f629",
+  "note": "off: true removes the service worker (sw.js) from every player at their next start (no app release needed). assets: the version key of every cache-first file (models, vendor/, audio, images) - run node scripts/sw-version.js before every push to main."
+}

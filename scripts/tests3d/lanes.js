@@ -173,11 +173,13 @@ module.exports = {
 
     // ── the trophy comes home ──
     await t.until(`!__lulu3d.ctx.dialogOpen && !__interiors.room.busy`, "free", 8000);
-    await g(`(${D}.LG.force.trophy = true, true)`);
+    // (the real thing: features/houseitems' bowling trophy, taken from a house — in her bag)
+    t.check("houseitems has the bowling trophy", await g(`!!ctx.houseitems.debug.ITEMS.trophy && ctx.houseitems.add("trophy", "test", true)`));
     t.check("✋ at the case: put the 1994 trophy back", await g(`(() => { const h = __interiors.room.hots.find(x => x.id === "trophy"); return /1994 trophy back/.test(h.label()); })()`));
     await USE("trophy");
     await t.until(`__lulu3d.ctx.lanes.debug.S.trophy`, "the trophy is back", 8000);
     t.check("the trophy is in the case (and stays there)", await g(`${D}.S.trophy && __interiors.room.data.trophy.visible`));
+    t.check("…and out of her bag (houseitems' take)", await g(`!ctx.houseitems.bag.some(x => x.id === "trophy")`));
     await t.shot("trophy");
 
     // ── nothing in the room ever paid ──
