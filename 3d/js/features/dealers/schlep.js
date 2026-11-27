@@ -28,12 +28,12 @@ const SD = { on: false, lane: 0, changeT: 0, quirkT: 30, brakeT: 0, last: "" };
 
 // ── the subscription ──
 function sub() { return DS.sub || null; }
-export const subActive = () => { const s = sub(); return !!(s && s.until > now()); };
+export const subActive = () => { const s = sub(); return !!(s && !s.lapsed && s.until > now()); };
 export const daysLeft = () => { const s = sub(); return s ? Math.max(0, Math.ceil((s.until - now()) / DAY)) : 0; };
 /** Subscribe (or un-cancel). → { ok, why? } */
 export function subscribe() {
     const s = sub();
-    if (s && s.until > now()) { if (s.cancelled) { s.cancelled = false; saveSoon(); emit("dealers:sub", { act: "resume" }); return { ok: true, resumed: true }; } return { ok: false, why: "active" }; }
+    if (s && !s.lapsed && s.until > now()) { if (s.cancelled) { s.cancelled = false; saveSoon(); emit("dealers:sub", { act: "resume" }); return { ok: true, resumed: true }; } return { ok: false, why: "active" }; }
     const r = buyExtra("subscription", "schlep", SUB.price);
     if (!r.ok) return r;
     DS.sub = { until: now() + SUB.days * DAY, cancelled: false, since: now() };

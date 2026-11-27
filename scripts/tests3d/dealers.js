@@ -22,6 +22,7 @@ module.exports = {
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
     const save = () => t.L(`JSON.parse(localStorage.getItem("luluSaveV2") || "{}")`);
+    const playing = async () => { if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); } if (await g(`L3.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); } };
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["dealers:haggle", "dealers:option", "dealers:nonsense", "dealers:perk", "shops:buy"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}))); })`);
     const evs = re => t.L(`window.__ev.filter(e => ${re}.test(e))`);
     // the dialogue, like a player: tap through his lines, pick an option by its words (→ its text, or null)
@@ -153,8 +154,8 @@ module.exports = {
     await step("perks", async () => {
       await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("geltspyder"))`);
       const cP = await coins();
-      await g(`(ctx.foot.active && ctx.foot.end("test"), true)`);
-      await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
+      await W.pause(t, false); await playing(); await W.pause(t, true); await W.moved(t);
+      t.check("back in the car", await g(`L3.state === "playing" && !ctx.foot.active`));
       t.check("the bigger nitro tank (the car's 1.3 × the option's 1.3)", Math.abs(await g(`ctx.G.nitroTank`) - 1.69) < 0.01, String(await g(`ctx.G.nitroTank`)));
       await W.pause(t, false);
       await g(`(() => { const s = ctx.car.s, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.vx = ctx.car.vz = 0; return true; })()`);
@@ -218,8 +219,8 @@ module.exports = {
       await t.frames(3);
     });
     await step("selfdrive", async () => {
-      await g(`(ctx.foot.active && ctx.foot.end("test"), true)`);
-      await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
+      await W.pause(t, false); await playing(); await W.pause(t, true); await W.moved(t);
+      t.check("back in the car", await g(`L3.state === "playing" && !ctx.foot.active`));
       await W.pause(t, false);
       await g(`(() => { const s = ctx.car.s + 300, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await t.frames(6); await W.pause(t, true); await W.moved(t);

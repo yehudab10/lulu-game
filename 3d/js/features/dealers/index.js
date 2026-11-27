@@ -106,7 +106,7 @@ function dropShow() {
     D.at = null;
 }
 hook("hud", dt => {
-    const sp = nearSpot(110);
+    const sp = nearSpot(150);
     if (!sp || !models.lulu) { if (D.at) dropShow(); return; }
     if (D.at !== sp) {
         dropShow();

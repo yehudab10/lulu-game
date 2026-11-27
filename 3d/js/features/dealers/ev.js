@@ -65,7 +65,7 @@ const padWorld = (sp, k) => local(sp, EVSHOW.pads[k].x, EVSHOW.pads[k].z, {});
 function anchorsOf(obj) { const a = {}; obj.traverse(o => { if (o.name && o.name.startsWith("Anchor_")) a[o.name.slice(7).replace(/\d+$/, "")] = o; }); return a; }
 function drop() { for (const c of E.cars) c.obj.removeFromParent(); E.cars = []; E.at = null; }
 hook("hud", dt => {
-    const sp = nearSpot(110);
+    const sp = nearSpot(150);
     if (!sp || !models.lulu) { if (E.at) drop(); return; }
     if (E.at !== sp) {
         drop(); E.at = sp;
