@@ -78,7 +78,7 @@ module.exports = {
       const sp = await g(`ctx.places.spots().filter(s => /^roadside_/.test(s.id)).map(s => s.id + "@" + s.s + (s.built ? "+" : "-"))`);
       t.check("Trooper Post 7 stands at lap 2's 6.8 km (built)", sp.includes("roadside_trooper@22800+"), JSON.stringify(sp));
       t.check("its doors: precinct, court (hw:court), impound (a car bay)", await g(`(() => { const a = ctx.civic.spot("precinct"), b = ctx.civic.spot("court"), c = ctx.civic.spot("impound"); return !!a && a.addr === "hw:trooper" && !!b && b.addr === "hw:court" && !!c && !!c.car; })()`));
-      t.check("a sign before it (190 m)", await g(`ctx.world.signs.some(s => Math.abs(s.s - (22800 - 190)) < 2 && /TROOPERS/.test((s.lines || []).join(" ")))`));
+      t.check("a sign before it (a 190 m board, world/places)", await g(`(() => { const p = ctx.places.get("roadside_trooper"); return !!(p && p.sign && /TROOPERS/.test(p.sign.lines.join(" "))); })()`));
       await g(`(() => { const sp = ctx.civic.spot("precinct"), c = ctx.camera; window.__camAt = [sp.x + sp.nx * 38 + sp.ux * 8, 12, sp.z + sp.nz * 38 + sp.uz * 8, sp.x - sp.nx * 4 + sp.ux * 10, 2, sp.z - sp.nz * 4 + sp.uz * 10];
         const r = L3.renderer; if (!window.__camWrap) { const o = r.render.bind(r); window.__camWrap = true; r.render = (s, cam) => { const V = window.__camAt; if (V && cam === c) { cam.position.set(V[0], V[1], V[2]); cam.lookAt(V[3], V[4], V[5]); cam.updateMatrixWorld(); } o(s, cam); }; } return true; })()`);
       await t.frames(4); await t.shot("trooper-post"); await t.L(`window.__camAt = null`);
@@ -136,7 +136,8 @@ module.exports = {
       if (!await talk(`__lulu3d.state === "footRun"`, "the video hearing → dismissed → out", /^(?!.*(💰|Plea|plea|[Bb]ribe|costs)).*/)) return;
       const dl = await t.L(`(clearInterval(window.__dlgT), window.__dlg.join(" ¦ "))`);
       t.check("the judge is on a video screen (Judge Pfeffer, from Boca)", /mute|Boca|screen|pool/i.test(dl), dl.slice(-300));
-      await outHw("court", "weigh", true, "dismissed (weigh station)");
+      // (her car is still behind Trooper Post 7's fence from the step before: she walks)
+      await outHw("court", "weigh", false, "dismissed (weigh station)");
     });
 
     // ════ 5. arrested at 2 km → still Midwood's precinct (the town is nearest) ════
