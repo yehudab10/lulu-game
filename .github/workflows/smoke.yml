@@ -32,6 +32,11 @@ jobs:
       - name: iOS app bundle (www/) has every file the 3D game references
         run: node scripts/copy-web.js
 
+      # The installed game's service worker (sw.js) keeps models / vendor / audio / images cache-first; sw.json's key
+      # must change with them or returning players keep a stale copy. Fix: node scripts/sw-version.js + commit sw.json.
+      - name: sw.json's key matches every cache-first file
+        run: node scripts/sw-version.js --check
+
       - name: Install Playwright + Chromium
         # Kept out of package.json so the iOS build (Codemagic) never pulls it.
         run: |
