@@ -21,7 +21,7 @@ import { FAYGE, dayOf } from "./data.js";
 import { stroller } from "./fayge.js";
 import { CP, COUPLE, COUPLE_SPOT, beatNow, play, initCouple, setStroller } from "./couple.js";
 import { BEATS } from "./couple-data.js";
-import { A as AVA, initAvigail, isAvigails, avDay, hallNow, porch as avPorch, hall as avHall } from "./avigail.js";
+import { A as AVA, AV as AVA_AT, initAvigail, isAvigails, avDay, hallNow, porch as avPorch, hall as avHall } from "./avigail.js";
 
 ctx.family = {
     /** Where Fayge is right now: { where: "home" | "playgroup" | "makolet" | "bakery" | "clothes" | "ima" | "walk" | "away", scene, ash } */
@@ -44,4 +44,15 @@ ctx.family = {
         avigail: { A: AVA, force: AVA.force, porch: avPorch, hall: avHall },
         F, SAVE, FAYGE, dayOf, placeOf, talk, live, force: F.force, home: () => F.home && { key: F.home.key, ap: Object.assign({}, F.home.ap), door: Object.assign({}, F.home.door) } },
 };
-on("boot", () => { init(); initCouple(); setStroller(stroller); initAvigail(); });
+const AVA_LOCAL = [AVA_AT.lx, AVA_AT.lz];
+on("boot", () => {
+    init(); initCouple(); setStroller(stroller); initAvigail();
+    // 📍 on the 📱 🗺️ Map (features/pins): Fayge's door, Avigail's door, the Avenue M Ballroom
+    try {
+        if (ctx.enabled("family") && ctx.pins && ctx.pins.add) {
+            ctx.pins.add({ id: "family:fayge", name: "Fayge's (downstairs)", icon: "👩‍👧", cat: "town", town: "midwood", local: [FAYGE.host.lx - 10, FAYGE.host.lz], sub: "East 15th St · your sister" });
+            ctx.pins.add({ id: "family:avigail", name: "Avigail's", icon: "💜", cat: "town", town: "midwood", local: [AVA_LOCAL[0] - 10, AVA_LOCAL[1]], sub: "East 34th St · L → K" });
+            ctx.pins.add({ id: "family:hall", name: "The Avenue M Ballroom", icon: "💍", cat: "town", town: "midwood", spot: "simchaHall", sub: "Avigail & Aviel · evenings" });
+        }
+    } catch (e) { /* no pins */ }
+});
