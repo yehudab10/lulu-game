@@ -160,10 +160,11 @@ export async function spawnSalonShop(opts = {}) {
                 H.banner(`💇 <b>Chez Fabio ahead!</b><small>Pull into the pink lot and stop for a makeover</small>`, 2800);
             }
             const onLot = Math.abs(c.s - S) < 7.6 && c.d > SHOULDER - 0.6 && c.d < D - 3.6;
-            if (onLot) H.prompt(c.speed < 4.5 ? `💇 Fabio's ready for you!` : `💇 Stop here — ${glyph("brake")} brake`);
+            const hot = !!(ctx.law && ctx.law.chasing);      // (a makeover isn't a way out of a chase: the state change ended it)
+            if (onLot) H.prompt(hot ? `💇 Fabio: "Not with the SIRENS, sweetie!"` : c.speed < 4.5 ? `💇 Fabio's ready for you!` : `💇 Stop here — ${glyph("brake")} brake`);
             else if (this.prompted) H.prompt("");
             this.prompted = onLot;
-            if (onLot && c.speed < 4.5) {
+            if (onLot && c.speed < 4.5 && !hot) {
                 H.prompt("");
                 startSalon({ from: "drive", s: c.s });
                 return false;
