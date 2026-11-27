@@ -52,6 +52,20 @@ Every `run:start` reset re-arms whatever was capped "per run". So any COIN rewar
 - `dealers/data.js` `TUNE.tradeIn` (25 %) is defined but nothing reads it.
 - Midwood's locals say "You came from LAKEWOOD?" (midwood-lines / shops data) though her home is in Midwood — flavour, left.
 
+## Landed
+
+- 2026-11-27 23:10 UTC — part 1 on main (4179ee2f, merge of this branch): findings 1–14. Tests: local `core, cameos, dina,
+  heist, homes, interiors, moves, platform, sweeplogic, day` green on the merged head; CI 3D full suite run 46072230611
+  green (core,platform,sweeplogic · interiors,homes · moves,dina · cameos · heist); main's Smoke test 46081965902 green.
+
+## What's left (next pass)
+
+- A cop car in ordinary traffic that rear-ends HER on her last heart → she's arrested for "DESTROYING A POLICE CRUISER"
+  (`law/index.js` wreck hook: `source === "cop"`; the traffic crash event carries no fault). Rare; needs a fault test
+  (who was moving into whom) — left.
+- The judgment calls below (parking, the ER perk, party-game wins, the window fee, Shabbos shop hours) for the owner.
+- `playershops` till (see "For other branches").
+
 ## Judgment calls — owner may want to tune
 
 - Combo coin daily cap 200, per-kind 3 (`COMBO_COINS` in `moves/common.js`).
