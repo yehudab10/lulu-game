@@ -249,7 +249,7 @@ TALK.zeidy = ["When I was your age I walked to cheder. Uphill. In the SNOW.", "Y
 TALK.lady = ["Are you single? I have a NEPHEW.", "Two bam. ...oh, you're not playing."]; TALK.plumber = ["Don't flush. Whatever you do. DON'T FLUSH.", "I've seen things in pipes, kid. THINGS."];
 TALK.guest = ["Mazel tov! Isn't it wonderful?", "Have you tried the cake? Try the CAKE."]; TALK.guestM = ["L'chaim!", "I knew them when they were THIS big."];
 /** Loot: the couch (CAPPED: once per house per run, and a run cap across houses). */
-export const COUCH = { min: 3, max: 8, runCap: 30 };
+export const COUCH = { min: 3, max: 8, runCap: 30, dayCap: 30 };      // (dayCap: a REAL day, across runs — the lines say "closed for today")
 export const COUCH_LINES = ["*digs in the cushions* ...coins! And a LEGO. And a pacifier.", "*rummages* Ooh — coins! And three hundred cheerios.", "*finds coins under a cushion* (and somebody's tefillin bag — putting that BACK)"];
 export const COUCH_EMPTY = ["*digs* ...just lint and a hair clip. Somebody beat you to it. (You. It was you.)", "*digs* ...crumbs. Only crumbs. From PESACH."];
 export const COUCH_CAPPED = ["*digs* ...nothing. Every couch in town is cleaned out. Is that... on you?", "*digs* ...the cushion's empty. Lakewood's pockets are closed for today."];
@@ -261,7 +261,7 @@ export const SOUVENIRS = [
 export const CHOLENT = ["*a spoonful of cholent* ...it's been on since FRIDAY. It's PERFECT. ❤️ +1", "*eats the cholent straight from the pot* ...the kishke. THE KISHKE. ❤️ +1"];
 /** Cholent hearts are capped per RUN across every house (≈200 doors must not be ≈200 hearts). */
 export const CHOLENT_CAP = 3;
-export const CHOLENT_FULL = ["*one more spoonful* ...okay. I'm FULL. Like, cholent-coma full. (No more hearts from cholent today.)", "*a tiny taste* ...I physically cannot. Four cholents is a LIFESTYLE."];
+export const CHOLENT_FULL = ["*one more spoonful* ...okay. I'm FULL. Like, cholent-coma full. (No more hearts from cholent for now.)", "*a tiny taste* ...I physically cannot. Four cholents is a LIFESTYLE."];
 export const CHOLENT_NOT_YET = ["*lifts the lid* ...it's not even READY. It has to go all night. Still smells like heaven though.", "*peeks* Beans. Raw-ish beans. Tomorrow this will be GLORIOUS."];
 export const WET_FLOOR = ["THE FLOOR!! I JUST WASHED IT!!", "FOOTPRINTS! On my FLOOR! On EREV SHABBOS!", "WHO is walking on my WET FLOOR?!", "Socks! SOCKS! Not SHOES!"];
 export const CHOLENT_SEEN = ["THAT'S FOR SHABBOS!!", "Get your SPOON out of my CHOLENT!", "At least use a BOWL!"];

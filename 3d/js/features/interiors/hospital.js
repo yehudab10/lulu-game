@@ -202,8 +202,7 @@ export default defineInterior({
         rt.hot({ id: "heshy", x: heshy.home.x, z: heshy.home.z + 0.95, who: "heshy", r: 1.1, label: "🩹 Visit Heshy", action: async rt => {
             await rt.say("Heshy", HESHY(), Object.assign({ person: rt.byId.heshy }, HESHY_S));
             if (rt.disposed) return;
-            if (!rt.used.heshy) {           // a get-well star the first time, flavor after
-                rt.used.heshy = true;
+            if (rt.onceToday("heshy")) {           // a get-well star the first time, flavor after
                 const at = rt.byId.heshy.p.obj.position.clone().setY(1.3);
                 rt.star(1, "⭐ get-well star", at);
                 rt.coins(3, "+3 💰 get-well gelt!", at);
@@ -277,7 +276,7 @@ async function vending(rt) {
         sn.position.set(s.x - 0.25, 1.3, s.z - 0.75);
         rt.add(sn);
         d.snack = { obj: sn, t: 0, y0: 1.3 };
-        if (!rt.used.snack) { rt.used.snack = true; rt.coins(5, "+5 💰 snack!", at); }
+        if (rt.onceToday("snack")) { rt.coins(5, "+5 💰 snack!", at); }
         else H.toast("🍫 a snack! (no change, though)", "");
         rt.burst(at, ["#FFD700", "#FF8A65", "#FFF176"], 8, 1.6, 0.05);
     } else if (ctx.G.coins > 0) {           // 40%: it ATE a coin (only if she has run coins)

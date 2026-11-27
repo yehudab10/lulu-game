@@ -38,6 +38,8 @@ export function edictTopic() {
     const e = todayEdict();
     return e ? { id: "edict:" + e.id, at: "cityhall", signs: e.signs, chant: e.chant, about: e.about } : null;
 }
+/** Has the court struck this edict down? (features/playershops: the Retail Fairness Edict → Midwood allows two shops) */
+export const isStruck = id => !!(S.struck && S.struck[id]);
 /** She takes today's edict to court (a complaint at the Complaints window, or chanting at the edict's protest): only then is
  *  it on Courtroom 2B's docket — Midwood's 2B isn't busy with it every day for everyone. → bool (newly filed) */
 export function file(id = (todayEdict() || {}).id) {

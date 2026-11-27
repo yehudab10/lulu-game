@@ -1,0 +1,30 @@
+[
+ {
+  "label": "standing",
+  "at": 0
+ },
+ {
+  "label": "walking",
+  "at": 1.6
+ },
+ {
+  "label": "running",
+  "at": 4.2
+ },
+ {
+  "label": "stopping",
+  "at": 6.6
+ },
+ {
+  "label": "walking + turning",
+  "at": 8
+ },
+ {
+  "label": "running + turning",
+  "at": 10.6
+ },
+ {
+  "label": "stopping",
+  "at": 12.6
+ }
+]
