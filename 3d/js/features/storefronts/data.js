@@ -205,7 +205,9 @@ export const SOON = [
     "your next favourite store", "a playground for adults (it's a bench)", "PARKING (just kidding)", "a store that's ALWAYS open (it's closed)",
 ];
 /** The one long front kept for the bowling alley (another agent will build it): Midwood's Avenue M, the east end. */
-export const BOWLING = { town: "midwood", list: "avem", x0: 95, x1: 165, z0: -40, z1: -30, sign: ["COMING SOON: EAST MIDWOOD LANES", "strike while the iron is hot"] };
+export const BOWLING = { town: "midwood", list: "avem", x0: 95, x1: 165, z0: -40, z1: -30, sign: ["COMING SOON: EAST MIDWOOD LANES", "strike while the iron is hot"],
+    // (open — features/lanes is here: its own sign, no papered windows)
+    open: ["EAST MIDWOOD LANES", "bowling · since 1961"] };
 
 /** The signs of the fronts that aren't a shop — a handful of textures shared by many fronts (the sign atlas is tight). */
 export const FILL_SIGN = {

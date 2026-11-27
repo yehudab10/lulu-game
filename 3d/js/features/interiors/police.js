@@ -25,7 +25,7 @@ const DESK = pool([
     "Your bubbe called. Twice. She says EAT.",
     "No I will NOT 'just this once' waive the fee.",
     "Press 1 for impound, 2 for snacks, 3 to hear this again.",
-    "*phone rings* Precinct 18½, you bend it you mend it.",
+    "*phone rings* Precinct, you bend it you mend it.",
     "Coffee's free, justice is not, and the donut is mine.",
     "We're understaffed. It's me, the fan, and a confused perp.",
 ]);
