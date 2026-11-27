@@ -380,7 +380,7 @@ function doorPos() {
     if (OUT.at && ctx.time < OUT.t && Math.hypot(p.x - OUT.at.x, p.z - OUT.at.z) < 4) return null;
     const d = Math.hypot(sp.x - p.x, sp.z - p.z);
     if (d < 24 && ctx.interiors.clothesShop && ctx.interiors.clothesShop.warm) ctx.interiors.clothesShop.warm();
-    return d < 30 ? { x: sp.x, z: sp.z } : null;
+    return d < 30 ? sp : null;      // (with its axes: the ✋ reaches across the shopfront — ci/doors)
 }
 /** Dress the room as one shop (a town id or "jfk"). */
 export function nameShop(id) {
@@ -410,7 +410,7 @@ export function enterAs(id, opts = {}) {
 }
 export function addDoors() {
     if (!ctx.foot || !ctx.foot.addSpot) return;
-    ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, short: "CLOTHES", label: () => `👗 GO INTO ${shopOf(inTown() ? ctx.town.id : "lakewood").name.toUpperCase()}`, act: () => enterShop() });
+    ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, door: true, walkIn: { id: "clothesShop" }, short: "CLOTHES", label: () => `👗 GO INTO ${shopOf(inTown() ? ctx.town.id : "lakewood").name.toUpperCase()}`, act: () => enterShop() });
 }
 
 on("clothes:stock", () => { if (cardOpen()) repaint(); });     // (the world's numbers arrived while the card is up)

@@ -106,7 +106,7 @@ on("state", ({ to }) => {
 hook("update", (dt, P, controlsOn) => {
     const g = G();
     if (controlsOn && P.fire) fireMissile();
-    if (controlsOn && P.item) usePepper(ctx.car.pos, ctx.car.h, false);
+    if (controlsOn && P.item && !(ctx.houseitems && ctx.houseitems.carHand)) usePepper(ctx.car.pos, ctx.car.h, false);     // (a car-usable house item in hand: the button is its — features/houseitems)
     // Distracted Mode: double the DISTANCE score (2D scoreMult), phone in hand
     const dd = Math.max(0, (g.distance || 0) - (g._gxDist || 0));
     g._gxDist = g.distance || 0;
@@ -130,7 +130,7 @@ function footActor() {
         update(dt) {
             if (ctx.foot && ctx.foot.active && !isDriving()) {
                 const p = footPose();
-                if (p && input.pressed.item) usePepper(p.pos, p.h, true);
+                if (p && input.pressed.item && !(ctx.houseitems && ctx.houseitems.inHand)) usePepper(p.pos, p.h, true);     // (something from a house in hand: the item button is its — features/houseitems)
                 updateEffects(dt);
             }
             return true;

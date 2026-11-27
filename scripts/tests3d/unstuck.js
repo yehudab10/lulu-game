@@ -91,6 +91,8 @@ module.exports = {
     const putFoot = async (x, z, y = 0) => { await W.moved(t); return g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${x}, 0, ${z}); F.y = ${y}; F.vel.set(0, 0, 0); F.lulu.obj.position.copy(F.pos); ctx.cam.snap(); return true; })()`); };
     const autoFired = async (n0, kind, label, ms = 6000) => {
       const ok = await t.until(`__lulu3d.ctx.unstuck.debug.U.log.length > ${n0}`, `${label}: the automatic rescue fires`, ms);
+      // (why not, when it didn't: her phase / speed / what the rescue sees — the CI flake on Midwood's house)
+      if (!ok) console.log("   ✗ diag:", JSON.stringify(await g(`(() => { const F = ctx.foot.debug.F, U = ctx.unstuck.debug.U; return { st: L3.state, phase: F && F.phase, script: F && F.script ? Object.keys(F.script).join("+") : null, v: F && F.vel ? +Math.hypot(F.vel.x, F.vel.z).toFixed(2) : null, y: F && F.y, pos: F && F.pos ? [+F.pos.x.toFixed(1), +F.pos.z.toFixed(1)] : null, bad: ctx.unstuck.debug.badNow(), auto: [+(ctx.time - U.autoLast).toFixed(1), +(ctx.time - U.last).toFixed(1)], off: !!U.autoOff, paused: ctx.paused, view: !!ctx.view, skip: !!ctx.skipping, eng: ctx.engaged ? String(ctx.engaged() || "") : "" }; })()`)));
       const last = (await log()).slice(-1)[0];
       if (ok) t.check(`${label}: …for "${kind}"`, last && last.auto === kind, JSON.stringify(last));
       await t.frames(8);
@@ -368,7 +370,8 @@ module.exports = {
         const out = await g(`({ bad: ctx.unstuck.debug.badNow(), why: ctx.unstuck.normal(ctx.car.pos.x, ctx.car.pos.z, "car"), d: +ctx.car.d.toFixed(1), log: ctx.unstuck.debug.U.log.slice(${n0}) })`);
         console.log(`   ${id}: the car left inside a house →`, JSON.stringify(out));
         t.check(`${id}: the car left inside a house → out of it (the game's push or the rescue)`, out.bad == null && out.why !== "block", JSON.stringify(out));
-        if (fired) await carOK(`${id}: auto out of the house`, block, { shield: false });     // (5 s on: the 2.5 s shield is over)
+        // (5 s on: the 2.5 s shield is over — and a town car may have nudged her in her lane by then: not "still")
+        if (fired) await carOK(`${id}: auto out of the house`, block, { shield: false, still: false });
         await W.reset(t);
       }
       // 14 · the lake (Lakewood): the car in the water → out (automatic)
@@ -448,6 +451,35 @@ module.exports = {
       }
     }
     await t.frames(20);
+    // the roadside places' rooms (ci/roadside: Trooper Post 7, Hatzalah, the Weigh Station — interiors-engine rooms with door
+    // spots): through a wall → back by the door; out again by its own door
+    for (const [s, door, room] of [[6800 - 40, "precinct", "roadsideTrooper"], [10700 - 40, "hospital", "roadsideHatzalah"], [15700 - 40, "precinct", "roadsideWeigh"]]) {
+      if (!(await g(`!!(ctx.civic && ctx.civic.spot && ctx.civic.enter)`))) break;
+      if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); }
+      if (await g(`L3.state !== "playing"`)) { await g(`(L3.setState("playing"), true)`); await t.frames(3); }
+      if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); }
+      await W.moved(t);
+      await g(`(() => { const c = ctx.car, p = ctx.world.highway.point(${s}, 5.25, {}); c.place(p.x, p.z, p.h); c.s = ${s}; c.d = 5.25; c.vx = c.vz = c.vF = 0; ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
+      await t.frames(20);
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      if (!await t.until(`__lulu3d.state === "footRun"`, `${room}: on foot`, 8000)) continue;
+      await g(`(() => { const sp = ctx.civic.spot(${JSON.stringify(door)}), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 1.2, 0.05, sp.z + sp.nz * 1.2); F.phase = "walk"; return true; })()`);
+      await t.frames(6);
+      await g(`ctx.civic.enter(${JSON.stringify(door)})`);
+      if (!await t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready && __interiors.room.def.id === ${JSON.stringify(room)} && __interiors.room.fadeIn >= 1`, `${room}: inside`, 60000)) continue;
+      await t.frames(10);
+      await g(`(() => { const r = window.__interiors.room; r.lulu.obj.position.set(r.bounds.x1 + 6, 0, r.bounds.z1 + 6); return true; })()`);
+      await t.frames(3);
+      await ready();
+      if (await press(`${room}: through a wall`)) {
+        const r = await g(`(() => { const r = window.__interiors.room, p = r.lulu.obj.position, sp = r.spots.lulu || r.spots.door; return { state: L3.state, d: Math.hypot(p.x - sp.x, p.z - sp.z) }; })()`);
+        t.check(`${room}: back by the room's door spot`, r.state === "interior" && r.d < 0.5, JSON.stringify(r));
+      }
+      await g(`(window.__interiors.room && window.__interiors.room.leave(), true)`);
+      for (let i = 0; i < 20 && await g(`L3.state !== "footRun"`); i++) await t.tap(0);
+      t.check(`${room}: out by its own door again`, await t.until(`__lulu3d.state === "footRun"`, `${room}: back out`, 30000));
+      await W.reset(t);
+    }
     await seg("a room", ["nan", "overlay", "stuck"]);
 
     // ═══ Lulu's house / the home start (wherever it stands) ═══

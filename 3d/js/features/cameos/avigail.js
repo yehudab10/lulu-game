@@ -27,7 +27,7 @@ export function bump(d, { quiet = false } = {}) {
     let nv = 50;
     shared.update(s => { const cur = typeof s.avigailRel === "number" ? s.avigailRel : 50; nv = clamp(cur + d, 0, 100); s.avigailRel = nv; });
     emit("avigail:rel", { rel: nv, d });
-    if (!quiet && d) H.toast(`${d > 0 ? "+" : ""}${d} 💜 Avigail`, d > 0 ? "pink" : "red");
+    // (ci/family, the owner 2026-11-27: the meter moves QUIETLY — no toast; the 💜 chip on her porch + the scrapbook show it)
     return nv;
 }
 export const relLabel = v => (v >= 65 ? "💜 friends" : v <= 35 ? "⚔️ rivals" : "😤 frenemies");
@@ -64,6 +64,10 @@ export async function spawnAvigailCar(opts = {}) {
     c.onRemove = () => { aviCars.delete(c); if (c.data.bub) { c.data.bub.dispose(); c.data.bub = null; } };
     return c;
 }
+/** Lulu's answer: her own banter line (the HUD contract's one line), never a toast. */
+function luluSays(text) { try { if (ctx.banter && ctx.banter.say) ctx.banter.say(text); } catch (e) { /* no banter */ } }
+/** Avigail says something from the passenger seat: a speech bubble over HER (never a toast). */
+function rideBubble(text) { try { if (ride && ctx.banter && ctx.banter.bubble) ctx.banter.bubble(text, ride.p.obj, { dur: 2.6, y: 1.4, cls: "pink" }); } catch (e) { /* */ } }
 function carBubble(c, text, secs = 2.6) {
     if (c.data.bub) c.data.bub.dispose();
     const b = bubble(text, { bg: "#F3E5F5", fg: "#4A148C" });
@@ -84,7 +88,7 @@ hook("update", (dt, P, controlsOn) => {
         if (c.s - car.s < 26 && c.s - car.s > -6 && Math.abs(c.d - car.d) < 7) {   // as Lulu closes in (she is still in view)
             c.data.taunted = true;
             carBubble(c, (ctx.memory && ctx.memory.recognize("avigailRoad")) || pick(AVIGAIL_ROAD_TAUNTS));     // memory: her notoriety
-            setTimeout(() => H.toast(pick(LULU_ROAD_REPLIES), "pink"), 700);
+            setTimeout(() => luluSays(pick(LULU_ROAD_REPLIES)), 700);
             bump(1);
             stat("avigail3", 1);      // weekly quest: share the road with Avigail
         }
@@ -152,7 +156,7 @@ async function spawnPulled(opts = {}) {
             if (!seen && Math.abs(rs) < 9 && ctx.state === "playing") {
                 seen = true;
                 bump(2);
-                H.toast("😏 Well, well, WELL.", "pink");
+                luluSays("😏 Well, well, WELL.");
                 stat("avigail3", 1);
             }
             return rs > -160;
@@ -198,10 +202,7 @@ export async function spawnAvigailWalker(opts = {}) {
             mark.tick(dt);
             mark.position.y = 2.05 + Math.sin(t * 3) * 0.08;
             const rs = s - ctx.car.s;
-            if (!announced && rs < 170 && ctx.state === "playing") {
-                announced = true;
-                H.banner(`💜 <b>Avigail's walking by the road!</b><small>Pull up next to her in the right lane</small>`, 2600);
-            }
+            if (!announced && rs < 170 && ctx.state === "playing") announced = true;      // (no banner: ci/family — she's never a random pop-up now; tests / debug only)
             if (ctx.state === "playing" && Math.abs(rs) < 7.5 && ctx.car.d > 3.2 && ctx.car.d < 11) {
                 startPorch({ s });
                 return false;
@@ -483,7 +484,7 @@ export function startRide(secs = RIDE_SECS) {
 export function stopRide(quiet) {
     if (!ride) return;
     if (ctx.car.attached && ctx.car.attached.passenger === ride.holder) ctx.car.attach("passenger", null);
-    if (!quiet) H.toast("💅 Drop me here — I have a nail appointment. Bye, Bruck!", "pink");
+    if (!quiet) rideBubble("💅 Drop me here — I have a nail appointment. Bye, Bruck!");
     ride = null;
     ctx.G.avigailRide = false;
 }
@@ -496,11 +497,11 @@ hook("update", (dt, P, controlsOn) => {
     const gained = G.score - ride.lastScore;
     if (gained > 0) G.score += gained;          // 2× points
     ride.lastScore = G.score;
-    if ((ride.quipT -= dt) <= 0) { ride.quipT = rand(11, 16); H.toast(`💜 ${pick(RIDE_QUIPS)}`, "pink"); }
+    if ((ride.quipT -= dt) <= 0) { ride.quipT = rand(11, 16); rideBubble(`💜 ${pick(RIDE_QUIPS)}`); }
     if ((ride.t -= dt) <= 0) stopRide(false);
 });
 on("run:start", () => stopRide(true));
-on("wreck", () => { if (ride) { H.toast("💜 \"I'm getting out HERE!\"", "pink"); stopRide(true); } });
+on("wreck", () => { if (ride) { rideBubble("💜 \"I'm getting out HERE!\""); stopRide(true); } });
 on("foot:start", () => stopRide(true));
 
 export const AVIGAIL_TEXT = { AVIGAIL_ROAD_TAUNTS, LULU_ROAD_REPLIES, AVIGAIL_PULLED_YELLS, OPENERS, MIDDLES, SNACKS, CLOSERS };

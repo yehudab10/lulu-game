@@ -167,7 +167,7 @@ module.exports = {
       await W.pause(t, true); await W.moved(t);
       t.check("🚀 launch control: from a stop, floor it → a rocket start", (await evs(/dealers:perk.*launch/)).length >= 1 && sp > 5, `${sp.toFixed(2)} m/s`);
       // (brake to a real stop first: the fridge pours only while she's standing still)
-      await g(`(ctx.car.vx = ctx.car.vz = 0, true)`); await t.hold(6, 1); await t.frames(15); await t.hold(6, 0);
+      await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, true)`); await t.hold(6, 1); await t.frames(15); await t.hold(6, 0); await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, true)`); await t.frames(4);
       await t.frames(10);
       const b0 = await g(`ctx.G.boost`);
       await g(`(ctx.dealers.debug.perks.R.stopT = 9, true)`);

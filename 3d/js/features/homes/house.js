@@ -18,12 +18,13 @@ import * as H from "../../hud.js";
 import { heal } from "../../core/driving.js";
 import { defineInterior } from "../interiors/engine.js";
 import { tone, sfx } from "../interiors/fx.js";
-import { KINDS, ITEMS, PICKUP_ORDER, REACT, SPOTTED, SPOTTED_AGAIN, SUSPICIOUS, FIGHT, LULU_HIT, TALK, COUCH, COUCH_LINES, COUCH_EMPTY, COUCH_CAPPED,
+import { KINDS, ITEMS, EXTRA, PICKUP_ORDER, REACT, SPOTTED, SPOTTED_AGAIN, SUSPICIOUS, FIGHT, LULU_HIT, TALK, COUCH, COUCH_LINES, COUCH_EMPTY, COUCH_CAPPED,
     SOUVENIRS, CHOLENT, CHOLENT_SEEN, CHOLENT_FULL, CHOLENT_NOT_YET, CHOLENT_CAP, CALL_LINES, WINDOW_IN, WINDOW_OUT, DOOR_OUT, WET_FLOOR, dressLine } from "./data.js";
 import { anchors, stageScene, buildProps, heldProp, catchFor, CATCH, ANIMALS } from "./stage.js";
 import { linesFor } from "./scenes.js";
 import { setupJob, jobHud } from "./jobs.js";
 import { payJob } from "./visits.js";
+import { doorZones, fit, roomLim } from "../interiors/clear.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
 /** "Goldberg" → "Goldbergs", "Schwartz" → "Schwartzes". */
@@ -63,6 +64,8 @@ function kit(name) {
     return c;
 }
 export function itemProp(name) {
+    const ex = EXTRA.find(e => e.prop === name);
+    if (ex && ex.make) { const m = ex.make(); if (m) return m; }       // (another feature's code-built prop: features/houseitems)
     const src = models.homesItems && findNodes(models.homesItems, "Prop_" + name)[0];
     if (!src) return new THREE.Group();
     const c = src.clone(true); c.position.set(0, 0, 0);
@@ -136,14 +139,23 @@ function build(rt) {
         V.windows.push({ x: wx, z: -D / 2 + 0.75, room: r.type });
     }
     // ── furniture (+ colliders: tall pieces block a resident's view; low ones only hide her while she crouches) ──
+    // (nothing solid in a doorway / the strip inside the front door — interiors/clear.js; the owner: "a tv blocks some
+    //  of the entrances")
+    const zones = doorZones({ xs: rooms.slice(1).map(r => r.x0), doorX, D });
+    V.clearZones = zones;
     const put = (name, x, z, ry = 0, colW = 0, colD = 0, view = "") => {
-        const o = kit(name); o.position.set(x, 0, z); o.rotation.y = ry; rt.add(o);
-        o.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
+        let hw = 0, hd = 0;
         if (colW) {
             const sw = Math.abs(Math.cos(ry)) > 0.5;
-            const hw = (sw ? colW : colD) / 2, hd = (sw ? colD : colW) / 2;
-            rt.cols.push({ id: name, x0: x - hw, x1: x + hw, z0: z - hd, z1: z + hd, on: true, view });
+            hw = (sw ? colW : colD) / 2; hd = (sw ? colD : colW) / 2;
+            const f = fit(zones, x, z, hw, hd, roomLim(x, x0, W, n, D));
+            if (!f) return null;
+            if (f.moved) { V.moved = V.moved || []; V.moved.push(name); }
+            x = f.x; z = f.z;
         }
+        const o = kit(name); o.position.set(x, 0, z); o.rotation.y = ry; rt.add(o);
+        o.traverse(m => { if (m.isMesh) { m.castShadow = false; } });
+        if (colW) rt.cols.push({ id: name, x0: x - hw, x1: x + hw, z0: z - hd, z1: z + hd, on: true, view });
         return o;
     };
     const onWall = (name, x, y) => { const o = kit(name); o.position.set(x, y, -D / 2); rt.add(o); return o; };
@@ -190,13 +202,13 @@ function build(rt) {
         } else if (r.type === "kids") {
             put("BunkBed", cx - 1.65, bz + 0.6, 0, 2.0, 0.95, "tall");
             put("ToyBox", cx + 0.7, bz + 0.45, 0, 0.8, 0.5, "low");
-            put("Desk", cx + 2.3, 0.6, -Math.PI / 2, 1.0, 0.55, "low");
+            const desk = put("Desk", cx + 2.3, 0.6, -Math.PI / 2, 1.0, 0.55, "low");
             put("BeanBag", cx + 0.3, 1.2, 0, 0.7, 0.7);
             if (cast.includes("baby") && !room("kitchen")) put("Crib", cx - 2.2, 1.4, Math.PI / 2, 0.65, 1.2, "low");
             onWall("Poster", cx + 1.9, 1.6);
             surf.toybox = { x: cx + 0.7, z: bz + 0.45, y: 0.55 };
             surf.bunk = { x: cx - 1.65, z: bz + 0.6, y: 0.62 };
-            surf.desk = { x: cx + 2.3, z: 0.6, y: 0.72 };
+            if (desk) surf.desk = { x: desk.position.x, z: desk.position.z, y: 0.72 };      // (where the desk really went)
         }
     }
     V.surf = surf;
@@ -214,6 +226,20 @@ function build(rt) {
         rt.add(obj);
         V.items[id] = { id, obj, home: obj.position.clone(), rot: obj.rotation.clone(), taken: false, used: false };
         rt.hot({ id: "grab_" + id, x: obj.position.x, z: at.z + 0.5, r: 1.35, label: `${it.emoji} Grab the ${it.name}`, enabled: () => !V.items[id].taken, action: r2 => grab(r2, id) });
+    }
+    // ── other features' pickups (features/houseitems): two a house, picked by the house's seed, on a free surface ──
+    const SURF = { counter: surf.counter || surf.table, table: surf.table || surf.ktable, couch: surf.couch || surf.bunk, shelf: surf.souvenir || surf.dsouvenir || surf.coat,
+        coat: surf.coat, sink: surf.sink || surf.counter };
+    const extra = EXTRA.filter(e => SURF[e.surface]);
+    for (let k = 0; k < Math.min(2, extra.length); k++) {
+        const e = extra[(seed + k * 7) % extra.length];
+        if (V.items[e.id]) continue;
+        const at = SURF[e.surface], obj = itemProp(e.prop);
+        obj.position.set(at.x - 0.55 + k * 0.3, (at.y || 0) + 0.04, at.z + 0.1);
+        rt.add(obj);
+        V.items[e.id] = { id: e.id, obj, home: obj.position.clone(), rot: obj.rotation.clone(), taken: false, used: false };
+        const it = ITEMS[e.id];
+        rt.hot({ id: "grab_" + e.id, x: obj.position.x, z: at.z + 0.5, r: 1.35, label: `${it.emoji} Grab the ${it.name}`, enabled: () => !V.items[e.id].taken, action: r2 => grab(r2, e.id) });
     }
     // ── loot ──
     if (surf.couch) rt.hot({ id: "couch", x: surf.couch.x - 0.6, z: surf.couch.z, r: 1.2, label: "🛋️ Dig in the couch cushions", action: r2 => couch(r2) });
@@ -487,7 +513,7 @@ async function chat(rt, r) {
 /** Lulu uses `id` on resident r: the reaction from the table, the effect, the consequences. */
 export function applyItem(rt, r, id) {
     const V = rt.data.V, it = ITEMS[id];
-    const tab0 = (REACT[id] && (REACT[id][r.kind] || REACT[id][r.K.like])) || { line: "...?!", lulu: "Oops." };
+    const tab0 = (REACT[id] && (REACT[id][r.kind] || REACT[id][r.K.like] || REACT[id]["*"])) || { line: "...?!", lulu: "Oops." };
     const tab = Object.assign({}, tab0, { line: dressLine(r, tab0.line) });
     const fx = tab.fx || it.fx;
     rt.luluPose = { point: true };
@@ -977,7 +1003,8 @@ function dispose(rt) {
     VISIT.last = { key: V.home.key, name: V.home.name, home: V.home, mode: V.mode, startMode: V.hm.mode, via: V.hm.via, exit: V.exit, spotted: V.spotted, reported: V.reported,
         used: V.used.slice(), looted: V.looted.slice(), charges: V.charges.slice(), ate: V.ate, recognized: V.recognized, crouch: V.crouch,
         scene: V.scene && V.scene.def ? V.scene.def.id : null, converted: V.converted || null, caughtBy: (V.caughtBy || []).slice(), wet: V.wetSteps | 0,
-        favour: !!V.favour, job: V.job ? { type: V.job.type, done: V.job.done, paid: V.job.paid } : null };
+        favour: !!V.favour, job: V.job ? { type: V.job.type, done: V.job.done, paid: V.job.paid } : null,
+        held: V.held && ITEMS[V.held] && !ITEMS[V.held].own ? V.held : null };      // (features/houseitems: what she walked out holding comes with her)
     if (ctx.G && V.hint) ctx.G.hint = V.hint;
     VISIT.cur = null;
     DEF.name = "a house"; DEF.title = "🏠 A HOUSE";

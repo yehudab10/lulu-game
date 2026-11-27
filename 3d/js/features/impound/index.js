@@ -31,8 +31,9 @@ import { addWindowHook } from "../cityhall/lobby.js";
 import { CONTACT_EXTRAS } from "../cityhall/pay.js";
 import { ID, FEE, CHARGE, L } from "./data.js";
 import { BR, breakTick, breakReset, panelSpot, startBreakIn } from "./breakin.js";
+import { TOW_FEE, L as CL } from "../cars/data.js";
 
-export const SAVE = store(ID, { paid: 0, breakDay: "", breaks: 0, clean: 0 });
+export const SAVE = store(ID, { paid: 0, breakDay: "", breaks: 0, clean: 0, slip: null });
 /** Per run: where her car is held + whether the release is paid. */
 export const IM = { held: null, released: false, log: [], chip: null, chipTxt: "", pinRm: null };
 export function log(ev, d = {}) { IM.log.push(Object.assign({ ev, t: +ctx.time.toFixed(2) }, d)); if (IM.log.length > 60) IM.log.shift(); emit("impound:" + ev, d); }
@@ -40,7 +41,21 @@ const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ?
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const inTown = () => !!(ctx.town && ctx.town.active);
 const onFoot = () => !!(ctx.foot && ctx.foot.active && ctx.state === "footRun");
-export const fee = () => (SAVE.paid > 0 ? FEE.normal : FEE.first);
+export const fee = () => (IM.held && IM.held.why === "tow" ? TOW_FEE : SAVE.paid > 0 ? FEE.normal : FEE.first);
+/** features/cars keeps where every car is: then the impound holds whichever cars ctx.cars says (any number, kept across
+ *  runs and reloads — no auto-return), a paid slip is saved per car, and a tow (not an arrest) costs TOW_FEE. */
+const carsOn = () => !!(ctx.cars && ctx.cars.held && ctx.enabled("cars"));
+function syncHeld() {
+    if (!carsOn()) return;
+    const h = ctx.cars.held(inTown() ? ctx.town.id : null) || ctx.cars.held(null);
+    if (!h) { IM.held = null; IM.released = false; return; }
+    if (!IM.held || IM.held.key !== h.key || IM.held.town !== h.town) {
+        IM.held = { town: h.town, key: h.key, why: h.why, at: ctx.time };
+        if (heldHere() && !carObj() && ctx.civic && ctx.civic.impound && ctx.civic.ready && ctx.civic.ready()) ctx.civic.impound.show(true);
+    }
+    IM.released = SAVE.slip === h.key;
+}
+const brokeLine = () => fill(carsOn() ? CL.brokeKeep : L.broke, { fee: fee(), have: wallet.coins });
 const carObj = () => (ctx.civic && ctx.civic.impound ? ctx.civic.impound.car() : null);
 /** Is her car held in the town she's in (behind ITS fence)? */
 const heldHere = () => !!(IM.held && inTown() && ctx.town.id === IM.held.town);
@@ -49,15 +64,22 @@ const live = () => ctx.enabled(ID);
 // ── when she's walked out on foot and her car stays behind the fence ────
 on("places:out", e => {
     if (!live() || !e || e.car || !(ctx.foot && ctx.foot.ownCar === "gone") || !carObj()) return;
+    if (carsOn()) {
+        // (the car she was using; in a borrowed ride her own cars are wherever they are — nothing to hold)
+        ctx.cars.impounded(e.town); IM.held = null; syncHeld();
+        if (IM.held && IM.held.town === e.town) log("held", { town: e.town, key: IM.held.key });
+        else if (!heldHere() && ctx.civic.impound) ctx.civic.impound.show(false);
+        return;
+    }
     IM.held = { town: e.town, at: ctx.time }; IM.released = false;
     log("held", { town: e.town });
 });
-on("run:start", () => { IM.held = null; IM.released = false; breakReset(); });   // (a new run = the car is home again: today's fallback)
-on("title", () => { IM.held = null; IM.released = false; breakReset(); });
+on("run:start", () => { breakReset(); if (carsOn()) { IM.held = null; syncHeld(); return; } IM.held = null; IM.released = false; });   // (without features/cars: a new run = the car is home again)
+on("title", () => { breakReset(); if (carsOn()) return; IM.held = null; IM.released = false; });
 on("town:enter", () => { if (heldHere() && !carObj() && ctx.civic.impound) ctx.civic.impound.show(true); });
 on("town:leave", () => breakReset());
 // (she got into her own car some other way — a new run, the knock-out's tow…: nothing held any more)
-on("state", ({ to }) => { if (IM.held && to === "playing" && ctx.foot && !ctx.foot.active && ctx.foot.ownCar !== "gone") { IM.held = null; IM.released = false; } });
+on("state", ({ to }) => { if (!carsOn() && IM.held && to === "playing" && ctx.foot && !ctx.foot.active && ctx.foot.ownCar !== "gone") { IM.held = null; IM.released = false; } });
 
 // ── paying ────────────────────────────────────────────────────────────────
 /** Pay the release (where: gate | cityhall | phone). → "paid" | "broke" | "none" (nothing held / already paid). */
@@ -66,7 +88,9 @@ export function pay(where) {
     const f = fee();
     if (wallet.coins < f || !wallet.spend(f)) { log("broke", { where, fee: f, have: wallet.coins }); return "broke"; }
     IM.released = true;
-    SAVE.paid++; saveSoon();
+    if (carsOn() && IM.held.key) SAVE.slip = IM.held.key;
+    if (IM.held.why !== "tow") SAVE.paid++;
+    saveSoon();
     emit("stat", { id: "impoundPaid", n: 1 });
     log("paid", { where, fee: f });
     return "paid";
@@ -81,10 +105,12 @@ export function release(how) {
     const c = ctx.car, k = kerbAt(sp, 3);
     const face = Math.atan2(sp.nx, sp.nz);
     const at = { x: sp.x + sp.nx * 1.2, z: sp.z + sp.nz * 1.2 };
+    if (carsOn() && IM.held && IM.held.key) ctx.cars.fromImpound(IM.held.key);     // (that car; the one she came in stays parked)
     if (ctx.foot.active) ctx.foot.end("impound");
     c.place(k.x, k.z, k.h); c.s = k.s; c.d = k.d; c.vx = c.vz = 0; if ("vF" in c) c.vF = 0;
     const ok = ctx.foot.start("droveOff", { at, face, noIntro: true, drivable: true, line: how === "breakin" ? pick(L.out) : undefined }) !== false;
     IM.held = null; IM.released = false;
+    if (SAVE.slip) { SAVE.slip = null; saveSoon(); }
     log("release", { how, ok });
     emit("stat", { id: how === "breakin" ? "impoundBreakOuts" : "impoundReleases", n: 1 });
     return ok;
@@ -96,7 +122,7 @@ export async function gate() {
     const i = await choose(L.gateWho, fill(L.gateAsk, { fee: f }), [fill(L.gatePay, { fee: f }), L.gateCityHall, L.gateLeave], { emoji: L.gateEmoji });
     if (i !== 0) return true;
     const r = pay("gate");
-    if (r === "broke") { await say(L.gateWho, fill(L.broke, { fee: f, have: wallet.coins }), { emoji: L.gateEmoji }); return true; }
+    if (r === "broke") { await say(L.gateWho, brokeLine(), { emoji: L.gateEmoji }); return true; }
     if (r === "paid") { await say(L.gateWho, L.paid, { emoji: L.gateEmoji }); release("gate"); }
     return true;
 }
@@ -109,7 +135,7 @@ addWindowHook("permits", async (rt, who, name) => {
     const i = await rt.choose(name, fill(L.winAsk, { fee: f }), [fill(L.winYes, { fee: f }), L.winNo], o);
     if (rt.disposed || i !== 0) return true;
     const r = pay("cityhall");
-    await rt.say(name, r === "paid" ? L.winDone : fill(L.broke, { fee: f, have: wallet.coins }), o);
+    await rt.say(name, r === "paid" ? L.winDone : brokeLine(), o);
     return true;
 }, 30);
 
@@ -128,7 +154,7 @@ CONTACT_EXTRAS.push({
             if (!PH.armed) { PH.armed = true; rerender(); const nb = el.querySelector("#imPay"); if (nb) nb.focus(); return; }
             PH.armed = false;
             const r = pay("phone");
-            if (r === "broke") { const p = el.querySelector("#imPay small"); if (p) p.textContent = fill(L.broke, { fee: fee(), have: wallet.coins }); return; }
+            if (r === "broke") { const p = el.querySelector("#imPay small"); if (p) p.textContent = brokeLine(); return; }
             try { if (r === "paid" && ctx.phone && ctx.phone.inbox) ctx.phone.inbox.post({ from: "City Hall", emoji: "🏛️", color: "#455A64", msg: L.phoneDone, thread: "City Hall", need: true }); } catch (e) { /* no phone */ }
             rerender();
         });
@@ -157,7 +183,7 @@ function chipTick() {
     } catch (e) { /* no pins */ }
 }
 let acc = 0;
-hook("hud", dt => { if ((acc += dt) < 0.25) return; acc = 0; try { chipTick(); } catch (e) { console.error("[impound] chip", e); } });
+hook("hud", dt => { if ((acc += dt) < 0.25) return; acc = 0; try { syncHeld(); chipTick(); } catch (e) { console.error("[impound] chip", e); } });
 on("state", ({ to }) => { if (to === "footRun" || to === "playing") return; if (IM.chip && IM.chipTxt) { IM.chipTxt = ""; IM.chip.innerHTML = ""; IM.chip.classList.add("hidden"); } });
 
 // ── the break-in's per-frame tick (on foot, in the town that holds her car) ──
