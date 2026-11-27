@@ -233,7 +233,14 @@ export class Atlas {
     /** mesh() a few signs at a time (a generator: drawing a town's every sign is a frame's work on its own) → (return) the mesh. */
     *meshSteps() {
         let scale = 1;
-        while (!this.pack(scale) && scale > 0.3) scale *= 0.9;
+        // (the largest scale that packs — a bisection: a town just over a fixed step keeps most of its sharpness)
+        if (!this.pack(1)) {
+            let lo = 0.3, hi = 1;
+            for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (this.pack(m)) lo = m; else hi = m; }
+            scale = lo;
+            this.pack(scale);
+        }
+        this.scale = scale;          // (1 = every sign at full size; < 1 = the town's signs were shrunk to fit — tests read it)
         const S = this.size, canvas = document.createElement("canvas");
         canvas.width = canvas.height = S;
         const g = canvas.getContext("2d");
