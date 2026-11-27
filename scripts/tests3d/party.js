@@ -218,6 +218,10 @@ async function body(t, guests) {
   // everyone holds their lane at a cruise (banter's test autopilot), already rolling
   for (const [i, p] of pages.entries()) await p.game(`(ctx.banter.autopilot = { d: ${[1.75, 5.25, 1.75][i]}, speed: 24 }, ctx.party._debug.place(${[90, 82, 74][i]}, ${[1.75, 5.25, 1.75][i]}, 22))`);
   await sleep(2500);
+  // (the placements are respawns: wait until the host draws both friends at their new spots, or a slow page's late
+  //  poof lands inside the trace window)
+  await hostUntil(t, `[...ctx.party._debug.cars.values()].filter(rc => rc.shown && rc.s > 60 && rc.s < 200).length >= 2`, "the host draws both friends at their new spots", 60000);
+  await t.frames(30);
   await t.game(`ctx.party._debug.trace(true)`);
   await sleep(6000);
   const tr = await t.game(`[...ctx.party._debug.cars.values()].map(rc => ({ uid: rc.uid, tr: rc.trace || [] }))`);
@@ -282,7 +286,6 @@ async function body(t, guests) {
     JSON.stringify(skies.map(x => x && [x.m, +x.c.toFixed(4), x.w])));
 
   // ── BONK: guest A pulls up right beside the host (both stop) ──
-  console.log("   RACE before BONK", JSON.stringify(await t.game(`({ st: ctx.state, ph: ctx.party.activity.ph, fin: ctx.party.activity.fin, el: Math.round((ctx.party.clock() - ctx.party.activity.t0) / 1000), s: Math.round(ctx.car.s) })`)), JSON.stringify(await A.game(`({ st: ctx.state, s: Math.round(ctx.car.s) })`)), JSON.stringify(await B.game(`({ st: ctx.state, s: Math.round(ctx.car.s) })`)));
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
   await sleep(2500);
   const hs = await t.game(`({ s: ctx.car.s, d: ctx.car.d })`);
