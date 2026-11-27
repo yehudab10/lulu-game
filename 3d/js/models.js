@@ -112,7 +112,7 @@ export function ensureModels(keys, opts = null) { const pri = opts && opts.first
 // Nothing changes on a fast connection except the order; on Save-Data / 2G–3G the line is narrower.
 const QS0 = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
 const NOLINE = QS0.has("noline"), NOPRELOAD = QS0.has("nopreload");      // (perfstart.js before / after switches)
-const DL = { line: [], jobs: new Map(), out: 0, now: 0, runAt: 0, holdUntil: 0, learning: null, kicked: false };
+const DL = { line: [], jobs: new Map(), out: 0, now: 0, runAt: 0, holdUntil: 0, titleAt: 0, kickedAt: 0, warmed: 0, learning: null, kicked: false };
 const START_KEY = "lulu3dStartSet", START_MAX = 40;
 // (measured 2026-11-27: what ▶ PLAY → walking at home fetched)
 const START_FILES = ["town_bochur", "homes_mail", "homes_delivery", "homes_dog", "homes_street", "homes_mom", "homes_baby", "homes_dad",
@@ -187,8 +187,10 @@ function startKeys() {
 /** Behind the title: the home start's models to the front of the line (never before the title has painted). */
 function warmStart() {
     if (DL.kicked) return;
-    DL.kicked = true;
-    for (const k of startKeys()) if (!models[k]) {
+    DL.kicked = true; DL.kickedAt = performance.now();
+    const keys = startKeys();
+    DL.warmed = keys.length;
+    for (const k of keys) if (!models[k]) {
         if (pending.has(k)) promote(k);
         else loadOne(k, "first").catch(() => { /* a later ensureModels retries */ });
     }
@@ -205,6 +207,7 @@ export function cancelStartPreload() {
 // learn: the models a ▶ PLAY (an open-world start from the title) asks for in its first 20 s
 function learn(key) { if (DL.learning && !PRELOAD.has(key) && DL.learning.size < START_MAX && performance.now() - DL.runAt < 20000) DL.learning.add(key); }
 on("title", () => {
+    if (!DL.titleAt) DL.titleAt = performance.now();
     if (DL.kicked || NOPRELOAD || (ctx.party && ctx.party.active) || !ctx.enabled("preload")) return;      // (a ?test page opts in: &enable=preload)
     // after the title has painted and the browser is idle (two frames, then an idle slot)
     const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 1500 }) : f => setTimeout(f, 200);
@@ -225,7 +228,7 @@ on("run:start", ({ mode } = {}) => {
     pump();
 });
 /** Tests / the perf harness: the line's state. */
-export function downloadInfo(detail = false) { return { slow: slowNet(), kbps: NET.t1 > NET.t0 ? Math.round(NET.bytes / (NET.t1 - NET.t0)) : null, keys: detail ? DL.line.slice(0, 40).map(j => FILES[j.key] + (j.first ? "*" : "")) : undefined, line: DL.line.length, first: DL.line.filter(j => j.first).length, out: DL.out, now: DL.now, slots: lineSlots(), kicked: DL.kicked }; }
+export function downloadInfo(detail = false) { return { slow: slowNet(), kbps: NET.t1 > NET.t0 ? Math.round(NET.bytes / (NET.t1 - NET.t0)) : null, keys: detail ? DL.line.slice(0, 40).map(j => FILES[j.key] + (j.first ? "*" : "")) : undefined, line: DL.line.length, first: DL.line.filter(j => j.first).length, titleAt: Math.round(DL.titleAt), kickedAt: Math.round(DL.kickedAt), warmed: DL.warmed, max: START_MAX, out: DL.out, now: DL.now, slots: lineSlots(), kicked: DL.kicked }; }
 
 /** Boot: load everything registered with preload: true. */
 export async function loadModels(onProgress) {
