@@ -68,8 +68,10 @@ async function startWorker() {
 
 if (SW_OK) on("title", () => {
     if (I.started) return;
-    // (a ?test page opts in with &enable=install; ?sw=off always works)
-    if (ctx.TEST && !ctx.enabled("install") && QS.get("sw") !== "off") return;
+    // automation (the test harness, measurement scripts: navigator.webdriver) never gets a worker unless it asks —
+    // ?test&enable=install or ?sw=on — so kept files can't change any other test's timings; ?sw=off always works
+    const asked = (ctx.TEST && ctx.enabled("install")) || QS.get("sw") === "on" || QS.get("sw") === "off";
+    if ((ctx.TEST || navigator.webdriver) && !asked) return;
     const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 4000 }) : f => setTimeout(f, 1500);
     requestAnimationFrame(() => requestAnimationFrame(() => idle(() => { startWorker(); })));
 });

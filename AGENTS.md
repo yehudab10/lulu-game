@@ -135,9 +135,14 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
 1. **Finished work goes straight to `main`** (that's how the site updates — the
    owner's standing instruction; don't wait for approval). Unfinished work goes
    on a **`ci/<name>` branch** — push it often (see §5).
-2. Before every push to `main`: `node build.js --check` and
+2. Before every push to `main`: `node build.js --check`,
    `node scripts/copy-web.js` (it fails if the iOS bundle would miss a file the 3D
-   game references). Run the tests for what you touched (§4).
+   game references) and `node scripts/sw-version.js` (the installed game's key for every model / vendor / audio /
+   image file — commit `sw.json` if it changed; the Smoke workflow fails while it's stale). Run the tests for what
+   you touched (§4).
+   📥 **Service worker emergency** (`/sw.js`, roadmap 46): set `"off": true` in `/sw.json` and push — every player's
+   worker removes itself + its caches at their next start · one player: `?sw=off` · last resort: replace `/sw.js` with
+   one that calls `skipWaiting()` on install and unregisters itself on activate (the recipe is in sw.js's header).
 3. **Never deploy or modify the multiplayer relay server (`server/`,
    `.github/workflows/deploy-shared-road.yml`) without asking the owner first.**
    *Scope-limited exception (owner, 2026-11-20: "Do version B, you can touch the server"):* `ci/realestate` may add
@@ -206,6 +211,7 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
 ```bash
 node build.js --check                 # 2D game.js in sync with src/
 node scripts/copy-web.js              # stage www/ for iOS + check every 3D file reference
+node scripts/sw-version.js            # sw.json's key for every cache-first file (--check: fail if stale)
 npm run serve                         # local server on :8099 → /3d/
 npm run smoke                         # classic 2D smoke test (needs playwright)
 SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)

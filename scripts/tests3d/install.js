@@ -42,9 +42,9 @@ module.exports = {
   async run(t) {
     // ── 1. the harness page ──
     await t.frames(30);
-    t.check("in ?test without &enable=install nothing registers", await t.game(`!ctx.install.info().registered`)
+    t.check("the harness (?test without &enable=install, every other test file) never gets a worker", await t.game(`!ctx.install.info().registered`)
       && await t.L(`navigator.serviceWorker.getRegistrations().then(r => r.length === 0)`));
-    t.check("sw.json's models key matches the models (node scripts/sw-version.js)", (() => {
+    t.check("sw.json's key matches every cache-first file (node scripts/sw-version.js)", (() => {
       try { execFileSync("node", [path.join(ROOT, "scripts", "sw-version.js"), "--check"], { stdio: "pipe" }); return true; } catch (e) { return false; }
     })());
     t.check("the manifest is linked from 3d/ and names the 3D game", await t.L(`fetch(document.querySelector('link[rel=manifest]').href).then(r => r.json()).then(m => m.start_url === "./3d/" && m.display === "standalone" && m.icons.some(i => i.sizes === "512x512"))`));
