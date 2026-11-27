@@ -468,9 +468,12 @@ function sendSnap(t) {
     for (const k in xk) { hasXk = true; break; }
     if (N.extra || hasXk) d.x = hasXk ? Object.assign({}, N.extra, xk) : N.extra;
     if (N.pending.length) d.ev = N.pending.slice(0, 8).map(e => [e.n, e.k, ...e.a]);
-    const live = N.bcast.filter(b => t - b.at < 1500);
+    // (a broadcast rides for 1.5 s from the FIRST packet it goes out in — not from when it was made: a long frame on a
+    //  slow phone (leaving a room rebuilds the town) used to let a one-off expire before it was ever sent — partners3's
+    //  "out clean" that never reached the friend who rang)
+    const live = N.bcast.filter(b => !b.sentAt || t - b.sentAt < 1500);
     N.bcast = live;
-    if (live.length) d.bc = live.map(b => (b.sent = true, [b.n, b.k, ...b.a]));
+    if (live.length) d.bc = live.map(b => (b.sentAt = b.sentAt || t, b.sent = true, [b.n, b.k, ...b.a]));
     if (N.ping) {
         const ts = now();
         C.pend.set(N.ping, ts);

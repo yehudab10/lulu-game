@@ -333,7 +333,12 @@ async function friends(t) {
     if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing"`, "guest joins Free Roam", 240000)) return;
     const guestUid = await A.game(`ctx.party.uid`);
     for (const P of [Hp, A]) await P.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
-    // both walk in through the same doors (here: the same stretch of road)
+    // both walk in through the same doors (here: the same stretch of road) — in their cars first (🌍 with friends rides on
+    // her own run now: the host starts at home, maybe on foot)
+    for (const P of [Hp, A]) {
+      await P.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+      await P.until(`ctx.state === "playing" && !ctx.foot.active`, `${P.label}: in her car`, 30000);
+    }
     await g(`ctx.party._debug.place(400, 5.25, 0)`);
     await A.game(`ctx.party._debug.place(404, 5.25, 0)`);
     await t.frames(10);
