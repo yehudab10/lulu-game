@@ -216,7 +216,9 @@ async function roadTrip(t, guests) {
   t.check("💼 Jobs app on the party highway", await g(`ctx.phone.apps().includes("jobs")`));
   await g(`ctx.phone.openPhone("jobs")`);
   await sleep(800);
-  t.check("…listing the jobs (cab + delivery)", await t.L(`document.querySelectorAll("#lpApp .lp-job").length >= 2`), (await t.L(`(document.getElementById("lpApp") || {}).textContent || ""`)).slice(0, 200));
+  // (ci/qa 2026-11-27: when none can be taken right now — a job already waiting up the road — the app says why + one line
+  //  of what's waiting instead of greyed-out rows)
+  t.check("…listing the jobs (cab + delivery), or why not + what's waiting", await t.L(`document.querySelectorAll("#lpApp .lp-job").length >= 2 || (!!document.querySelector("#lpApp .lp-jobswait") && !!document.querySelector("#lpApp .lp-why"))`), (await t.L(`(document.getElementById("lpApp") || {}).textContent || ""`)).slice(0, 200));
   await t.shot("jobs-app");
   await g(`ctx.phone.closePhone()`);
   const perf = await PERF(t.L, 4000);
