@@ -23,7 +23,8 @@ import * as HS from "./handshake.js";
 import * as BL from "./bell.js";
 import * as UI from "./ui.js";
 import "./group.js";
-import * as VOTE from "./vote.js";     // stage 2 step 4: the lobby games as invitations from 🌍 Free Roam (everyone says yes)              // ctx.group — "with friends" as a group you're in (stage 2, step 1: today = the party)
+import * as VOTE from "./vote.js";
+import * as SV from "./server.js";      // (ci/accounts) the list, requests + blocks kept on the server too     // stage 2 step 4: the lobby games as invitations from 🌍 Free Roam (everyone says yes)              // ctx.group — "with friends" as a group you're in (stage 2, step 1: today = the party)
 
 const QS = new URLSearchParams(location.search);
 export const CODE_RE = /^[A-HJ-NP-Z2-9]{6}$/;
@@ -129,6 +130,7 @@ export async function join(fid, onWait) {
     if (!f) return "";
     if (!live()) return "You're offline";
     const P = ctx.party;
+    if (!ST.ready(f)) return `${ST.labelOf(f)} isn't playing right now`;
     const v = await BL.knock(f, "join", onWait);
     if (!v.on) return `${ST.labelOf(f)} isn't playing right now`;
     if (v.no) return `${ST.labelOf(f)} ${NO[v.no] || NO.busy}`;
@@ -195,9 +197,17 @@ ctx.friends = {
     decline: (chan, peer) => HS.decline(chan, peer),
     incoming: chan => HS.incoming(chan),
     outgoing: (chan, peer) => HS.outgoing(chan, peer),
-    remove: fid => { const ok = ST.removeFriend(fid); BL.seen.delete(fid); UI.refresh(); return ok; },
-    block: (fid, name) => { ST.block(fid, name); BL.seen.delete(fid); UI.refresh(); },
-    unblock: fid => { ST.unblock(fid); UI.refresh(); },
+    remove: fid => { const ok = ST.removeFriend(fid); BL.seen.delete(fid); SV.removed(fid); UI.refresh(); return ok; },
+    block: (fid, name) => { ST.block(fid, name); BL.seen.delete(fid); SV.blocked(fid); UI.refresh(); },
+    unblock: fid => { ST.unblock(fid); SV.unblocked(fid); UI.refresh(); },
+    // (ci/accounts) friend requests on the server — they wait for a player who is offline
+    get requests() { return SV.requests(); },
+    get badge() { return SV.badge(); },
+    askByName: name => SV.ask({ to: String(name || "") }),
+    answer: (fid, yes) => SV.answer(fid, yes),
+    cancel: fid => SV.cancel(fid),
+    get who() { return SV.who(); }, setWho: w => SV.setWho(w),
+    server: SV,
     check: () => BL.checkAll(),
     /** A ghost in EVERYONE → her friend label if she's my friend (she told me, sealed), else null. */
     byMp: id => BL.byMp(id),

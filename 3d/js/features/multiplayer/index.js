@@ -280,6 +280,7 @@ for (const ev of ["arrest", "law:arrest", "jail"]) on(ev, e => { if (e && e.char
 // a friend race starts while we're on the title → hop into a cruise in time for GO
 on("mp:raceRun", () => { if (ctx.state === "title") { H.hideScreen(); startRun({ mode: "cruise" }); } });
 on("mp:status", () => U.uiDirty());
+on("accounts:names", () => { N.relabel(); U.uiDirty(); });          // (features/accounts: a name came back from the server / ⚙️ names on-off)
 on("mp:riders", () => U.uiDirty());
 
 // ── HUD + menus ──────────────────────────────────────────────────────────

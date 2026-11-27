@@ -5,6 +5,7 @@
 //     fridge with one pickle, boxes to unpack — decorating comes in stage 3 (features/decor's picker).
 // Rooms: a "cozy" rowhouse / a townhouse = 2 (the living room IS the kitchen), a duplex half / a house = 3.
 import { startAtFor } from "./goto.js";
+import { friendDecor } from "./party.js";
 import * as THREE from "three";
 import { ctx, emit } from "../../core/ctx.js";
 import { saveSoon } from "../../core/save.js";
@@ -14,7 +15,8 @@ import { VIEWING, MINE, PATTER, TENANTS } from "./data.js";
 import { realtorOf } from "./office.js";
 import { S } from "./registry.js";
 import { slotById, optOf } from "../decor/data.js";
-import { buildOption, disposeObj, wallTex } from "../decor/props.js";
+import { buildOption, disposeObj, wallTex, couchCover, Kit } from "../decor/props.js";
+import { YARD_SLOTS } from "./yard.js";
 import { openPicker, pickerTick, pickerOpen, closePicker } from "../decor/picker.js";
 import { HOUSE_SPOTS } from "../decor/house.js";
 
@@ -71,7 +73,7 @@ function build(rt) {
     const bx = B.cx[n - 1];
     if (owner) {
         const tn = !visit && rec && S.rent[rec.id] && S.rent[rec.id].tenant != null ? TENANTS[S.rent[rec.id].tenant % TENANTS.length] : null;
-        V.tenant = tn; V.bx = bx; V.cache = {}; V.objs = {};
+        V.tenant = tn; V.bx = bx; V.cache = {}; V.objs = {}; V.B = B; V.lx = lx; V.bz = bz;
         B.put("Rug", lx + 0.2, 0.3);
         B.put("BeanBag", lx + 0.6, -0.8, 0.4, 0.8, 0.8);
         B.put("FloorLamp", lx + 2.2, bz + 0.45, 0, 0.3, 0.3);
@@ -83,7 +85,9 @@ function build(rt) {
         // her FIRST own home: the pieces she'd picked at Ima's go up here by themselves, free (ci/moveout — roadmap 23)
         if (!visit && !tn && rec && !S.decor[rec.id] && ctx.moveout && ctx.moveout.seed && ctx.moveout.seed(rec.id, S.decor)) saveSoon();
         // decorations she placed here (features/decor's catalogue + props; the room is decor's size)
-        if (!visit) for (const id of DSLOTS) { const o = placedHere(id); if (o) show(rt, id, o); }
+        // (a friend visiting sees HER decorations here — what her client publishes for this home, party.js d.x.rd)
+        const fdc = visit && rec ? friendDecor(rec.id) : null;
+        for (const id of DSLOTS.concat(["couch"])) { const o = visit ? fdc && fdc[id] : placedHere(id); if (o) show(rt, id, o); }
         if (tn) {
             // a tenant lives here: their stuff everywhere, no redecorating (that's their home now)
             try {
@@ -96,6 +100,11 @@ function build(rt) {
                 if (!sp || !slot) continue;
                 rt.hot({ id: "slot:" + id, x: sp.x, z: sp.z, r: sp.r, label: () => `${slot.icon} ${slot.name} — decorate`, action: r => pickHere(r, id) });
             }
+            // (roadmap 23 d2: the other things she may have bought for Ima's house — the couch here, and the outside of the
+            //  house: the door's paint, the porch, the mailbox, the front yard — yard.js draws those on the street)
+            const cs = couchSpot(V), cslot = slotById("couch");
+            if (cslot) rt.hot({ id: "slot:couch", x: cs.x, z: cs.z, r: cs.r, label: () => `${cslot.icon} Couch — decorate`, action: r => pickHere(r, "couch", cs) });
+            rt.hot({ id: "slot:outside", x: lx - 1.7, z: 1.5, r: 1.0, label: "🏡 Decorate the outside", action: r => pickOutside(r) });
         }
         // a welcome card on the wall
         const c = document.createElement("canvas"); c.width = 512; c.height = 160; const g = c.getContext("2d");
@@ -217,6 +226,21 @@ function show(rt, slot, opt) {
     if (!V || !V.cache) return;
     const sl = slotById(slot);
     if (!sl) return;
+    if (YARD_SLOTS.includes(slot)) {          // (outside: a preview on the street — the real thing is placed with placeHere)
+        if (CUR.rec) emit("realestate:yardPreview", { id: CUR.rec.id, slot, opt: opt || null });
+        return;
+    }
+    if (slot === "couch") {
+        const o = opt && optOf(sl, opt), c = (o && o.couch) || null;
+        if (!c) { if (V.couch) V.couch.visible = false; if (V.cover) V.cover.visible = false; return; }
+        if (!V.couch) { V.couch = V.B.put("Couch", V.lx - 0.6, V.bz + 0.75, 0, 2.2, 0.9); V.couchM = ownMats(rt, V.couch, ["Fabric", "Cushion"]); }
+        V.couch.visible = true;
+        if (V.couchM.Fabric) V.couchM.Fabric.color.set(c.fab || "#7E57C2");
+        if (V.couchM.Cushion) V.couchM.Cushion.color.set(c.cush || "#9575CD");
+        if (c.cover && !V.cover) { const k = new Kit(); couchCover(k, V.couch.position.x, V.couch.position.z); V.cover = rt.add(k.build("CouchCover")); }
+        if (V.cover) V.cover.visible = !!c.cover;
+        return;
+    }
     if (slot === "wallpaper") {
         const o = opt && optOf(sl, opt);
         rt.data.wallM.map = o ? wallTex(o.wall) : null; rt.data.wallM.color.set(o ? "#ffffff" : "#FAFAFA"); rt.data.wallM.needsUpdate = true;
@@ -238,15 +262,30 @@ function trim(rt, slot) {
     for (const k of Object.keys(cache)) if (k !== keep) { disposeObj(cache[k]); delete cache[k]; }
     show(rt, slot, keep);
 }
-function pickHere(rt, id) {
-    const slot = slotById(id), sp = spotOf(id, rt.data.V.bx);
+/** A model's named materials, made its own (recoloured per house). */
+function ownMats(rt, obj, names) {
+    const out = {};
+    obj.traverse(o => { if (!o.isMesh || !o.material || !names.includes(o.material.name)) return; if (!out[o.material.name]) { out[o.material.name] = o.material.clone(); rt.own(out[o.material.name]); } o.material = out[o.material.name]; });
+    return out;
+}
+const couchSpot = V => ({ x: V.lx - 0.6, z: V.bz + 1.65, r: 1.2, look: [V.lx - 0.6, 0.55, V.bz + 0.75] });
+/** 🏡 The outside of the house: which part → decor's picker (previews show on the street — yard.js). */
+async function pickOutside(rt) {
+    const ids = YARD_SLOTS.filter(id => slotById(id));
+    const i = await rt.choose("Lulu", "What should I fix up outside?", ids.map(id => `${slotById(id).icon} ${slotById(id).name}`).concat(["‹ Never mind"]), { emoji: "🏡" });
+    if (i < 0 || i >= ids.length || rt.disposed) return;
+    const V = rt.data.V;
+    return pickHere(rt, ids[i], { x: V.lx - 1.7, z: 1.5, r: 1.0, look: [V.lx - 1.7, 1.2, 2.8] });
+}
+function pickHere(rt, id, spot = null) {
+    const slot = slotById(id), sp = spot || spotOf(id, rt.data.V.bx);
     if (!slot || !sp) return;
     rt.focusAt = new THREE.Vector3(sp.look[0], sp.look[1] - 1.3, sp.look[2]);
     rt.faceTo = { x: sp.look[0], z: sp.look[2] };
     return rt.runMode({
         start() { openPicker(slot, pickerApi(), null); },
         update(r, dt, P) { return !pickerTick(P); },
-        stop() { if (pickerOpen()) closePicker(true); rt.focusAt = null; trim(rt, id); },
+        stop() { if (pickerOpen()) closePicker(true); rt.focusAt = null; trim(rt, id); if (YARD_SLOTS.includes(id)) emit("realestate:yardPreview", null); },
     });
 }
 function dispose(rt) {

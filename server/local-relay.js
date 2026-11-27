@@ -301,11 +301,43 @@ function allowState(ws) {
 // --- 🏘️ the world-wide property registry (homes.mjs — the SAME code the worker runs) --------------------------
 // A dev / test relay only: POST /homes/_clock {offset} moves THIS process's clock (the 14-day rule in a test); the
 // production worker has no such endpoint.
-let homesP = null;
+let homesP = null, acctP = null, homesStore = null;
 const homesClock = { offset: 0 };
 function homesReg() {
-  if (!homesP) homesP = import("./homes.mjs").then((m) => m.createHomes(m.memoryStore(), { clock: () => Date.now() + homesClock.offset, config: { claimGapMs: 300, sweepGapMs: 0 } }));
+  if (!homesP) homesP = acctReg().then((A) => import("./homes.mjs").then((m) => {
+    homesStore = m.memoryStore();
+    return m.createHomes(homesStore, { clock: () => Date.now() + homesClock.offset, config: { claimGapMs: 300, sweepGapMs: 0 },
+      acctSech: (pid) => (A ? A.sechOf(pid) : null), nameOf: (pid) => (A ? A.nameOf(pid) : null) });
+  }));
   return homesP;
+}
+// --- 🪪 accounts (accounts.mjs — the SAME code the worker runs, on node:sqlite; null when this Node has none) ------
+// Dev / test only: POST /acct/_clock {offset} moves the same clock as /homes/_clock; ACCT_FAST=1 (the 3D tests) makes
+// the per-account write gap small so a test can click quickly. The production worker has neither.
+function acctReg() {
+  if (!acctP) acctP = import("./accounts.mjs").then(async (m) => {
+    const q = await m.nodeSql(process.env.ACCT_DB || ":memory:");
+    if (!q) return null;
+    const fast = process.env.ACCT_FAST === "1";
+    return m.createAccounts(q, { clock: () => Date.now() + homesClock.offset,
+      config: fast ? { writeGapMs: 30, checkGapMs: 0 } : {},
+      homeSech: (pid) => { const r = homesStore && homesStore.byOwner(pid)[0]; return r ? r.sech : null; } });
+  });
+  return acctP;
+}
+function handleAcct(req, res, pathname) {
+  if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
+  const done = (st, obj) => sendBoard(res, st, obj);
+  const qs = new URL(req.url, "http://x").searchParams;
+  const run = (body) => {
+    if (pathname === "/acct/_clock" && req.method === "POST") { homesClock.offset = Number(body && body.offset) || 0; done(200, { ok: true, offset: homesClock.offset }); return; }
+    homesReg().then(() => acctReg()).then((A) => (A ? A.handle(pathname, req.method, body, boardClientIp(req)) : { status: 404, body: { error: "no accounts here" } }))
+      .then((r) => done(r.status, r.body)).catch((e) => done(500, { error: String(e && e.message) }));
+  };
+  if (req.method === "GET") { run({ n: qs.get("n"), pid: qs.get("pid") }); return; }
+  let raw = "";
+  req.on("data", (c) => { raw += c; if (raw.length > 16 * 1024) req.destroy(); });
+  req.on("end", () => { let body = null; try { body = JSON.parse(raw); } catch (_) { body = null; } run(body && typeof body === "object" ? body : null); });
 }
 function handleHomes(req, res, pathname) {
   if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
@@ -337,6 +369,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (pathname.startsWith("/homes/")) { handleHomes(req, res, pathname); return; }
+  if (pathname.startsWith("/acct/")) { handleAcct(req, res, pathname); return; }
   res.writeHead(426);
   res.end("expected websocket upgrade");
 });

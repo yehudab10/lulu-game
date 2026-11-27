@@ -175,7 +175,7 @@ registry.addSource({
     ownerOf(id) {
         const x = SV.on && SV.list.get(id);
         if (!x || x.mine || registry.mine(id)) return null;
-        const show = !(ctx.mp && ctx.mp.online === false);
+        const show = !(ctx.mp && ctx.mp.online === false) && !(ctx.accounts && ctx.accounts.hideNames);   // (⚙️ other players' names off → "a neighbour")
         return { name: x.z ? "the Town Council" : show && x.l ? x.l : "a neighbour", server: true, seized: !!x.z };
     },
     list() { return SV.on ? [...SV.list.entries()].filter(([id, x]) => !x.mine && !registry.mine(id)).map(([id, x]) => ({ id, name: x.z ? "the Town Council" : x.l, seized: !!x.z, hex: x.z ? "#455A64" : "#90A4AE" })) : []; },

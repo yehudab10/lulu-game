@@ -238,8 +238,11 @@ function profileCache() {
 on("shared:changed", () => { P.cache.at = -1; });
 
 function nameOf(uid) {
-    if (uid === N.uid) return profileCache().name || NET.myName();
+    if (uid === N.uid) return (ctx.player && ctx.player.name && ctx.player.name()) || profileCache().name || NET.myName();
     const p = N.players.get(uid);
+    // (features/accounts: their USERNAME — the server says whose ticket this is, never the text they sent)
+    const un = p && p.x && p.x.un && p.rid && ctx.accounts && ctx.accounts.ghostName ? ctx.accounts.ghostName(N.room, p.rid, p.x.un, { always: true }) : null;
+    if (un) return un;
     return (p && NET.NAMES.includes(p.n) && p.n) || "Friend";
 }
 /** Display names: a duplicate gets a number so you can tell two Kugel Kids apart (cached, refreshed twice a second). */
@@ -1450,6 +1453,7 @@ function publishExtras(m, foot) {
     const inRun = m >= 2 && m <= 4 || m === 7;
     const F = inRun ? ctx.foot : null, car = ctx.car;
     NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null);     // (f[2]: her feet's height, dm — a jump, a bench, a car roof)
+    NET.setX("un", N.rid && ctx.accounts && ctx.accounts.ticketFor ? ctx.accounts.ticketFor(N.room, N.rid) : null);   // (features/accounts: my name ticket for this room)
     const pr = PS.myPresence();
     // a scene that takes her out of the car right where it stands (a pull-in place, a porch, a side job's scene):
     // friends see her car parked there with the tag over it; jail / court / the ER are elsewhere (no car shown)

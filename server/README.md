@@ -3,7 +3,8 @@
 The server side of **Shared Road**, the presence layer for *Lulu's Road Trip*.
 It is a **dumb WebSocket relay**: clients broadcast tiny state heartbeats and
 emoji events (honk / wave), and the server fans them out to everyone else in
-the same room. No auth, no persistence, no game logic. The protocol contract
+the same room. The rooms have no auth, no persistence, no game logic (the global Board object keeps the board, the
+property registry and — since 2026-11-26 — player accounts; see below). The protocol contract
 lives in [`../MULTIPLAYER.md`](../MULTIPLAYER.md) and is the source of truth.
 
 Two interchangeable implementations of the exact same protocol:
@@ -132,6 +133,49 @@ have) and the game's `scripts/tests3d/realestateworld.js` (two players, one loca
 **Rollback:** Cloudflare keeps every deployed version — `npx wrangler rollback` (or the dashboard: Workers →
 lulu-shared-road → Deployments → the previous one → Rollback). The `homes` table stays (harmless; nothing old reads it).
 
+## 🪪 Accounts, usernames and friends (`accounts.mjs`, added 2026-11-26 — owner-approved, AGENTS.md golden rule 3)
+
+Unique usernames, a friends list + friend requests that wait for an offline player, blocks and name reports. Additive:
+new `/acct/*` endpoints on the same global `Board` Durable Object (no new class, no migration) with new SQLite tables.
+Nothing that existed changed shape; old clients never call it. The name rules + filter are ONE file shared with the game:
+`../3d/js/features/accounts/rules.js` (wrangler bundles it; the local relay imports it).
+
+| endpoint | body | answer |
+|---|---|---|
+| `GET /acct/config` | — | `{ cfg }` |
+| `GET /acct/check?n=Name` | — | `{ ok, why, sugg: [3 free names] }` (`n` empty → 3 ideas) |
+| `POST /acct/hello` | `{ pid, sec, pk?, claims?: [pid], cards?: { pid: sealed } }` | makes the account on first sight; `{ me: { name, gen, ask, next, who }, friends: [{ f, n, pk, c, mine, at }], inReq, outReq, blocks, claims, badge }` |
+| `POST /acct/name` | `{ pid, sec, name }` | `{ ok, why: short\|long\|chars\|start\|under\|rude\|staff\|contact\|taken\|retired\|wait, sugg, next }` |
+| `POST /acct/ask` | `{ pid, sec, to: name }` or `{ t, room, rid }` | `{ ok, why: sent\|friends\|none\|self\|closed\|full\|outfull\|busy }` (429 = over the hourly limit) |
+| `POST /acct/answer` | `{ pid, sec, f, yes }` | `{ ok, why: friends\|declined\|gone\|full\|busy }` |
+| `POST /acct/cancel` · `/remove` · `/block` · `/unblock` | `{ pid, sec, f }` | `{ ok }` |
+| `POST /acct/report` | `{ pid, sec, f }` or `{ t, room, rid }` | `{ ok, counted, replaced? }` |
+| `POST /acct/set` | `{ pid, sec, who: 0\|1\|2 }` | who can send me requests: everyone · friends of friends · nobody |
+| `POST /acct/ticket` | `{ pid, sec, room, rid }` | `{ t }` — "this relay connection is account X" (HMAC, 6 h) |
+| `POST /acct/names` | `{ q: [[room, rid, t], …] }` (≤ 30) | `{ n: [name \| null, …] }` |
+| `POST /acct/delete` | `{ pid, sec }` | deletes the account, its friendships, requests, claims, blocks, reports |
+
+**Stored** — nothing else: `accounts` (random player id, SHA-256 of the device secret, username + its normalised form,
+generated-name / please-pick flags, made / seen / renamed times, who-can-request, the friendship public key, when the
+on-device list was first synced) · `edges` (a friendship + each side's SEALED doorbell note, which only the two phones can
+open) · `requests` (who asked whom, when, declined when) · `claims` (on-device friendships waiting for the other side to
+update) · `blocks` · `reports` (who reported whose name, when — cleared on a rename) · `retired` (normalised names taken
+away after reports) · `acct_meta` (the ticket key, random, made on first use: no deploy secret). No IP (rate limits live in
+memory), no email, no real name, no contacts, no location.
+
+**Knobs** (`CONFIG` in `accounts.mjs`): rename once per 30 days · 30 friends · ≤ 20 waiting outgoing / 30 incoming
+requests · 10 asks an hour per account (30 per IP) · a decline blocks re-asks for 30 days · unanswered requests expire
+after 60 days · 3 reports from different accounts ≥ 1 day old (≤ 5 reports a day each) within 14 days replace a name ·
+unnamed accounts unseen for 60 days are dropped. `/homes/*` also checks an account's secret, and its town list shows the
+owner's username.
+
+**Tests:** `node server/test-accounts.mjs` (local relay on node:sqlite — Node ≥ 22.5; a dev-only `POST /acct/_clock`) and
+`node server/test-accounts.mjs --url https://…` against a deployment (throw-away `zz_test_…` accounts, deleted after).
+The game: `scripts/tests3d/accounts.js`, `accountsfriends.js` (two / three real pages, some closed and reopened).
+
+**Rollback:** Cloudflare → Workers & Pages → lulu-shared-road → Deployments → the previous one → Rollback (or
+`npx wrangler rollback`). The new tables stay (harmless; nothing old reads them).
+
 ## Files
 
 - `mp-worker.js` — Cloudflare Worker + `Room` Durable Object (Hibernation API).
@@ -140,4 +184,5 @@ lulu-shared-road → Deployments → the previous one → Rollback). The `homes`
 - `ws-fallback.js` — zero-dependency WebSocket server used if `ws` is missing.
 - `test-relay.js` — protocol conformance test (`npm test`).
 - `homes.mjs` — 🏘️ the property registry (shared by the worker + the local relay); `test-homes.mjs` its tests.
+- `accounts.mjs` — 🪪 accounts, usernames, friends, requests, blocks, reports (worker + local relay); `test-accounts.mjs`.
 - `package.json` — deps (`ws`) + scripts.
