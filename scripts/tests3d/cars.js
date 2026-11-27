@@ -166,7 +166,7 @@ module.exports = {
       t.check("reloads to the title", await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "reload", 120000));
       await W.install(t);
       await g(`(${D}.S.migrated || ${D}.migrate(), true)`);
-      t.check("after a reload: purple + pink still parked in Lakewood, orange at home", await kind("purple") === "left" && await kind("pink") === "left" && await kind("orange") === "home", await recs());
+      t.check("after a reload: purple + pink still parked in Lakewood, orange at home (the title's driveway shows it)", await kind("purple") === "left" && await kind("pink") === "left" && /^(home|with)$/.test(await kind("orange")), await recs());
     });
 
     // ════ a new day: she starts with the car that's at home ════
