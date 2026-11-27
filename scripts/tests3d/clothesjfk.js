@@ -13,8 +13,8 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     await W.pause(t, false);        // (the test moves her car into the landside: a declared teleport)
     if (!await t.until(`!!__lulu3d.ctx.airport.planned`, "the airport planned", 60000)) return;
-    await g(`ctx.airport.debug.ahead(500)`);
-    await g(`ctx.airport.debug.buildNow()`);
+    const P = await g(`(() => { const r = { s: Math.round(ctx.car.s), planned: ctx.airport.planned && ctx.airport.planned.s }; r.E = ctx.airport.debug.ahead(500); r.built = ctx.airport.debug.buildNow(); r.at = !!ctx.airport.at(0, 200); return r; })()`);
+    console.log("   airport", JSON.stringify(P));
     if (!await t.until(`!!__lulu3d.ctx.airport.at(0, 200)`, "the landside built", 90000)) return;
     const k = await g(`(() => { const p = ctx.airport.debug.world(80, 193.5), h = ctx.airport.debug.G().F.yaw(1, 0); const n = ctx.world.highway.nearest(p.x, p.z, ctx.car.s, {}); ctx.car.place(p.x, p.z, h); ctx.car.s = n.s; ctx.car.d = n.d; ctx.cam.snap(); return true; })()`);
     if (!await t.until(`__lulu3d.ctx.airport.inside`, "on the landside", 20000)) return;
