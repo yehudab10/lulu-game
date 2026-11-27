@@ -213,7 +213,7 @@ const doorSpot = {
         const x = w.x, z = w.z, n = at(DOOR.x, DOOR.z + 1), k = Math.hypot(n.x - x, n.z - z) || 1, nx = (n.x - x) / k, nz = (n.z - z) / k;
         return { x, z, ux: nz, uz: -nx, nx, nz };
     },
-    door: { w: 0.9, inn: 0.3, out: 2.6 },
+    door: { w: 0.9, inn: 0.3, out: 0.9 },     // (not down to the bottom of the steps: the run starts there, ✋ = her car)
     walkIn: { id: HOUSE_ID, n: 0.7 },        // (her family's door: walk up the steps into it — ci/doors stage 2)
     // (always HER OWN copy — with friends too: nobody waits, nobody visits; moveout.js has Ima's joke for a friend beside her)
     label: () => "🏠 GO INSIDE",

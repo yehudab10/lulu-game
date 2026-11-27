@@ -168,7 +168,7 @@ const signSpot = {
 };
 // her own front door: the key
 const doorSpot = {
-    r: 3.2, short: "MY HOUSE",
+    r: 3.2, short: "MY HOUSE", door: true,       // (door: the score floor — her mailbox / a chat right beside her still win)
     pos() {
         W.door = canAct() && !locked() ? nearest(W.owned, "ap", 3.2) : null;
         if (W.door && ctx.interiors.realestateHouse && ctx.interiors.realestateHouse.warm) ctx.interiors.realestateHouse.warm();
@@ -216,7 +216,7 @@ async function contest(rec) {
 
 // a FRIEND's front door (a 🎉 party's Free Roam): whose it is; join them inside when they're in
 const friendSpot = {
-    r: 2.6, short: "FRIEND",
+    r: 2.6, short: "FRIEND", door: true,
     pos() { W.fdoor = canAct() && W.friends && W.friends.length ? nearest(W.friends, "ap", 2.6) : null; return W.fdoor ? W.at : null; },
     label() { const f = W.fdoor; if (!f) return null; return friendInside(f) ? `👯 JOIN ${f.who.name.toUpperCase()} INSIDE` : `🏠 ${f.who.name.toUpperCase()}'S HOUSE`; },
     act() { const f = W.fdoor; if (!f) return; if (friendInside(f)) goIn(f, "visit", f.who.name); else if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, pick([`${f.who.name}'s place! Nobody home. I'll wave at the window anyway. 👋`, `Ding-dong… ${f.who.name}'s out. Nice mailbox though.`, `${f.who.name} owns a HOUSE. I'm so proud. And jealous. Mostly proud.`]), 3.0); },
