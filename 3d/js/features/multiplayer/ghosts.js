@@ -1,5 +1,5 @@
-// Shared Road — other players in the 3D world, drawn SOLID the same way friends are (stage 3 of roadmap 25,
-// "no ghosts", owner 2026-11-27): her own convertible (party/remote.js' CarVisual: wheels rolling, her hair colour)
+// Shared Road — other players in the 3D world, drawn SOLID like friends (stage 3 of roadmap 25, "no ghosts", owner
+// 2026-11-27): her own convertible in her paint + hair colour (party/remote.js' CarVisual, baked into one mesh)
 // or a walking Lulu in her own outfit (d.hc / d.ot; an old client without them: a top in her skin colour). The file
 // keeps its old name. Originally: other riders as translucent ghosts — their ride
 // in their own skin colour (Lulu's convertible, a borrowed sedan / van / truck,
@@ -16,6 +16,8 @@ import { SKINS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
 import { CarVisual } from "../party/remote.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { bakeGeometry } from "../../merge.js";
 
 registerModels({
     multiplayer_bus: "multiplayer_bus", multiplayer_ambulance: "multiplayer_ambulance",
@@ -30,18 +32,47 @@ const tmp = {}, v = new THREE.Vector3();
 
 function kindOf(p) {
     if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (p.ot || "");
+    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "");
     if (p.vk === "borrowed") return "borrowed:" + (p.ct || 0) + ":" + (p.co || "");
     if (p.vk === "cop" || EXTRA[p.vk]) return p.vk;
     return "car:" + p.sk;
 }
 
-/** Another player's ride is an ordinary solid model: no see-through copy of its materials (cloneWithColors shares
- *  them), shadows off to keep a busy street cheap. */
-function solid(obj) { obj.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } }); }
+// Another player's RIDE is baked into one solid vertex-coloured mesh (shared per model + paint + hair colour): 1 draw
+// call instead of a model's ~22, so the nearest 6 on a busy road cost ~6 calls, not ~130 (a phone). Her paint, her
+// hair colour and the visible hairdo are baked in; the wheels don't turn (hard to see at road speed). Glass is left out.
+const MERGED = new Map();
+let SOLID_MAT = null;
+const _inv = new THREE.Matrix4(), _mm = new THREE.Matrix4(), _cc = new THREE.Color();
+const shownIn = (o, top) => { for (let x = o; x && x !== top; x = x.parent) if (!x.visible) return false; return true; };
+function bakedRide(src, key) {
+    let geo = MERGED.get(key);
+    if (!geo) {
+        if (!src) return null;
+        src.updateMatrixWorld(true);
+        _inv.copy(src.matrixWorld).invert();
+        const list = [];
+        src.traverse(o => {
+            if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || !shownIn(o, src) || !o.geometry || !o.geometry.attributes.position) return;
+            const m = o.material;
+            if (!m || Array.isArray(m) || m.map || !m.color || /Glass|Taillight/i.test(m.name || "") || m.transparent) return;
+            list.push(bakeGeometry(o.geometry, _mm.multiplyMatrices(_inv, o.matrixWorld), _cc.copy(m.color)));
+        });
+        geo = list.length ? mergeGeometries(list, false) : null;
+        for (const g of list) g.dispose();
+        if (!geo) return null;
+        geo.computeBoundingSphere();
+        MERGED.set(key, geo);
+    }
+    if (!SOLID_MAT) SOLID_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.1 });
+    const mesh = new THREE.Mesh(geo, SOLID_MAT);
+    mesh.castShadow = false; mesh.receiveShadow = false;
+    return mesh;
+}
 
 function buildGhost(p) {
     const sk = SKINS[p.sk] || SKINS.pink;
-    const g = { kind: kindOf(p), obj: new THREE.Group(), mats: [], wheels: [], person: null, cv: null, burst: null, burstKey: "" };
+    const g = { kind: kindOf(p), obj: new THREE.Group(), mats: [], wheels: [], person: null, burst: null, burstKey: "" };
     let body;
     if (p.m === 1) {
         // her own clothes (features/clothes) + hair; an old client sends neither: a top in her car's colour
@@ -49,20 +80,26 @@ function buildGhost(p) {
         const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, ot ? {} : { Top: sk.body });
         g.person = spawnPerson("luluPerson", { colors, outfit: ot ? ctx.clothes.decode(ot) : false });
         body = g.person.obj;
-    } else if (EXTRA[p.vk]) {
-        const key = EXTRA[p.vk];
-        if (models[key]) body = cloneWithColors(models[key]);
-        else { ensureModels([key]).then(() => { if (ghosts[p.id]) ghosts[p.id].kind = "stale"; }).catch(() => {}); body = cloneWithColors(models.sedan, { Paint: "#F9A825" }); }
-    } else if (p.vk === "cop") body = cloneWithColors(models.cop);
-    else if (p.vk === "borrowed") body = cloneWithColors(models[BORROWED[(p.ct || 0) % BORROWED.length]], { Paint: p.co || "#E53935" });
-    else {
-        // her own car: the same visual friends get (wheels rolling + steering, brake lights, her hair colour)
-        g.cv = new CarVisual(p.sk);
-        if (p.hc) g.cv.setHair(p.hc);
-        body = g.cv.root;
+    } else {
+        let src, key = g.kind;
+        if (EXTRA[p.vk]) {
+            const k = EXTRA[p.vk];
+            if (models[k]) src = cloneWithColors(models[k]);
+            else { ensureModels([k]).then(() => { if (ghosts[p.id]) ghosts[p.id].kind = "stale"; }).catch(() => {}); src = cloneWithColors(models.sedan, { Paint: "#F9A825" }); key += ":stand-in"; }
+        } else if (p.vk === "cop") src = cloneWithColors(models.cop);
+        else if (p.vk === "borrowed") src = cloneWithColors(models[BORROWED[(p.ct || 0) % BORROWED.length]], { Paint: p.co || "#E53935" });
+        else if (!MERGED.has(key)) {
+            // her own car: the friends' car visual (her skin, the shown hairdo, her hair colour), baked solid once per look
+            const cv = new CarVisual(p.sk);
+            if (p.hc) cv.setHair(p.hc);
+            src = cv.model;
+            const baked = bakedRide(src, key);
+            cv.dispose();
+            if (baked) body = baked;
+        } else body = bakedRide(null, key);
+        if (!body) body = bakedRide(src, key) || src;
+        if (body === src) { src.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } }); g.wheels = findNodes(src, "Wheel_"); }
     }
-    solid(body);
-    if (!g.cv && !g.person) { g.wheels = findNodes(body, "Wheel_"); for (const w of g.wheels) w.rotation.order = "YXZ"; }
     g.obj.add(body);
     g.body = body;
     g.tag = nameSprite(p.name || "Rider", 2.6);
@@ -82,7 +119,6 @@ function buildGhost(p) {
 
 function disposeGhost(g) {
     ctx.scene.remove(g.obj);
-    if (g.cv) g.cv.dispose();
     g.tag.userData.dispose();
     g.ring.geometry.dispose(); g.ring.material.dispose();
     if (g.burst) disposeBurst(g.burst);
@@ -135,7 +171,7 @@ export const ghostStats = () => {
     for (const id in ghosts) {
         const g = ghosts[id];
         if (!g || !g.shown) continue;
-        kinds.push(g.cv ? "car" : g.person ? "foot" : "ride");
+        kinds.push(g.person ? "foot" : g.kind.split(":")[0]);
         g.body.traverse(o => { if (o.isMesh && o.visible && o.material && o.material.transparent && o.material.opacity < 0.9 && !/Glass|Flame/i.test(o.material.name || "")) seeThrough++; });
     }
     return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough };
@@ -201,7 +237,6 @@ export function updateGhosts(dt, me, show) {
         p.ws = at.x; p.wd = at.z;
         const mps = at.mps;
         if (g.person) g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 });
-        if (g.cv) { g.cv.animate(dt, mps, 0, false, false); if (p.hc) g.cv.setHair(p.hc); if (p.honkT > 0 || p.waveT > 0) g.cv.wave(); }
         for (const w of g.wheels) w.rotation.x += mps * dt / 0.34;
         // (solid, like friends: no see-through fade — she's drawn once she's really there, gone once she isn't)
         g.obj.visible = p.vis > 0.35;

@@ -88,7 +88,7 @@ async function body(t, pages, riders) {
   if (!await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online by default (EVERYONE)")) return;
   t.check("A: online by default — EVERYONE, no code, no lobby screen", await g(`ctx.state === "playing" && !document.querySelector("#screenCard.open, .screen.open")`));
 
-  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend" }, Q(URL));
+  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend", luluHair: "#8E24AA" }, Q(URL));
   pages.push(B);
   await B.until(`__lulu3d && __lulu3d.state === "title"`, "B boots", 120000);
   await B.game(`(ctx.car.setSkin ? ctx.car.setSkin("gold") : 0, L3.startRun({ mode: "cruise", quick: true }))`);
@@ -106,9 +106,13 @@ async function body(t, pages, riders) {
   const gs1 = await g(`ctx.mp.ghostStats()`);
   t.check("stage 3: the other player is a solid car (no see-through body)", gs1.kinds[0] === "car" && gs1.seeThrough === 0, JSON.stringify(gs1));
   // …and her look travels: B's hair colour + outfit reach A (d.hc / d.ot)
+  // (give B a hair colour + something to wear first, so the check compares real values)
+  await B.game(`(() => { try { const P = ctx.clothes; P.give("mw_headband"); P.wear(Object.assign({}, P.current(), { acc: "mw_headband" })); } catch (e) { } return true; })()`);
+  await B.game(`(ctx.mp._debug.me.lookAt = 0, true)`);
+  await B.frames(150);
   const look = await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return p ? { hc: p.hc, ot: p.ot } : null; })()`);
   const bLook = await B.game(`({ hc: ctx.mp._debug.me ? ctx.mp._debug.me.hc : null, ot: ctx.mp._debug.me ? ctx.mp._debug.me.ot : null })`);
-  t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && look.hc === (bLook.hc || null) && look.ot === (bLook.ot || null), JSON.stringify({ look, bLook }));
+  t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && !!bLook.hc && !!bLook.ot && look.hc === bLook.hc && look.ot === bLook.ot, JSON.stringify({ look, bLook }));
   await t.shot("dropin");
 
   // ── SAFE: a stranger with a hacked client ──

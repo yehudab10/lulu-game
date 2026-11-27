@@ -2293,9 +2293,9 @@ honks / waves (≥ 0.8 s) and record toasts (≥ 90 s, only when they're on scre
 (`MP.recv` counts what was dropped); every field is range / format checked (`sk`, `co`, `vk`, numbers). Friends (a 🎉 party or a
 Shared Road code room) see each other's curated names. The emote wheel / 1–7 keys / 😀 button appear only when someone is
 actually around (alone, the horn is just a horn) and not in a party (the party's wheel is the emote system there). **Cost:** at
-most `CAP` = 6 riders are drawn (`ghosts.js`: the nearest in range, a little stickiness so equal distances don't flicker). A
-ghost CAR is baked into ONE vertex-coloured mesh (geometry shared per model + paint, its own see-through material; the wheels
-don't spin): measured, the full model was ~58 draw calls a ghost (1 ghost 265 → 6 ghosts 555 calls); merged it's ~2 (body +
+most `CAP` = 6 riders are drawn (`ghosts.js`: the nearest in range, a little stickiness so equal distances don't flicker). Another
+player's CAR is baked into ONE solid vertex-coloured mesh (geometry shared per model + paint + hair colour, one shared opaque
+material, glass left out; the wheels don't spin — stage 3, "no ghosts": it was see-through before): measured, the full model was ~58 draw calls a ghost (1 ghost 265 → 6 ghosts 555 calls); merged it's ~2 (body +
 name sprite), so a full road adds ≤ ~15 calls. A walking ghost is the Person rig (a handful of calls). Anyone else has no model at all, a ghost that drops out of the nearest few is freed after 3 s; nobody around =
 no per-player cost (the peer loop is empty). **Nothing personal leaves the device:** the relay gets a curated name, the car's
 skin, where Lulu is in the GAME world, and (in a party) a random id — no location, no contacts, no device or account info, no
@@ -2303,9 +2303,12 @@ free text. **👯 Friends** (the title item, id `party`; `party/index.js openHub
 friends who open the link land beside you — from mid-drive the solo run is banked first) · 🔑 Join with a code · 🎮 Party games
 (the lobby: races, road trip, dreidel dash, cop tag — what can't be a spot invitation yet) · 🌐 Play online on/off · 🕹️ Classic 2D
 friends (the Shared Road screen: a 2D-compatible code room + your rider name) + a line saying who's around. The phone's 👯 app is
-there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs friends on screen:** a stranger is a see-through ghost
-(~55 %, a soft tint of their paint) with a "Gold 72" label, never solid, never a name; a friend is a solid car / walker with
-their curated name, the 👑 / presence chips, emotes with phrases, rides, games. Test: `scripts/tests3d/mpworld.js` (offline
+there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs friends on screen (stage 3 of roadmap 25, "no ghosts", owner
+2026-11-27 — in progress on `ci/friends`):** everyone is drawn SOLID — her car in her paint + hair colour, or walking in her own
+outfit (`d.hc` / `d.ot` in the EVERYONE state; an old client without them: a top in her car's colour). Still different for
+now: a stranger's label is "Gold 72" (or her username from a signed ticket, names on), a friend's is her name with the 👑 /
+presence chips, emotes with phrases, rides, games. Next: the same bump rules + name tags for everyone, then other players in
+public rooms. Test: `scripts/tests3d/mpworld.js` (offline
 boot · two pages with no code see each other · a hostile stranger · the cap with 14 riders · a rider in town · ⚙️ Play online ·
 Dina · the 👯 hub · a party still sees strangers · a friend drawn once, as a friend · the phone's go solo).
 
