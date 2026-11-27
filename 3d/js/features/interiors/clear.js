@@ -24,15 +24,17 @@ const E = 1e-3, hits = (zones, x, z, hw, hd) => zones.some(c => x + hw > c.x0 + 
 
 /**
  * Where a solid piece (centre x, z; half-size hw × hd on the floor) may stand: as asked when it's clear of every zone,
- * else the nearest slide along z, then along x, that is clear and inside `lim` ({ x0, x1, z0, z1 } — its room's floor).
+ * else the nearest slide along z, or along x — the shortest — that is clear and inside `lim` ({ x0, x1, z0, z1 } — its room's floor).
  * → { x, z, moved } | null (nowhere: leave it out)
  */
 export function fit(zones, x, z, hw, hd, lim) {
     if (!zones || !zones.length || !hits(zones, x, z, hw, hd)) return { x, z, moved: false };
     const inside = (px, pz) => !lim || (px - hw >= lim.x0 - 1e-6 && px + hw <= lim.x1 + 1e-6 && pz - hd >= lim.z0 - 1e-6 && pz + hd <= lim.z1 + 1e-6);
-    for (const axis of ["z", "x"]) {
-        for (let d = 0.05; d <= 3.01; d += 0.05) {
-            for (const s of [-1, 1]) {           // (toward the back wall first: furniture belongs against a wall, not in the room's middle)
+    // (the SHORTEST slide wins — a piece moves as little as it can, so the rest of the room keeps its paths; at the same
+    //  distance along the wall (z) before into the room (x), toward the back first)
+    for (let d = 0.05; d <= 3.01; d += 0.05) {
+        for (const axis of ["z", "x"]) {
+            for (const s of [-1, 1]) {
                 const px = axis === "x" ? x + s * d : x, pz = axis === "z" ? z + s * d : z;
                 if (inside(px, pz) && !hits(zones, px, pz, hw, hd)) return { x: px, z: pz, moved: true };
             }
