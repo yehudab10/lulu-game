@@ -97,13 +97,15 @@ async function once(browser, base, prof, ctxHolder, warm) {
   // (PERFSTART_EXPERIMENT=models: load the models the home start fetches, behind the title, first — the upper bound of a preload)
   // the home is ready (▶ PLAY would start her at home, not on a plain drive): from navigation
   await page.evaluate(() => import("./js/features/world/home.js").then(m => { window.__wh = m.home; }));
-  const homeReadyAt = await page.waitForFunction(() => { const h = window.__wh, T = window.__lulu3d.ctx.town, S = T && T.debug && T.debug.S;
+  // PERFSTART_EARLY=<s>: press ▶ PLAY that many seconds after the title is up (don't wait for home) — must still be the home start
+  const EARLY = process.env.PERFSTART_EARLY != null ? +process.env.PERFSTART_EARLY : null;
+  const homeReadyAt = EARLY != null ? -2 : await page.waitForFunction(() => { const h = window.__wh, T = window.__lulu3d.ctx.town, S = T && T.debug && T.debug.S;
     return h && h.ready && (h.site !== "town" || !!(S && S.ok && S.ok[h.town && (h.town.id || h.town)])) ? performance.now() : 0; },
     null, { timeout: 600000, polling: 250 }).then(h => h.jsonValue()).catch(() => -1);
   if (process.env.PERFSTART_TRACE) console.log(`      home ready at ${Math.round(homeReadyAt)} ms (title ${Math.round(title.interactive)})`);
   if (process.env.PERFSTART_EXPERIMENT === "models") await page.evaluate(() => import("./js/models.js").then(m => { const f = m.modelFiles();
     return m.ensureModels(Object.keys(f).filter(k => /homes_|foot_|town_bochur|avigail_person/.test(f[k]))); }));
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(EARLY != null ? EARLY * 1000 : 4000);
   const pre = await page.evaluate(() => { const L3 = window.__lulu3d, ctx = L3.ctx, T = ctx.town;
     window.__progKeys = new Set((L3.renderer.info.programs || []).map(p => p.cacheKey));
     return { now: performance.now(), programs: (L3.renderer.info.programs || []).length, standing: T && T.standing ? T.standing.filter(s => s.ready).length : null,
@@ -123,6 +125,7 @@ async function once(browser, base, prof, ctxHolder, warm) {
       return { ok: c.state === "footRun" && !!c.foot && c.foot.phase === "walk", state: c.state, phase: c.foot && c.foot.phase, view: !!c.view,
         pending: performance.getEntriesByType("resource").length, res: P.res.length, last: (P.res[P.res.length - 1] || [])[3] }; });
     if (st.ok) break;
+    if (st.state === "playing" && !st.phase && Date.now() - tw > 8000 && EARLY != null) throw new Error("PLAIN DRIVE (not the home start) after an early ▶ PLAY: " + JSON.stringify(st));
     if (Date.now() - tw > (+process.env.PERFSTART_WAIT || 300000)) throw new Error("no control after PLAY: " + JSON.stringify(st) + " errors: " + errors.slice(0, 3).join(" | "));
     if (process.env.PERFSTART_TRACE && (Date.now() - tw) % 5000 < 60) console.log("      … " + Math.round((Date.now() - tw) / 1000) + " s " + JSON.stringify(st) + " line " + JSON.stringify(dl));
     await page.waitForTimeout(50);
