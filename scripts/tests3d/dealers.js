@@ -166,7 +166,9 @@ module.exports = {
       await t.hold(7, 0); await t.frames(30);
       await W.pause(t, true); await W.moved(t);
       t.check("🚀 launch control: from a stop, floor it → a rocket start", (await evs(/dealers:perk.*launch/)).length >= 1 && sp > 5, `${sp.toFixed(2)} m/s`);
-      await t.frames(60);
+      // (brake to a real stop first: the fridge pours only while she's standing still)
+      await t.hold(6, 1); await t.until(`__lulu3d.ctx.car.speed < 0.3`, "stopped", 6000); await t.hold(6, 0);
+      await t.frames(10);
       const b0 = await g(`ctx.G.boost`);
       await g(`(ctx.dealers.debug.perks.R.stopT = 9, true)`);
       await t.frames(4);
