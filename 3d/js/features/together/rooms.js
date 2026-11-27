@@ -32,6 +32,7 @@ export const SHARED = {
     home: () => (ctx.homes && ctx.homes.house ? ctx.homes.house.key : null),       // a house in town: its door
     bar: () => "", school: () => "", hospital: () => "", police: () => "", beach: () => "",       // the roadside doors: by the door (d.x.dr)
     courthouse: () => "",                                       // (places: the town's precinct / hospital reuse police / hospital — the door tells them apart)
+    yeshiva: () => "",                                          // (features/yeshiva: the big yeshiva — one in town, the door tells copies apart)
     shul: () => "",                                             // (features/shul: the town's shul — the door tells two copies apart)
     bank: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),     // the town's bank (heist): one lobby per town
     shopsPizza: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null), shopsBakery: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),   // (features/shops: the walk-in shops, one per town)
