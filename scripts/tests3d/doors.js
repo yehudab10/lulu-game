@@ -66,6 +66,28 @@ module.exports = {
       return miss;
     })()`);
 
+    // 🎥 stage 1 — inside, the camera is the on-foot one: behind her at eye-ish height (not from above), inside the room's
+    // box + under its ceiling, she's in the picture; up on the stick walks her AWAY from the camera, as outdoors
+    const room = expr => g(`(() => { const r = window.__interiors.room; return ${expr}; })()`);
+    const insideChecks = async where => {
+      await t.frames(30);
+      const c = await room(`(() => { const cam = r.set.camera, B = r.bounds, L = r.lulu.obj.position, v = L.clone().setY(1).project(cam);
+        return { orbit: !!r.orbiting, y: cam.position.y, in: cam.position.x > B.x0 - 0.5 && cam.position.x < B.x1 + 0.5 && cam.position.z > B.z0 - 0.5 && cam.position.z < B.z1 + 0.5,
+          seen: Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95 && v.z < 1, h: Math.hypot(cam.position.x - L.x, cam.position.z - L.z) }; })()`);
+      t.check(`${where}: the on-foot camera inside (orbit ${c.orbit}, ${c.y.toFixed(1)} m up, ${c.h.toFixed(1)} m back)`, c.orbit && c.y < 3.0 && c.h > 0.5);
+      t.check(`${where}: the camera stays inside the room`, c.in);
+      t.check(`${where}: she's in the picture`, c.seen);
+      // (nothing solid between the lens and her: a ray from the camera to her chest hits no unfaded room mesh)
+      const blocked = await room(`(() => { const T = __lulu3d.THREE || null; return r.debugBlocked ? r.debugBlocked() : ""; })()`);
+      t.check(`${where}: no wall between the camera and her`, !blocked, blocked);
+      await t.shot(`room-${where.replace(/\W+/g, "-")}`);
+      const before = await room(`(() => { const L = r.lulu.obj.position, cam = r.set.camera; return { fx: L.x - cam.position.x, fz: L.z - cam.position.z, x: L.x, z: L.z }; })()`);
+      await t.stick(0, -1); await t.frames(20); await t.stick(0, 0); await t.frames(4);
+      const after = await room(`(() => { const L = r.lulu.obj.position; return { x: L.x, z: L.z }; })()`);
+      const mx = after.x - before.x, mz = after.z - before.z, moved = Math.hypot(mx, mz), away = (mx * before.fx + mz * before.fz) / Math.max(1e-6, moved * Math.hypot(before.fx, before.fz));
+      t.check(`${where}: up on the stick walks her away from the camera (moved ${moved.toFixed(2)} m, cos ${away.toFixed(2)})`, moved < 0.3 || away > 0.5, JSON.stringify({ before, after }));
+    };
+
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "cruise starts")) return;
     await playing();
@@ -96,13 +118,14 @@ module.exports = {
       // …and every building door actually opens: in, then out again
       for (const d of doors.filter(d => ROOMS.has(d.name))) {
         await onFoot();
-        await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); return true; })()`);
+        await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); return true; })()`);
         await t.frames(4);
         const lbl = await g(`(() => { const pr = ctx.foot.debug.interactables(); if (!pr || pr.kind !== "spot") return "nothing"; pr.ent.act(); return pr.label; })()`);
         const inside = await t.until(`__lulu3d.state !== "footRun"`, `${id} ${d.name}: went in (${lbl})`, 60000);
         t.check(`${id} ${d.name}: walking up + ✋ goes in (${lbl})`, inside);
         if (!inside) continue;
         await t.until(`!window.__interiors || !__interiors.room || __interiors.room.ready`, `${id} ${d.name}: the room is up`, 60000);
+        if (await g(`!!(window.__interiors && __interiors.room && __interiors.room.ready)`)) await insideChecks(`${id} ${d.name}`);
         await g(`(window.__interiors && __interiors.room ? __interiors.room.leave() : 0, true)`);
         t.check(`${id} ${d.name}: and back out on foot`, await t.until(`__lulu3d.state === "footRun"`, `${id} ${d.name}: out`, 30000));
         await t.frames(10);
