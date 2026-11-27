@@ -45,7 +45,8 @@ export function beatNow() {
 function placeFor(b) {
     const T = ctx.town, sp = T && T.spot && T.spot(b.spot);
     if (!sp) return null;
-    const nx = sp.nx, nz = sp.nz, ux = sp.ux != null ? sp.ux : nz, uz = sp.uz != null ? sp.uz : -nx;
+    // (a spot without a facing — Lakewood's lake: the shore is its +x side, the path runs along z)
+    const nx = sp.nx != null ? sp.nx : 1, nz = sp.nz != null ? sp.nz : 0, ux = sp.ux != null ? sp.ux : nz, uz = sp.uz != null ? sp.uz : -nx;
     let ox = sp.x, oz = sp.z;
     if (b.door && sp.door && typeof sp.door === "object") { ox = sp.door.x; oz = sp.door.z; }
     const x = ox + ux * (b.u || 0) + nx * (b.door ? 1.0 : b.n || 0), z = oz + uz * (b.u || 0) + nz * (b.door ? 1.0 : b.n || 0);

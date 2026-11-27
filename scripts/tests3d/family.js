@@ -147,8 +147,8 @@ module.exports = {
         if (!await inTown(town)) return false;
         await day(wd, hour); await t.frames(8);
         if (!await t.until(`__lulu3d.ctx.family.debug.couple.beat() === "${id}"`, `the ${id} beat is out`, 20000)) return false;
-        const p = await g(`${K}.at()`);
-        await stand(p.x + p.nx * 2.2, p.z + p.nz * 2.2, p.x, p.z); await t.frames(10);
+        const p = await g(`${K}.at()`), o = await g(`${K}.who()`);
+        await stand(o.x + p.nx * 1.6, o.z + p.nz * 1.6, o.x, o.z); await t.frames(4);
         t.check(`${id}: ✋ over them`, !!(await g(`${K}.spot()`)), await g(`${K}.label()`));
         await g(`(${K}.play(), true)`);
         return t.until(`__lulu3d.ctx.dialogOpen`, `${id} starts`, 10000);
@@ -170,7 +170,7 @@ module.exports = {
       // 3 · the lake — Raizy walks by: cover for them
       await g(`(${K}.nextDay(), true)`);
       if (await meet("lakewood", 4, 16, "lake")) {
-        await talkThrough(30);
+        for (let k = 0; k < 60 && !await t.L(`[...document.querySelectorAll("#dialog button")].some(b => /LAWYER/.test(b.textContent))`); k++) { await t.frames(10); if (await g(`ctx.dialogOpen`) && !await t.L(`document.querySelectorAll("#dialog button").length`)) await t.tap(0); }
         t.check("…Raizy walks up (the near miss)", await g(`${K}.extra() === "raizy"`));
         await choose(/LAWYER/); await talkThrough(); await t.until(`!__lulu3d.ctx.dialogOpen`, "beat 3 over", 20000); await t.frames(10);
         t.check("beat 3 (the lake): Lulu covered for them (\"he's my LAWYER\")", await g(`${K}.C.n === 3 && ${K}.C.cover[2] === 1`), await g(`JSON.stringify(${K}.C)`));

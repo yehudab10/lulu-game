@@ -32,7 +32,7 @@ ctx.family = {
         couple: {
             C: COUPLE, CP, force: CP.force, play, beat: () => (CP.beat ? CP.beat.id : null), now: () => { const b = beatNow(); return b ? b.id : null; },
             at: () => CP.at && { x: CP.at.x, z: CP.at.z, nx: CP.at.nx, nz: CP.at.nz }, extra: () => (CP.extra ? CP.extra.key : null),
-            spot: () => !!COUPLE_SPOT.pos(), label: () => (CP.beat ? CP.beat.label : null),
+            spot: () => !!COUPLE_SPOT.pos(), who: () => { const o = Object.values(CP.ppl)[0]; return o ? { x: o.obj.position.x, z: o.obj.position.z } : null; }, label: () => (CP.beat ? CP.beat.label : null),
             reset() { COUPLE.n = 0; COUPLE.day = ""; COUPLE.cover = []; COUPLE.picks = []; CP.ride = null; return true; },
             nextDay() { COUPLE.day = ""; return true; },
         },

@@ -51,7 +51,7 @@ export const BEATS = [
         after: [["toby", "*whispers* It's not that he's not wonderful. He IS. It's that… he knew my family. Before. A LONG time before."], ["lulu", "Before WHAT?"], ["toby", "Next time. Shh. Cart lady."]],
     },
     {
-        id: "lake", town: "lakewood", spot: "lake", u: 0, n: 4, hours: [15, 20], who: ["shloime", "toby", "gitty"], walk: true,
+        id: "lake", town: "lakewood", spot: "lake", u: 0, n: 3.6, hours: [15, 20], who: ["shloime", "toby", "gitty"], walk: true,
         label: "👀 SHLOIME + TOBY — BY THE LAKE", far: ["*a stroller, two people, a walk by the lake — and an EXTREMELY casual distance between them*"],
         lines: [
             ["toby", "Lulu! Okay. You've earned it. Sit. …The reason. Twelve years ago Shloime went out with my SISTER."],
