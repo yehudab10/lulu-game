@@ -15,6 +15,8 @@ import * as H from "../../hud.js";
 import { ID, PROTESTS, PROTEST_HONK, PROTEST_HOURS, PROTEST_LINES as PL, PROTEST_TUNE as K } from "./data.js";
 import { S, saveSoon, inTown, townId, stat, hour, force } from "./state.js";
 import { signTexture } from "./rooms.js";
+import { edictTopic } from "./mayor.js";
+import { MAYOR31 } from "./data.js";
 
 const PERSON = ["Body", "Arm_L", "Arm_R", "Leg_L", "Leg_R"];
 const LOOKS = { man: "npcMan", woman: "npcWoman" };
@@ -49,6 +51,7 @@ export function topicToday(town = townId()) {
     const fees = S.fees || {};
     const d = new Date(), day = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
     if (fees.day === day && fees.kinds && fees.kinds.honk) return PROTEST_HONK;
+    if (town === "midwood") { const e = edictTopic(); if (e) return e; }        // (roadmap 31: Midwood protests the mayor's edict of the day)
     const n = Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000) + (town === "midwood" ? 2 : 0);
     return PROTESTS[n % PROTESTS.length];
 }
@@ -264,7 +267,7 @@ export function protestTick(dt) {
         if (m && m.x != null && H.bubbleOk && H.bubbleOk(2)) bubble(m, W.topic.chant[W.chantI % W.topic.chant.length], 2.0);
         W.chantI++;
     }
-    if (!PR.said && d < 22 && onFoot()) { PR.said = true; if (Math.random() < 0.6 && ctx.foot.obj) try { ctx.foot.say(ctx.foot.obj, W.topic.id === "honk" ? "…are they looking at me?" : pick(PL.lulu), 2.6); } catch (e) { /* none */ } }
+    if (!PR.said && d < 22 && onFoot()) { PR.said = true; if (Math.random() < 0.6 && ctx.foot.obj) try { ctx.foot.say(ctx.foot.obj, W.topic.id === "honk" ? "…are they looking at me?" : pick(/^edict:/.test(W.topic.id) ? MAYOR31.lulu : PL.lulu), 2.6); } catch (e) { /* none */ } }
     if (d < 140) draw(W, dt);
 }
 on("town:leave", () => { protestStop(); PR.said = false; });

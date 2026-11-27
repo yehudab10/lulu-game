@@ -3,6 +3,10 @@
 
 export const ID = "cityhall";
 
+/** Midwood's mayor (roadmap 31): a FICTIONAL communist-wannabe planner — pure policy satire, tied to no real person, his
+ *  edicts land on everyone equally. ONE constant: swap the name here and everything follows. */
+export const PEOPLESKY = { name: "Mayor Sasha Peoplesky", short: "Mayor Peoplesky", first: "Sasha", last: "Peoplesky" };
+
 /** Per town: the building, its mayor, the colours. */
 export const TOWNS = {
     lakewood: {
@@ -24,8 +28,8 @@ export const TOWNS = {
         signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"],
         tints: { Walls: "#C9B9A0", Trim: "#EDE6D8", Roof: "#3F6B4F", Accent: "#1B3A2B" },
         mayor: {
-            name: "Mayor Hershel Pickleman", short: "Mayor Pickleman", emoji: "🥒",
-            colors: { Top: "#3E4A3D", Bottom: "#1B1B1B", Hair: "#5D4037" },
+            name: PEOPLESKY.name, short: PEOPLESKY.short, emoji: "📢",
+            colors: { Top: "#8E2B2B", Bottom: "#263238", Hair: "#3E2723" },
         },
         secretary: { name: "Mrs. Rivky Fein", colors: { Top: "#00897B", Bottom: "#263238", Hair: "#212121" } },
     },
@@ -97,7 +101,7 @@ export const BOARD = {
     ],
     midwood: [
         "📌 Alternate-side parking: Tuesdays and Fridays. And some Mondays. Good luck.",
-        "📌 Mayor Pickleman's office hours: 9 to 9:15.",
+        "📌 The mayor's office hours: whenever the People need him. (Tuesdays, 10 to 10:05.)",
         "📌 FOUND: a stroller on Avenue J. It's a double. It's huge. Please collect it.",
         "📌 The Q train is late. This is not news. This is a lifestyle.",
         "📌 Pizza tasting committee seeks volunteers. Many volunteers. Very many.",
@@ -126,21 +130,23 @@ export const MAYOR = {
             "What have I done for this town? I cut the ribbon on the new pothole on Route 9. A beautiful pothole.",
             "I opened a bench. A BENCH. People sit on it every day. You're welcome.",
             "I named a speed bump after my mother. She's very proud. She drives around it.",
+            "Have you SEEN Midwood's new mayor? One cabbage! Suddenly my ribbons look like a golden age.",
         ],
         selfie: "A selfie? Wait — my good side. That's the other side. Hold on. *turns* Perfect.",
         bye: ["Remember: Kugelman! It's like kugel, but a man!", "Tell your friends. Tell your friends' friends. Mostly tell their parents."],
         poster: ["RE-ELECT", "MAYOR KUGELMAN", "He cut it. He'll cut it again."],
     },
     midwood: {
-        hello: ["Hershel Pickleman. Mayor of Midwood. Nobody else ran, so — mayor!", "Come in, come in! I just got back from the bakery. Official business."],
+        hello: [`${PEOPLESKY.first} Peoplesky! Mayor of the People! You're a People! Welcome, comrade-constituent!`, "Come in! Mind the line. Everything has a line now. It's fairer that way."],
         done: [
-            "What have I done? I held a press conference at the bakery. Very important. Very crumbly.",
-            "I put up a sign saying DON'T BLOCK THE BOX. Then I put up nine more. Very clear now.",
-            "Midwood is the second-best town on this road. I want to make it the first-best. Somehow.",
+            "What have I done? The People's Grocery! Everyone gets the same thing. Today it's a cabbage. One. We're sharing it.",
+            "Free buses! Totally free. Free to ride, free to wait for. Mostly free to wait for.",
+            "A Five-Year Plan for the pothole on Avenue L. Year one: we look at it. Very carefully.",
+            "I froze the rent! And the boilers, by accident. The People are… very cool about it.",
         ],
-        selfie: "A selfie! Get the posters in the back. All of them. There. History.",
-        bye: ["Vote Pickleman! You can't, there's no election. But in spirit!", "Grab a pickle on your way out. They're in the jar. They're for voters."],
-        poster: ["MAYOR PICKLEMAN", "IS WORKING FOR YOU", "(he's at the bakery)"],
+        selfie: "A selfie? For the People's Archive! Hold it level — every photo the same height. Equality!",
+        bye: ["Go in solidarity! And in a line. Single file.", "Remember: what's mine is yours. What's yours is… under review."],
+        poster: ["THE PEOPLE'S MAYOR", PEOPLESKY.last.toUpperCase(), "Everything for everyone (eventually)"],
     },
 };
 
@@ -154,10 +160,10 @@ export const RIBBONS = {
         { what: "a parking meter", speech: "A meter! Feed it coins! It is always hungry, like our town!" },
     ],
     midwood: [
-        { what: "a new trash can", speech: "This trash can will hold so much trash. Midwood trash!" },
-        { what: "a fire hydrant", speech: "A hydrant! Do not park here. Everyone will park here. It's tradition." },
-        { what: "a crosswalk", speech: "Stripes! White ones! Walk on them, Midwood! Walk proud!" },
-        { what: "a bike rack", speech: "A bike rack! Nobody has a bike. But if you DID…" },
+        { what: "the People's Empty Lot", speech: "Nothing here! And it belongs to EVERYONE. Nothing for all!" },
+        { what: "the People's Bus Stop", speech: "A free bus stops here! Will stop here. In the Five-Year Plan." },
+        { what: "the People's Bench", speech: "We removed the old bench so everyone gets this one. It arrives in the spring!" },
+        { what: "the People's Pothole", speech: "Year one of the plan: we honour the pothole. Year two: we discuss it." },
     ],
 };
 export const RIBBON_CROWD = ["👏", "Mazel tov!", "Speech!", "*polite clapping*", "Is there food?", "Is that it?"];
@@ -343,7 +349,7 @@ export const PROTEST_TUNE = { marchers: 9, beat: 0.95, window: 0.32 };
 // with a risk (now and then it's a sting). Every payout is once per town and capped per real day (STORY_PAY.dayCap).
 export const STORY = {
     lakewood: { firm: "Feivish Asphalt", boss: "Feivish", rel: "the mayor's brother-in-law", paper: "The Lakewood Kvetch", street: "Minivan Way" },
-    midwood: { firm: "Pickleman & Nephews Paving", boss: "Yudel Pickleman", rel: "the mayor's nephew", paper: "The Midwood Kvetch", street: "Avenue K" },
+    midwood: { firm: "The People's Paving Collective", boss: "Comrade Feld", rel: "the mayor's campaign manager", paper: "The Midwood Kvetch", street: "Avenue K" },
 };
 export const STORY_PAY = { expedite: 5, cut: 6, hush: 6, paper: 10, ia: 10, dayCap: 15, sting: 0.15 };
 export const STORY_LINES = {
@@ -370,7 +376,81 @@ export const STORY_LINES = {
     ia: s => `Internal Affairs: thank you. ${s.boss} has been reassigned to pothole duty. Real potholes. Many of them.`,
     hush: s => `${s.boss}: "What photo? There's no photo. Here's some coins. There's no coins either."`,
     after: {
-        exposed: { lakewood: "The paper? THE PAPER? …I've decided to cut fewer ribbons for a while. Maybe one a week.", midwood: "So my nephew is in the paper. Fine. Midwood has a free press. I'm very proud. I'm very upset." },
-        partner: { lakewood: "Ah, my brother-in-law's friend! Wonderful person. Very discreet. Like a speed bump.", midwood: "You and my nephew get along? Lovely. Keep it that way. Quietly." },
+        exposed: { lakewood: "The paper? THE PAPER? …I've decided to cut fewer ribbons for a while. Maybe one a week.", midwood: "The paper printed it? The People's Paper? …I'll have a committee look at the paper." },
+        partner: { lakewood: "Ah, my brother-in-law's friend! Wonderful person. Very discreet. Like a speed bump.", midwood: "Ah, a friend of the Collective! Wonderful. Everything we have is shared. Except that photo." },
     },
+};
+
+// ── roadmap 31: Mayor Peoplesky's edicts (mayor.js) ───────────────────────────────────────────────────────────────
+// One is "today's" (the real day); Midwood's protests, the notice board, the Complaints window and a Courtroom 2B case are
+// about it. Every edict lands on EVERYONE equally (the joke is a one-size-fits-all planner who doesn't know the
+// neighbourhood). Striking one down in court (mayor.js) is a small win for the residents: it stays struck for good.
+export const EDICTS = [
+    { id: "grocery", title: "The People's Grocery", notice: "📜 EDICT 1: The People's Grocery is OPEN. Today's selection: one cabbage. Please share.",
+        signs: ["MORE THAN ONE CABBAGE", "THE LINE GOES TO QUEENS", "WE WANT CHOICES"], chant: ["WHAT DO WE WANT?", "TWO CABBAGES!", "WHEN DO WE WANT THEM?", "BEFORE DINNER!"],
+        about: "The People's Grocery has one cabbage. The line is four blocks long. Nobody's sure who gets the cabbage." },
+    { id: "buses", title: "Free buses", notice: "📜 EDICT 2: All buses are now FREE. Bus arrival times are also free (to imagine).",
+        signs: ["FREE BUSES THAT EXIST", "WE'VE BEEN HERE SINCE TUESDAY", "A BUS. ANY BUS."], chant: ["WHAT DO WE WANT?", "A BUS!", "WHEN DO WE WANT IT?", "EVER!"],
+        about: "The buses are free now. They also stopped coming. Somebody brought a folding chair. Then a tent." },
+    { id: "rent", title: "The rent freeze", notice: "📜 EDICT 3: Rent is FROZEN. (Note: boilers also frozen. Unrelated. Under review.)",
+        signs: ["UNFREEZE THE BOILERS", "WE CAN SEE OUR BREATH", "FROZEN RENT, FROZEN TOES"], chant: ["WHAT DO WE WANT?", "HEAT!", "WHEN DO WE WANT IT?", "BEFORE WINTER!"],
+        about: "He froze the rent so hard the boilers froze too. Everyone's wearing three coats indoors." },
+    { id: "pothole", title: "The Five-Year Plan for one pothole", notice: "📜 EDICT 4: The Five-Year Plan for the pothole on Avenue L. Year 1: observing the pothole.",
+        signs: ["FILL IT THIS YEAR", "IT'S ONE POTHOLE", "WE HAVE A SHOVEL"], chant: ["ONE POTHOLE!", "FIVE YEARS!", "ONE SHOVEL!", "FIVE MINUTES!"],
+        about: "A Five-Year Plan for one pothole. Year one is 'looking at it'. Someone offered to fill it with a shovel. Not approved." },
+    { id: "kugel", title: "The People's Kugel Kitchen", notice: "📜 EDICT 5: All kugel will now be made in ONE People's Kugel Kitchen. One flavour. For fairness.",
+        signs: ["LET US PICK OUR KUGEL", "ONE FLAVOUR IS NOT A FLAVOUR", "HANDS OFF MY RECIPE"], chant: ["WHOSE KUGEL?", "OUR KUGEL!", "HOW MANY FLAVOURS?", "ALL OF THEM!"],
+        about: "He 'seized the means of kugel production'. Now there's one kitchen and one flavour. It's beige." },
+    { id: "avenue", title: "Avenue K-for-Kollective", notice: "📜 EDICT 6: Avenue K is renamed 'Avenue K-for-Kollective'. All maps are now wrong. Thank you.",
+        signs: ["WE LIKED AVENUE K", "THE DELIVERY GUY IS LOST", "IT'S ONE LETTER"], chant: ["WHAT'S IT CALLED?", "AVENUE K!", "JUST K?", "JUST K!"],
+        about: "He renamed Avenue K to 'Avenue K-for-Kollective'. Every delivery in the neighbourhood went to the wrong place." },
+    { id: "bench", title: "The People's Bench", notice: "📜 EDICT 7: The old bench is removed so everyone can share the People's Bench. Arriving: spring (which spring: TBD).",
+        signs: ["WHERE DO WE SIT", "GIVE US BACK THE OLD BENCH", "STANDING IS NOT A PLAN"], chant: ["WHERE DO WE SIT?", "NOWHERE!", "WHERE'S THE BENCH?", "SPRING!"],
+        about: "He took away the old bench so everyone could share a new one. The new one hasn't come. The bubbes are standing. They're not happy." },
+    { id: "tickets", title: "The parking-ticket quota", notice: "📜 EDICT 8: A parking-ticket quota 'for the collective'. Every car gets one. Even the parked ones. ESPECIALLY the parked ones.",
+        signs: ["TICKETS ARE NOT A HARVEST", "I WAS PARKED LEGALLY", "THE QUOTA IS SILLY"], chant: ["WHO GETS A TICKET?", "EVERYONE!", "IS THAT FAIR?", "NO!"],
+        about: "A ticket quota 'for the collective'. Malka the meter maid says even SHE thinks it's too much." },
+    { id: "umbrella", title: "One umbrella per block", notice: "📜 EDICT 9: To save resources: one shared umbrella per block. Please take turns. Quickly.",
+        signs: ["ONE UMBRELLA PER BLOCK?!", "IT'S RAINING ON 40 PEOPLE", "WE OWN UMBRELLAS"], chant: ["HOW MANY UMBRELLAS?", "ONE!", "HOW MANY PEOPLE?", "WET ONES!"],
+        about: "One shared umbrella per block. Today it rained. Forty people under one umbrella. It went badly." },
+    { id: "bread", title: "The People's Loaf", notice: "📜 EDICT 10: All bread in the borough will now be one standard shape: the People's Loaf (a brick).",
+        signs: ["BREAD SHOULD NOT BE A BRICK", "LET BAKERS BAKE", "SHAPES ARE GOOD"], chant: ["WHAT DO WE WANT?", "SHAPES!", "WHAT DO WE GET?", "BRICKS!"],
+        about: "Every bakery now has to bake the same shape: a brick. The bakers are furious. The bread is also furious." },
+];
+export const MAYOR31 = {
+    complaint: { opt: "📜 The mayor's latest edict", reply: e => `About "${e.title}"? You and the whole neighbourhood. This window got four hundred today. I'm filing them in a big pile labelled THE PEOPLE.` },
+    struckNotice: e => `📜 STRUCK DOWN BY THE COURT: "${e.title}". (The mayor says he will appeal to the People. The People said no.)`,
+    staff: ["*sighs* Another edict came down this morning. I'm out of stamps that say EDICT.", "Off the record? I miss Pickleman. He only cut ribbons."],
+    lulu: ["'The People's' everything. The People never asked.", "One cabbage. For the whole neighbourhood. That's the plan.", "Mayor Peoplesky's face is on every lamppost. Even the broken ones."],
+};
+/** Pickleman lost by 3 votes: a pickle stand outside Borough Hall, demanding a recount every single day. */
+export const PICKLEMAN = {
+    name: "Hershel Pickleman", emoji: "🥒", colors: { Top: "#3E4A3D", Bottom: "#1B1B1B", Hair: "#5D4037" },
+    spot: "🥒 PICKLEMAN'S RECOUNT",
+    lines: [
+        "Three votes! I lost by THREE votes! I demand a recount. Again. Today's recount: I lost by three votes.",
+        "Pickle? Free pickle with every signature. Sign here: 'RECOUNT'. No, the pickle's not a bribe. It's a pickle.",
+        "Under me you had ribbons. RIBBONS! Now you have one cabbage. Think about it.",
+        "I called the Board of Elections. They said 'not you again'. That's practically a yes.",
+        "My nephew counted the votes. He got four. Recounted. Three. We're going to court. Small claims. Very small.",
+    ],
+    hello: ["RECOUNT! …oh, hi Lulu. Pickle?", "Three votes, Lulu. THREE."],
+};
+/** ⚖️ Courtroom 2B (Midwood): Lulu gets today's edict struck down. One hearing a real day; nothing pays. */
+export const EDICT_COURT = {
+    counsel: { name: "THE PEOPLE'S LAWYER", emoji: "📢", color: "#8E2B2B" },
+    title: e => `THE NEIGHBOURS v. THE PEOPLE'S MAYOR — "${e.title}"`,
+    label: "⚖️ Challenge the mayor's edict",
+    docket: e => `📋 NOW: The Neighbours v. the People's Mayor — "${e.title}"`,
+    open: e => `Case 2B: the neighbourhood challenges the edict known as "${e.title}". All rise. Or sit. Equally.`,
+    people: ["Your honour, the edict is for EVERYONE. Everyone hates it equally. That's fairness.", "The mayor asks the court to note: he means well. He also meant well the last nine times."],
+    judgeAsk: "Young lady. You've brought half the neighbourhood with you. Why should this edict go?",
+    defence: [
+        { label: "📏 \"It treats everyone the same — badly.\"", judge: "Equal misery is still misery. Noted." },
+        { label: "🗳️ \"Nobody asked the neighbours.\"", judge: "Did ANYONE ask the neighbours? …No hands. Interesting." },
+        { label: "🥒 \"Even Pickleman wouldn't do this.\"", judge: "That's a low bar. And yet. Here we are, under it." },
+    ],
+    ruling: e => `The court strikes down "${e.title}". The neighbourhood may go home. Single file is NOT required.`,
+    lulu: "We won! Small win. Still a win.",
+    allStruck: "📋 2B — every edict is struck down this week. The mayor is drafting new ones. Rest while you can.",
 };
