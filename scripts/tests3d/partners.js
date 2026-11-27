@@ -17,6 +17,8 @@ const D = `ctx.law._dbg`, CR = `ctx.law.crew`;
 
 module.exports = {
   name: "partners",
+  fast: false,     // (two pages on the relay keep a REAL performance.now — the party clock is built on it — and this file's flow trips on
+                   //  a real-millisecond guard under the fast clock: the old clock)
   viewport: { width: 1280, height: 720 },
   query: Q0,
   save2d: { totalCoins: 900, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid" },
