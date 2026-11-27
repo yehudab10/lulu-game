@@ -47,6 +47,7 @@ module.exports = {
       if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
       await W.moved(t);
       await g(`(() => { const c = ctx.car, p = ctx.world.highway.point(${s}, 5.25, {}); c.place(p.x, p.z, p.h); c.s = ${s}; c.d = 5.25; c.vx = c.vz = c.vF = 0; ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
+      await W.moved(t);          // (…and the car put down at the next place: the test's teleport, the chase cam re-seats)
       await t.frames(20);
     };
     let phoneIndoors = null;
