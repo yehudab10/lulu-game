@@ -186,3 +186,24 @@ The game: `scripts/tests3d/accounts.js`, `accountsfriends.js` (two / three real 
 - `homes.mjs` — 🏘️ the property registry (shared by the worker + the local relay); `test-homes.mjs` its tests.
 - `accounts.mjs` — 🪪 accounts, usernames, friends, requests, blocks, reports (worker + local relay); `test-accounts.mjs`.
 - `package.json` — deps (`ws`) + scripts.
+
+## 👜 Limited luxury pieces (`wear.mjs`, added 2026-11-27 — owner-approved: golden rule 3, third exception)
+
+Lulu's Road Trip 2.0 sells a few luxury clothing pieces that are LIMITED IN THE WHOLE WORLD (the owner: "limited supply
+of items rather than time based"). This counter hands out their numbers ("No. 17 of 50"). Additive: new `/wear/*`
+endpoints on the existing global `Board` Durable Object with ONE new table, `wear_limited` (piece, number, holder's
+random player id, held / owned, hold-until, when). Nothing that existed changed shape; old clients never call it.
+Coins stay on the device. Totals: `LIMITED` in `wear.mjs` (keep in step with `3d/js/features/clothes/data.js`).
+
+| endpoint | body | answer |
+|---|---|---|
+| `GET /wear/stock` | — | `{ v, stock: { piece: { total, left } } }` (held numbers count as taken) |
+| `POST /wear/reserve` | `{ pid, sec, p }` | `{ ok, n, total, until }` — the lowest free number held 5 min · `{ ok: false, why: soldout \| owned }` |
+| `POST /wear/confirm` | `{ pid, sec, p }` | `{ ok, n, total }` (paid on her phone) · `{ ok: false, why: expired }` (her phone refunds) |
+| `POST /wear/cancel` | `{ pid, sec, p }` | `{ ok }` — a held number goes back |
+| `POST /wear/mine` | `{ pid, sec }` | `{ mine: [{ p, n, st, total }], stock }` — a new phone restores her numbers, never charged twice |
+
+Only an ACCOUNT with a username (`accounts.mjs`' secret hash); one of each piece per account; per-account + per-IP
+rate limits; deleting the account (`/acct/delete`) gives its pieces back. No resale or trading. Tests:
+`node server/test-wear.mjs` (local) · `node server/test-wear.mjs --url https://…` (production: a throw-away hold that's
+cancelled; `prodcheck.mjs` runs it).

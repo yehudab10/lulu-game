@@ -243,7 +243,9 @@ async function town(t) {
         return { moved: +Math.hypot(p.x - ${ram.x0}, p.z - ${ram.z0}).toFixed(1), inBlock, alarms: ctx.life.info().alarm.alarms }; })()`);
     console.log("   rammed", JSON.stringify(pc), JSON.stringify(bumpLog));
     t.check("a parked car rammed 8 times never ends up inside a block of houses", !pc.inBlock, JSON.stringify(pc));
-    t.check("…but it still gets shoved (it moved)", pc.moved > 1, JSON.stringify(pc));
+    // (rammed from the road toward its block it slides to the houses' wall and stops there — town/parked.js: a kerbside
+    //  car ~1 m from the block moves ~1 m; "it moved" is the point, not how far)
+    t.check("…but it still gets shoved (it moved)", pc.moved >= 0.5, JSON.stringify(pc));
     t.check("…its alarm went off (life's hazards)", pc.alarms > 0, JSON.stringify(pc));
     await t.shot("rammed");
   }

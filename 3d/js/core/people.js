@@ -87,11 +87,20 @@ export class Person {
     }
 }
 
+// Lulu's clothes (features/clothes): every Lulu model ("luluPerson*") is dressed by the dresser — HER outfit by
+// default, `outfit: {…}` for a friend's, `outfit: false` for none. A Lulu whose `colors` set her Top (the jumpsuit,
+// the ER gown, a disguise, a stranger's ghost) is left as it is.
+let dresser = null;
+export function setDresser(fn) { dresser = fn; }
+
 /** Clone a person model (optionally recolouring materials by name) and wrap it. */
-export function spawnPerson(key, { colors = null, scale = 1 } = {}) {
+export function spawnPerson(key, { colors = null, scale = 1, outfit } = {}) {
     if (!models[key]) throw new Error(`spawnPerson: model "${key}" isn't loaded (ensureModels first)`);
     const obj = cloneWithColors(models[key], colors);
     obj.scale.setScalar(scale);
+    if (dresser && outfit !== false && key.startsWith("luluPerson") && !(colors && colors.Top)) {
+        try { dresser(obj, outfit); } catch (e) { console.error("[people] dress", e); }
+    }
     shadowBatch(obj);          // (MEDIUM / HIGH: its parts cast in the people's one shadow draw — lod.js)
     return new Person(obj);
 }

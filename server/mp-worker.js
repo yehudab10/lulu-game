@@ -23,6 +23,7 @@
 
 import { createHomes, sqlStore } from "./homes.mjs";   // 🏘️ the world-wide property registry (ci/realestate, owner-approved 2026-11-20)
 import { createAccounts, doSql } from "./accounts.mjs"; // 🪪 accounts + usernames + friends (ci/accounts, owner-approved 2026-11-26)
+import { createWear } from "./wear.mjs";               // 👜 limited luxury pieces: a world-wide stock counter (ci/clothes, owner-approved 2026-11-27)
 
 const MAX_MEMBERS = 24;
 const MAX_FRAME_BYTES = 2 * 1024; // 2 KB
@@ -359,9 +360,15 @@ export class Board {
       const q = doSql(this.sql);
       this.acct = createAccounts(q, {
         homeSech: (pid) => { try { const r = q("SELECT sech FROM homes WHERE owner = ? LIMIT 1", pid)[0]; return r ? r.sech : null; } catch (e) { return null; } },
+        onDelete: (pid) => this.wearReg().releaseAll(pid),
       });
     }
     return this.acct;
+  }
+
+  wearReg() {
+    if (!this.wear) this.wear = createWear(doSql(this.sql), { sechOf: (pid) => this.accounts().sechOf(pid), nameOf: (pid) => this.accounts().nameOf(pid) });
+    return this.wear;
   }
 
   clientIp(request) {
@@ -405,6 +412,13 @@ export class Board {
       if (method === "GET") body = { n: url.searchParams.get("n"), pid: url.searchParams.get("pid") };
       else body = await this.readBody(request, 16 * 1024);
       const r = await this.accounts().handle(path, method, body, this.clientIp(request));
+      return corsJson(r.body, r.status);
+    }
+
+    // 👜 /wear/* — limited luxury pieces (wear.mjs): one more table in this same global object
+    if (path.startsWith("/wear/")) {
+      const body = method === "GET" ? {} : await this.readBody(request, 4 * 1024);
+      const r = await this.wearReg().handle(path, method, body, this.clientIp(request));
       return corsJson(r.body, r.status);
     }
 
@@ -527,7 +541,7 @@ export default {
 
     // Async board (phase 2): everything under /board/* → the single global
     // Board Durable Object. Handles GET/POST + OPTIONS preflight itself.
-    if (parts[0] === "board" || parts[0] === "homes" || parts[0] === "acct") {
+    if (parts[0] === "board" || parts[0] === "homes" || parts[0] === "acct" || parts[0] === "wear") {
       const id = env.BOARD.idFromName("global");
       const stub = env.BOARD.get(id);
       return stub.fetch(request);

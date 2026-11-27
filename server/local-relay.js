@@ -321,9 +321,39 @@ function acctReg() {
     const fast = process.env.ACCT_FAST === "1";
     return m.createAccounts(q, { clock: () => Date.now() + homesClock.offset,
       config: fast ? { writeGapMs: 30, checkGapMs: 0 } : {},
-      homeSech: (pid) => { const r = homesStore && homesStore.byOwner(pid)[0]; return r ? r.sech : null; } });
+      homeSech: (pid) => { const r = homesStore && homesStore.byOwner(pid)[0]; return r ? r.sech : null; },
+      onDelete: (pid) => { if (wearNow) wearNow.releaseAll(pid); } });
   });
   return acctP;
+}
+// --- 👜 limited luxury pieces (wear.mjs — the SAME code the worker runs, on node:sqlite) ---------------------------
+// Dev / test only: POST /wear/_clock {offset} moves the same clock (a hold running out in a test); WEAR_LIMITED='{"jfk_bag":2}'
+// shrinks the totals (selling out in a test). The production worker has neither.
+let wearP = null, wearNow = null;
+function wearReg() {
+  if (!wearP) wearP = acctReg().then((A) => Promise.all([import("./wear.mjs"), import("./accounts.mjs")]).then(async ([w, a]) => {
+    const q = await a.nodeSql(":memory:");
+    if (!q || !A) return null;
+    let lim = null;
+    try { lim = process.env.WEAR_LIMITED ? Object.assign({}, w.LIMITED, JSON.parse(process.env.WEAR_LIMITED)) : null; } catch (e) { lim = null; }
+    wearNow = w.createWear(q, { clock: () => Date.now() + homesClock.offset, sechOf: (pid) => A.sechOf(pid), nameOf: (pid) => A.nameOf(pid),
+      config: process.env.ACCT_FAST === "1" ? { writeGapMs: 30, ipGapMs: 0 } : {}, limited: lim });
+    return wearNow;
+  }));
+  return wearP;
+}
+function handleWear(req, res, pathname) {
+  if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
+  const done = (st, obj) => sendBoard(res, st, obj);
+  const run = (body) => {
+    if (pathname === "/wear/_clock" && req.method === "POST") { homesClock.offset = Number(body && body.offset) || 0; done(200, { ok: true, offset: homesClock.offset }); return; }
+    wearReg().then((W) => (W ? W.handle(pathname, req.method, body, boardClientIp(req)) : { status: 404, body: { error: "no wear here" } }))
+      .then((r) => done(r.status, r.body)).catch((e) => done(500, { error: String(e && e.message) }));
+  };
+  if (req.method === "GET") { run({}); return; }
+  let raw = "";
+  req.on("data", (c) => { raw += c; if (raw.length > 4 * 1024) req.destroy(); });
+  req.on("end", () => { let body = null; try { body = JSON.parse(raw); } catch (_) { body = null; } run(body && typeof body === "object" ? body : null); });
 }
 function handleAcct(req, res, pathname) {
   if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
@@ -370,6 +400,7 @@ const server = http.createServer((req, res) => {
   }
   if (pathname.startsWith("/homes/")) { handleHomes(req, res, pathname); return; }
   if (pathname.startsWith("/acct/")) { handleAcct(req, res, pathname); return; }
+  if (pathname.startsWith("/wear/")) { handleWear(req, res, pathname); return; }
   res.writeHead(426);
   res.end("expected websocket upgrade");
 });
