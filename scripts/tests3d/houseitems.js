@@ -98,7 +98,9 @@ module.exports = {
       await g(`(${I}.add("chicken", null, true), true)`);
       t.check("two things: the newest in hand", (await g(`${I}.hand`)) === "chicken");
       await g(`${I}.swap()`);
-      t.check("swap → the pan", (await g(`${I}.hand`)) === "pan");
+      t.check("swap → her pepper spray (a slot after the bag: the button sprays)", (await g(`${I}.hand`)) === null && (await g(`${I}.slots()`)) === 3);
+      await g(`${I}.swap()`);
+      t.check("swap again → the pan", (await g(`${I}.hand`)) === "pan");
       const p0 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2") || "{}").pepperSpray`);
       const n0 = await g(`${I}.debug.R.log.filter(e => e.ev === "use").length`);
       await t.key("KeyG"); await t.frames(40);
