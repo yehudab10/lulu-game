@@ -133,6 +133,36 @@ export const EV_CARS = {
     },
 };
 export const EV_IDS = Object.keys(EV_CARS);
+/** ⚡ The Tushla CONFIGURATOR (the owner: "more of a Tesla experience"): everything on one big screen — the model, then
+ *  these, the price updating live, ORDER (a fixed price, no haggling), a delivery where it rolls out by itself. Each
+ *  option is paid once per car (garage/buy.js buyExtra); "0" = the standard one. Colours are what the car really wears. */
+export const EV_CONFIG = {
+    paint: [
+        { id: "stock", name: "Factory", hex: null, price: 0 },
+        { id: "kugel", name: "Pearl Kugel White", hex: "#F2F1EC", price: 300 },
+        { id: "cholent", name: "Midnight Cholent", hex: "#1C1B22", price: 300 },
+        { id: "seltzer", name: "Seltzer Blue", hex: "#3D8BD4", price: 300 },
+        { id: "pepper", name: "Very Red Pepper", hex: "#C62828", price: 450 },
+        { id: "challah", name: "Challah Gold", hex: "#C9A227", price: 600 },
+    ],
+    wheels: [
+        { id: "bagel", name: "19\" Aero Bagels", hex: "#3A3A3A", price: 0 },
+        { id: "latke", name: "20\" Turbine Latkes", hex: "#B8BCC2", price: 400 },
+        { id: "chrome", name: "21\" Shabbos Chrome", hex: "#E8E8E8", price: 800 },
+    ],
+    interior: [
+        { id: "black", name: "All Black (vegan, it says)", hex: "#1E1E1E", price: 0 },
+        { id: "cream", name: "Cream (Bubbe's good couch)", hex: "#EFE6D2", price: 500 },
+        { id: "slipcover", name: "Plastic Slipcover Edition", hex: "#D8E3E8", price: 50 },
+    ],
+    horn: [
+        { id: "chime", name: "Polite Chime", price: 0 },
+        { id: "whoopee", name: "💨 Whoopee Mode", price: 150 },
+    ],
+    testSecs: 60,                     // the test drive from the screen
+    updates: ["⬇️ Software update 2026.47: the turn signals now signal turns.", "⬇️ Software update 2026.48: the cup holder is now 3 % more cup-shaped.",
+        "⬇️ Software update 2026.49: fixed — the car no longer says 'Recalculating' at red lights.", "⬇️ Software update 2026.50: added a Shabbos Mode. It's just a candle emoji on the screen."],
+};
 /** The founder (posts too much). His posts scroll on the showroom's screen + land in the 📱 now and then. */
 export const ZEV = {
     name: "Reb Zev Volt", emoji: "🧑‍🚀",

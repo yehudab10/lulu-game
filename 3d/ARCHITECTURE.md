@@ -1869,7 +1869,11 @@ only within ~110 m of her — `index.js`) and Sal Mazel at the door. The cars ar
 `car.js` › `SKINS` (stats over Uncle Refael's best + `nitro`, `perks`, `kit: "mazelati"`) and `garage/data.js` ›
 `SKIN_SHOP` / `SKIN_KEYS` (price, flavour, `where`); `car.js` › `KITS[sk.kit](model, anchors, sk)` hangs a few parts on the
 one convertible (a hood ornament, chrome). Old clients don't know the ids and draw the pink car; the classic 2D game falls
-back to pink too. On foot: ✋ at a car → the card (`shops/card.js`; the stat bars on their own longer scale) → 🤝 Sal:
+back to pink too. On foot: ✋ at a car → THE MAZELATI CARD (`lux.js`; the owner: "the player isn't able to switch between vehicles to compare
+stats since it brings up the sales person right away … more luxury"): BROWSE FIRST — ◀ ▶ / LB RB / a swipe flip through
+every car on the floor, each stat a big bar with its number out of 10 (`score10`: 0.7 → 0, 1.6 → 10) and a marker + the
+difference for the car she drives now, the perks spelled out, the sticker in gold, a dark showroom look (cream + gold, a
+serif name); Sal comes in ONLY on its "🤵 Talk to Sal — make an offer" button (or ✋ at Sal) →
 **the haggle** (`haggle.js`, the numbers in `data.js` › `HAGGLE`): a counter (−5 / −10 %) meets her halfway and costs his
 patience 1, "final offer" (≈ −12 %, floor −15 %) costs 2; out of patience → back to the sticker, take it or leave it ("you
 lost the deal, not your coins"); walking toward the door with a counter on the table → "let me talk to my manager" once
@@ -1884,8 +1888,14 @@ GT's 🅿️ self-park: ❚❚ › "Let the car park itself" in a Parking Challe
 `dealers:nonsense` / `dealers:perk`. 📱 Map: `ctx.pins.add` (when ci/hud's registry exists). Test: `dealers`.
 **Tushla Motors** (stage 2, `ev.js`): across the highway at the same lap metre — a LEFT pull-off (d −30, `reserve` side −1),
 reached by crossing the oncoming lanes like any left turn (never driving along them the wrong way). White, minimalist, no
-salesmen: a tablet kiosk (✋ → the card: four EVs at a fixed price, two taps to buy; acceleration off Refael's chart) and
-the founder, Reb Zev Volt, who posts too much (toasts while she's there). **⚡ Full Schlep Driving** (`schlep.js`, the
+salesmen: a tablet kiosk (✋ the tablet or a car → THE CONFIGURATOR, `config.js` — the owner: "more of a Tesla experience":
+one big white screen — the model, then PAINT · WHEELS · INTERIOR · HORN (`data.js` › `EV_CONFIG`; the car on its plinth
+wears the choice at once, `applyCfg`), the add-ons (⚡ Full Schlep Driving, 🏠 the home charger when features/fuel is
+there), the price updating live; ORDER = a fixed price, two taps (`buyCar` + one `buyExtra` per option, paid once per car,
+saved in `DS.evCfg` / `DS.evPaid`; her Tushla wears it — `KITS.tushla` is wrapped); the DELIVERY: the car rolls out of the
+showroom by itself + a software-update joke; 🔑 TEST DRIVE from the screen: seated in it on the forecourt for
+`EV_CONFIG.testSecs` s of driving, then an "over-the-air update" makes it her own car again; 💨 Whoopee Mode is a PG horn)
+and the founder, Reb Zev Volt, who posts too much (toasts while she's there). **⚡ Full Schlep Driving** (`schlep.js`, the
 numbers in `data.js` › `SUB`): 100 coins per 30 REAL days, "renews in N days"; cancel any time (it runs to the end of
 what she paid); at the end it renews once if not cancelled and she has the coins, else it lapses quietly — never a debt
 (`buyExtra`). In a Tushla on the highway, ❚❚ › "⚡ Let the car drive": a `controls` hook (after `core/driving.js` ›
