@@ -173,7 +173,7 @@ function seatFor(riderUid) {
     let s = RIDE.seats.get(riderUid);
     if (s) return s;
     if (!models.luluPerson) return null;
-    const person = spawnPerson("luluPerson");
+    const person = spawnPerson("luluPerson", { outfit: false });
     person.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
     person.obj.scale.setScalar(0.86);
     s = { person, host: null };

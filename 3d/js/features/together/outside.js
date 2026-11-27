@@ -27,7 +27,7 @@ export function tick(dt) {
         L.delete(uid);
         if (ctx.view || !models.luluPerson) continue;
         try {
-            const q = spawnPerson("luluPerson", { colors: last.hc ? { Hair: last.hc } : null });
+            const q = spawnPerson("luluPerson", { colors: last.hc ? { Hair: last.hc } : null, outfit: false });
             q.obj.position.set(last.x, 0.05, last.z);
             q.obj.rotation.y = last.h;
             ctx.scene.add(q.obj);

@@ -1,0 +1,157 @@
+// 👗 Clothes (features/clothes, roadmap 24): a clothing shop in each town + outfits on Lulu herself.
+//   • a save without clothes = today's Lulu exactly (no extra shapes, her own colours)
+//   • Lakewood's Simcha's Classic Clothing + Midwood's Avenue J'adore are walk-in rooms (town data `uses.clothes`, ✋ at the door)
+//   • try on (free): the fitting room changes her, the mirror view, "take it off" puts her own clothes back, nothing saved
+//   • buy at the counter: through garage/buy.js, the coins go down by the price, never below 0, the piece is hers
+//   • keep it on: the outfit is saved, she walks out in it (on foot) and the car's Lulu wears the colour; ≤ 2 extra draws
+//   • listed in 🛍️ Where to shop; the watchdog stays quiet
+const W = require("../lib/qawatch.js");
+module.exports = {
+  name: "clothes",
+  viewport: { width: 1280, height: 720 },
+  query: "&enable=town,law,atmos,world,day",
+  save2d: { totalCoins: 600, ownedSkins: ["pink"], selectedSkin: "pink" },
+  async run(t) {
+    try { await this.body(t); } finally { W.dropRelayErrors(t); }
+  },
+  async body(t) {
+    const g = t.game;
+    const st = () => g(`L3.state`);
+    const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
+    const label = () => g(`(ctx.foot.debug.interactables() || {}).label || ""`);
+    const room = id => `window.__interiors && __interiors.room && __interiors.room.ready && __interiors.room.def.id === ${JSON.stringify(id)}`;
+    const topOf = expr => g(`(() => { let c = null; (${expr}).traverse(o => { if (o.isMesh && o.material && (o.userData.clBase || o.material).name === "Top" && !c) c = "#" + o.material.color.getHexString(); }); return c; })()`);
+    const shapes = expr => g(`(() => { let n = 0; (${expr}).traverse(o => { if (o.userData && o.userData.outfit) n++; }); return n; })()`);
+    const playing = async () => { if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); } if (await st() !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); } };
+    const town = async id => {
+      if (await g(`ctx.town.active && ctx.town.id === ${JSON.stringify(id)}`)) return true;
+      await W.pause(t, false);
+      await playing();
+      if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(10); await playing(); }
+      await g(`(ctx.town.load(${JSON.stringify(id)}), true)`);
+      await t.until(`__lulu3d.ctx.town.loaded(${JSON.stringify(id)})`, `${id}'s models load`, 90000);
+      await g(`ctx.town.enter({ town: ${JSON.stringify(id)}, speed: 0 })`);
+      const ok = await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === ${JSON.stringify(id)}`, `into ${id}`, 8000);
+      await t.frames(30); await W.pause(t, true); await W.moved(t);
+      return ok;
+    };
+    const onFootAt = async (name, out = 0.3) => {
+      if (await st() !== "footRun") {
+        await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+        await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
+      }
+      await W.pause(t, false);
+      await g(`(() => { const sp = ctx.town.spot(${JSON.stringify(name)}); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${out}, 0.05, sp.z + sp.nz * ${out}); F.phase = "walk"; return true; })()`);
+      await t.frames(2); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`);
+      await t.frames(6); await W.pause(t, true); await W.moved(t);
+    };
+    const walkIn = async re => {
+      await onFootAt("clothes");
+      const l = await label();
+      t.check(`✋ at the clothing shop's door (${l})`, re.test(l));
+      await W.pause(t, false);
+      await t.tap(0);
+      const ok = await t.until(`__lulu3d.state === "interior" && ${room("clothesShop")}`, "inside the clothing shop", 60000);
+      await t.frames(10); await W.pause(t, true); await W.moved(t);
+      return ok;
+    };
+    const walkOut = async () => {
+      await W.pause(t, false);
+      await g(`(__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "out of the shop", 30000);
+      await t.frames(10); await W.pause(t, true); await W.moved(t);
+    };
+    // (a flow started the way a ✋ spot starts it: the room is busy until it's over)
+    const run = code => g(`(() => { const rt = __interiors.room, D = ctx.clothes.debug.shop, P = id => ctx.clothes.pieces.find(p => p.id === id), o = rt.lulu.obj.position; rt.use({ id: "test", x: o.x, z: o.z + 1, action: () => { ${code}; } }); return true; })()`);
+    const idle = what => t.until(`!__lulu3d.ctx.dialogOpen && !__interiors.room.busy && !__interiors.room.mode`, what, 15000);
+
+    await W.install(t);
+
+    // ════ 1. a save without clothes = today's Lulu ════
+    t.check("ctx.clothes is there", await g(`!!ctx.clothes && Array.isArray(ctx.clothes.pieces) && ctx.clothes.pieces.length >= 20`));
+    t.check("…nothing on: an empty outfit, nothing owned", await g(`JSON.stringify(ctx.clothes.current()) === "{}" && ctx.clothes.owned.length === 0`));
+    await W.pause(t, false);      // (the test puts her out on foot: a declared cut)
+    await playing();
+    await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+    await t.until(`__lulu3d.state === "footRun" && !!__lulu3d.ctx.foot.obj`, "out on foot", 15000);
+    t.check("…on foot she's her old self (sky-blue top, no extra shapes)", await topOf(`ctx.foot.obj`) === "#4fc3f7" && await shapes(`ctx.foot.obj`) === 0, String(await topOf(`ctx.foot.obj`)));
+    t.check("every piece has a price, a slot, a shop and one line; the shop prices sit in 40–900",
+      await g(`ctx.clothes.pieces.every(p => p.price > 0 && p.slot && p.shop && p.line && p.brand) && ctx.clothes.pieces.filter(p => p.shop !== "jfk").every(p => p.price >= 40 && p.price <= 900)`));
+    t.check("🛍️ Where to shop lists the clothing shops", await g(`ctx.shops.places().some(r => r.id === "clothes" && /Simcha/.test(r.where) && /Avenue J/.test(r.where))`));
+
+    // ════ 2. Lakewood: Simcha's Classic Clothing ════
+    if (!await town("lakewood")) return;
+    t.check("Lakewood has the shop on its street (town data uses.clothes → a spot)", await g(`!!ctx.town.spot("clothes")`));
+    t.check("…walk in (✋ at the door → a room)", await walkIn(/SIMCHA/));
+    t.check("…the room: racks, the counter + Mrs. Rosenbaum, the fitting room, a mannequin",
+      await g(`["rackA", "rackB", "table", "counter", "fitting", "mannequin"].every(id => __interiors.room.hots.some(h => h.id === id)) && !!__interiors.room.byId.clerk`));
+    await t.shot("simchas");
+    const lulu = `__interiors.room.lulu.obj`;
+    t.check("…Lulu walks in in her own clothes (sky-blue top, no extra shapes)", await topOf(lulu) === "#4fc3f7" && await shapes(lulu) === 0, `${await topOf(lulu)} · ${await shapes(lulu)}`);
+
+    // try on (free): the blouse
+    const W0 = await coins();
+    await W.pause(t, false);
+    await run(`return D.tryOn(rt, P("lk_blouse"))`);
+    await t.until(`__lulu3d.ctx.dialogOpen`, "the mirror's question", 12000);
+    await t.frames(20);
+    await t.shot("tryon-mirror");
+    t.check("trying on: she's wearing the white blouse in the fitting room", await topOf(lulu) === "#ffffff", await topOf(lulu));
+    t.check("…it's free and nothing is saved yet", await coins() === W0 && await g(`!ctx.clothes.current().top`));
+    await t.click(/Take it off/);
+    await idle("back out of the fitting room");
+    t.check("…take it off: her own top again, still nothing saved", await topOf(lulu) === "#4fc3f7" && await g(`!ctx.clothes.current().top`));
+
+    // buy at the counter: the coat (450) — then the robe (300) is more than she has left
+    await run(`return D.buyAtCounter(rt, P("lk_coat"), false)`);
+    await idle("the coat bought + handed over");
+    t.check("buying the navy coat: −450 coins, it's hers", await coins() === W0 - 450 && await g(`ctx.clothes.owns("lk_coat")`), `${W0} → ${await coins()}`);
+    t.check("…the bag is in her hand", await g(`!!__interiors.room.inHand`));
+    const W1 = await coins();
+    await run(`return D.buyAtCounter(rt, P("lk_robe"), false)`);
+    await idle("no sale");
+    t.check("the robe (300) with 150 left: no sale, the wallet unchanged (never below 0)", await coins() === W1 && await g(`!ctx.clothes.owns("lk_robe")`));
+
+    // keep it on: the coat she owns
+    await run(`return D.tryOn(rt, P("lk_coat"))`);
+    await t.until(`__lulu3d.ctx.dialogOpen`, "the mirror's question", 12000);
+    await t.frames(30);      // (the line types out first: a tap then would only finish it)
+    const opts = await t.L(`[...document.querySelectorAll("#dialog button")].map(b => b.textContent).join(" | ")`);
+    t.check("…the mirror asks: keep it on (she owns it)", await t.click(/Keep it on/), opts);
+
+    await idle("out of the fitting room");
+    t.check("keep it on: the coat is her outfit now (saved)", await g(`ctx.clothes.current().outer === "lk_coat"`));
+    t.check("…the coat is on her: navy sleeves + one coat shape", await topOf(lulu) === "#1d2a5c" && await shapes(lulu) === 1, `${await topOf(lulu)} · ${await shapes(lulu)}`);
+    await t.shot("coat-on");
+    await W.pause(t, true); await W.moved(t);
+    await walkOut();
+    { const d = await g(`(() => { const sp = ctx.town.spot("clothes"), p = ctx.foot.pos; return +Math.hypot(sp.x - p.x, sp.z - p.z).toFixed(1); })()`);
+      t.check(`…out of the shop's own door (${d} m), still in town`, d < 7 && await g(`ctx.town.active`)); }
+    t.check("she walks out of the shop in it (on foot: the coat)", await topOf(`ctx.foot.obj`) === "#1d2a5c" && await shapes(`ctx.foot.obj`) === 1, `${await topOf(`ctx.foot.obj`)}`);
+    t.check("…at the wheel too (the car's Lulu: the coat's colour)", await g(`(() => { let c = null; ctx.car.driver && ctx.car.driver.traverse(o => { if (o.isMesh && (o.userData.clBase || o.material).name === "Shirt") c = "#" + o.material.color.getHexString(); }); return c; })()`) === "#1d2a5c");
+    t.check("…the save holds it (owned + wearing) for the 💾 save code", await t.L(`(() => { const s = JSON.parse(localStorage.getItem("lulu3dSave") || "{}"); const c = (s.f || {}).clothes || {}; return c.owned && c.owned.includes("lk_coat") && c.wear && c.wear.outer === "lk_coat"; })()`).catch(() => false) || await g(`ctx.clothes.debug.S.wear.outer === "lk_coat"`));
+    t.check("…the compact form for other players round-trips", await g(`ctx.clothes.decode(ctx.clothes.encode(ctx.clothes.current())).outer === "lk_coat" && JSON.stringify(ctx.clothes.decode("junk,,,,nope")) === "{}"`));
+    await t.shot("street-coat");
+    { const r = await W.report(t); W.log(r); W.check(t, "Lakewood's clothing shop", r); await W.reset(t); }
+
+    // ════ 3. Midwood: Avenue J'adore ════
+    if (!await town("midwood")) return;
+    t.check("Midwood: Avenue J'adore is walk-in", await walkIn(/AVENUE J'ADORE/));
+    t.check("…its own stock (the puffer, the It Bag, the iced coffee)", await g(`["mw_puffer", "mw_itbag", "mw_coffee"].every(id => ctx.clothes.pieces.find(p => p.id === id).shop === "midwood")`));
+    await run(`return D.tryOn(rt, P("mw_coffee"))`);
+    await t.until(`__lulu3d.ctx.dialogOpen`, "the mirror's question", 12000);
+    await t.frames(30);
+    t.check("trying on the iced coffee: one shape in her hand (+ the coat: 2 extra at most)", await shapes(lulu) === 2, String(await shapes(lulu)));
+    await t.shot("javenue-tryon");
+    await t.click(/Take it off/);
+    await idle("out of the fitting room");
+    // a line-up of every shape (a still for people to look at; removed again)
+    const lined = await t.L(`import("./js/core/people.js").then(m => { const rt = __interiors.room, out = []; const looks = [{ outer: "mw_puffer", acc: "mw_shades" }, { outer: "mw_camel", acc: "mw_itbag" }, { outer: "lk_robe" }, { outer: "lk_cardigan", top: "lk_blouse", acc: "lk_pearls" }, { top: "mw_sweater", skirt: "mw_tennis", shoes: "mw_sneakers", acc: "mw_headband" }, { top: "lk_blue", skirt: "lk_navy", acc: "lk_pocketbook", shoes: "lk_shoes" }]; looks.forEach((o, i) => { const p = m.spawnPerson("luluPerson", { outfit: o }); p.obj.position.set(-3.2 + i * 1.25, 0, 2.2); rt.add(p.obj); out.push(p.obj); }); window.__lineup = out; rt.def.cam = Object.assign({}, rt.def.cam, { dist: 5.2, height: 1.6, lookY: 0.9, clampX: 0 }); rt.lulu.obj.position.set(0, 0, 0.6); return out.length; })`);
+    await t.frames(40);
+    await t.shot("lineup");
+    t.check("the line-up: every coat + extra shape builds (6 Lulus, one or two shapes each)", lined === 6 && await t.L(`window.__lineup.every(o => { let n = 0; o.traverse(x => { if (x.userData.outfit) n++; }); return n >= 1 && n <= 2; })`));
+    await t.L(`(window.__lineup.forEach(o => o.removeFromParent()), true)`);
+    await walkOut();
+    { const r = await W.report(t); W.log(r); W.check(t, "Midwood's clothing shop", r); }
+  },
+};

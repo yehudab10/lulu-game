@@ -496,7 +496,7 @@ function setForm(rc, p) {
         if (!rc.walker || rc.walkerKey !== key) {
             if (rc.walker) rc.walker.obj.removeFromParent();
             const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, LOOKS[look]);
-            rc.walker = spawnPerson("luluPerson", { colors });
+            rc.walker = spawnPerson("luluPerson", { colors, outfit: false });
             rc.walker.obj.rotation.order = "YXZ";
             rc.walker.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
             rc.walkerKey = key;

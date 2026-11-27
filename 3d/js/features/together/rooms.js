@@ -33,6 +33,7 @@ export const SHARED = {
     bank: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),     // the town's bank (heist): one lobby per town
     shopsPizza: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null), shopsBakery: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),   // (features/shops: the walk-in shops, one per town)
     terminal: () => "jfk",                                      // ✈️ the JFK terminal (features/airport): one hall
+    clothesShop: () => (ctx.clothes && ctx.clothes.shopNow ? ctx.clothes.shopNow() : null),   // 👗 features/clothes: one per town (+ JFK's luxury house)
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
 export const NOT_SHARED = {
@@ -82,7 +83,7 @@ class Mate {
     constructor(uid, rt, p) {
         this.uid = uid; this.rt = rt; this.buf = []; this.leaving = 0; this.gone = false; this.emKey = ""; this.em = null; this.key = "";
         const colors = p.hc ? { Hair: p.hc } : null;
-        this.person = spawnPerson("luluPerson", { colors });
+        this.person = spawnPerson("luluPerson", { colors, outfit: false });
         this.person.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
         rt.set.add(this.person.obj);
         const NT = ctx.party.visuals && ctx.party.visuals.NameTag;

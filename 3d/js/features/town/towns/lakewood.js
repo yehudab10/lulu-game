@@ -8,6 +8,7 @@
 // Streets: axis "ns" (constant x = c, runs along z from a0 to a1) or "ew" (constant z = c).
 import * as L from "./lakewood-lines.js";
 import { dealerUse } from "../../shops/lot.js";
+import { clothesUse } from "../../clothes/data.js";
 import { cityhallUse } from "../../cityhall/place.js";
 
 const P = 76, SPAN = 304;
@@ -31,7 +32,7 @@ export default {
     blocks: {
         "1,0": { faces: { s: "townhouses", w: "townhouses" } },
         "2,0": { faces: { s: "construction" } },
-        "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "realty" } },    // (features/realestate: Gold Standard Realty on Main St, across from the bank)
+        "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "clothes" } }, "3,1": { faces: { n: "realty" } },    // (features/realestate: Gold Standard Realty on Main St, across from the bank)
         "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "makolet" } }, "3,2": { faces: { s: "bank", n: "cityhall" } },     // (features/shops: Zissy's makolet on Main St, block 1,2; features/cityhall: City Hall on Minivan Way, block 3,2 n — next door to the precinct + court)
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
@@ -66,6 +67,8 @@ export default {
             tints: { Walls: "#F3E6C4", Awning: "#2E7D32" }, signSize: [10.0, 0.98, 64], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
             with: [{ key: "town_shop", u: -13 }, { key: "town_shop", u: 13 }] },
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#F3EFE6", Trim: "#C62828", Roof: "#5B5F66" } }),
+        // features/clothes (roadmap 24): Simcha's Classic Clothing on Main St, between Pizza Shmizza and the realtor
+        clothes: clothesUse("lakewood"),
         // features/realestate (roadmap 16): the realtor's shopfront between two ordinary shops (a shop row stays a shop row)
         realty: { key: "town_shop", fallback: "town_shop", dims: { w: 12, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
             tints: { Walls: "#F3E5D8", Awning: "#C2185B" }, signSize: [11.0, 1.0, 100], signBg: "#3E2723", signFg: ["#FFD54F", "#FFF3E0"],
