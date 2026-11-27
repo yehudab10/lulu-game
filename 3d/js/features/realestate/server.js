@@ -170,15 +170,23 @@ export function tick() {
     flush();
 }
 
+// The name shown for an owner: the server sends her USERNAME when she has one (ci/accounts), else her generated label
+// ("Kugel Kid #37"). ⚙️ other players' names off / offline → a generated label stays, a username becomes "a neighbour".
+const GENERATED = /\s#\d+$/;
+function shownName(id, l) {
+    if (!l) return "a neighbour";
+    const show = !(ctx.mp && ctx.mp.online === false) && !(ctx.accounts && ctx.accounts.hideNames);
+    if (!show) return GENERATED.test(l) ? l : "a neighbour";
+    return ownerName(id, l);
+}
 // ── the source: other people's homes ──────────────────────────────────────
 registry.addSource({
     ownerOf(id) {
         const x = SV.on && SV.list.get(id);
         if (!x || x.mine || registry.mine(id)) return null;
-        const show = !(ctx.mp && ctx.mp.online === false) && !(ctx.accounts && ctx.accounts.hideNames);   // (⚙️ other players' names off → "a neighbour")
-        return { name: x.z ? "the Town Council" : show && x.l ? ownerName(id, x.l) : "a neighbour", server: true, seized: !!x.z };
+        return { name: x.z ? "the Town Council" : shownName(id, x.l), server: true, seized: !!x.z };
     },
-    list() { return SV.on ? [...SV.list.entries()].filter(([id, x]) => !x.mine && !registry.mine(id)).map(([id, x]) => ({ id, name: x.z ? "the Town Council" : ownerName(id, x.l), seized: !!x.z, hex: x.z ? "#455A64" : "#90A4AE" })) : []; },
+    list() { return SV.on ? [...SV.list.entries()].filter(([id, x]) => !x.mine && !registry.mine(id)).map(([id, x]) => ({ id, name: x.z ? "the Town Council" : shownName(id, x.l), seized: !!x.z, hex: x.z ? "#455A64" : "#90A4AE" })) : []; },
 });
 // her side: a home she got → claim it if it isn't yet; a home she let go → release it
 registry.onChange(ev => {

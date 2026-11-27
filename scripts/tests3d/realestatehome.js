@@ -40,7 +40,8 @@ module.exports = {
     t.check("she sells the house…", sold && !(await g(`ctx.realestate.owns(${JSON.stringify(rec.id)})`)));
     t.check("…and her days start at Ima's again", !(await g(`ctx.home.startAt`)));
     // d3's hook (ci/accounts fills it): her username on the mailbox plate, an owner's username on "taken" lines; LULU ♥ by default
-    const nm = await g(`(() => { const T = ctx.realestate.debug && ctx.realestate.debug.plateName; const before = T ? T() : null; ctx.realestate.useNames({ mine: () => "shaindy22", of: (id, l) => "user:" + l }); const after = T ? T() : null; ctx.realestate.useNames({ mine: () => null, of: () => null }); return { before, after, back: T ? T() : null }; })()`);
-    t.check("d3 hook: the mailbox says LULU ♥ until a username comes, then the username", nm.before === "LULU ♥" && nm.after === "shaindy22" && nm.back === "LULU ♥", JSON.stringify(nm));
+    const nm = await g(`(() => { const T = ctx.realestate.debug && ctx.realestate.debug.plateName; const before = T ? T() : null; ctx.realestate.useNames({ mine: () => "shaindy22", of: (id, l) => "user:" + l }); const after = T ? T() : null; ctx.realestate.useNames({ mine: () => null, of: () => null }); const back = T ? T() : null; ctx.player.setName("tzippy7"); L3.emit("accounts:me", { name: "tzippy7" }); const mine = T ? T() : null; ctx.player.setName(null); L3.emit("accounts:me", { name: null }); return { before, after, back, mine, gone: T ? T() : null }; })()`);
+    t.check("d3: the mailbox says LULU ♥ until a username comes, then the username", nm.before === "LULU ♥" && nm.after === "shaindy22" && nm.back === "LULU ♥", JSON.stringify(nm));
+    t.check("d3: her own username (features/accounts) goes on her plate", nm.mine === "tzippy7" && nm.gone === "LULU ♥", JSON.stringify(nm));
   },
 };

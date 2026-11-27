@@ -29,6 +29,7 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { CAP, PITCH, PATTER, OFFICE, SIGNING, SOLD, MINE, PASS_SIGN, VIEWING, BASE } from "./data.js";
 import { registry, S, NAMES, plateName } from "./registry.js";
+import { A as ACC } from "../accounts/index.js";
 import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT, isStarter, starters } from "./market.js";
 import { layout, counts, clear as clearSigns, G as SIGNS, plateTexNow } from "./signs.js";
 import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
@@ -546,6 +547,17 @@ on("realestate:yardPreview", e => yardPreview(e && e.opt != null ? e : null));
 on("interior:exit", e => { if (e && e.id === "realestateHouse") { W.yardPreview = null; if (inTown()) refresh(true); } });
 on("town:leave", () => { clearSigns(); clearYard(); W.town = null; W.listed = []; W.owned = []; });
 on("title", () => { clearSigns(); clearYard(); W.town = null; });
+// d3 (ci/accounts): her username on her mailbox plate; a name she reported never shows on a home (the server already
+// sends owners' usernames, filtered — features/accounts' `A.names` ticket → name tells which name a report hid)
+const ACCT = { hiddenNames() { const out = new Set(); for (const t of ACC.hidden) { const v = ACC.names.get(t); if (v && v.n) out.add(String(v.n).toLowerCase()); } return out; } };
+function wireNames() {
+    ctx.realestate.useNames({
+        mine: () => (ctx.accounts && !ctx.accounts.off && ctx.accounts.name) || null,
+        of: (id, label) => (ACC.hidden.size && ACCT.hiddenNames().has(String(label).toLowerCase()) ? "a neighbour" : null),
+    });
+}
+on("boot", wireNames);
+for (const ev of ["accounts:me", "accounts:names"]) on(ev, wireNames);
 on("run:start", () => { W.busy = false; });
 // (a light check: the town's houses are built a frame or so after town:enter; the day rolls over at midnight)
 hook("hud", dt => {
