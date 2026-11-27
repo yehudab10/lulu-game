@@ -1,0 +1,50 @@
+{
+ "today": {
+  "wheels": 4,
+  "steeredFront": 2,
+  "steeringWheel": true,
+  "taillights": 1,
+  "anchors": "dash deck front head hood mirrorL mirrorR passenger rear",
+  "driver": true,
+  "hair": 1,
+  "windscreenPivot": true,
+  "bodyMesh": true,
+  "triangles": 15004,
+  "meshes": 39,
+  "dents": "{\"k\":4,\"stage\":4,\"sides\":[\"front\",\"left\",\"rear\",\"right\"],\"hits\":[{\"side\":\"front\",\"x\":-0.25,\"y\":0.64,\"z\":1.97},{\"side\":\"l",
+  "kit": "shabbatino",
+  "errors": []
+ },
+ "ours": {
+  "wheels": 4,
+  "steeredFront": 2,
+  "steeringWheel": true,
+  "taillights": 1,
+  "anchors": "dash deck front head hood mirrorL mirrorR passenger rear",
+  "driver": true,
+  "hair": 1,
+  "windscreenPivot": true,
+  "bodyMesh": true,
+  "triangles": 46732,
+  "meshes": 48,
+  "dents": "{\"k\":4,\"stage\":4,\"sides\":[\"front\",\"left\",\"rear\",\"right\"],\"hits\":[{\"side\":\"front\",\"x\":-0.25,\"y\":0.64,\"z\":1.97},{\"side\":\"l",
+  "kit": "shabbatino",
+  "errors": []
+ },
+ "kenney": {
+  "wheels": 4,
+  "steeredFront": 2,
+  "steeringWheel": true,
+  "taillights": 1,
+  "anchors": "dash deck front head hood mirrorL mirrorR passenger rear",
+  "driver": true,
+  "hair": 1,
+  "windscreenPivot": true,
+  "bodyMesh": true,
+  "triangles": 9516,
+  "meshes": 25,
+  "dents": "{\"k\":4,\"stage\":4,\"sides\":[\"front\",\"left\",\"rear\",\"right\"],\"hits\":[{\"side\":\"front\",\"x\":-0.25,\"y\":0.64,\"z\":1.97},{\"side\":\"l",
+  "kit": "shabbatino",
+  "errors": []
+ }
+}
