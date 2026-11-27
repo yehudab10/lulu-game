@@ -196,6 +196,7 @@ Tests: `node server/test-world.mjs` (`--url` for a deployment) + the game's `scr
 - `homes.mjs` — 🏘️ the property registry (shared by the worker + the local relay); `test-homes.mjs` its tests.
 - `world.mjs` — 🌍 the clock, reliable events, the kill switches and the free-plan budget (both relays); `test-world.mjs`.
 - `accounts.mjs` — 🪪 accounts, usernames, friends, requests, blocks, reports (worker + local relay); `test-accounts.mjs`.
+- `shops.mjs` — 🏪 player-owned shops (worker + local relay); `test-shops.mjs`.
 - `package.json` — deps (`ws`) + scripts.
 
 ## 👜 Limited luxury pieces (`wear.mjs`, added 2026-11-27 — owner-approved: golden rule 3, third exception)
@@ -218,3 +219,50 @@ Only an ACCOUNT with a username (`accounts.mjs`' secret hash); one of each piece
 rate limits; deleting the account (`/acct/delete`) gives its pieces back. No resale or trading. Tests:
 `node server/test-wear.mjs` (local) · `node server/test-wear.mjs --url https://…` (production: a throw-away hold that's
 cancelled; `prodcheck.mjs` runs it).
+
+## 🏪 Player-owned shops (`shops.mjs`, added 2026-11-27 — owner-approved: golden rule 3, fifth exception)
+
+Lulu's Road Trip 2.0 lets a player lease or buy a storefront and stock it; **only real players buy from it** (the plan
+the owner approved: `3d/docs/playershops-plan.md`). Additive: new `/shops/*` endpoints on the existing global `Board`
+Durable Object with THREE new tables — `shops` (storefront id, owner's random player id, kind, town, an optional name,
+since / seen / seized, 👍 count, who reported the name), `shop_stock` (≤ 24 spots a shop: good, units, price, stars),
+`shop_day` (per-day counters for the caps, dropped after 2 days) — plus `shop_till` (owner → coins waiting). Nothing that
+existed changed shape; old clients never call it. Coins stay on the device: a buyer pays on her phone after the server
+says yes; the owner's till (85 % of the price) reaches her phone through `/shops/collect`. Every number: `CONFIG` in
+`shops.mjs` (keep in step with `3d/js/features/playershops/data.js`). **Kill switch:** `world.mjs` › `WORLD.shops`
+(served at `GET /world/config`): 0 → `/shops/config` answers `{ off: 1 }` and every other call 503 — games show their
+shops as OPENING SOON again.
+
+| endpoint | body | answer |
+|---|---|---|
+| `GET /shops/config` | — | `{ v, cfg: { cap, total, licences, ownerDayProfit, buyerPerOwner, buysPerShop, salesTax } }` · `{ off: 1 }` |
+| `GET /shops/list?town=` | — | `{ list: [{ id, k, n, o, z, t }] }` — every shop in the town: kind, name, the owner's username, under renovation, 👍 |
+| `GET /shops/view?id=` | — | `{ ok, shop, shelf: [{ s, g, n, p, st, so }], soldOut }` (`so`: that spot is sold out for today) |
+| `POST /shops/claim` | `{ pid, sec, id, kind, edictStruck? }` | `{ ok }` · `{ ok: false, why: taken \| mine \| edict \| cap \| licence \| full, o }` |
+| `POST /shops/release` | `{ pid, sec, id }` | `{ ok }` (only the owner) |
+| `POST /shops/stock` | `{ pid, sec, id, shelf: [{ s, g, n, p, st }] }` | `{ ok, n }` · `{ ok: false, why: price \| bad slot }` (her kind's goods, inside the band) |
+| `POST /shops/buy` | `{ pid, sec, id, slot, p, tip? }` | `{ ok, g, st, p, tip, clerk, left }` · `{ ok: false, why: yours \| unminded \| new \| price \| buys \| spent \| soldout \| gone \| closed }` |
+| `POST /shops/clerk` | `{ pid, sec, id, on }` | `{ ok, c }` — hire / let go of the clerk (stage 3) |
+| `POST /shops/counter` | `{ pid, sec, id, off? }` | `{ ok }` — she's at her own counter for 90 s (pinged once a minute while she's inside) |
+| `POST /shops/collect` | `{ pid, sec }` | `{ ok, coins }` — the till, emptied |
+| `POST /shops/hello` | `{ pid, sec }` | `{ mine, till }` (any POST also marks her seen) |
+| `POST /shops/thumb` | `{ pid, sec, id }` | `{ ok }` — once a day, only after buying there |
+| `POST /shops/name` / `/shops/report` | `{ pid, sec, id, name }` / `{ pid, sec, id }` | the username rules; 3 reports from different accounts → the name is reset |
+
+**The caps (a net sink, never a coin pump):** the owner earns at most `ownerDayProfit` (300) a real day above what her
+stock cost; a buyer spends at most `buyerPerOwner` (150) a day at one owner's shops and buys at most `buysPerShop` (3)
+a day in one shop; nobody buys from her own shop; **stage 3 — who minds the shop:** it sells only while the owner was seen in the last `mindMs` (10 min) or she has hired the clerk (`clerkShare`, 10 % of each sale the clerk makes, out of the owner's share); the owner AT her counter can be tipped 5 or 10 (`tips`; the buyer's coins, inside the buyer's 150); a buyer needs a username and an account at least `minDays` (3) old;
+prices sit inside cost × 1.2–1.8; the town keeps 15 %. Midwood allows 1 shop a player (2 when the game says the court
+struck the mayor's edict down), Lakewood 3, 4 in all; a few licences per kind per town. Writes: one per 600 ms per
+account, 200 ms per IP. **Ghost shops:** an owner unseen for 14 days → her shops are under renovation (sell nothing) for
+7 days, then gone. Deleting an account (`/acct/delete`) gives its shops back. **Requests (the free plan):** ≈ 1 per
+visit, per purchase, per restock, per till collection; a town's list on the way in + every 2 minutes while in town; an
+owner's hello every 5 minutes out in the world (+ ≤ 4 views of her own shops). 500 sales a day ≈ 1,500 requests ≈
+1.5 % of the daily allowance.
+
+**Tests:** `node server/test-shops.mjs` (local relay, small caps via the dev-only `SHOPS_CFG`; a dev clock
+`POST /shops/_clock` and `/shops/_made` that the worker does NOT have) · `node server/test-shops.mjs --url https://…`
+(production: the read-only config + list, then a throw-away zz_test account claims a shop at a lot no town has, stocks
+it, releases it, and is deleted). **Rollback:** Cloudflare → Workers & Pages → lulu-shared-road → Deployments → the
+previous one → Rollback (the tables stay; nothing old reads them) — or `WORLD.shops = 0` and deploy.
+

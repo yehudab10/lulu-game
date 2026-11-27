@@ -11,7 +11,7 @@
 //                     lose him → he ditches it on the shoulder up the road. She NEVER loses her car for good.
 import { ctx, on, hook, emit } from "../../core/ctx.js";
 import { addCoins } from "../../core/driving.js";
-import { wallet } from "../../core/save.js";
+import { wallet, store, saveSoon } from "../../core/save.js";
 import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
 import { TUNE, PAY, SNATCH, THEFT } from "./data.js";
@@ -21,6 +21,8 @@ import { models, cloneWithColors, findNodes, need, live, rand, pick, clamp, pt, 
 const TS = TUNE.snatch, TT = TUNE.theft;
 const MODELS = ["heistMoped", "heistRobber", "heistProps"];
 export const SN = { nextT: rand(TS.first[0], TS.first[1]), still: 0, ev: null };
+const SDS = store("heistSnatch", { d: "", n: 0 });
+function snatchDay() { const d = new Date(), k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; if (SDS.d !== k || !(SDS.n >= 0)) { SDS.d = k; SDS.n = 0; } return SDS; }
 export const CT = { awayT: 0, want: rand(TT.away[0], TT.away[1]), ev: null, tried: false };
 const _n = {};
 
@@ -146,14 +148,17 @@ function grab(ev) {
 function caught(ev) {
     ev.phase = "out"; ev.t = 0; ev.tip = 1.25;
     if (ev.rider) { ev.rider.obj.rotation.z = 0.8; }
-    const back = ev.take, bonus = PAY.snatchBonus;
+    // (the bonus: PAY.snatchBonusDay a REAL day, saved — a moped creeps up every few minutes she sits still, so catching
+    //  him was a repeatable +15; what he took always comes back)
+    const SD = snatchDay(), bonus = SD.n < (PAY.snatchBonusDay || 3) ? PAY.snatchBonus : 0, back = ev.take;
+    if (bonus) { SD.n++; saveSoon(); }
     // the wallet gets back exactly what he took (+ a bonus as ordinary coins)
     wallet.add(back);
     ctx.G.coins = (ctx.G.coins || 0) + back;
-    addCoins(bonus, "heist:snatch");
+    if (bonus) addCoins(bonus, "heist:snatch");
     sfx.coin(); sfx.yay();
     burst(ev.x, 1.0, ev.z, 20, 3.5, [1, 0.84, 0.25], 0.35, 0.9);
-    H.banner(`<b>🛵 GOT IT BACK! +${back} 💰 (+${bonus} bonus)</b><small>${pick(SNATCH.caught)}</small>`, 2600, { key: "heist:snatch", prio: 3 });
+    H.banner(`<b>🛵 GOT IT BACK! +${back} 💰${bonus ? ` (+${bonus} bonus)` : ""}</b><small>${pick(SNATCH.caught)}</small>`, 2600, { key: "heist:snatch", prio: 3 });
     npcSays(ev.rider.obj, pick(SNATCH.caught), 2.2);
     setChip(null); setBeacon(null);
     stat("heistSnatchCaught", 1);

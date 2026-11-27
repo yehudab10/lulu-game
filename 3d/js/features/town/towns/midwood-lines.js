@@ -20,7 +20,7 @@ export const SIGNS = {
     doubleParking: ["DOUBLE PARKING", "TOLERANCE ZONE: ZERO", "(nobody reads this sign)"],
     minivanDoor: ["CAUTION", "DOUBLE-PARKED MINIVAN", "MAY OPEN SLIDING DOOR WITHOUT WARNING"],
     sunday: ["SUNDAY TRAFFIC AHEAD", "BRING SNACKS"],
-    lakewood: ["← LAKEWOOD 64 MI", "↑ REAL PIZZA 0.2 MI"],
+    lakewood: ["LAKEWOOD: NEXT EXIT", "↑ REAL PIZZA 0.2 MI"],      // (not "64 MI": the highway's green boards give the real lap distance, ~2.5 mi)
     asp: ["8:30–10 AM", "TUES & FRI", "(Yes, You.)"],
     aspSuspended: ["ALTERNATE SIDE SUSPENDED", "HAPPY HOLIDAY", "STILL NOWHERE TO PARK"],
     lowClearance: ["LOW CLEARANCE 12'-6\"", "(the pigeon is 13')"],

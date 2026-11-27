@@ -43,6 +43,12 @@ function nearestStreet(plan, lx, lz) {
     }
     return best;
 }
+/** A street address for a local point of the town she's in ("12 Avenue J"), the way the homes are numbered. */
+export function addressAt(lx, lz) {
+    const plan = ctx.town && ctx.town.plan, ns = plan && nearestStreet(plan, lx, lz), st = ns && ns.st;
+    if (!st) return "";
+    return `${100 + 2 * Math.max(0, Math.round((ns.along - st.a0) / 6)) + (ns.side > 0 ? 1 : 0)} ${st.name}`;
+}
 const round = v => Math.max(ROUND, Math.round(v / ROUND) * ROUND);
 
 /** Is this the family's own house (never for sale)? — ci/hometown's home in Midwood (the `luluHome` lot), by position. */
