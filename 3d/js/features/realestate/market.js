@@ -48,6 +48,7 @@ const round = v => Math.max(ROUND, Math.round(v / ROUND) * ROUND);
 /** Is this the family's own house (never for sale)? — ci/hometown's home in Midwood (the `luluHome` lot), by position. */
 function isFamily(x, z) {
     try { if (ctx.home && typeof ctx.home.isFamily === "function" && ctx.home.isFamily(x, z)) return true; } catch (e) { /* */ }
+    try { if (ctx.family && typeof ctx.family.isFamily === "function" && ctx.family.isFamily(x, z)) return true; } catch (e) { /* */ }     // (Fayge's house: features/family)
     const sp = ctx.town && ctx.town.spot ? (ctx.town.spot("home") || ctx.town.spot("luluHome")) : null;
     return !!(sp && Math.hypot(sp.x - x, sp.z - z) < 14);
 }
