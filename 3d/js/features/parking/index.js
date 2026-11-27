@@ -960,7 +960,7 @@ function chipHtml() {
 let chipEl = null, chipLast = "";
 function chip(html) {
     if (!html) { if (chipEl) { chipEl.remove(); chipEl = null; chipLast = ""; } return; }
-    if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "day-chip park-chip"; H.hudSlot("left").appendChild(chipEl); }
+    if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "day-chip park-chip"; H.hudSlot("left").appendChild(chipEl); H.objective(chipEl, { prio: H.OBJ.timed, id: "park", icon: "🅿️" }); }
     if (html !== chipLast) { chipLast = html; chipEl.innerHTML = html; }
 }
 

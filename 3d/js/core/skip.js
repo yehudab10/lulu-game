@@ -94,7 +94,7 @@ export function canSkip(ignorePause = false) {
 
 // ── the fast-forward ─────────────────────────────────────────────────────
 const S = { shown: false, hold: 0, armed: true, ff: null, glyph: "", fitN: 0 };
-const SKIP_AVOID = ["#hud .hud-tl .pill", "#hud .trip", "#tripLabel", "#slot-left > *", "#slot-center > *", "#slot-right > *"];
+const SKIP_AVOID = ["#hud .hud-tl .pill", "#hud .trip", "#tripLabel", "#slot-left > *", "#slot-center > *", "#slot-right > *", "#objLine.phone:not(.empty)"];      // (+ ci/hud: the objective line)
 
 export function skipNow() {
     if (S.ff || !canSkip()) return false;

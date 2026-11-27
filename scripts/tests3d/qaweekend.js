@@ -318,7 +318,7 @@ async function town(t) {
   await t.shot("highway-after");
 }
 
-// ═══ PHONE: 📱 → 💬 Messages → 🗞️ Kvetch, on a phone, a desktop, a TV ═══════════════════════════════
+// ═══ PHONE: 📱 → 💬 Messages → 📞 Contacts, on a phone, a desktop, a TV ═══════════════════════════════
 async function phone(t) {
   const g = t.game;
   const setSave = code => t.L(`import("./js/core/save.js").then(m => { ${code} })`);
@@ -349,17 +349,16 @@ async function phone(t) {
     await g(`ctx.phone.openPhone("messages")`);
     await t.frames(12);
     const pins = await g(`ctx.phone._dbg.APPS ? [...document.querySelectorAll("#screenCard .lp-row")].map(b => b.textContent.trim().slice(0, 30)) : []`);
-    const kv = await t.L(`(() => { const b = [...document.querySelectorAll("#screenCard .lp-row")].find(b => /Kvetch/.test(b.textContent)); if (!b) return null; const r = b.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, W: innerWidth, H: innerHeight }; })()`);
-    t.check(`${name}: 💬 Messages shows the 🗞️ Kvetch pin, on screen`, !!kv && kv.l >= -1 && kv.r <= kv.W + 1 && kv.t >= -1 && kv.b <= kv.H + 1, JSON.stringify({ kv, pins }));
+    // (ci/hud landing 3: the 🗞️ Kvetch is out of the phone — Messages, then 📞 Contacts, at every size)
+    const card = await t.L(`(() => { const b = document.querySelector("#screenCard"); if (!b) return null; const r = b.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, W: innerWidth, H: innerHeight }; })()`);
+    t.check(`${name}: 💬 Messages is on screen, no 🗞️ Kvetch in it`, !!card && card.l >= -1 && card.r <= card.W + 1 && card.t >= -1 && !pins.some(p => /Kvetch/.test(p)), JSON.stringify({ card, pins }));
     const ov1 = await overflow(t, "#screenCard");
     await t.shot(`phone-messages-${name}`);
-    await t.L(`(() => { const b = [...document.querySelectorAll("#screenCard .lp-row")].find(b => /Kvetch/.test(b.textContent)); if (b) b.click(); return !!b; })()`);
+    await g(`ctx.phone._dbg.openApp("community")`);
     await t.frames(8);
-    const kvOpen = await t.L(`!!document.querySelector("#screenCard .town-kvetch")`);
-    t.check(`${name}: tapping it opens the local news`, kvOpen);
     const ov2 = await overflow(t, "#screenCard");
-    t.check(`${name}: no text runs out of its box (Messages + the Kvetch)`, ov1.length === 0 && ov2.length === 0, JSON.stringify(ov1.concat(ov2)));
-    await t.shot(`phone-kvetch-${name}`);
+    t.check(`${name}: no text runs out of its box (Messages + Contacts)`, ov1.length === 0 && ov2.length === 0, JSON.stringify(ov1.concat(ov2)));
+    await t.shot(`phone-contacts-${name}`);
     await g(`ctx.phone.closePhone()`);
     await t.frames(4);
     t.check(`${name}: the phone closes (game unpaused)`, await g(`!ctx.phone.isOpen && !ctx.paused`));

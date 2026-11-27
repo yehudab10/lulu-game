@@ -457,10 +457,11 @@ module.exports = {
     await step("ima", async () => {
       await g(`ctx.seasons.debug.resetPaid()`);
       await season("chanukah", 3);
+      await g(`(window.__pt = [], L3.on("phone:text", e => window.__pt.push(e)), true)`);
       await g(`L3.startRun({ mode: "cruise", quick: true })`);
       await t.frames(160);
-      const msgs = await g(`(ctx.phone.inbox && ctx.phone.inbox.msgs || []).filter(m => /Chanukah/.test(m.msg || m.text || "")).length`);
-      t.check("Ima's 📱 note in the family chat (night 3)", msgs >= 1, String(msgs));
+      const msgs = await t.L(`window.__pt.filter(m => /Chanukah/.test(m.msg || "")).length`);
+      t.check("Ima's 📱 note (night 3) — a passing text, not kept in Messages (ci/hud)", msgs >= 1, String(msgs));
     });
 
     // ── 🎉 a party: the guest takes the host's day ─────────────────────

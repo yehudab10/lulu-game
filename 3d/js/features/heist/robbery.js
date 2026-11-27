@@ -483,7 +483,7 @@ function sched(dt, force = false) {
     const G = ctx.G, foot = onFoot();
     const pty = inParty();
     if (pty && (!partyFree() || !inTown() || PR.friendRobbery())) return false;     // (with friends: Free Roam towns only, one robbery at a time across the party)
-    if ((!pty && G.mode !== "cruise") || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery"))) return false;
+    if ((!pty && G.mode !== "cruise") || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery")) || ctx.engaged("heist")) return false;
     // (walking: at most T.footMax a run — an easy tackle by the door must not be a coin tap)
     if (foot && (!inTown() || ctx.dialogOpen || ctx.foot.chasing || R.footN >= T.footMax)) return false;
     R.nextT -= dt;

@@ -24,8 +24,24 @@ let listeners = [];
 export function onInbox(fn) { listeners.push(fn); }
 function changed() { saveSoon(); for (const f of listeners) { try { f(); } catch (e) { console.error(e); } } if (PH.open) refresh(); }
 
-/** Store a message (no bubble). opts: { from, emoji, color, msg, thread?, read? } → the stored message. */
+// ── only what needs her (ci/hud landing 3 — the owner: "cut back some of the filler stuff in the phone. Only show
+// necessary stuff useful to the player") ──────────────────────────────────────────────────────────────────────────
+// A message is KEPT (and counts on the 📱 badge) only if it needs her or changes something: a bill, a letter or a lien,
+// the realtor's / the bank's answer, a job offer (the Fixer, JFK dispatch), the result of something she did. A sender
+// says so with opts.need; without it, these threads are the ones that do. Anything else — family small talk, the group
+// chats, gossip, a passenger's thank-you — is a passing bubble only: never stored, never unread. Old filler already in a
+// save stays in the save but isn't listed or counted.
+const NEED = new Set(["realtor", "council", "bank", "city hall", "fixer", "jfk"]);
+const isNeed = m => !!(m && (m.n || NEED.has(m.k)));
+/** Would this text be kept in 💬 Messages? (opts as for post) */
+export const needs = (opts = {}) => opts.need != null ? !!opts.need : NEED.has(keyOf(opts.thread || ""));
+/** The messages Messages shows (the kept ones). */
+export const shown = () => INBOX.msgs.filter(isNeed);
+
+/** Store a message (no bubble). opts: { from, emoji, color, msg, thread?, read?, need? } → the stored message, or null
+ *  when it isn't one to keep (see above: it's only a bubble then). */
 export function post(opts = {}) {
+    if (!needs(opts)) { emit("phone:text", { from: String(opts.from || "IMA"), thread: keyOf(opts.thread || opts.from), msg: String(opts.msg || ""), quiet: true }); return null; }
     const from = String(opts.from || "IMA");
     const thread = opts.thread ? String(opts.thread) : from;
     const k = keyOf(thread), who = PEOPLE[keyOf(from)];
@@ -33,7 +49,7 @@ export function post(opts = {}) {
         id: ++INBOX.seq, k, title: TITLES[k] || (opts.thread ? thread : (who ? who.name : from)),
         from: who && !opts.thread ? who.name : from, emoji: opts.emoji || (who && who.emoji) || "💬",
         color: opts.color || (who && who.color) || "#E91E63", msg: String(opts.msg || ""), t: Date.now(), r: !!opts.read,
-        g: !!opts.thread,
+        g: !!opts.thread, n: true,
     };
     INBOX.msgs.push(m);
     while (INBOX.msgs.length > MAX) INBOX.msgs.shift();
@@ -41,11 +57,11 @@ export function post(opts = {}) {
     changed();
     return m;
 }
-export const unread = (k = null) => INBOX.msgs.reduce((n, m) => n + (!m.r && (k == null || m.k === k) ? 1 : 0), 0);
+export const unread = (k = null) => INBOX.msgs.reduce((n, m) => n + (!m.r && isNeed(m) && (k == null || m.k === k) ? 1 : 0), 0);
 /** Threads, newest first: [{ k, title, emoji, color, last, unread, n, group }] */
 export function threads() {
     const by = new Map();
-    for (const m of INBOX.msgs) {
+    for (const m of shown()) {
         let t = by.get(m.k);
         if (!t) { t = { k: m.k, title: m.title, emoji: m.emoji, color: m.color, n: 0, unread: 0, group: m.g }; by.set(m.k, t); }
         t.last = m; t.n++; if (!m.r) t.unread++;
@@ -122,7 +138,7 @@ addApp({
             el.querySelector("#lpPinBack").addEventListener("click", () => { V.pin = null; api.refresh(); });
             return;
         }
-        if (V.thread && !INBOX.msgs.some(m => m.k === V.thread)) V.thread = null;
+        if (V.thread && !shown().some(m => m.k === V.thread)) V.thread = null;
         const note = !V.thread && imaNote(), hn = !V.thread && houseNote();
         if (V.house && V.list) V.list = false;
         if (V.house && !hn) V.house = false;
@@ -174,7 +190,7 @@ addApp({
             bind();
             return;
         }
-        const msgs = INBOX.msgs.filter(m => m.k === V.thread);
+        const msgs = shown().filter(m => m.k === V.thread);
         const t = threads().find(x => x.k === V.thread);
         el.innerHTML = `<div class="lp-chat-h"><span class="lp-av" style="--c:${t.color}">${t.emoji}</span><b>${esc(t.title)}</b></div>
             <div class="lp-chat">${msgs.map(m => `<div class="lp-bub" style="--c:${m.color}">${m.g ? `<b>${m.emoji} ${esc(m.from)}</b>` : ""}${esc(m.msg).replace(/\n/g, "<br>")}<small>${ago(m.t)}</small></div>`).join("")}</div>

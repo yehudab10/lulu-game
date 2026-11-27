@@ -122,6 +122,7 @@ function chip() {
     chipEl.innerHTML = `<b></b><small class="hud-secondary"></small><div class="heist-meter hud-secondary"><i></i></div>`;
     const slot = H.hudSlot("center");
     if (slot) slot.appendChild(chipEl);
+    H.objective(chipEl, { prio: H.OBJ.mission, id: "heist" });      // (ci/hud: the play HUD's objective line)
     return chipEl;
 }
 const chipState = { text: null, sub: null, frac: null, color: null };

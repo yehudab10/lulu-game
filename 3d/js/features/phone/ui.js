@@ -35,7 +35,8 @@ export function addApp(def) {
     return app;
 }
 const shown = a => { try { return !a.visible || !!a.visible(); } catch (e) { return false; } };
-export const visibleApps = () => APPS.filter(shown);
+// (an app with home: false is not on the home screen — another app opens it: 📍 Nearby from 👯 Friends, 🎨 from 💼 Jobs)
+export const visibleApps = () => APPS.filter(a => a.home !== false && shown(a));
 function badgeOf(a) {
     if (!a.badge) return null;
     try { const b = a.badge(); return b === 0 || b == null || b === "" || b === false ? null : b; } catch (e) { return null; }
@@ -164,7 +165,7 @@ function homeHello() {
     const G = ctx.G;
     if (ctx.foot && ctx.foot.active) return "🚶‍♀️ on foot";
     if (ctx.hustle && ctx.hustle.job) { const d = ctx.hustle.job.def || {}; return `💼 on the clock · ${d.emoji || ""} ${esc(d.name || "")}`; }
-    if (G.mode === "story" && ctx.trip && ctx.trip.label) return `📖 ${esc(ctx.trip.label())}`;
+    if (G.mode === "story" && ctx.trip && ctx.trip.label && ctx.trip.label()) return `📖 ${esc(ctx.trip.label())}`;
     if (G.mode === "cruise") return `🛣️ cruising · ${Math.max(0, (ctx.car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`;
     return "";
 }

@@ -255,7 +255,7 @@ module.exports = {
       await t.frames(8);
       const clash = await t.L(`(() => {
         const groups = { pills: ".hud-tl .pill", trip: ".hud-top", pause: "#pauseBtn", speedo: ".hud-br .speedo", stick: "#stickBase",
-          pedals: ".pedals .tbtn", extra: "#touchExtra button", chips: "#slot-right .gx-chip, #slot-right .law-wanted > *" };
+          pedals: ".pedals .tbtn", extra: "#touchExtra button", chips: "#slot-right .gx-chip, #slot-right .law-wanted > *, #objLine .law-wanted > *" };
         const boxes = [];
         for (const [g, sel] of Object.entries(groups)) for (const e of document.querySelectorAll(sel)) {
           const r = e.getBoundingClientRect();

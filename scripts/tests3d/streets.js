@@ -232,7 +232,7 @@ module.exports = {
     // ── 8. layouts: the star row + touch ✋ BAIL at TV / phone sizes ──
     const overlaps = () => t.L(`(() => {
       const groups = { pills: ".hud-tl .pill", trip: ".hud-top", pause: "#pauseBtn", speedo: ".hud-br .speedo", stick: "#stickBase",
-        pedals: ".pedals .tbtn", extra: "#touchExtra button", stars: "#slot-right .law-wanted > *", dmg: "#slot-left .streets-dmg" };
+        pedals: ".pedals .tbtn", extra: "#touchExtra button", stars: "#slot-right .law-wanted > *, #objLine .law-wanted > *", dmg: "#slot-left .streets-dmg" };
       const boxes = [];
       for (const [g, sel] of Object.entries(groups)) for (const e of document.querySelectorAll(sel)) {
         const r = e.getBoundingClientRect();
@@ -246,7 +246,7 @@ module.exports = {
         const ox = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left), oy = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
         if (ox > 2 && oy > 2) out.push(a.g + ":" + a.n + " × " + b.g + ":" + b.n);
       }
-      const s = document.querySelector("#slot-right .law-wanted .stars"), sr = s && s.getBoundingClientRect();
+      const s = document.querySelector(".law-wanted .stars"), sr = s && s.getBoundingClientRect();
       return { out, inside: !!sr && sr.left >= 0 && sr.right <= innerWidth && sr.top >= 0 };
     })()`);
     await place(0, 1.75, 18);

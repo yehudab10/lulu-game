@@ -41,10 +41,10 @@ const ITEMS = {
         { id: "gas", kind: "place", place: "gas", icon: "⛽", text: "Fill up at Gas 'n' Go", ima: "fill up the tank — it's on EMPTY again" },
         { id: "lookout", kind: "place", place: "lookout", icon: "📸", text: "A photo of the lake for Bubbe (the Lookout)", ima: "send Bubbe a picture of the lake from the Lookout" },
         { id: "bubbe", kind: "place", place: "family_bubbe", icon: "🥖", text: "Drop off Bubbe's challah", ima: "drop the challah at Bubbe's" },
-        { id: "town", kind: "event", ev: "town:exit", icon: "👔", text: "Pick up Abba's dry cleaning in town (take an exit)", ima: "pick up Abba's dry cleaning in town" },
+        { id: "town", kind: "event", ev: "town:exit", icon: "👔", text: "Pick up Abba's dry cleaning in town", ima: "pick up Abba's dry cleaning in town" },
     ],
     job: [
-        { id: "job", kind: "job", icon: "💼", text: "Earn some gelt: a side job (📞 payphone / 📋 board)", ima: "do a little job — gelt doesn't grow on trees" },
+        { id: "job", kind: "job", icon: "💼", text: "Earn some gelt with a side job", ima: "do a little job — gelt doesn't grow on trees" },
     ],
     silly: [
         { id: "pet", kind: "stat", stat: "pets", n: 1, icon: "🐾", text: "Pet an animal (Dina wants to hear ALL about it)", ima: "Dina says pet a dog for her. Don't ask me" },
@@ -200,7 +200,8 @@ function chipTick() {
     const back = t && t.far == null && t.s != null && t.s < hwS();
     const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${back ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!") : "";
     const txt = `📝 Ima's list <span class="ok">${n}/${DAY.list.length}</span><small>${t ? t.label + dist : ""}</small>`;
-    if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = ""; }
+    if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = "";
+        H.objective(S.chip, { prio: H.OBJ.list, id: "day", icon: "📝", badge: ".ok" }); }
     if (txt !== S.chipText) { S.chipText = txt; S.chip.innerHTML = txt; }
 }
 function beacon() {

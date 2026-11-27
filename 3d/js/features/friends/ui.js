@@ -87,6 +87,7 @@ function home(el, api) {
     if (SV.serverOn()) html += myName ? row("frAdd", "➕", "Add a friend by name", `Your name is ${esc(myName)}. Tell your friends!`)
         : row("frPick", "🪪", "Pick your name", "Then friends can find you by name");
     html += row("frCode", "➕", "Add by code", "Show your code, or type a friend's", "", "", !live);
+    if (nearbyOn()) html += row("frNear", "📍", "Players near you", "Tap one to ask them to be friends");      // (ci/hud: 📍 Nearby lives here now, not on the home screen)
     for (const r of RQ.outReq) html += row("frOq_" + r.f, "⏳", `Asked ${esc(r.n || "a player")}`, "Waiting for them to say yes. Tap to cancel.", "", ` data-oq="${r.f}"`);
     html += `<div class="ow-sec">Settings</div>`;
     html += row("frJoinSet", "🚪", `Who can join me: ${JOIN_TXT[ST.S.join]}`, JOIN_SUB[ST.S.join]);
@@ -96,6 +97,7 @@ function home(el, api) {
     if (ST.S.blocked.length) html += row("frBlocked", "🚫", `Blocked players (${ST.S.blocked.length})`, "Tap to unblock");
     html += `<p class="lp-fine">To add someone you meet, tap them in Nearby. You both have to say yes. Only friends can see you're playing or join you.</p>`;
     el.innerHTML = html;
+    onc(el, "#frNear", () => api.open("nearby"));
     onc(el, "[data-join]", b => joinTap(api, b.dataset.join));
     onc(el, "[data-fv]", b => go(api, { friend: b.dataset.fv }));
     onc(el, "[data-jy]", b => { BL.answerJoin(b.dataset.jy, true); api.close(); });
@@ -258,6 +260,7 @@ function blockedView(el, api) {
     onc(el, "#frBack", () => go(api, null));
 }
 
+const nearbyOn = () => { try { return !!(ctx.phone && ctx.phone._dbg && ctx.phone._dbg.APPS.some(a => a.id === "nearby" && (!a.visible || a.visible()))); } catch (e) { return false; } };
 // ── 📍 Nearby: a driver out in the world ──────────────────────────────────
 /** A line for a driver's row in 📍 Nearby ("" = nothing). */
 export function driverNote(peerId) {
@@ -366,6 +369,7 @@ function chipTick() {
         chipEl = document.createElement("div"); chipEl.id = "frChip";
         chipEl.addEventListener("click", () => openApp(chipEl.dataset.tap === "party" ? { party: 1 } : null));
         H.hudSlot("center").appendChild(chipEl);
+        H.objective(chipEl, { prio: H.OBJ.mission + 5, id: "friendask" });      // (ci/hud: a friend waiting for her answer outranks a mission / Ima's list)
     }
     chipEl.dataset.tap = tap || "";
     chipEl.innerHTML = html;
@@ -387,8 +391,8 @@ export function install(helpers) {
     const tryAdd = () => {
         if (!ctx.phone || !ctx.phone.addApp) return false;
         ctx.phone.addApp({
-            // (order 23: right after 💬 Messages + 📞 Phone — the Phone app keeps the slot next to Messages)
-            id: "friends", icon: "👯", name: "Friends", order: 23, color: "#7E57C2", color2: "#E91E63",
+            // (order 5: first — a multiplayer game; ci/hud landing 3)
+            id: "friends", icon: "👯", name: "Friends", order: 5, color: "#7E57C2", color2: "#E91E63",
             visible: () => !partyRoam(),
             badge: () => (BL.joinAsks().length || HS.incoming("party").length ? "!" : SV.badge() ? String(SV.badge()) : null),
             render(el, api, arg) { render(el, api, arg, "friends"); },

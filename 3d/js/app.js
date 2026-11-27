@@ -263,6 +263,28 @@ async function fastForward(P) {
     present(FF_DT);
 }
 
+// The trip bar on the open highway (no story / town trip): the next place on the lap and how far — in plain words
+// (ci/hud: it said "CRUISE · 0.0 mi" on a full bar). The bar fills from the last place to the next one.
+const NP = { t: -1, v: null };
+function nextPlace(s) {
+    if (NP.v && Math.abs(ctx.time - NP.t) < 0.25) return NP.v;
+    const LAP = 16000, mod = x => ((x % LAP) + LAP) % LAP, here = mod(s), pts = [];
+    try { const T = ctx.town; if (T && T.exits) for (const e of T.exits) { const k = mod(e.s); const p = pts.find(q => Math.abs(q.s - k) < 5);
+        if (p) { if (!p.names.includes(e.name)) p.names.push(e.name); } else pts.push({ s: k, names: [e.name], kind: "exit" }); } } catch (e) { /* no towns */ }
+    try { if (ctx.exits && ctx.exits.rests) for (const r of ctx.exits.rests) pts.push({ s: mod(r.s), kind: "rest" }); } catch (e) { /* no rest areas */ }
+    let v;
+    if (!pts.length) v = { frac: here / LAP, label: "On the highway" };
+    else {
+        const ahead = p => { const a = mod(p.s - here); return a < 60 ? a + LAP : a; };      // (one she's passing now: the next lap's)
+        pts.sort((a, b) => ahead(a) - ahead(b));
+        const nx = pts[0], a = ahead(nx), back = pts.reduce((m, p) => Math.min(m, mod(here - p.s)), LAP), gap = Math.max(1, a + back);
+        const mi = a / 1609, far = mi < 0.1 ? "now" : `in ${mi.toFixed(1)} mi`;
+        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: nx.kind === "rest" ? `🅿️ Rest area ${far}` : `🛣️ ${nx.names.join(" & ")} exit ${far}` };
+    }
+    NP.t = ctx.time; NP.v = v;
+    return v;
+}
+
 // The coin counter on screen is her WALLET — every coin she has, the same number the shops and the title show — not
 // "coins picked up this drive" (G.coins, which restarts at 0 and made a player think the game forgot her coins).
 // Reading the wallet parses the save, so it's cached and re-read only when it changes (+ once a second as a net).
@@ -281,8 +303,11 @@ function updateHud(dt) {
     H.setCoins(walletCoins());
     H.setScore(G.score);
     H.setBoost(G.boost);
-    if (ctx.trip) H.setTrip(ctx.trip.progress(), ctx.trip.label());
-    else H.setTrip(1, `CRUISE · ${Math.max(0, (car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`);
+    // (a trip label of null = the open road: the next exit + how far; ctx.trip.prio = how much it matters on a phone's
+    // objective line — a town's street name a little less than Ima's list, a story leg / the Shabbos countdown more)
+    const tl = ctx.trip ? ctx.trip.label() : null;
+    if (tl == null) { const n = nextPlace(car.s); H.tripPrio(0); H.setTrip(n.frac, n.label); }
+    else { H.tripPrio(ctx.trip.prio != null ? ctx.trip.prio : H.OBJ.list - 1); H.setTrip(ctx.trip.progress(), tl); }
     let hint = "";
     if (ctx.state === "playing" && !ctx.TEST) {
         // Browsers don't count controller buttons as a "user gesture", so sound

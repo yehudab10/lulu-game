@@ -125,11 +125,13 @@ module.exports = {
     await t.until(`__lulu3d.state === "playing"`, "back to driving", 20000);
     const sent0 = await g(`${D}.TX.sent`);
     await g(`(${D}.TX.cool = 0, ${D}.M.texts.forEach(x => { x.run = ctx.memory.runs; x.after = 0; }), true)`);
-    await t.until(`!!document.querySelector(".jtext")`, "a fare texts Lulu (ctx.phone.text)", 20000);
-    const tx = await t.L(`document.querySelector(".jtext").textContent`);
-    t.check("…the groom's wedding photo / @LuxeLeah's tag", /Mendel|LuxeLeah/.test(tx), tx);
+    // (ci/hud landing 3: a fare's follow-up doesn't need her — it goes out quietly: no card on the road, nothing in Messages)
+    await g(`(window.__pt = [], L3.on("phone:text", e => window.__pt.push(e)), true)`);
+    await t.until(`window.__pt.length > 0`, "a fare texts Lulu (ctx.phone.text)", 20000);
+    const tx = await t.L(`window.__pt.map(e => e.from + ": " + e.msg).join(" | ")`);
+    t.check("…the groom's wedding photo / @LuxeLeah's tag — quietly (no card on the HUD)", /Mendel|LuxeLeah/.test(tx) && await t.L(`!document.querySelector(".jtext")`), tx);
     // (the names go in as a JSON list: a regex's \( inside this template string would lose its backslash)
-    t.check("…and it lands in the phone's 💬 Messages, a thread named after the sender", await g(`!ctx.phone.inbox || ctx.phone.inbox.threads().some(th => ${JSON.stringify(["Mendel (the groom)", "@LuxeLeah"])}.includes(th.title) && !th.group)`),
+    t.check("…a passing bubble only: it doesn't fill the phone's 💬 Messages (ci/hud — filler is never kept)", await g(`!ctx.phone.inbox || !ctx.phone.inbox.threads().some(th => ${JSON.stringify(["Mendel (the groom)", "@LuxeLeah"])}.includes(th.title))`),
       JSON.stringify(await g(`ctx.phone.inbox ? ctx.phone.inbox.threads().map(th => th.title) : null`)));
     await t.frames(10);
     await t.shot("cab-text");

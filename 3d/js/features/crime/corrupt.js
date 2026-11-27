@@ -259,7 +259,7 @@ export function corruptTick(dt) {
         if (S.t > K.life + 8 || Math.hypot(lp.x - S.x, lp.z - S.z) > 110) dropScene();
         return;
     }
-    if (!live() || !walking() || chasing() || CO.n >= K.perRun || ctx.dialogOpen) return;
+    if (!live() || !walking() || chasing() || CO.n >= K.perRun || ctx.dialogOpen || ctx.engaged()) return;
     CO.nextT -= dt;
     if (CO.nextT > 0) return;
     CO.nextT = K.gap[0] + Math.random() * (K.gap[1] - K.gap[0]);

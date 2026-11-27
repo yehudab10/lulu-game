@@ -54,6 +54,7 @@ export function why() {
     if (!party && !/^(cruise|story)$/.test(mode())) return "mode";
     if (ctx.hustle && ctx.hustle.job) return "job";
     if (ctx.phone && ctx.phone.busy && ctx.phone.busy()) return "phone";
+    { const e = ctx.engaged("underworld"); if (e) return e; }      // (ci/hud: one activity at a time — a robbery, the 🅿️ challenge…)
     if (ctx.dialogOpen || ctx.paused) return "dialog";
     if (ctx.state === "playing") {
         if (party) return "party";       // (no bad-guy cars with friends: they'd sit in the shared traffic on one screen)

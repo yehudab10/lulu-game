@@ -342,6 +342,7 @@ function canStart() {
     if (!live("snatch") || !freeMode("snatch") || G.tutorial) return false;
     if (ctx.law && (ctx.law.chasing || (ctx.law.fugitive))) return false;
     if (ctx.heist && ctx.heist.busy && ctx.heist.busy("snatch")) return false;
+    if (ctx.engaged("heist")) return false;      // (ci/hud: one activity at a time)
     return true;
 }
 hook("hud", dt => {

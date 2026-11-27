@@ -9,6 +9,7 @@
 // counts each APPEARANCE (an element turning visible, or its text changing), the most on screen at once, and how much of
 // the screen they cover. Checks (phone-sized pages): a solo highway minute shows ≤ LIMIT.solo pop-ups and never two
 // toasts at once; a stranger never produces a toast / banner / record line, in a party or not.
+// + (ci/hud) the PERSISTENT chips: on a phone one full objective at a time and ≤ CHIPS_MAX chips in the HUD's stacks at once.
 // CALM_SECS=<n> shortens the minute (local runs); CALM_REPORT=1 only prints (no checks — the "before" numbers).
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 const PORT = 28000 + (process.pid % 20000);
@@ -18,6 +19,7 @@ const SECS = +(process.env.CALM_SECS || 60);
 const REPORT_ONLY = !!process.env.CALM_REPORT;
 const LIMIT = { solo: 18, foot: 12, friends: 12, online: 12 };   // (one random minute swings: before ≈ 25 / 17 / 21 / 14, after ≈ 16 / 8 / 9 / …)     // pop-ups a minute (overlays a player has to read)
 const PHONE = { width: 844, height: 390 };
+const CHIPS_MAX = 3;      // persistent chips on a phone at once (the objective + ON FOOT / a status chip or two)
 
 // (the page-side sampler: one rAF loop, game-time stamped)
 const SAMPLER = `(() => {
@@ -64,12 +66,17 @@ const SAMPLER = `(() => {
     C.maxOn = Math.max(C.maxOn, on); C.maxToasts = Math.max(C.maxToasts, toasts); C.toastsNow = toasts;
     const cov = area / (innerWidth * innerHeight);
     C.cover = Math.max(C.cover, cov); C.coverSum += cov; C.samples++;
+    // PERSISTENT chips (ci/hud): the full objectives on the line + every other chip in the HUD's stacks, at once
+    const H = L3() && L3().H, ob = H && H.objectives ? H.objectives() : null;
+    if (ob) { C.maxFull = Math.max(C.maxFull, ob.full);
+      let n = 0; for (const el of document.querySelectorAll("#objLine .obj-main > *, #slot-left > *, #slot-right > *, #slot-center > *:not(#banner):not(#objLine)")) { if (vis(el) && !/jtext|jphone|hs-radio/.test(el.className || "")) n++; }
+      C.maxChips = Math.max(C.maxChips, n); }
   };
   requestAnimationFrame(tick);
-  window.__calmStart = () => { prevKeys = new Set(); Object.assign(C, { on: true, t0: gt(), events: [], maxOn: 0, maxToasts: 0, cover: 0, coverSum: 0, samples: 0 }); C.seen.clear(); return true; };
+  window.__calmStart = () => { prevKeys = new Set(); Object.assign(C, { on: true, t0: gt(), events: [], maxOn: 0, maxToasts: 0, cover: 0, coverSum: 0, samples: 0, maxFull: 0, maxChips: 0 }); C.seen.clear(); return true; };
   window.__calmStop = () => { C.on = false; const secs = Math.max(1, gt() - C.t0); const by = {}; for (const e of C.events) by[e.kind] = (by[e.kind] || 0) + 1;
     const pop = C.events.filter(e => e.kind !== "prompt" && e.kind !== "chip").length;
-    return { secs: +secs.toFixed(1), perMin: +(pop * 60 / secs).toFixed(1), pop, by, maxOn: C.maxOn, maxToasts: C.maxToasts,
+    return { secs: +secs.toFixed(1), perMin: +(pop * 60 / secs).toFixed(1), pop, by, maxOn: C.maxOn, maxToasts: C.maxToasts, maxFull: C.maxFull, maxChips: C.maxChips,
       coverMax: +(C.cover * 100).toFixed(1), coverAvg: +(C.coverSum / Math.max(1, C.samples) * 100).toFixed(1), events: C.events.slice(0, 60) }; };
   return true;
 })()`;
@@ -123,7 +130,7 @@ module.exports = {
   },
 };
 
-const SHOW = (name, r) => console.log(`   CALM ${name} ${JSON.stringify({ perMin: r.perMin, pop: r.pop, secs: r.secs, maxOn: r.maxOn, maxToasts: r.maxToasts, coverMax: r.coverMax, coverAvg: r.coverAvg, by: r.by })}\n     ${r.events.map(e => `${e.t}s ${e.kind}: ${e.text}`).slice(0, 40).join("\n     ")}`);
+const SHOW = (name, r) => console.log(`   CALM ${name} ${JSON.stringify({ perMin: r.perMin, pop: r.pop, secs: r.secs, maxOn: r.maxOn, maxToasts: r.maxToasts, maxFull: r.maxFull, maxChips: r.maxChips, coverMax: r.coverMax, coverAvg: r.coverAvg, by: r.by })}\n     ${r.events.map(e => `${e.t}s ${e.kind}: ${e.text}`).slice(0, 40).join("\n     ")}`);
 const STRANGER = /\b(Red|Blue|Green|Gold|Pink|Purple|Orange|Black|Rider) \d\d\b|set a record/;
 
 async function minute(P, secs = SECS) {
@@ -202,6 +209,7 @@ async function body(t, pages, riders) {
 
   if (REPORT_ONLY) { t.check("report only (CALM_REPORT)", true); return; }
   const per = r => r ? r.perMin : 0;
+  const per1 = (r, kind) => (r.by[kind] || 0) * 60 / Math.max(1, r.secs);
   t.check(`solo highway: ≤ ${LIMIT.solo} pop-ups a minute`, per(results.solo) <= LIMIT.solo, JSON.stringify(results.solo.by));
   t.check("solo highway: never two toasts at once on a phone", results.solo.maxToasts <= 1 && results.soloPortrait.maxToasts <= 1, `${results.solo.maxToasts} / ${results.soloPortrait.maxToasts}`);
   if (results.foot) t.check(`on foot in town: ≤ ${LIMIT.foot} pop-ups a minute`, per(results.foot) <= LIMIT.foot, JSON.stringify(results.foot.by));
@@ -211,4 +219,11 @@ async function body(t, pages, riders) {
   t.check("a stranger never produces a toast / banner / record line (party)", fromStrangers(results.friends).length === 0, JSON.stringify(fromStrangers(results.friends)));
   t.check("a stranger never produces a toast / banner / record line (solo online)", fromStrangers(results.online).length === 0, JSON.stringify(fromStrangers(results.online)));
   for (const k of Object.keys(results)) t.check(`${k}: pop-ups never cover more than a fifth of the screen`, results[k].coverMax <= 20, `${results[k].coverMax} %`);
+  // filler texts don't happen any more (ci/hud landing 3: a text that doesn't need her makes no card) — the count of
+  // text cards a minute can only have gone DOWN (it was 1–3 a minute on the highway / on foot before)
+  for (const k of ["solo", "foot"]) if (results[k]) t.check(`${k}: at most 1 text card a minute (filler texts are silent)`, per1(results[k], "text") <= 1, JSON.stringify(results[k].by));
+  // the persistent-chip limit (ci/hud — the owner: "too much going on"): on a phone ONE full objective at a time (the rest
+  // are badges on its line), and at most CHIPS_MAX chips in the HUD's stacks at once (texts / calls / the radio are pop-ups)
+  for (const k of Object.keys(results)) t.check(`${k}: one full objective at a time on a phone, ≤ ${CHIPS_MAX} chips at once`,
+    results[k].maxFull <= 1 && results[k].maxChips <= CHIPS_MAX, `full ${results[k].maxFull} · chips ${results[k].maxChips}`);
 }

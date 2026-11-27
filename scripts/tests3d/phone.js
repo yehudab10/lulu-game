@@ -36,7 +36,7 @@ module.exports = {
     const apps = await g(`ctx.phone.apps()`);
     // (other features add theirs: 👯 Friends, 📍 Nearby, 📞 Phone… — the full game keeps it to 9 (calls / onegame / day check that;
     //  🗞️ Kvetch is a pinned row in 💬 Messages, ctx.phone.addPin); the grid still goes 4 across past 9 so a 10th never falls off)
-    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 12, one screen)", (apps.includes("map") || apps.includes("lapmap")) && ["messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 12, apps.join(","));
+    t.check("built-in apps: Map, Messages, Radio, Jobs, Camera (≤ 12, one screen)", (apps.includes("map") || apps.includes("lapmap")) && ["messages", "radio", "jobs", "camera"].every(a => apps.includes(a)) && apps.length <= 12, apps.join(","));
     t.check("the grid shows them as big icons", await t.L(`document.querySelectorAll("#screenCard .lp-app").length`) === apps.length);
     const sA = await g(`ctx.car.s`);
     await t.frames(10);
@@ -58,10 +58,10 @@ module.exports = {
     await t.tap(17);
     t.check("controller touchpad opens the phone", await isOpen());
     const fa = await focusApp();
-    t.check("…focus starts on the first app (🗺️ Map)", fa === "map" || fa === "lapmap", fa);
-    // the grid runs in app order (map, messages, then whatever comes next — 📍 Nearby when openworld is in)
+    t.check("…focus starts on the first app (👯 Friends — multiplayer first, ci/hud)", fa === apps[0], fa + " / " + apps[0]);
+    // the grid runs in app order (👯 Friends, 🗺️ Map, 💼 Jobs, 💬 Messages… — ci/hud landing 3)
     await t.tap(15);
-    t.check("D-pad → moves to 💬 Messages", await focusApp() === "messages", await focusApp());
+    t.check("D-pad → moves to the second app", await focusApp() === apps[1], await focusApp());
     await t.tap(15);
     t.check(`D-pad → moves to the third app (${apps[2]})`, await focusApp() === apps[2], await focusApp());
     await t.tap(13);
@@ -102,13 +102,19 @@ module.exports = {
 
     // ── 💬 Messages: texts land in the inbox, unread badges, threads ────────
     await g(`ctx.phone.inbox.clear()`);
-    await g(`ctx.phone.text({ from: "Ima", emoji: "👩", msg: "Did you eat? Text me back." })`);
+    // (ci/hud landing 3: only texts that need her are kept — filler is a passing bubble that never counts)
+    await g(`ctx.phone.text({ from: "Bubbe", msg: "Just checking in, mamele" })`);
+    await t.frames(3);
+    t.check("a filler text doesn't happen: no card on the HUD, not kept, the 📱 badge stays 0", await t.L(`!/Just checking/.test((document.querySelector("#slot-left .jtext") || {}).textContent || "")`)
+      && await g(`ctx.phone.inbox.unread() === 0 && ctx.phone.inbox.threads().length === 0`) && await t.L(`!document.querySelector("#phoneBtn .lp-dot.on")`));
+    await t.L(`document.querySelectorAll("#slot-left .jtext").forEach(e => e.remove())`);
+    await g(`ctx.phone.text({ from: "Ima", emoji: "👩", msg: "Did you eat? Text me back.", need: true })`);
     await t.frames(3);
     t.check("a text still pops the driving bubble", await t.L(`/Did you eat/.test((document.querySelector("#slot-left .jtext") || {}).textContent || "")`));
     t.check("…and lands in the inbox, unread", await g(`ctx.phone.inbox.unread()`) === 1);
     t.check("…the 📱 corner button shows a 1", await t.L(`(() => { const d = document.querySelector("#phoneBtn .lp-dot"); return !!d && d.classList.contains("on") && d.textContent === "1"; })()`));
-    await g(`ctx.phone.text({ from: "IMA", msg: "And wear a sweater." })`);
-    await g(`ctx.phone.text({ from: "Heshy", thread: "mishpacha", msg: "lol" })`);
+    await g(`ctx.phone.text({ from: "IMA", msg: "And wear a sweater.", need: true })`);
+    await g(`ctx.phone.text({ from: "Heshy", thread: "mishpacha", msg: "lol", need: true })`);
     t.check("texts group into threads by from (any case) or thread", await g(`ctx.phone.inbox.threads().length`) === 2 && await g(`ctx.phone.inbox.unread("ima")`) === 2, JSON.stringify(await g(`ctx.phone.inbox.threads().map(t => t.k + ":" + t.unread)`)));
     await t.frames(2);
     await t.key("Tab");
@@ -127,7 +133,7 @@ module.exports = {
     await t.tap(1); await t.tap(1);
     t.check("○ ○ closes the phone", !(await isOpen()));
     // tapping the bubble opens that thread
-    await g(`ctx.phone.text({ from: "Bubbe", msg: "Call your Bubbe." })`);
+    await g(`ctx.phone.text({ from: "Bubbe", msg: "Call your Bubbe.", need: true })`);
     await t.frames(2);
     await t.L(`[...document.querySelectorAll("#slot-left .jtext")].pop().click()`);
     await t.frames(2);
@@ -135,7 +141,7 @@ module.exports = {
     await clickSel("#lpBackBtn"); await clickSel("#lpBackBtn"); await clickSel("#lpBackBtn");
     t.check("the ‹ Back button walks back out and closes", !(await isOpen()));
     t.check("the inbox is in the 3D save (kept to the last 50)", await t.L(`import("./js/core/save.js").then(m => m.save3d.f.phone.msgs.length)`) === 4);
-    await g(`(() => { for (let i = 0; i < 60; i++) ctx.phone.inbox.post({ from: "Spam" + (i % 3), msg: "#" + i, read: true }); return true; })()`);
+    await g(`(() => { for (let i = 0; i < 60; i++) ctx.phone.inbox.post({ from: "Spam" + (i % 3), msg: "#" + i, read: true, need: true }); return true; })()`);
     t.check("…capped at 50", await g(`ctx.phone.inbox.msgs.length`) === 50);
     await g(`ctx.phone.inbox.clear()`);
 
@@ -191,7 +197,9 @@ module.exports = {
 
     // ── 🎨 Paint & Pray ───────────────────────────────────────────────────
     await t.key("Tab");
-    await clickSel("#lpa_paint");
+    t.check("🎨 Paint & Pray isn't on the home screen (a row in 💼 Jobs while she's wanted)", !(await g(`ctx.phone.apps()`)).includes("paint"));
+    await g(`ctx.phone._dbg.openApp("paint")`);
+    await t.frames(2);
     const booth = await g(`ctx.streets.paint.nearest()`);
     t.check("Paint & Pray shows the nearest booth", await t.L(`/booth/.test(document.querySelector(".lp-dist").textContent)`) &&
       (booth ? await t.L(`/\\d mi/.test(document.querySelector(".lp-dist").textContent)`) : await t.L(`/keep driving/.test(document.querySelector(".lp-dist").textContent)`)), JSON.stringify(booth));
@@ -280,8 +288,8 @@ module.exports = {
     // ── Mishpacha: the family group chat reacts to the run ────────────────
     await g(`(ctx.G.startS = ctx.car.s - 4000, ctx.G.tickets = 2, ctx.G.coins = 220, L3.endRun("quit"), true)`);
     await t.frames(2);
-    const fam = await g(`ctx.phone.inbox.msgs.filter(m => m.k === "mishpacha").map(m => m.from + ": " + m.msg)`);
-    t.check("run end → Ima / Bubbe / Heshy react in Mishpacha 💕🙄", fam.length >= 2 && fam.some(x => /ticket/.test(x)), fam.join(" | "));
+    const fam = await g(`ctx.phone.inbox.threads().filter(t => t.k === "mishpacha").length`);
+    t.check("run end: the family's small talk doesn't fill the phone (ci/hud — filler is never kept)", fam === 0 && await g(`ctx.phone.inbox.unread() === 0`));
 
     // ── performance: the closed phone costs nothing per frame ─────────────
     await drive();

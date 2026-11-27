@@ -52,6 +52,7 @@ function els() {
     D.chip.addEventListener("click", () => { if (tapFn) { try { tapFn(); } catch (e) { console.error("[openworld] chip", e); } } });
     D.tx = D.chip.querySelector(".tx"); D.ar = D.chip.querySelector(".ar"); D.arI = D.ar.querySelector("i"); D.arD = D.ar.querySelector("span");
     H.hudSlot("center").appendChild(D.chip);
+    H.objective(D.chip, { prio: H.OBJ.mission, id: "game" });      // (ci/hud: the play HUD's objective line)
     D.board = document.createElement("div"); D.board.id = "owBoard"; D.board.className = "hud-secondary";
     H.hudSlot("left").appendChild(D.board);
     D.count = document.createElement("div"); D.count.id = "owCount";

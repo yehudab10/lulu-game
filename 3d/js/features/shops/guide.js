@@ -80,7 +80,7 @@ export const dest = () => GS.dest;
 function clear() { hideBeacon("shopsDest"); chip(""); }
 function chip(text) {
     if (!text) { if (G.chip) { G.chip.remove(); G.chip = null; G.text = ""; } return; }
-    if (!G.chip) { G.chip = document.createElement("div"); G.chip.className = "day-chip shops-dest"; H.hudSlot("left").appendChild(G.chip); G.text = ""; }
+    if (!G.chip) { G.chip = document.createElement("div"); G.chip.className = "day-chip shops-dest"; H.hudSlot("left").appendChild(G.chip); G.text = ""; H.objective(G.chip, { prio: H.OBJ.list, id: "shopsdest" }); }
     if (text !== G.text) { G.text = text; G.chip.innerHTML = text; }
 }
 /** Where the marked place is from here: { x, z, label, here } | null. */

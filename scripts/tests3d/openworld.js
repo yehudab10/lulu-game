@@ -101,7 +101,7 @@ async function solo(t) {
   if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
   await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law && ctx.law.hold && ctx.law.hold(600), true)`);
   await t.frames(10);
-  t.check("phone: 📍 Nearby is there, 👯 Party isn't (no party)", await g(`ctx.phone.apps().includes("nearby") && !ctx.phone.apps().includes("owparty")`));
+  t.check("phone: 📍 Nearby is there (opened from 👯 Friends — ci/hud), 👯 Party isn't (no party)", await g(`ctx.phone._dbg.APPS.some(a => a.id === "nearby") && !ctx.phone.apps().includes("nearby") && !ctx.phone.apps().includes("owparty")`));
   t.check("nothing on the HUD outside a game / pin", await t.L(`!document.getElementById("owChip") || getComputedStyle(document.getElementById("owChip")).display === "none"`));
 
   // Nearby on the highway: the next town exit

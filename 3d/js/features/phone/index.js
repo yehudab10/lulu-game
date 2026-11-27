@@ -27,7 +27,7 @@ import { pause, setControlRow } from "../../core/screens.js";
 import * as H from "../../hud.js";
 import "./style.js";
 import { APPS, PH, PHONE_STATES, addApp, openPhone, closePhone, canOpen, openApp, refresh, buildCorner, refreshCorner, visibleApps, partyOn } from "./ui.js";
-import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines, addPin, pins } from "./inbox.js";
+import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines, addPin, pins, needs, shown } from "./inbox.js";
 import "./apps.js";
 import { ONEGAME } from "../onegame/switches.js";
 
@@ -36,13 +36,19 @@ const S = store("phone", { hinted: false });
 // ── ctx.phone: extend journey's (or stand alone without it) ────────────────
 const phone = ctx.phone || (ctx.phone = { busy: () => false });
 const bubble = phone.text ? phone.text.bind(phone) : null;
-/** A text: the driving bubble (journey) AND the inbox. opts { from, emoji, color, msg, dur, thread? } */
+/** A text: the driving bubble (journey) AND the inbox. opts { from, emoji, color, msg, dur, thread?, need? }
+ *  ci/hud landing 3: a text that doesn't need her (inbox.js › needs) doesn't happen at all — no inbox line AND no card
+ *  on the HUD (it would only move the clutter onto the road); the "phone:text" event (quiet: true) still fires. → the
+ *  card, or null. */
 phone.text = function text(opts = {}) {
     const m = post(opts);
+    // (opts.react: a line that answers something she JUST did — Ima when she walks off the road — shows its card, isn't
+    //  kept, and never while she's in an activity)
+    if (!m && !(opts.react && !(ctx.engaged && ctx.engaged()))) return null;
     let el = null;
     if (bubble) { try { el = bubble(opts); } catch (e) { console.error("[phone] bubble", e); } }
     else H.toast(`💬 ${m.from}: ${m.msg}`, "pink");
-    if (el && el.addEventListener) {
+    if (el && el.addEventListener && m) {
         el.style.cursor = "pointer";
         el.title = "Open in Messages";
         el.addEventListener("click", e => { e.stopPropagation(); if (!PH.open) openPhone("messages", { thread: m.k }); });
@@ -57,7 +63,7 @@ Object.assign(phone, {
     apps: () => visibleApps().map(a => a.id),
     /** Pinned rows showing in 💬 Messages now (ids). */
     pins,
-    inbox: { post, unread, threads, markRead, clear: clearInbox, get msgs() { return INBOX.msgs; }, familyLines },
+    inbox: { post, unread, threads, markRead, clear: clearInbox, get msgs() { return INBOX.msgs; }, familyLines, needs, shown },
     _dbg: { PH, APPS, view, canOpen, openApp, refresh },
 });
 Object.defineProperty(phone, "isOpen", { get: () => PH.open, configurable: true });
@@ -91,12 +97,19 @@ hook("hud", () => {
 // ── the corner button + the pause menu + the button guide ─────────────────
 on("boot", () => {
     buildCorner(() => { if (PH.open) closePhone(); else if (!openPhone()) pause(); });
-    refreshCorner(unread(), false);
+    refreshCorner(waiting(), false);
     // a tap outside the handset closes it
     const scr = document.getElementById("screen");
     if (scr) scr.addEventListener("click", e => { if (PH.open && e.target === scr) closePhone(); });
 });
-onInbox(() => refreshCorner(unread()));
+onInbox(() => refreshCorner(waiting()));
+// (the 📱 badge: only what waits for HER — kept messages she hasn't read + friends' requests / asks to join; never news)
+function waiting() {
+    let n = unread();
+    try { const F = ctx.friends; if (F) n += (F.joinAsks() || []).length + ["mp", "party", "code"].reduce((k, c) => k + ((F.incoming(c) || []).length || 0), 0); } catch (e) { /* no friends */ }
+    return n;
+}
+for (const ev of ["friends:asks", "friends:joinAsk", "friends:made"]) on(ev, () => refreshCorner(waiting()));
 on("device", () => refreshCorner(null, keyHint));
 on("state", ({ to }) => {
     document.body.classList.toggle("phone-ok", PHONE_STATES.has(to));
@@ -105,7 +118,7 @@ on("state", ({ to }) => {
 on("photo", ({ open }) => { if (open && PH.open) { PH.open = false; document.body.classList.remove("phone-open"); } });
 addMenuItem("pause", {
     id: "phone", order: 11, group: "tools", short: "Phone",
-    label: () => { const n = unread(); return `📱 Phone${n ? ` <span class="lp-pill">${n}</span>` : ""}`; },
+    label: () => { const n = waiting(); return `📱 Phone${n ? ` <span class="lp-pill">${n}</span>` : ""}`; },
     visible: () => PHONE_STATES.has(ctx.state),
     action: () => openPhone(),
 });

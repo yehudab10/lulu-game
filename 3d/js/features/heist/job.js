@@ -277,7 +277,7 @@ on("crash", e => {
 function tipTick(dt) {
     const G = ctx.G;
     if (J.plan || J.job || J.done || J.tipping || !live("job") || G.mode !== "cruise" || inTown() || G.tutorial) return;
-    if (ctx.state !== "playing" || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.hustle && ctx.hustle.job)) return;
+    if (ctx.state !== "playing" || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.hustle && ctx.hustle.job) || ctx.engaged("heist")) return;
     if ((G.runTime || 0) < TUNE.tip.after) return;
     J.tipT -= dt;
     if (J.tipT > 0) return;

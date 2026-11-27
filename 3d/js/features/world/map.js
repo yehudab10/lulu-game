@@ -8,6 +8,7 @@ import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { showTitle } from "../../core/screens.js";
 import { saved } from "./places.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 const LORE = {
     home: ["🏡", "Home", "Lakewood · the cul-de-sac", "The pink door was Dina's idea. The pink car was also Dina's idea."],
@@ -50,7 +51,7 @@ export function openFamilyMap(back) {
 
 const phoneApps = () => !!(ctx.phone && typeof ctx.phone.addApp === "function");
 on("boot", () => {
-    if (!phoneApps()) return;
+    if (!phoneApps() || !ONEGAME.story) return;      // (ci/hud landing 3: who lives where is the Story Trip's — hidden with it)
     // a contact in the 📞 Phone app (features/community) — the phone stays one 3 × 3 screen; its own app only without that
     if (ctx.community && ctx.community.addContact) {
         ctx.community.addContact({ id: "family", icon: "🏡", name: "Family & places", tag: "who lives where · who you've visited", color: "#FF8A65", render(el) { el.innerHTML = html(true); } });

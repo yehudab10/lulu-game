@@ -211,6 +211,7 @@ function ensureChip() {
     chip.innerHTML = `${DREIDEL_SVG}<b>0</b>`;
     chip.title = "Golden dreidels this drive";
     H.hudSlot("left").appendChild(chip);
+    H.objective(chip, { prio: H.OBJ.bonus, id: "dreidels", icon: "🪙", badge: "b" });      // (ci/hud)
     chipN = -1;
     return chip;
 }
