@@ -87,6 +87,12 @@ const _cf = new THREE.Vector3(), _cl = new THREE.Vector3();
 const tmp = {}, tmpA = {}, poseArr = [0, 0, 0, 0, 0, 0, 0, 0];
 const PARTY_STATES = new Set(["partyLobby", "partyGrid", "partyWait", "partySpectate", "partyResults"]);
 const inPartyRun = () => N.want && ctx.G.mode === "party";
+// 🌍 a group's Free Roam rides on her OWN normal run (ci/friends, the owner 2026-11-27: "friends = the same game, one world"):
+// no party run, no reseed — her hearts, coins, car, errand, cops, the ER as when alone; her friends drawn in her world.
+// Joining = a teleport to the friend (openworld's roam lightJoin), leaving = she stays where she is. Only an opt-in GAME
+// (race, dash, cop tag, road trip) still starts a party run with its own shared world + rules.
+const openRun = () => !!ctx.G && ctx.G.mode === "cruise" && !ctx.G.ended && (ctx.state === "playing" || ctx.state === "footRun");
+const lightRoam = () => N.want && !!N.A && N.A.k === "roam" && !!ctx.G && ctx.G.mode === "cruise";
 const driving = () => N.want && (ctx.state === "partyGrid" || ctx.state === "partyWait" || (ctx.state === "playing" && ctx.G.mode === "party"));
 const tripEnd = () => { try { if (ctx.journey && ctx.journey.stopS) return ctx.journey.stopS(0); } catch (e) { /* fall back */ } return 4800; };
 
@@ -99,10 +105,18 @@ ctx.party = {
     clock: () => clock(),
     get synced() { return NET.clockSynced(); },
     get isHost() { return N.isHost; },
+    /** With friends out in the world: a party run (a game, an old client's roam) OR 🌍 on her own run (lightRoam). */
+    get inWorld() { return inPartyRun() || lightRoam(); },
+    /** 🌍 with friends on her own normal run (no party run). */
+    get ownRun() { return lightRoam(); },
+    /** Joining from a link: the teleport to the friend is still waiting for her position. */
+    get joining() { return !!P.lightPending; },
     get host() { return N.host; },
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
     get activity() { return N.A; },
+    /** Playing with a friend is possible here (online, the relay set) — the 📱 👯 rows' on/off. */
+    get allowed() { return NET.allowed(); },
     hostParty, hostRoam, joinParty, leave,
     /** Join by code; opts.with = the uid to land next to (features/friends' one-tap JOIN). */
     join: (code, opts) => { if (opts && typeof opts.with === "string" && /^[A-Za-z0-9_-]{1,24}$/.test(opts.with)) P.with = opts.with; return joinParty(code); }, openHub, openJoin: code => openJoin(code || ""),
@@ -169,10 +183,10 @@ ctx.party = {
     /** My car jumped somewhere new (a warp, another frame): friends snap behind a poof instead of sliding. */
     respawned() { P.rs = (P.rs + 1) % 1000; P.lastS = ctx.car ? ctx.car.s : P.lastS; P.lastT = clock(); },
     visuals: { CarVisual: R.CarVisual, NameTag: R.NameTag, Bubble: R.Bubble },
-    _debug: { N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
+    _debug: { lightFlag: (c, L = 10) => lightFlag(c, L), N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
         P.trace = on ? [] : null; for (const rc of R.cars.values()) rc.trace = on ? [] : null; return true; },
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
-        place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
+        place(s, d = 1.75, speed = 0) { if (lightRoam() && ctx.town && ctx.town.active) ctx.town.leave("highway"); placeCar(s, d, speed); return true; },   // (🌍 on her own run she may start in her home town)
         stageCars: () => STG.carCount(),
         claims: () => [...T.PT.claims].map(([k, c]) => ({ key: k, T0: c.T0, L: c.L, dS: c.dS, by: c.by, mine: c.mine, hail: c.hail, dead: T.PT.dead.has(k) })),
         claimCool: () => { CLAIM.cool = 0; return true; },
@@ -268,13 +282,14 @@ function playerInfo(uid) {
 function hostParty(opts = {}) {
     if (!NET.allowed()) { H.toast("Parties need an internet connection", "red"); return false; }
     leaveFriendRoom();
-    bankSoloRun();
+    const keep = !!(opts && opts.act === "roam") && openRun();     // (🌍 from the middle of her run: she keeps it)
+    if (!keep) bankSoloRun();
     const code = NET.newCode();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, true);
     P.ready = false; P.actId = N.A.id;
     P.autoAct = opts && opts.act && ACTS[opts.act] ? opts.act : null;
-    setState("partyLobby");
+    if (!keep) setState("partyLobby");
     return code;
 }
 /** 🌍 Hang out: host straight into Free Roam (friends who open the link land right next to you). */
@@ -283,11 +298,12 @@ function joinParty(code) {
     code = String(code || "").toUpperCase();
     if (!NET.allowed() || !NET.validCode(code)) return false;
     leaveFriendRoom();
-    bankSoloRun();
+    const keep = openRun();                            // (joining from the middle of her run: she keeps it — a teleport)
+    if (!keep) bankSoloRun();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, false);
     P.ready = false; P.actId = -1;
-    setState("partyLobby");
+    if (!keep) setState("partyLobby");
     return true;
 }
 function leave(toTitle = true) {
@@ -374,7 +390,10 @@ function openJoin(code = "", msg = "", msgCls = "") {
 addMenuItem("title", {
     id: "party", group: "play", order: 60, cls: "purple",
     label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} online</small>` : ""}`,
-    visible: () => !ctx.TEST || ctx.enabled("party") || ctx.enabled("multiplayer"),
+    // (the owner, 2026-11-27: "get rid of the friends button from the main menu since it's supposed to be an in game
+    //  thing" — everything it offered is in 📱 👯 Friends now: Play with a friend, Join with a code, join a friend;
+    //  an invite link opened from outside still joins straight from the title: autoJoin)
+    visible: () => false,
     action: openHub,
 });
 addMenuItem("pause", { id: "partyLobby", order: 86, cls: "",
@@ -382,7 +401,8 @@ addMenuItem("pause", { id: "partyLobby", order: 86, cls: "",
     label: () => (N.A.fromRoam && ACTS.roam ? "🌍 End the game for everyone" : "🏠 Everyone back to the lobby"),
     visible: () => N.want && N.isHost && N.A.k !== "lobby" && N.A.k !== "roam",
     action: () => { resume(); if (N.A.fromRoam && ACTS.roam) hostStart("roam"); else hostToLobby(); } });
-addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Stop playing with friends", visible: () => N.want, action: () => leave() });
+addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Stop playing with friends", visible: () => N.want,
+    action: () => { if (lightRoam()) { resume(); leave(false); H.toast("You're playing on your own now.", "", { prio: 1 }); } else leave(); } });   // (on her own run: she stays right where she is)
 
 // ── host actions ─────────────────────────────────────────────────────────
 function hostStart(k = P.pick, extra = null) {
@@ -449,12 +469,13 @@ function hostTick() {
 }
 
 // ── following the host's activity state ──────────────────────────────────
-function inFlow() { return N.want && (PARTY_STATES.has(ctx.state) || ((ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party") || ctx.state === "intro"); }
+function inFlow() { return N.want && (PARTY_STATES.has(ctx.state) || ((ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party") || openRun() || ctx.state === "intro"); }
 function followActivity() {
     const A = N.A;
     if (!A || !N.connected || !inFlow() || ctx.dialogOpen) return;
     if (!N.host) return;                               // no host heard yet
     if (A.k === "lobby") {
+        if (openRun()) { P.actId = A.id; return; }    // (her own run: never pulled into a lobby screen — a game is an invitation)
         if (ctx.state !== "partyLobby") goLobby();
         P.actId = A.id;
         return;
@@ -488,6 +509,14 @@ function enterActivity(A) {
     const idx = (A.ps || []).indexOf(N.uid);
     const late = idx < 0 || clock() > A.t0 + 1500;
     P.me = { finished: false, arrived: false, late, coins: 0, place: 0, pend: {}, tagSent: -1 };
+    if (A.k === "roam" && ACTS.roam && ACTS.roam.lightJoin) {
+        if (openRun()) { lightEnter(A); return; }
+        // (from the title / the lobby screen / a game's results: her own run starts at home first, then the teleport)
+        P.lightPending = A;
+        closeRun("party"); clearProps(); bbClear(); T.releaseTraffic();
+        if (ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "group" });
+        return;
+    }
     XP.jk.length = 0; NET.setX("jk", null);
     XC.length = 0; NET.setX("cl", null);
     P.copN = A.n;
@@ -510,6 +539,15 @@ function enterActivity(A) {
     setState("partyGrid");
 }
 
+/** 🌍 with friends on her own run: in the group, the traffic hers, then (a joiner) off to the friend. */
+function lightEnter(A) {
+    // (the teleport needs the friend's position: until her snapshots are in, keep it pending — tried each frame, ~20 s max)
+    const first = !P.lightTry;
+    if (first) { P.lightTry = performance.now(); if (ctx.traffic) ctx.traffic.config.enabled = true; NET.sendEvent("in", A.id); }
+    let done = true;
+    try { done = ACTS.roam.lightJoin(A) !== false; } catch (e) { console.error("[party] join", e); }
+    if (done || performance.now() - P.lightTry > 20000) { P.lightPending = null; P.lightTry = 0; }
+}
 /** A fresh party run at (s, d): seeded world, our props, the car placed (rolling at `speed`). */
 function beginRun(s, d, speed) {
     PK.seen.clear();
@@ -905,7 +943,11 @@ on("state", ({ from, to }) => {
 hook("damage", () => (inPartyRun() ? false : undefined), 90);
 
 hook("update", (dt, P_, controlsOn) => {
-    if (!inPartyRun()) return;
+    if (!inPartyRun()) {
+        if (ctx.traffic) ctx.traffic.leads = lightRoam() ? friendLeads() : null;
+        if (lightRoam() && ctx.state === "playing") bonks(dt);      // (friends bump harmlessly on her own run too)
+        return;
+    }
     P_.fire = false; P_.item = false;                  // missiles / pepper would hit traffic on ONE screen only
     const car = ctx.car, A = N.A, t = clock();
     const own = ACTS[A.k] && ACTS[A.k].ownTraffic && ACTS[A.k].ownTraffic();
@@ -961,6 +1003,16 @@ hook("update", (dt, P_, controlsOn) => {
 }, 40);
 on("coin", ({ n, why }) => { if (inPartyRun() && P.convoy.on && why === "road") addCoins(n, "convoy"); });
 
+// 🌍 on her own run each screen has its own traffic: it follows a friend's car like any car ahead (traffic.js leads) —
+// it slows behind her or changes lanes, never drives through her from behind. (Town traffic is the shared loops.)
+const LEADS = [];
+function friendLeads() {
+    if (ctx.town && ctx.town.active) return null;
+    LEADS.length = 0;
+    for (const rc of R.cars.values()) if (rc.shown && !rc.foot) LEADS.push({ s: rc.s, d: rc.d, dir: rc.speed >= 0 ? 1 : -1, speed: Math.abs(rc.speed || 0), hit: false });
+    return LEADS.length ? LEADS : null;
+}
+
 // BONK! symmetric self-detection: each screen bounces its own car off the friend it sees
 function bonks(dt) {
     const car = ctx.car;
@@ -987,7 +1039,7 @@ function bonks(dt) {
             car.applyImpulse(nx * 2.6, nz * 2.6, side * 0.35);
             rc.bonkCd = 0.7;
             P.bonks++;
-            H.toast("BONK!", "gold");
+            // (no toast: the bounce, the sparks and the sound are the feedback — a pop-up per bump flooded calm's budget)
             const cx = car.pos.x - nx * 1.0, cz = car.pos.z - nz * 1.0;
             car.fx.burst(cx, 1.0, cz, 16, 4.5, [1, 0.94, 0.46], 0.38, 0.5);
             tone(150, 0.12, "square", 0.22, 90);
@@ -1405,11 +1457,11 @@ function publish() {
     const pr = N.profile;
     pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.rd = P.ready ? 1 : 0;
     let m = N.mode;
-    const run = ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby";
+    const run = (ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby") || lightRoam();
     const foot = st === "footRun" && run && ctx.foot && ctx.foot.active && !!ctx.foot.pos;
     if (st === "partyLobby") m = 1;
     else if (st === "partyGrid") m = 2;
-    else if ((st === "playing" && ctx.G.mode === "party") || foot) m = 3;
+    else if ((st === "playing" && (ctx.G.mode === "party" || lightRoam())) || foot) m = 3;
     else if (st === "partyWait") m = 4;
     else if (st === "partySpectate") m = 5;
     else if (st === "partyResults") m = N.A.k === "trip" ? 4 : 6;
@@ -1493,10 +1545,12 @@ const HWY = {
 };
 function claimHandler(key) { const k = String(key), i = k.indexOf(":"); return (i > 0 && CLAIM.H.get(k.slice(0, i))) || HWY; }
 /** Claims are a carjack thing: a 🏡 Road Trip / 🌍 Free Roam run (not a race / dash / tag) with streets on. */
-function claimRunOk() { const A = N.A; return inPartyRun() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
+/** (🌍 on her own run the town's loop minivans are still the shared ones — openworld/towntraffic — so they claim the same way) */
+const claimWorld = () => inPartyRun() || lightRoam();
+function claimRunOk() { const A = N.A; return claimWorld() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
 function canClaim(c) {
     const key = c && c.data && c.data.party;
-    return typeof key === "string" && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
+    return typeof key === "string" && !c.data.lightClaim && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
         !(claimHandler(key).claimed && claimHandler(key).claimed(key)) && !!(ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind]);
 }
 function claimShared(c, opts = {}) {
@@ -1525,7 +1579,7 @@ function applyClaims(p, a) {
         claimHandler(key).add(key, T0, L, dS, p.uid, false, !!a[i + 4]);
     }
 }
-on("party:bc", ({ p, k, a }) => { if (k === "cl" && inPartyRun() && p.aid === N.A.id) applyClaims(p, a); });
+on("party:bc", ({ p, k, a }) => { if (k === "cl" && claimWorld() && p.aid === N.A.id) applyClaims(p, a); });
 function claimFeedback(c, how) {
     const msg = how === "step" ? "🛑 SCREEEECH — it stopped for you!" : how === "ram" ? "💥 They're pulling over… go get it!" : how === "hail" ? "✋ They're pulling over for you!" : "🚨 Pulling over…";
     H.toast(msg, "gold");
@@ -1570,11 +1624,63 @@ function flagCandidate(fp) {
     }
     return best;
 }
+// ── 🚗 flag & grab on her OWN run (🌍 lightRoam): each screen has its own traffic, so the ONE car two friends do it with
+// is shared by the claim itself — she flags a car on her screen (it pulls over), the spot it stopped at + its kind + paint
+// go out once ("lcl"), and a friend nearby gets the same car parked there under the same key: jacking it is partners'
+// FLAG & GRAB on both screens. A car nobody takes drives off after LC_LIFE s.
+const LC = { n: 0 }, LC_LIFE = 90;
+function lightFlagCandidate(fp) {
+    if (!lightRoam() || !ctx.enabled("streets") || ctx.foot.phase !== "walk") return null;
+    let best = null, bl = 1e9;
+    for (const c of ctx.traffic.cars) {
+        if (c.hit || c.ai || c.free || c.speed < 3 || (c.data && c.data.party)) continue;
+        if (!(ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind])) continue;
+        const dx = fp.x - c.x, dz = fp.z - c.z;
+        if (Math.abs(dx) > 90 || Math.abs(dz) > 90) continue;
+        const fx = Math.sin(c.h), fz = Math.cos(c.h), lon = dx * fx + dz * fz, lat = dx * fz - dz * fx;
+        if (Math.abs(lat) < 1.9 || Math.abs(lat) > 7 || lon < c.speed * c.speed / 16 + 4 || lon > 85 || lon >= bl) continue;
+        best = { c, lon, lat, light: true }; bl = lon;
+    }
+    return best;
+}
+function paintOf(c) { let hex = ""; c.obj.traverse(o => { if (!hex && o.isMesh && o.material && o.material.name === "Paint") hex = "#" + o.material.color.getHexString(); }); return hex; }
+function lightFlag(c, L) {
+    const key = `lc:${N.uid}:${++LC.n}`;
+    c.data = Object.assign(c.data || {}, { party: key, lightClaim: true });
+    const a = Math.max(2.5, c.speed * c.speed / (2 * Math.max(4, L)));
+    let sent = false, t = 0;
+    c.keep = true;
+    c.ai = (dt, car) => {
+        t += dt;
+        if (t > LC_LIFE) { car.ai = null; car.keep = false; return; }       // (nobody took it: it drives on)
+        car.speed = Math.max(0, car.speed - a * dt);
+        car.s += car.speed * car.dir * dt;
+        if (car.speed === 0 && !sent) {
+            sent = true;
+            NET.broadcast("lcl", key, car.kind, paintOf(car), Math.round(car.x * 10), Math.round(car.z * 10), Math.round(car.h * 1000));
+        }
+    };
+    emit("party:claim", { key, how: "hail", hail: true });
+    return true;
+}
+// a friend flagged a car down near me: the same car, parked where it stopped on her screen (same key: jackable)
+on("party:bc", ({ p, k, a }) => {
+    if (k !== "lcl" || !lightRoam() || !p || !Array.isArray(a) || typeof a[0] !== "string" || a[0].length > 40) return;
+    const key = a[0], kind = a[1], x = (a[3] | 0) / 10, z = (a[4] | 0) / 10, h = (a[5] | 0) / 1000;
+    if (!(ctx.streets && ctx.streets.rides && ctx.streets.rides[kind]) || !isFinite(x) || !isFinite(z)) return;
+    if (Math.hypot(x - ctx.car.pos.x, z - ctx.car.pos.z) > 400 || ctx.traffic.cars.some(c => c.data && c.data.party === key)) return;
+    const n = ctx.traffic.road.nearest(x, z, ctx.car.s, {});
+    let t = 0;
+    const c = ctx.traffic.add(kind, n.s, n.d, 1, 0, { keep: true, data: { party: key, lightClaim: true }, ai: (dt, car) => { t += dt; car.speed = 0; if (t > LC_LIFE) ctx.traffic.remove(car); } });
+    c.free = true; c.x = x; c.z = z; c.h = h;
+    if (typeof a[2] === "string" && /^#[0-9a-f]{6}$/i.test(a[2])) c.obj.traverse(o => { if (o.isMesh && o.material && o.material.name === "Paint") { o.material = o.material.clone(); o.material.color.set(a[2]); } });
+    ctx.traffic.place(c, 0);
+});
 const flagSpot = {
     r: 2.6, short: "FLAG",
     pos() {
         const fp = ctx.foot && ctx.foot.pos;
-        CLAIM.flag = fp && N.want ? flagCandidate(fp) : null;
+        CLAIM.flag = fp && N.want ? (flagCandidate(fp) || lightFlagCandidate(fp)) : null;
         if (!CLAIM.flag) return null;
         const c = CLAIM.flag.c, s = Math.sign(CLAIM.flag.lat) || 1;
         return { x: fp.x - Math.cos(c.h) * s * 1.1, z: fp.z + Math.sin(c.h) * s * 1.1 };
@@ -1583,6 +1689,7 @@ const flagSpot = {
     act() {
         const f = CLAIM.flag;
         if (!f || !ctx.foot.active) return;
+        if (f.light) { if (lightFlag(f.c, Math.max(f.c.speed * f.c.speed / 16 + 2, f.lon))) { CLAIM.cool = 2.5; claimFeedback(f.c, "hail"); if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "TAXI!! …or whatever you are!", 1.6); } return; }
         if (claimShared(f.c, { L: Math.max(f.c.speed * f.c.speed / 16 + 2, f.lon), hail: true, how: "hail" })) { CLAIM.cool = 2.5; claimFeedback(f.c, "hail"); if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "TAXI!! …or whatever you are!", 1.6); }
     },
 };
@@ -1669,7 +1776,7 @@ function dropShared(key) {
     for (const c of tr.cars.slice()) if (c.data && (c.data.party === key || c.data.partyClaim === key)) { if (!claimed) sparkle(c.x, c.z); tr.remove(c); }
     T.PT.cars.delete(key);
 }
-on("party:bc", ({ p, k, a }) => { if (k === "j" && inPartyRun() && p.aid === N.A.id) for (const key of a) dropShared(key); });
+on("party:bc", ({ p, k, a }) => { if (k === "j" && claimWorld() && p.aid === N.A.id) for (const key of a) dropShared(key); });
 // the jack of a car I'd claimed went through: now it's gone for everyone
 on("streets:carjack", () => {
     const pd = CLAIM.pending;
@@ -1757,6 +1864,8 @@ function frame() {
         // hosted straight into an activity (🌍 Hang out): start it the moment we're the connected host
         if (P.autoAct && N.isHost && N.connected && N.A && N.A.k === "lobby" && NET.clockSynced()) { const k = P.autoAct; P.autoAct = null; hostStart(k); }
         followActivity();
+        // (joined from the title / after a game: her own run just started at home — now the teleport to the friend)
+        if (P.lightPending && openRun() && N.A && N.A.id === P.lightPending.id) lightEnter(P.lightPending);
         // full? (the host's roster has no room for us)
         if (N.connected && N.host && !N.isHost && N.roster.length >= NET.MAX_PLAYERS && !N.roster.includes(N.uid) && performance.now() - N.connectedAt > 4000) {
             leave(); H.toast("😕 That party is full (8 friends max)", "red"); return;
@@ -1764,12 +1873,13 @@ function frame() {
         onRoad = !ctx.view && N.A.k !== "lobby";
         R.updateCars(dt, showCar, decorate, frameOf);
         PS.tick(dt, sameWorld, displayName);
-        if (inPartyRun()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x) {
+        if (claimWorld()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x) {
             if (Array.isArray(p.x.cl)) applyClaims(p, p.x.cl);
             if (Array.isArray(p.x.jk)) for (const key of p.x.jk) dropShared(key);
         }
         if (CLAIM.cool > 0) CLAIM.cool -= dt;
         if (ctx.state === "footRun" && inPartyRun() && ctx.foot && ctx.foot.active) footTick(dt);
+        else if (ctx.state === "footRun" && lightRoam() && ctx.foot && ctx.foot.active && ctx.foot.pos && !ctx.paused) claimStepTick(ctx.foot.pos);   // (her own run: her own traffic, the town's shared minivans)
         hornsNearby();
         farewells();
         dashTick(dt);
@@ -1785,7 +1895,7 @@ let onRoad = false;
 /** Draw this friend on the road? (same activity, actually driving / parked, and we're looking at the road) */
 function showCar(p) { const act = ACTS[N.A.k]; return onRoad && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip") && (!act || !act.show || act.show(p)); }
 /** Is this friend in my world (same activity + zone, I'm looking at the road) — for their parked car, cops, tags. */
-function sameWorld(p) { const act = ACTS[N.A.k]; return onRoad && ctx.G && ctx.G.mode === "party" && p.aid === N.A.id && (p.m === 7 || (p.m >= 2 && p.m <= 4)) && (!act || !act.show || act.show(p)); }
+function sameWorld(p) { const act = ACTS[N.A.k]; return onRoad && ctx.G && (ctx.G.mode === "party" || lightRoam()) && p.aid === N.A.id && (p.m === 7 || (p.m >= 2 && p.m <= 4)) && (!act || !act.show || act.show(p)); }
 function frameOf(p) { const act = ACTS[N.A.k]; return act && act.frame ? act.frame(p) : null; }
 function decorate(rc, p) {
     rc.tag.set(displayName(p.uid), R.skinHex(p.sk), { host: p.uid === N.host, status: R.status(p) || PS.presenceBadge(p) });

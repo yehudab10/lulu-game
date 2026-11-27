@@ -46,6 +46,8 @@ module.exports = {
       if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
       await W.moved(t);
       await g(`(() => { const c = ctx.car, p = ctx.world.highway.point(${s}, 5.25, {}); c.place(p.x, p.z, p.h); c.s = ${s}; c.d = 5.25; c.vx = c.vz = c.vF = 0; ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
+      // (the test's own teleport: the chase cam catches up over the next frames — not the game's jump)
+      await t.L(`(window.__qa.cutF = __lulu3d.ctx.frames + 40, window.__qa.last = null, true)`);
       await t.frames(20);
     };
     let phoneIndoors = null;
@@ -57,6 +59,7 @@ module.exports = {
         for (const door of P.doors) {
           const where = `${tag} · ${P.m / 1000} km ${door}`;
           await hwAt(s);
+          await t.L(`(window.__qa.cutF = __lulu3d.ctx.frames + 40, window.__qa.last = null, true)`);
           await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
           if (!await t.until(`__lulu3d.state === "footRun"`, `${where}: on foot`, 8000)) continue;
           // stand just out from the door, facing it, the room warmed

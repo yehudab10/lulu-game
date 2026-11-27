@@ -200,6 +200,16 @@ Client behavior (only when opted in, all try/caught, all fire-and-forget):
 ## 3D PARTY — 🌍 Free Roam + party games (features/openworld)
 Rides the 3D party's netcode (`3d/js/features/party/net.js`: relay protocol v1, everything inside the
 verbatim-relayed `d` packet). **No server change.** What it adds on the wire:
+- **Free Roam on her own run (ci/friends, 2026-11-27):** no party run any more — each friend keeps her own ▶ PLAY
+  run (her hearts, coins, car, the day's list); joining is a teleport to the friend, leaving keeps her where she is.
+  Nothing new on the wire except one broadcast: `"lcl"` [key, kind, paint, x×10, z×10, h×1000] — a car she flagged
+  down on her own traffic, so a friend nearby gets the same car parked there (flag & grab). Old clients in the same
+  group still work: they publish the same pose / extras; an old client hosting Free Roam still starts a party run on
+  its own screen. The highway traffic is each screen's own (a friend's car is a lead for it); the towns' loop traffic
+  and the sky stay on the shared party clock.
+- **Broadcasts** (`d.bc`, party/net.js): each rides in my snapshots for 1.5 s from the FIRST packet it goes out in
+  (not from when it was made: a long frame on a slow phone let a one-off expire unsent); an oversize packet (> 1.9 KB)
+  drops the extras before the broadcasts.
 - `d.x = { z, ex }` — my extras (the party's existing `N.extra` slot): `z` = the zone I'm in (`""` the
   highway, else a town id like `"lakewood"`), `ex` = that town's highway exit s (for warps / late joins). ~25 bytes.
 - `d.p` (pose) in a town is published in a **flat frame**: `s = world z + 20000`, `d = −world x`, heading

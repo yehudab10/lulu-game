@@ -70,7 +70,7 @@ function eligible() {
     // (a 🎉 party: off until the interchange planner hook — ci/exits2 — makes every friend's town exits keep out of it;
     //  the placement itself is already fixed data, the presence + the planes on the party clock are wired)
     // (once the towns keep out of its zones — PLANNING.townsKeepOut — every friend plans the same metre: on in a 🌍 Free Roam)
-    if (ctx.party && ctx.party.active) return (S.party || PLANNING.townsKeepOut) && G.mode === "party" && partyRoam();
+    if (ctx.party && ctx.party.active) return (S.party || PLANNING.townsKeepOut) && (G.mode === "party" || G.mode === "cruise") && partyRoam();   // (🌍 on her own run too — ci/friends)
     return G.mode === "cruise" && !G.tutorial;
 }
 

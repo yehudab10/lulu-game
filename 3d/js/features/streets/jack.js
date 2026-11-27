@@ -58,6 +58,8 @@ function local(c, x, y, z, out = _v) {
 export function jackable(c) {
     // a 🎉 party's shared traffic never stops for anyone: she jacks it on the move (it brakes for her on HER screen
     // only once it's hers — ctx.party.claimTraffic takes it out of everyone's traffic first)
+    // (🌍 with friends on her own run, a car a friend flagged down for her — features/party lightFlag: parked, jackable)
+    if (c && c.data && c.data.lightClaim) return !c.hit && !!RIDES[c.kind];
     if (c && c.data && c.data.party) return partyOn() && !c.hit && !c.data.owTown && !!RIDES[c.kind];
     // (a shared car she CLAIMED in a party — features/party — is parked for her; a town loop car's is free-placed)
     const claimed = !!(c && c.data && c.data.partyClaim);
@@ -137,7 +139,7 @@ export function startJack(c) {
     if (!F || J.active) return false;
     const R = RIDES[c.kind];
     // a party's shared car: out of everyone's traffic first (a poof on friends' screens; hers from now on)
-    if (c.data && (c.data.party || c.data.partyClaim) && !(ctx.party && ctx.party.claimTraffic && ctx.party.claimTraffic(c))) return false;
+    if (c.data && !c.data.lightClaim && (c.data.party || c.data.partyClaim) && !(ctx.party && ctx.party.claimTraffic && ctx.party.claimTraffic(c))) return false;
     // the car stops where it is (it was already crawling or waiting for her)
     c.data.streetsJack = true;
     c.keep = true; c.noNearMiss = true;

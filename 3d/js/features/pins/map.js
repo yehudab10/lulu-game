@@ -9,6 +9,7 @@ import { toL, myPos, fmtDist } from "../together/where.js";
 import * as PN from "./index.js";
 
 css("pins-map", `
+.lphone .pin-new { color: #E91E63; font-style: normal; font-size: 10px; vertical-align: middle; }
 .lphone .pin-filter { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 2px 0 4px; }
 .lphone .pin-filter .btn.lp-mini { min-height: 40px; padding: 0 2px; font-size: 12px; width: auto; color: #2b1838; }
 .lphone .pin-filter .btn.lp-mini.on { background: #fff; box-shadow: inset 0 0 0 2px var(--pink, #E91E63); }
@@ -42,7 +43,7 @@ export function html() {
     out += `<div class="pin-filter">${CATS.map(([k, l]) => `<button class="btn lp-mini${F.cat === k ? " on" : ""}" data-pcat="${k}">${l}</button>`).join("")}</div>`;
     const here = inTown(), me = myPos();
     for (const g of groups) {
-        const ps = g.places.filter(p => !F.cat || p.cat === F.cat);
+        const ps = g.places.filter(p => PN.shown(p) && (!F.cat || p.cat === F.cat));
         if (!ps.length) continue;
         const far = g.ahead < 0 ? "you're here" : g.ahead < 200 ? "right here" : g.ahead < 1e8 ? `${fmtDist(g.ahead)} up the road` : "";
         out += `<div class="pin-grp">${g.icon} ${esc(g.name)} <span>${far}</span></div>`;
@@ -51,10 +52,11 @@ export function html() {
             if (here && p.town === here) { const t = PN.target(p.id); if (t && t.kind === "at") meta = fmtDist(Math.hypot(t.x - me.x, t.z - me.z)); }
             // (QA 2026-11-27: ONE tap pings — the row used to open a drawer holding only "📍 Ping"; the pinned row says ✕)
             const on = cur && cur.id === p.id, sel = F.sel === p.id;
-            out += `<button class="btn lp-row pin-row${on ? " on" : ""}${sel ? " sel" : ""}" data-pin="${esc(p.id)}"><span class="lp-av">${p.icon}</span><span class="lp-tx"><b>${esc(p.name)}</b><small>${esc(p.sub || "")}${on ? " · 📍 pinned — tap to clear" : ""}</small></span><span class="lp-meta">${on ? "✕" : meta || "📍"}</span></button>`;
+            out += `<button class="btn lp-row pin-row${on ? " on" : ""}${sel ? " sel" : ""}" data-pin="${esc(p.id)}"><span class="lp-av">${p.icon}</span><span class="lp-tx"><b>${esc(p.name)}${PN.isFresh(p.id) ? ' <i class="pin-new" title="new">●</i>' : ""}</b><small>${esc(p.sub || "")}${on ? " · 📍 pinned — tap to clear" : ""}</small></span><span class="lp-meta">${on ? "✕" : meta || "📍"}</span></button>`;
         }
     }
-    out += `<p class="lp-fine">📍 Ping a place: a light over it, a little arrow at the edge of the screen and how far.</p>`;
+    out += `<p class="lp-fine">📍 Ping a place: a light over it, a little arrow at the edge of the screen and how far. New places show up here once you've walked past them.</p>`;
+    setTimeout(() => PN.seenFresh(), 2500);          // (the "new" dots: seen once the list has been on screen a moment)
     return out;
 }
 /** Wire the card (after its HTML is in el). */
@@ -115,7 +117,7 @@ export function drawTown(cv) {
     F.pts = [];
     let pin = null;
     for (const p of PN.list()) {
-        if (p.town !== T.id || (F.cat && p.cat !== F.cat && p.id !== cur)) continue;
+        if (p.town !== T.id || !PN.shown(p) || (F.cat && p.cat !== F.cat && p.id !== cur)) continue;
         const t = PN.target(p.id);
         if (!t || t.kind !== "at") continue;
         const x = cl(px(t.x, t.z)), y = clY(py(t.x, t.z));
@@ -139,7 +141,7 @@ export function overlayLap(cv) {
     F.pts = [];
     for (const gr of PN.groups()) {
         if (gr.id === "highway" || !Number.isFinite(gr.m)) continue;
-        const ps = gr.places.filter(p => !F.cat || p.cat === F.cat || p.id === cur);
+        const ps = gr.places.filter(p => PN.shown(p) && (!F.cat || p.cat === F.cat || p.id === cur));
         const a = gr.m / LAP * Math.PI * 2 - Math.PI / 2, n = Math.min(ps.length, 16), row = Math.ceil(n / 2);
         // (one or two short arcs of icons just outside the town's own emoji, along the ring)
         ps.slice(0, n).forEach((p, i) => {

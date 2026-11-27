@@ -65,7 +65,7 @@ module.exports = {
 async function body(t) {
   await t.frames(6);
   // Shared Road is 🕹️ Classic 2D friends in the ⚙️ More drawer (one multiplayer tile on the title: 👯 Friends)
-  t.check("title lists 👯 Friends (Shared Road inside)", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Friends/.test(b.textContent))`));
+  t.check("the title has no 👯 Friends tile (friends are in the game: 📱 👯)", await t.L(`![...document.querySelectorAll("#screenCard .btn")].some(b => /Friends/.test(b.textContent))`));
   t.check("nothing connects until the player joins", await t.game(`!${S}.sock && !${S}.want`));
 
   // ── the screen: pick a curated name with the D-pad, connect to EVERYONE ──
