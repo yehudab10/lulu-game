@@ -237,14 +237,14 @@ function search(S0, D) {
     return chain;
 }
 /** The town route to world point (wx, wz) → a route, or null (no way: it hands back). */
-export function buildTown(wx, wz) {
+export function buildTown(wx, wz, opts = {}) {
     if (!(ctx.town && ctx.town.active) || !PL.STREETS.length) return null;
     const S0 = startOf(), D = destOf(wx, wz);
     if (!S0) return { fail: "street" };
     if (!D) return null;
     const chain = search(S0, D);
     if (!chain) return null;
-    const V = NAV.TOWN_MPH / MPH, pts = S0.pre.map(p => ({ x: p.x, z: p.z, v: V }));
+    const V = (opts.townMph || NAV.TOWN_MPH) / MPH, pts = S0.pre.map(p => ({ x: p.x, z: p.z, v: V }));
     let cur = { st: S0.st, dir: S0.dir, along: S0.along };
     const sample = (st, dir, a, b, v) => {
         if ((b - a) * dir <= 0) return;
@@ -321,17 +321,17 @@ export function follow(R, dt, opts = {}) {
     // (a stop line it has just rolled onto — or a hair past — still counts)
     if (stopK < 0) for (let k = Math.max(0, R.i - 1); k <= R.i + 1 && k < pts.length; k++) if (pts[k].stop && !pts[k].cleared && R.along - cum[k] < 3) { stopK = k; v = 0; }
     if (ctx.town && ctx.town.active) {
-        v = Math.min(v, NAV.TOWN_MPH / MPH);
+        v = Math.min(v, (opts.townMph || NAV.TOWN_MPH) / MPH);
         const st = streetOfS(car.s);
         if (st && TC.slow && TC.slow.has(st.id)) v = Math.min(v, NAV.BUMP_V);
-        const cams = school();
+        const cams = opts.school === false ? null : school();
         if (cams && cams.length) {
             const look = at(R, R.along + 30), inZ = ctx.cameras.debug.inZone;
             if (cams.some(c => { try { return inZ(c, car.pos.x, car.pos.z) || inZ(c, look.x, look.z); } catch (e) { return false; } })) v = Math.min(v, NAV.SCHOOL_MPH / MPH);
         }
     }
     const gap = gapAhead(R, Math.max(18, v0 * 2.2));
-    if (gap < 1e9) v = Math.min(v, Math.max(0, (gap - 4.5) * 0.8));
+    if (gap < 1e9) v = Math.min(v, Math.max(0, (gap - (opts.margin || 4.5)) * 0.8));
     // the stop line: stand, then go when the crossing's clear
     if (stopK >= 0) {
         const dist = cum[stopK] - R.along;
@@ -358,7 +358,7 @@ export function follow(R, dt, opts = {}) {
     else if (v0 > v + 0.35) brake = Math.max(0.12, Math.min(1, (v0 - v) * 0.3));
     if (v < 0.05 && v0 < 0.8) { throttle = 0; brake = 1; }
     R.v = v;
-    return { steer, throttle, brake, handbrake: false, analog: true };
+    return { steer, throttle, brake, handbrake: false, analog: true, blocked: gap < 12 && v0 > 1 };
 }
 
 export const routeDebug = { NAV, startOf, destOf, search, buildTown, buildExit, exitFor, follow, gapAhead, obstacles, boxBusy };

@@ -28,13 +28,13 @@ export const LUX_CARS = {
     kvetchtoria: {
         name: "Kvetchtoria", price: 18000,
         body: "#4A0E2E", light: "#8E3B63", dark: "#24051A", stripe: "#E8D5A3",
-        top: 1.30, acc: 1.25, grip: 1.40, brake: 1.45, nitro: 1.2, perks: ["ceramic", "massage"],
+        top: 1.30, acc: 1.25, grip: 1.40, brake: 1.45, nitro: 1.2, perks: ["ceramic", "massage", "cruise"],
         flavor: "So quiet you can hear Bubbe disapproving from the back seat.",
     },
     machatunim: {
         name: "Machatunim GT", price: 38000,
         body: "#F5F5F0", light: "#FFFFFF", dark: "#B0A990", stripe: "#C9A227",
-        top: 1.45, acc: 1.45, grip: 1.40, brake: 1.40, nitro: 1.5, perks: ["launch", "selfpark", "concierge"],
+        top: 1.45, acc: 1.45, grip: 1.40, brake: 1.40, nitro: 1.5, perks: ["launch", "selfpark", "concierge", "acc"],
         flavor: "The in-laws will judge it. Let them. You're driving.",
     },
 };
@@ -47,10 +47,12 @@ export const OPTIONS = {
     massage:   { name: "💆 Massage seats", price: 900, desc: "Stopped for 20 s with a heart missing: +1 ♥. Once a run." },
     fridge:    { name: "🥂 The champagne fridge", price: 400, desc: "It's seltzer. A fizzy sip of nitro, once a run, when you stop." },
     concierge: { name: "🛎️ The concierge horn", price: 300, desc: "Honk and the car says something classy." },
+    cruise:    { name: "⏱️ Cruise control", price: 700, desc: "❚❚ › Cruise: it holds your speed while you steer. Brake (or swerve hard) to cancel." },
 };
 /** Built-in perks a car comes with (LUX_CARS.perks) that aren't sold as options. */
 export const BUILT_IN = {
     ceramic: "🛑 Ceramic brakes (it's in the brake stat)",
+    acc: "🛰️ Adaptive cruise (❚❚ › Cruise: it holds your speed AND keeps a gap to the car ahead)",
     selfpark: "🅿️ Self-park: in the Parking Challenge, once a level, it parks itself (scores ★, no level bonus)",
 };
 /** The F&I office's nonsense: costs coins, does NOTHING but a joke line (Sal remembers what she fell for). */
@@ -150,7 +152,10 @@ export const SUB = {
     modes: {
         bubbe:   { name: "👵 Bubbe", mph: 50, gap: 40, lanes: false, desc: "50 mph, a big gap, never changes lanes. Signals for a full minute." },
         normal:  { name: "🙂 Normal", mph: 0, gap: 25, lanes: true, desc: "The limit, overtakes when it's clear." },
-        meshuga: { name: "🌶️ Meshuga", mph: 0, gap: 14, lanes: true, desc: "The limit (still!), tight gaps, eager lane changes. Mutters." },
+        // (Meshuga REALLY is: over the limit, tailgates, cuts in, honks — so a camera / a trooper can catch it like any speeder.
+        //  That's the joke and the price; still no bonuses or coins. Bubbe + Normal stay law-abiding and ticket-proof.)
+        meshuga: { name: "🌶️ Meshuga", mph: 0, over: 12, town: 38, gap: 9, cut: true, honk: true, lanes: true,
+            desc: "Over the limit, tailgates, cuts people off, honks. Any tickets are yours. (Tushla is not responsible for Meshuga.)" },
     },
     quirks: [
         "🤖 Phantom brake! …It was a plastic bag. It's fine. It's FINE.",

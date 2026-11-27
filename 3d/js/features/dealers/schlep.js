@@ -123,11 +123,26 @@ export function handBack(why = "you") {
     if (BACK[why]) H.toast(BACK[why], why === "you" ? "" : "gold", { key: "schlep" });
     emit("dealers:selfdrive", { on: false, why });
 }
-/** The speed it drives at (m/s): the mode's, never over the limit (a mile under, so no radar ever flags it). */
+/** The speed it drives at (m/s): Bubbe / Normal never over the limit (a mile under, so no radar ever flags it);
+ *  Meshuga OVER it (a camera / a trooper sees a speeder — that's the price). */
 export function targetSpeed() {
     const m = SUB.modes[mode()];
+    if (m.over) return (SPEED_LIMIT + m.over) / MPH;
     const mph = Math.min(m.mph || SPEED_LIMIT, SPEED_LIMIT) - 1;
     return mph / MPH;
+}
+/** What the town route may do in this mode (route.js follow opts). */
+function townRules() {
+    const m = SUB.modes[mode()];
+    return m.town ? { townMph: m.town, school: false, margin: 2.2 } : {};
+}
+/** 🌶️ Meshuga leans on the horn at whoever's in its way (a short beep; the world reacts as to any honk). */
+let honkT = 0;
+function honk() {
+    if (ctx.time < honkT) return;
+    honkT = ctx.time + 3 + Math.random() * 3;
+    emit("honk", { selfDrive: true });
+    import("../parking/sfx.js").then(m => { m.tone(415, 0.16, "square", 0.08); m.tone(523, 0.16, "square", 0.06); }).catch(() => {});
 }
 // ── 📍 to the ping (route.js) ──
 const pinged = () => { const P = ctx.pins, id = P && P.current; return id ? P.get(id) : null; };
@@ -143,14 +158,14 @@ function navTick(dt) {
             const p = pinged(), t = p && ctx.pins.target(p.id);
             if (!p) { handBack("noping"); return false; }
             if (!t || t.kind !== "at") { handBack("away"); return false; }
-            SD.route = buildTown(t.x, t.z);
+            SD.route = buildTown(t.x, t.z, townRules());
             if (!SD.route || SD.route.fail) { const why = SD.route && SD.route.fail; SD.route = null; handBack(why || "lost"); return false; }
             SD.route.name = p.name;
             if (SD.replans === 0) H.toast(`⚡ Navigating to 📍 ${p.name}`, "", { key: "schlep" });
             note("town", { to: p.id, street: SD.route.street, m: Math.round(SD.route.cum[SD.route.cum.length - 1]) });
         }
-        const r = follow(SD.route, dt);
-        if (!r.done) return r;
+        const r = follow(SD.route, dt, townRules());
+        if (!r.done) { if (r.blocked && SUB.modes[mode()].honk) honk(); return r; }
         if (r.done === "off" && SD.replans < 3) { SD.replans++; SD.route = null; note("replan"); return { steer: 0, throttle: 0, brake: 0.6, handbrake: false, analog: true }; }
         note(r.done, { stops: SD.route.stops });
         handBack(r.done === "arrived" ? "arrived" : r.done === "stuck" ? "stuck" : "lost");
@@ -211,7 +226,10 @@ hook("controls", (ctl, dt) => {
     if (lead) {
         const ds = lead.s - car.s;
         const other = 1 - SD.lane;
-        if (M.lanes && !SD.noPass && SD.changeT <= 0 && ds < M.gap * 1.6 && T.laneFree(car.s + 10, LANES_OURS[other], 1, M.gap) && T.laneFree(car.s - 8, LANES_OURS[other], 1, 12)) {
+        // (Meshuga CUTS IN: it pulls out with a few metres to spare behind, and leans on the horn first)
+        const back = M.cut ? [car.s - 3, 4] : [car.s - 8, 12];
+        if (M.honk && ds < M.gap * 1.4 && (lead.speed || 0) < v - 2) honk();
+        if (M.lanes && !SD.noPass && SD.changeT <= 0 && ds < M.gap * 1.6 && T.laneFree(car.s + 10, LANES_OURS[other], 1, M.gap) && T.laneFree(back[0], LANES_OURS[other], 1, back[1])) {
             SD.lane = other; SD.changeT = mode() === "meshuga" ? 3 : 6;
             emit("dealers:selfdrive", { on: true, lane: SD.lane });
         } else if (ds < M.gap) v = Math.min(v, Math.max(0, (lead.speed || 0) - (ds < M.gap * 0.6 ? 3 : 0.5)));

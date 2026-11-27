@@ -122,9 +122,9 @@ module.exports = {
       await pick(/How about 10,800/);
       t.check("two counters: he meets her halfway each time", /Deal — 11,100/.test((await optsNow())[0]), (await optsNow())[0]);
       await pick(/Deal/);
-      // the F&I office: tank ✅, massage ❌, fridge ✅, concierge ❌, undercoating ✅, then skip the rest
+      // the F&I office: tank ✅, massage ❌, fridge ✅, concierge ❌, cruise ❌, undercoating ✅, then skip the rest
       const fni = [];
-      for (const want of [/Add it/, /No thanks/, /Add it/, /No thanks/, /Sure/, /Skip the rest/]) fni.push(await pick(want));
+      for (const want of [/Add it/, /No thanks/, /Add it/, /No thanks/, /No thanks/, /Sure/, /Skip the rest/]) fni.push(await pick(want));
       const r = await result();
       t.check("the deal goes through below the sticker", r.ok === true && r.price === 11100, JSON.stringify(r));
       t.check("F&I: every option + package was offered one card at a time", fni.every(Boolean), JSON.stringify(fni));
@@ -178,6 +178,22 @@ module.exports = {
       t.check("…only once", (await evs(/dealers:perk.*fridge/)).length === 1);
       t.check("no coins from any perk", await coins() === cP, `${cP} → ${await coins()}`);
     });
+    // ── ⏱️ cruise control (the Kvetchtoria has it built in; the poor step bought one) ──
+    await step("cruise", async () => {
+      await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("kvetchtoria"))`);
+      await W.pause(t, false);
+      await g(`(() => { const s = ctx.car.s + 200, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); return true; })()`);
+      await t.frames(10);
+      t.check("❚❚ offers ⏱️ Cruise control in the Kvetchtoria", await t.L(`import("./js/core/ctx.js").then(m => m.menuItems("pause").some(i => i.id === "cruise"))`));
+      t.check("set: it holds the speed she's doing", await g(`ctx.dealers.debug.perks.cruiseOn()`) === true);
+      const v0 = await g(`ctx.dealers.debug.perks.CC.v`);
+      await t.frames(120);
+      const v1 = await g(`ctx.car.speed`);
+      t.check("…hands off the pedals for 4 s: still within 1.5 m/s of it (she steers; it isn't self-driving)", Math.abs(v1 - v0) < 1.5 && !await g(`ctx.G.selfDriving`), `${v0.toFixed(1)} → ${v1.toFixed(1)}`);
+      await t.hold(6, 1); await t.frames(4); await t.hold(6, 0);
+      t.check("braking cancels it", !await g(`ctx.dealers.debug.perks.CC.on`) && await g(`ctx.dealers.debug.perks.CC.off`) === "brake");
+      await W.pause(t, true); await W.moved(t);
+    });
     { const r = await W.report(t); W.log(r); W.check(t, "Mazelati (the showroom, the haggle, the perks)", r); await W.reset(t); }
 
     // ══ stage 2: ⚡ Tushla across the highway + Full Schlep Driving ══
@@ -203,6 +219,7 @@ module.exports = {
       await g(`ctx.dealers.debug.ev.buyHere("tushla_nu")`);
       t.check("…the second buys it: 4,000, no haggling", c0 - await coins() === 4000 && (await save()).ownedSkins.includes("tushla_nu") && await g(`ctx.car.skinKey`) === "tushla_nu");
       t.check("its acceleration beats every Mazelati", await t.L(`import("./js/car.js").then(m => m.SKINS.tushla_nu.acc > m.SKINS.machatunim.acc)`));
+      await g(`(ctx.screens && ctx.screens.closeCard ? ctx.screens.closeCard() : 0, true)`);
     });
     await step("sub", async () => {
       const c0 = await coins();
@@ -224,6 +241,16 @@ module.exports = {
     await step("selfdrive", async () => {
       await W.pause(t, false); await playing(); await W.pause(t, true); await W.moved(t);
       t.check("back in the car", await g(`L3.state === "playing" && !ctx.foot.active`));
+      // ⚡ no nitro in an electric car: no bar, no button, the boost button does nothing
+      await t.frames(4);
+      const ev = await t.L(`(() => { const b = document.querySelector("#hud .boost"), tb = document.getElementById("tBoost"); return { cls: document.body.classList.contains("ev-car"), bar: b ? getComputedStyle(b).display : "none", btn: tb ? getComputedStyle(tb).display : "none", ev: __lulu3d.ctx.G.evCar }; })()`);
+      t.check("⚡ a Tushla has no nitro: the bar + the button are gone", ev.cls && ev.ev && ev.bar === "none" && ev.btn === "none", JSON.stringify(ev));
+      await g(`(ctx.G.boost = 1, true)`); await t.hold(5, 1); await t.frames(10);
+      t.check("…and the nitro button does nothing", !await g(`ctx.G.boosting`));
+      await t.hold(5, 0); await t.frames(2);
+      await g(`(ctx.dealers.schlep.setMode("meshuga"), true)`);
+      t.check("🌶️ Meshuga drives OVER the limit (it can get tickets — that's the price)", await g(`ctx.dealers.schlep.targetSpeed() * 2.23694`) > 75, String(await g(`ctx.dealers.schlep.targetSpeed() * 2.23694`)));
+      await g(`(ctx.dealers.schlep.setMode("normal"), true)`);
       await W.pause(t, false);
       await g(`(() => { const s = ctx.car.s + 300, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await t.frames(6); await W.pause(t, true); await W.moved(t);

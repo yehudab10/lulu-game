@@ -288,7 +288,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     if (controlsOn) { runHooks("controls", ctl, dt); setBrakePedal(car.vF); }
 
     // nitro
-    const wantBoost = controlsOn && input.boost && !G.noBoost;
+    const wantBoost = controlsOn && input.boost && !G.noBoost && !G.evCar;          // (no nitro in an electric car — features/dealers)
     if (wantBoost && G.boost > 0.01 && (G.boosting || G.boost > 0.12)) {
         if (!G.boosting) { A.sfxBoost(); H.toast("🔥 NITRO!", "gold"); rumble(0.5, 0.6, 250, true); emit("boost", {}); }
         G.boosting = true;
