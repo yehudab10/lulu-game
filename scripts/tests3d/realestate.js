@@ -93,6 +93,9 @@ module.exports = {
     await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun" || __lulu3d.state === "playing"`, "a run starts", 20000);
 
+    // her FIRST home: the bank asks less (10 % down, up to 45 played days) — nothing owned, nothing bought yet
+    const OF = await g(`ctx.realestate.debug.MG.offers()`);
+    t.check("first home: the bank offers 10 / 20 / 35 % down and 30 or 45 days", OF.first && OF.shares[0] === 0.1 && OF.terms.some(x => x.days === 45), JSON.stringify(OF));
     for (const id of ["midwood", "lakewood"]) {
       await step(`${id}: the market`, async () => {
         t.check(`${id}: into town`, await town(id));
@@ -102,7 +105,10 @@ module.exports = {
             ids: new Set(H.map(h => h.id)).size, signs: R.debug.counts(), fam: H.filter(h => h.family).length }; })()`);
         t.check(`${id}: every front door is a home with an address + price`, M.homes > 40 && M.ids === M.homes, JSON.stringify({ homes: M.homes, sample: M.addr }));
         t.check(`${id}: prices make sense (≈ 5,000 – 30,000)`, M.min >= 4500 && M.max <= 32000, `${M.min} – ${M.max}`);
-        t.check(`${id}: a handful listed today (3–12)`, M.listed >= 3 && M.listed <= 12, M.listed);
+        t.check(`${id}: a handful listed today (3–15, the starter homes included)`, M.listed >= 3 && M.listed <= 15, M.listed);
+        // 🏠 moving out of Ima's: the town's cheapest homes are always on the market (no discount — values never change)
+        const SH = await g(`(() => { const R = ctx.realestate, C = R.debug.CLOCK, st = [...R.debug.starters()]; const cheap = R.homes().filter(h => !h.family).sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1)).slice(0, 3).map(h => h.id); let always = true; for (let d = 0; d < 20; d++) { C.offset = d; const L = new Set(R.listings().map(r => r.id)); if (!st.every(x => L.has(x))) always = false; } C.offset = 0; return { st, cheap, always, max: Math.max(...R.homes().filter(h => st.includes(h.id)).map(h => h.price)) }; })()`);
+        t.check(`${id}: three starter homes — the cheapest in town — listed every day`, SH.st.length === 3 && SH.st.every(x => SH.cheap.includes(x)) && SH.always, JSON.stringify(SH));
         t.check(`${id}: a FOR SALE sign on each listed home (instanced: ≤ 4 draw calls)`, await t.until(`__lulu3d.ctx.realestate.debug.counts().signs === __lulu3d.ctx.realestate.listings().length`, "signs up", 4000) && M.signs.calls <= 4, JSON.stringify(M.signs));
         t.check(`${id}: the realtor's office stands on the high street`, M.office);
         t.check(`${id}: the family's own house is never for sale`, await g(`(() => { const R = ctx.realestate, sp = ctx.town.spot("luluHome") || ctx.town.spot("home"); return R.listings().every(r => !r.family && !(sp && Math.hypot(r.ap.x - sp.x, r.ap.z - sp.z) < 10)); })()`), JSON.stringify({ fam: M.fam }));

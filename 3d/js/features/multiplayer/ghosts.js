@@ -203,6 +203,7 @@ function placeOf(p, me, road, out) {
 }
 
 const near = [], at = {};
+const LOT_R = 16;           // (m around the family house where strangers aren't drawn)
 /** Ghosts are drawn while she's out in the world (driving or walking), not on the title or indoors. */
 export function updateGhosts(dt, me, show) {
     const road = ctx.world && ctx.world.road;
@@ -223,6 +224,8 @@ export function updateGhosts(dt, me, show) {
     for (const [, id] of near) {
         const p = MP.peers[id];
         if (!placeOf(p, me, road, at)) continue;
+        // (roadmap 23: everyone's day starts on the same porch — strangers on Ima's lot aren't drawn: ctx.home.near)
+        if (ctx.home && ctx.home.near && ctx.home.near(at.x, at.z, LOT_R)) continue;
         let g = ghosts[id];
         if (g && g.kind !== kindOf(p)) { disposeGhost(g); g = ghosts[id] = null; }
         if (!g) g = ghosts[id] = buildGhost(p);

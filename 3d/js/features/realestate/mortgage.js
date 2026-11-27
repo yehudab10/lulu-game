@@ -16,7 +16,7 @@ import * as THREE from "three";
 import { ctx, on, emit } from "../../core/ctx.js";
 import { wallet, saveSoon } from "../../core/save.js";
 import { current } from "../interiors/engine.js";
-import { MORTGAGE, SALE, BANKERS, BANK_LINES, BANK_TEXTS, CAP } from "./data.js";
+import { MORTGAGE, SALE, BANKERS, BANK_LINES, BANK_TEXTS, CAP, STARTER } from "./data.js";
 import { registry, S } from "./registry.js";
 import { valueOf, today, listings, isListed } from "./market.js";
 import { finalize, log } from "./deal.js";
@@ -34,10 +34,16 @@ const banker = town => BANKERS[town] || BANKERS.lakewood;
 
 // ── the numbers ──────────────────────────────────────────────────────────
 /** A plan for a home worth `price`: { down, loan, fee, total, days, perDay }. */
-export function plan(price, downShare, term) {
-    const down = Math.ceil(price * Math.max(MORTGAGE.minDown, downShare) / 50) * 50;
+export function plan(price, downShare, term, minDown = MORTGAGE.minDown) {
+    const down = Math.ceil(price * Math.max(minDown, downShare) / 50) * 50;
     const loan = Math.max(0, price - down), fee = Math.round(loan * term.fee), total = loan + fee;
     return { price, down, loan, fee, total, days: term.days, perDay: Math.ceil(total / term.days) };
+}
+/** What the bank offers her today: her FIRST home (nothing owned, nothing bought before) → STARTER's gentler plan. */
+export function offers() {
+    const first = registry.count() === 0 && !(S.bought > 0);
+    return first ? { first, shares: STARTER.firstDown.slice(), terms: STARTER.firstTerms.slice(), minDown: Math.min(...STARTER.firstDown) }
+        : { first, shares: [0.2, 0.35, 0.5], terms: MORTGAGE.terms.slice(), minDown: MORTGAGE.minDown };
 }
 /** What she still owes on mortgage m. */
 export const owed = m => Math.max(0, m.total - m.paid);
@@ -225,12 +231,14 @@ async function buyWith(rt, sayB, chooseB) {
     const rec = i >= 0 ? list[i] : null;
     if (!rec || rt.disposed) return false;
     const price = valueOf(rec);
-    const downs = [0.2, 0.35, 0.5].map(sh => Math.ceil(price * sh / 50) * 50);
-    const j = await chooseB(`${rec.address}: ${fmt(price)}. How much down? (You've got ${fmt(wallet.coins)}.)`, downs.map((d, k) => `💰 ${fmt(d)} down (${[20, 35, 50][k]} %)`).concat(["‹ Back"]));
-    if (j < 0 || j >= 3 || rt.disposed) return false;
-    const share = [0.2, 0.35, 0.5][j];
+    const O = offers();
+    const downs = O.shares.map(sh => Math.ceil(price * sh / 50) * 50);
+    if (O.first) await sayB(BANK_LINES.first);
+    const j = await chooseB(`${rec.address}: ${fmt(price)}. How much down? (You've got ${fmt(wallet.coins)}.)`, downs.map((d, k) => `💰 ${fmt(d)} down (${Math.round(O.shares[k] * 100)} %)`).concat(["‹ Back"]));
+    if (j < 0 || j >= downs.length || rt.disposed) return false;
+    const share = O.shares[j];
     if (wallet.coins < downs[j]) { await sayB(BANK_LINES.broke); return false; }
-    const plans = MORTGAGE.terms.map(tm => plan(price, share, tm));
+    const plans = O.terms.map(tm => plan(price, share, tm, O.minDown));
     const k = await chooseB("And how fast do you want to pay it back? Only days you PLAY count.", plans.map(p => `📅 ${p.days} days · ${fmt(p.perDay)} a day (fee ${fmt(p.fee)})`).concat(["‹ Back"]));
     if (k < 0 || k >= plans.length || rt.disposed) return false;
     const p = plans[k];

@@ -1346,6 +1346,16 @@ rest is dialogue. **📞 Phone › 🏘️ The realtor** (a `ctx.community.addCo
 `realestate:owner` event {id, from, to, price, why} whenever a home changes hands. **For features/homes**:
 `ctx.realestate.claims(id)` → "mine" | "listed" | null, `keyOf(x, z)` (the position id of any door). Save: `store("realestate")`
 — 3D-only, the classic 2D game never sees it. Test: `scripts/tests3d/realestate.js`.
+**🏠 Go there** (`goto.js`, the owner 2026-11-26): 📞 the realtor's contact › Your places has a "🏠 Go there" per home — a
+soft cut and she stands at its front door on foot (facing it: the camera stays on the sidewalk), her car at the nearest
+kerb, from anywhere (the highway, the other town, a room — out by its own door first). Engine ways only: `ctx.town.warp`
+into the NEAREST copy of the town (every lap has one; in that town: the very copy she's in), the door looked up there by
+its fixed address, `ctx.town.curbSpot`, `ctx.foot.start("home")`. Free; refused with one plain line (`goBlock(id)`) while
+wanted / chased, on a job / heist, in a game with friends, on a test drive, arrested / in court / jail / the ER, on the
+road trip / the Friday rush, in Dina's mode, mid-scene in a room, in a borrowed or wrecked / impounded car, for the
+Council's or a tenant's home; a 20 s cooldown. With friends she goes alone (the friend finder points to her). The house
+list is cached per COPY of a town (lap 2's doors aren't lap 1's), and "🏠 Start my days here" stores the door of lap 1's
+copy (`startAtFor`) — a house picked on lap 2+ starts the day at the right door. Test `realestatego` (+ realestatefriends).
 
 **The mortgage desk** (`mortgage.js`, stage 2): added to heist's `bank` lobby from here on `interior:enter` (a desk, a
 tower of paperwork, a MORTGAGES sign, the banker — Mr. Pinkus in Lakewood, Mrs. Teitelbaum in Midwood — and ONE hotspot;

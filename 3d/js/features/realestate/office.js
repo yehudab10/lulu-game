@@ -7,6 +7,7 @@ import { defineInterior, pick, pool } from "../interiors/engine.js";
 import { rooms, W, D } from "./rooms.js";
 import { REALTORS, OFFICE, PATTER } from "./data.js";
 import { pickPaged } from "./pager.js";
+import { isStarter } from "./market.js";
 
 let API = null;                     // index.js: { listings(), valueOf(rec), pitch(rec) → [lines], buy(rec, rt), pin(rec), owns(), townId() }
 export function bindOffice(api) { API = api; }
@@ -113,7 +114,7 @@ async function openBoard(rt) {
     const town = API ? API.townId() : "lakewood", R = realtorOf(town), who = rt.byId.realtor;
     const list = rt.data.V.list || [];
     if (!list.length) { await rt.say(R.name, "Everything's SOLD! I'm that good. Come back tomorrow, new listings every day.", { emoji: R.emoji, person: who }); return; }
-    const rows = list.map(r => `🏠 ${r.address} — ${r.label}, ${fmt(API.valueOf(r))} 💰`);
+    const rows = list.map(r => `🏠 ${r.address} — ${r.label}${isStarter(r) ? " (starter home)" : ""}, ${fmt(API.valueOf(r))} 💰`);
     const i = await pickPaged((t, o) => rt.choose(R.name, t, o, { emoji: R.emoji, person: who }), "Today's beauties. Every one a gem. Some gems are… cozier.", rows, { back: "✖ Never mind" });
     const rec = i >= 0 ? list[i] : null;
     if (!rec) return;
