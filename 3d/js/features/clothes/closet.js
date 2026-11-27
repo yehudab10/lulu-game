@@ -12,6 +12,7 @@ import { openCard, cardTick, closeCard, cardOpen, cardSay } from "../shops/card.
 import { SLOTS, LULU, pieceById, BASE } from "./data.js";
 import { S, current, owns, wear, dress, clean } from "./wear.js";
 import { changeAnim, mirrorOn } from "./stage.js";
+import { tagOf as limitedTag } from "./limited.js";
 
 export const MAX_LOOKS = 3;
 const W = 1.05, D = 0.55, H = 2.05;
@@ -79,8 +80,11 @@ async function openCloset(rt) {
         tiles.push({ id: "plain:" + sl.id, icon: sl.icon, name: sl.id === "outer" ? "No coat" : sl.id === "acc" ? "No extra" : `My old ${sl.name.toLowerCase()}`,
             dot: BASE[sl.id] || null, desc: () => (sl.id === "outer" ? "Nothing over it." : sl.id === "acc" ? "Nothing extra." : `Her own ${sl.name.toLowerCase()} — the one she always wears.`), state: () => "owned", tag: () => (!look[sl.id] ? "On" : ""),
             act: () => { delete look[sl.id]; preview(); } });
-        for (const p of mine) tiles.push({ id: p.id, dot: p.color, name: p.name, desc: () => `<b>${p.brand}</b> · ${p.line}`, state: () => "owned",
-            tag: () => (look[sl.id] === p.id ? "On" : ""), act: () => { look[sl.id] = p.id; preview(); } });
+        for (const p of mine) {
+            const lt = () => limitedTag(p.id);          // (👜 a numbered piece: "No. 17 of 50")
+            tiles.push({ id: p.id, dot: p.color, name: p.name, desc: () => `<b>${p.brand}</b> · ${lt() ? `<b>${lt().line}</b> ` : ""}${p.line}`, state: () => "owned",
+                tag: () => (look[sl.id] === p.id ? "On" : lt() ? lt().tag : ""), act: () => { look[sl.id] = p.id; preview(); } });
+        }
     }
     if (!tiles.length) {
         mirrorOn(rt, false); C.want = 0; rt.faceTo = null;

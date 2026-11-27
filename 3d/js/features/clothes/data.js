@@ -92,6 +92,10 @@ export const PIECES = [
       line: "Costs more than a house. In this game: literally. Holds one kugel." },
 ];
 export const pieceById = id => PIECES.find(p => p.id === id) || null;
+/** 👜 LIMITED IN THE WHOLE WORLD (the owner: "limited supply of items rather than time based"): how many of each exist.
+ *  The relay keeps the real count (server/wear.mjs › LIMITED — keep the two in step); these numbers are what the shelf
+ *  shows before the server has answered. Numbered: hers is "No. 17 of 50". One of each per account; never resold. */
+export const LIMITED = { jfk_bag: 25, jfk_trench: 50, jfk_wrap: 75, jfk_shades: 100 };
 
 /** The shops: which town, the street, the sign, who works there, and the words. */
 export const SHOPS = {
@@ -145,7 +149,7 @@ export const SHOPS = {
 // (JFK's luxury house: its own room on the same engine — the door is the airport's to give: 3d/docs/airport-plan.md › Sync log)
 SHOPS.jfk = {
     name: "Maison de Gelt", title: "👜 MAISON DE GELT", tagline: "duty free (it isn't)",
-    where: "JFK, Terminal 4½ — past security, between the gate and the pretzels",
+    where: "JFK, Terminal 4½ — on the front, past the last door (DEPARTURES end)",
     sign: ["MAISON DE GELT", "paris · milan · terminal 4½"],
     floor: ["#1B1B1F", "#2A2A30"], wall: "#F4EFE6", trim: "#C9A227", counter: "#111114", rack: "#C9A227", curtain: "#5B0F1E",
     clerk: { name: "Giselle (born Gittel)", key: "npcWoman", colors: { Top: "#111114", Bottom: "#111114", Hair: "#1A1A1A" } },

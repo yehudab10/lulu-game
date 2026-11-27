@@ -219,6 +219,57 @@ module.exports = {
       await run(`return D.buyAtCounter(rt, P("jfk_bag"), false)`);
       await idle("no sale at Maison de Gelt");
       t.check("…Le Sac Kugel (25,000) with " + W2 + " coins: no sale, nothing spent", await coins() === W2 && await g(`!ctx.clothes.owns("jfk_bag")`));
+      // ── 👜 numbered pieces, world-wide (a fake relay behind a stubbed fetch: reserve → pay → confirm) ──
+      await t.L(`(() => {
+        const W = window.__fakeWear = { stock: { jfk_bag: { total: 25, left: 0 }, jfk_trench: { total: 50, left: 0 }, jfk_wrap: { total: 75, left: 12 }, jfk_shades: { total: 100, left: 40 } }, held: {}, mine: {}, expireNext: false, calls: [] };
+        const real = window.__realFetch = window.__realFetch || window.fetch;
+        window.fetch = async (url, o) => {
+          const u = String(url); if (!u.startsWith("http://fake-relay")) return real(url, o);
+          const p = u.slice("http://fake-relay".length), b = o && o.body ? JSON.parse(o.body) : {}; W.calls.push(p);
+          const J = (j, st = 200) => ({ status: st, json: async () => j });
+          if (p === "/wear/stock") return J({ v: 1, stock: W.stock });
+          if (p === "/wear/mine") return J({ mine: Object.entries(W.mine).map(([k, n]) => ({ p: k, n, st: 2 })), stock: W.stock });
+          const s = W.stock[b.p];
+          if (p === "/wear/reserve") { if (W.mine[b.p]) return J({ ok: false, why: "owned", n: W.mine[b.p] }); if (!s.left) return J({ ok: false, why: "soldout" }); W.held[b.p] = s.total - s.left + 1; s.left--; return J({ ok: true, n: W.held[b.p], total: s.total }); }
+          if (p === "/wear/confirm") { if (W.expireNext) { W.expireNext = false; delete W.held[b.p]; s.left++; return J({ ok: false, why: "expired" }); } const n = W.held[b.p]; delete W.held[b.p]; W.mine[b.p] = n; return J({ ok: true, n, total: s.total }); }
+          if (p === "/wear/cancel") { if (W.held[b.p]) { delete W.held[b.p]; s.left++; } return J({ ok: true }); }
+          return J({ error: "nf" }, 404);
+        };
+        const L = __lulu3d.ctx.clothes.debug.limited.L; L.testBase = "http://fake-relay"; L.testAccount = true;
+        return true;
+      })()`);
+      await g(`ctx.clothes.refreshStock(true)`);
+      await t.frames(5);
+      t.check("the shelf: the bag SOLD OUT, the wrap '12 of 75 left', a plain luxury piece has no tag", await g(`(() => { const T = ctx.clothes.debug.shop; const s = ctx.clothes.stockOf; return s("jfk_bag").left === 0 && s("jfk_wrap").left === 12 && s("jfk_wrap").total === 75 && !s("jfk_silk").limited; })()`));
+      await g(`(ctx.clothes.debug.S.owned.length, true)`);
+      await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 10000; }); })`);
+      const C0 = await coins();
+      await run(`return D.buyAtCounter(rt, P("jfk_wrap"), false)`);
+      await idle("the wrap bought");
+      t.check("buying the wrap: the server's number (No. 64 of 75), −6,500 coins, hers", await g(`ctx.clothes.owns("jfk_wrap") && ctx.clothes.debug.S.nums.jfk_wrap === 64`) && await coins() === C0 - 6500, `${C0} → ${await coins()} · ${await g(`JSON.stringify(ctx.clothes.debug.S.nums)`)}`);
+      t.check("…reserve → confirm on the relay, nothing pending", await t.L(`window.__fakeWear.calls.includes("/wear/reserve") && window.__fakeWear.calls.includes("/wear/confirm") && Object.keys(__lulu3d.ctx.clothes.debug.S.pending).length === 0`));
+      const C1 = await coins();
+      await run(`return D.buyAtCounter(rt, P("jfk_bag"), false)`);
+      await idle("the bag: sold out");
+      t.check("the bag (sold out): no sale, no coins", await coins() === C1 && await g(`!ctx.clothes.owns("jfk_bag")`));
+      await t.L(`(window.__fakeWear.expireNext = true, true)`);
+      await run(`return D.buyAtCounter(rt, P("jfk_shades"), false)`);
+      await idle("the shades: the hold ran out");
+      t.check("a hold that ran out before confirm: the coins come back, the piece isn't hers", await coins() === C1 && await g(`!ctx.clothes.owns("jfk_shades")`), `${C1} → ${await coins()}`);
+      await g(`(ctx.clothes.debug.limited.L.testAccount = false, true)`);
+      const accountOn = await g(`!!(ctx.accounts && ctx.accounts.name)`);
+      if (!accountOn) {
+        await run(`return D.buyAtCounter(rt, P("jfk_shades"), false)`);
+        await idle("no account");
+        t.check("no username: a numbered piece can't be bought (one line at the counter), no coins", await coins() === C1 && await g(`!ctx.clothes.owns("jfk_shades")`));
+      }
+      await g(`(ctx.clothes.debug.limited.L.testAccount = true, true)`);
+      // a new phone: the server says the trench is hers → it comes back, never charged
+      await t.L(`(window.__fakeWear.mine.jfk_trench = 7, true)`);
+      await g(`ctx.clothes.restore()`);
+      await t.frames(3);
+      t.check("restore: a numbered piece the server says is hers comes back (No. 7 of 50), no charge", await g(`ctx.clothes.owns("jfk_trench") && ctx.clothes.debug.S.nums.jfk_trench === 7`) && await coins() === C1);
+      await t.L(`(() => { window.fetch = window.__realFetch; const L = __lulu3d.ctx.clothes.debug.limited.L; L.testBase = null; L.testAccount = false; return true; })()`);
       await g(`(__interiors.room.leave(), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "back out", 30000);
     }

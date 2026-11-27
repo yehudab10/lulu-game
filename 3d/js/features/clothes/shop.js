@@ -6,18 +6,19 @@
 // MIDWOOD: Avenue J'adore (Shayna: everything is "SO you") · LAKEWOOD: Simcha's Classic Clothing (Mrs. Rosenbaum asks
 // who her mother is). The JFK luxury house reuses this room with its own stock (stage 3).
 import * as THREE from "three";
-import { ctx, emit, setState } from "../../core/ctx.js";
+import { ctx, emit, on, setState } from "../../core/ctx.js";
 import { models } from "../../models.js";
 import { wallet } from "../../core/save.js";
 import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
 import { defineInterior, pool, pick } from "../interiors/engine.js";
 import { canvasPlane, drawLines, sfx } from "../interiors/fx.js";
-import { openCard, cardTick, closeCard, cardOpen, cardSay } from "../shops/card.js";
+import { openCard, cardTick, closeCard, cardOpen, cardSay, repaint } from "../shops/card.js";
 import { buyClothes } from "../garage/buy.js";
 import { SHOPS, PIECES, LULU, ANIM, pieceById, SLOTS } from "./data.js";
 import { S, current, owns, wear, addOwned, dress, clean } from "./wear.js";
 import { changeAnim, mirrorOn, setCurtain } from "./stage.js";
+import { isLimited, tagOf as limitedTag, buyLimited, hasAccount, refresh as refreshStock } from "./limited.js";
 
 const fmt = n => Math.round(n).toLocaleString("en-US");
 const W = 10, D = 7.2, WALL = 3.0;
@@ -33,6 +34,17 @@ function roomKit() {
     return g;
 }
 models.clothes_roomkit = models.clothes_roomkit || roomKit();
+
+/** The counter's lines for a numbered piece (limited.js answers). */
+const LIMITED_LINES = {
+    account: "The numbered pieces need your username, sweetheart. Pick one on the title screen — then come back.",
+    checking: "One moment… I'm checking the world. Paris is slow today.",
+    offline: "I can't reach Paris right now. Come back when you're online — everything else, I can sell you now.",
+    soldout: "Sold out. All of them. They're out there, somewhere, on somebody's arm.",
+    expired: "Ach, your number ran out before it went through. Your coins are back. Try again?",
+    busy: "One at a time, darling. Even here.",
+    owned: "You have one already! One per person. Even for you.",
+};
 
 // which shop the room is dressing as (the door sets it: a town, or "jfk")
 let SHOP = "lakewood";
@@ -105,7 +117,12 @@ function build(rt) {
         if (gr.table) {
             box(1.7, 0.08, 0.9, M(R.counter), gr.x, 0.82, gr.z);
             box(1.5, 0.78, 0.7, M(R.trim), gr.x, 0.39, gr.z);
-            items.forEach((p, i) => box(0.26, 0.18, 0.18, M(p.color), gr.x - 0.6 + (i % 4) * 0.4, 0.95, gr.z - 0.2 + Math.floor(i / 4) * 0.4));
+            items.forEach((p, i) => {
+                const x = gr.x - 0.6 + (i % 4) * 0.4, z = gr.z - 0.2 + Math.floor(i / 4) * 0.4;
+                box(0.26, 0.18, 0.18, M(p.color), x, 0.95, z);
+                // (a SOLD OUT numbered piece stays on display, behind glass — "all 25 are out there")
+                if ((limitedTag(p.id) || {}).sold && !owns(p.id)) box(0.34, 0.3, 0.26, M("#CFE8F2", { transparent: true, opacity: 0.35, roughness: 0.05 }), x, 1.0, z);
+            });
             col(gr.id, gr.x - 0.9, gr.x + 0.9, gr.z - 0.5, gr.z + 0.5);
         } else {
             for (const s of [-1, 1]) cyl(0.025, 0.025, 1.6, rackM, gr.x + s * 0.8, 0.8, gr.z, 8);
@@ -154,20 +171,22 @@ function tick(rt, dt) {
 // ── the card at a rack ───────────────────────────────────────────────────
 const wearingNow = () => current();
 function stateTag(p) {
-    if (wearingNow()[p.slot] === p.id) return "Wearing";
+    const lt = limitedTag(p.id);
+    if (wearingNow()[p.slot] === p.id) return lt && owns(p.id) ? lt.tag : "Wearing";
+    if (lt) return lt.tag;
     if (owns(p.id)) return "Yours";
     return "";
 }
 async function browse(rt, items, title) {
     let next = null;
-    const desc = p => `<b>${p.brand}</b> · ${p.name}<br>${p.line}`;
+    const desc = p => { const lt = limitedTag(p.id); return `<b>${p.brand}</b> · ${p.name}<br>${lt ? `<b>${lt.line}</b> ` : ""}${p.line}`; };
     await rt.runMode({
         start() {
             openCard({
                 title,
                 tiles: items.map(p => ({ id: p.id, dot: p.color, name: p.name, price: p.price, desc: () => desc(p),
-                    state: () => (owns(p.id) ? "owned" : "buy"), tag: () => stateTag(p),
-                    act: () => { next = { kind: "try", p }; closeCard(true); },
+                    state: () => (owns(p.id) ? "owned" : (limitedTag(p.id) || {}).sold ? "na" : "buy"), tag: () => stateTag(p),
+                    act: () => { if (!owns(p.id) && (limitedTag(p.id) || {}).sold) { cardSay(limitedTag(p.id).line); return; } next = { kind: "try", p }; closeCard(true); },
                     buy: () => { next = { kind: "buy", p }; closeCard(true); return { ok: true }; } })),
                 focus: items[0].id,
                 buttons: [{ id: "try", label: "👗 Try it on", action: id => { next = { kind: "try", p: pieceById(id) }; closeCard(true); } }],
@@ -225,7 +244,19 @@ async function buyAtCounter(rt, p, offerWear = true, putOn = null) {
     if (rt.disposed) return;
     rt.faceTo = { x: COUNTER.x, z: COUNTER.z - 2 };
     if (owns(p.id)) { if (clerk) rt.bubble(pick(R.owned), clerk.p.obj, 2.6); return; }
-    const r = buyClothes(p, { owned: owns, give: addOwned });
+    let r;
+    if (isLimited(p.id)) {
+        // 👜 a numbered piece: the server holds her number → the coins → confirmed (limited.js)
+        if (!hasAccount()) { if (clerk) rt.bubble(LIMITED_LINES.account, clerk.p.obj, 3.4); return; }
+        if (clerk) rt.bubble(LIMITED_LINES.checking, clerk.p.obj, 1.6);
+        r = await buyLimited(p);
+        if (rt.disposed) return;
+        if (!r.ok && r.why !== "poor") {
+            sfx.deny();
+            if (clerk) rt.bubble(LIMITED_LINES[r.why] || LIMITED_LINES.offline, clerk.p.obj, 3.2);
+            return;
+        }
+    } else r = buyClothes(p, { owned: owns, give: addOwned });
     if (!r.ok) {
         sfx.deny();
         if (clerk) rt.bubble(pick(R.poor), clerk.p.obj, 3);
@@ -235,6 +266,7 @@ async function buyAtCounter(rt, p, offerWear = true, putOn = null) {
     S.spent = (S.spent | 0) + p.price; S.bought = (S.bought | 0) + 1;
     await handOver(rt, p);
     if (rt.disposed) return;
+    if (r.n && clerk) { rt.bubble(`No. ${r.n} of ${r.total || (limitedTag(p.id) || {}).total || ""}. It's yours. Forever. Don't lose it.`.replace(" of .", "."), clerk.p.obj, 3); await rt.wait(1.6); if (rt.disposed) return; }
     if (clerk) rt.bubble(pick(R.bought), clerk.p.obj, 2.8);
     rt.bubble(pick(LULU.bought), rt.lulu.obj, 2.2);
     const want = putOn || (offerWear ? Object.assign({}, current(), { [p.slot]: p.id }) : null);
@@ -362,11 +394,14 @@ export function enterShop() {
 export function enterAs(id, opts = {}) {
     if (!ctx.interiors.clothesShop) return false;
     nameShop(id);
+    if (PIECES.some(p => p.shop === id && isLimited(p.id))) refreshStock().catch(() => { });     // (the shelf's numbers)
     return ctx.interiors.clothesShop.enter(Object.assign({ from: "foot" }, opts));
 }
 export function addDoors() {
     if (!ctx.foot || !ctx.foot.addSpot) return;
     ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, short: "CLOTHES", label: () => `👗 GO INTO ${shopOf(inTown() ? ctx.town.id : "lakewood").name.toUpperCase()}`, act: () => enterShop() });
 }
+
+on("clothes:stock", () => { if (cardOpen()) repaint(); });     // (the world's numbers arrived while the card is up)
 
 export const shopDebug = { shopNow: () => SHOP, browse, tryOn, buyAtCounter, fittingRoom, FIT, COUNTER, doorPos, canWalkIn, setCurtain, SLOTS, clean };

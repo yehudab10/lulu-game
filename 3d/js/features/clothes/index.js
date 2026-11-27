@@ -18,6 +18,8 @@ import { PIECES, SLOTS, SHOPS } from "./data.js";
 import { S, current, owns, wear, encode, decode, dress, wearDebug } from "./wear.js";
 import { enterShop, enterAs, addDoors, shopDebug } from "./shop.js";
 import { placeCloset, closetDebug } from "./closet.js";
+import { airDebug } from "./airdoor.js";
+import { stockOf, refresh as refreshStock, buyLimited, restore, limitedDebug } from "./limited.js";
 
 on("boot", () => addDoors());
 
@@ -41,8 +43,10 @@ ctx.clothes = {
     current, owns, wear, encode, decode, dress,
     pieces: PIECES, slots: SLOTS, shops: SHOPS,
     enterShop, enterAs, outfitOf, placeCloset,
+    /** 👜 a limited piece's world stock: { limited, total, left, online, n } — the ONE place the shelf asks */
+    stockOf, refreshStock, restore,
     /** Which shop the room is dressed as right now (a town id / "jfk") — friends in the same one share it. */
     shopNow: () => shopDebug.shopNow(),
     get owned() { return S.owned.slice(); },
-    debug: { S, wear: wearDebug, shop: shopDebug, closet: closetDebug },
+    debug: { S, wear: wearDebug, shop: shopDebug, closet: closetDebug, limited: limitedDebug, air: airDebug, buyLimited },
 };
