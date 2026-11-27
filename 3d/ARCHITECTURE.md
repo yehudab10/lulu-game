@@ -627,7 +627,8 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | roadevents | **seeded** (Road Trip, 🌍 Free Roam; Race / Dash / Tag: hazards only) | `roadevents/party.js`: big set pieces (🍦 stand, 🍔 drive-thru, ⛽ station + nitro cans) from the road plan, small ones (cones, puddles, potholes, animals, strollers, hitchhikers) from per-chunk sub-slots — the same s on every screen, each screen builds its own copy; rewards personal. Off: anything that drives (ambulance, buses, ice-cream truck, drunk / texting drivers, steamroller, fender benders) or must stop the traffic (toll, train, parade, crossing guards, work zones) — party traffic is a pure function of the clock |
 | cameos | **seeded** + personal scenes | `cameos/party.js`: Avigail on foot, Chez Fabio, Heshy's pool, an uncle, the sasquatch from the road plan, their verge spot from `ctx.party.seeded`; the porch / salon scenes are YOUR states (no pause — friends keep driving); two friends at one cameo each get their own copy. Off: Avigail's coupe (it drives); the crash aftermath (no wrecks in a party) |
 | world | **shared constants**, personal pull-in | Gas 'n' Go / the Lookout / driveways are fixed spots (`where("party")`); a Road Trip has no driveways from Bubbe's on; the visit beat is yours. The start at home on foot is solo only (`wantsDeparture`: a party keeps its own grid start) |
-| friends 👯 | **on** (personal) | The list, the doorbell and ▶ Join work the same in a party (a JOIN answers with the party's own code); 👯 › a friend → ➕ Add as a friend (`x.fr`, `x.fid` marks who's already on your list). |
+| accounts 🪪 | **on** (personal) | Her username is the party's name for her (party `nameOf`); every member's game sends its name ticket in the snapshot extras (`x.un`, bound to the party room + relay id) and the others ask the server for the name — shown even with ⚙️ other players' names off (people she plays with). Friend requests / the server list work the same in a party. |
+| friends 👯 | **on** (personal) | The list, the doorbell and ▶ Join work the same in a party (a JOIN answers with the party's own code); 👯 › a friend → ➕ Add as a friend (`x.fr`, `x.fid` marks who's already on your list). Since ci/accounts the list, requests and blocks are also on the server (`friends/server.js`). |
 | onegame 🎮 | **solo only** | The 🧳 suitcase, the 🅿️ rest-area booth (+ its attendant), ✋ Play as Dina, Ima's Friday rush at the door and the 📱 Jobs card all hide in a party (`solo()`; journey, dina and shabbos are in the party's `OFF` set anyway). ▶ PLAY / 👯 Friends on the title are unchanged by a party |
 | hustle | **seeded** markers, personal jobs | `hustle/party.js`: ☎️ payphones + 📋 boards from the road plan; taking one, the riders, props, pay are yours; my 📱 still rings at random (nobody else hears it); 💼 Jobs app on the party highway; the getaway only when the party has the law on. "Follow that car" is a `partyLocal` car |
 | community | **seeded** in a 🌍 Free Roam town, personal help | `community/party.js`: org cruisers on openworld's block loops (pure f(seed, loop, clock)); roadside scenes in 50 s windows of the party clock (kind, kerb, call-in time seeded); the Bais Yaakov line on the party clock; 📞 Phone calls + help visits are yours (local responders); Shomrim chases only with the law on in the party (local cars; a loop cruiser never leaves its loop). Off: highway sightings (the party's highway traffic is the seeded conveyor) |
@@ -1854,6 +1855,21 @@ dinner → the helpers get Ima's thank-you, no coins; in a group the solo home b
 as invitations + one shared briefing (who does what, where to meet) — they still happen by doing them, their own
 triggers unchanged. The road-trip leg waits (the Story Trip is hidden, roadmap 21); ci/crime's solo crimes stay solo in a
 party (a race / duet version isn't cheap: each is built around one player's cops + court). Test: `scripts/tests3d/friendsjobs.js`.
+**The list on the server (ci/accounts, `friends/server.js`):** the list, friend REQUESTS and blocks also live on the relay
+per account, so a request waits for a player who is offline. 👯 › ➕ Add a friend by name (or 📍 Nearby › a driver with a
+name: a server request by ticket, it waits if they drive off) → `/acct/ask`; she sees it next time as a quiet number on
+the 👯 app (`badge`, no pop-up) and a "Friend requests" row → Be friends / No thanks (they aren't told) / Block / Report
+this name; "Waiting for an answer" rows can be cancelled; 📨 Friend requests from: Everyone / Friends of friends / Nobody.
+A friendship made on the server has no doorbell yet: each side seals its card ({ f, n, sk, b } — the handshake's card) with
+the secret ECDH(my long-term key, their public key) gives both (my key pair: `S.ek`, a JWK in the save → the 💾 code), and
+posts it on the friendship at hello; the other side opens it (`cin`) — the server only holds the sealed note; a changed
+doorbell re-posts (`pb`). `store.ready(f)` = has a secret + a doorbell (knocks / ▶ Join skip a friend until then). Every
+on-device friend is CLAIMED at hello (migration); when the other side claims back the server has the friendship; a friend
+the server once confirmed (`sv`) and then dropped (they removed / blocked her) leaves her list; removals that couldn't
+reach the server wait in `S.rm`. Labels: `f.u` (their username from the server) wins over "Kugel Kid #37". Deleting the
+online account clears the list. Test: `scripts/tests3d/accountsfriends.js` (B's page closed while A asks, reopened → badge
+→ accept; A reopened sees B; the sealed cards cross; A's knock finds B playing; decline; block; remove; who-can-ask;
+migration of an on-device friendship with one side updating first).
 **Friends among the ghosts (2026-11-22):** the sealed knock + its answer carry `m` = which ghost the sender is in EVERYONE
 (her relay connection id there) → `ctx.friends.byMp(id)` → multiplayer's `labelFor` shows 👯 + the friend's name
 (`ctx.mp.relabel()` on `friends:presence`); coming online re-knocks (≤ 1 a minute). **Tap a name over a car**
