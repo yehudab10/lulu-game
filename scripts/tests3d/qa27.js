@@ -46,10 +46,12 @@ module.exports = {
       if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
       await W.moved(t);
       await g(`(() => { const c = ctx.car, p = ctx.world.highway.point(${s}, 5.25, {}); c.place(p.x, p.z, p.h); c.s = ${s}; c.d = 5.25; c.vx = c.vz = c.vF = 0; ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
+      // (the test's own teleport: the chase cam catches up over the next frames — not the game's jump)
+      await t.L(`(window.__qa.cutF = __lulu3d.ctx.frames + 40, window.__qa.last = null, true)`);
       await t.frames(20);
     };
     let phoneIndoors = null;
-    for (const [lap, w, h] of [[0, 412, 915], [1, 667, 375]]) {
+    for (const [lap, w, h] of process.env.QA27_NEW ? [] : [[0, 412, 915], [1, 667, 375]]) {
       if (lap) { await t.page.setViewportSize({ width: w, height: h }); await L(`(window.dispatchEvent(new Event("touchstart")), 0)`); await t.frames(10); }
       const tag = `${w}×${h} lap ${lap + 1}`;
       for (const P of PLACES) {
@@ -57,6 +59,7 @@ module.exports = {
         for (const door of P.doors) {
           const where = `${tag} · ${P.m / 1000} km ${door}`;
           await hwAt(s);
+          await t.L(`(window.__qa.cutF = __lulu3d.ctx.frames + 40, window.__qa.last = null, true)`);
           await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
           if (!await t.until(`__lulu3d.state === "footRun"`, `${where}: on foot`, 8000)) continue;
           // stand just out from the door, facing it, the room warmed
@@ -122,6 +125,78 @@ module.exports = {
           else W.check(t, `${where}: the watchdog`, rep);
           await W.reset(t);
         }
+      }
+    }
+
+    // ── 👜 JFK's Maison de Gelt: walk straight in from the pavement (a door: true + walkIn like the towns' clothes shops) ──
+    await t.page.setViewportSize({ width: 412, height: 915 }); await L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
+    await playing();
+    // (a quick start is the first-drive lesson — no airport during it: plan it where the test wants it)
+    await g(`(ctx.airport && (ctx.airport.debug.enable(true), !ctx.airport.planned && ctx.airport.debug.placeAt(ctx.car.s + 1500)), true)`);   // (test pages: the airport is off unless named)
+    if (await t.until(`!!__lulu3d.ctx.airport && !!__lulu3d.ctx.airport.planned`, "the airport planned", 60000)) {
+      const E = await g(`ctx.airport.planned.s`);
+      await W.moved(t);
+      await g(`(() => { const s = ${E} - 250, p = ctx.world.highway.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+      await t.frames(10);
+      await g(`ctx.airport.debug.buildNow()`);
+      if (await t.until(`!!__lulu3d.ctx.airport.at(0, 200)`, "the landside built", 90000)) {
+        await W.moved(t);
+        await g(`(() => { const p = ctx.airport.debug.world(80, 193.5), h = ctx.airport.debug.G().F.yaw(1, 0); const n = ctx.world.highway.nearest(p.x, p.z, ctx.car.s, {}); ctx.car.place(p.x, p.z, h); ctx.car.s = n.s; ctx.car.d = n.d; ctx.cam.snap(); return true; })()`);
+        await t.until(`__lulu3d.ctx.airport.inside`, "on the landside", 20000);
+        await g(`ctx.foot.start("droveOff")`);
+        if (await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot at the kerb", 30000)) {
+          await t.frames(40);
+          await t.until(`!!__lulu3d.ctx.clothes.debug.air.D.at`, "Maison de Gelt's door is on the terminal", 10000);    // (its sign + door are placed every 0.8 s)
+          await W.moved(t);
+          await g(`(() => { const D = ctx.clothes.debug.air.D; if (D.at) { const F = ctx.foot.debug.F; F.pos.set(D.at.x, 0.05, D.at.z); } return true; })()`);
+          await t.frames(4);
+          const md = await g(`(() => { const s = ctx.foot.spots().find(x => x.short === "MAISON"); const a = s && s.pos(); if (!a) return null;
+            const F = ctx.foot.debug.F; F.peds.length = 0; F.phase = "walk"; F.pos.set(a.x + a.nx * 2.2, 0.05, a.z + a.nz * 2.2); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); F.camFree = true; ctx.cam.free.yaw = Math.atan2(-a.nx, -a.nz); ctx.cam.snap(); return { x: a.x, z: a.z, nx: a.nx, nz: a.nz }; })()`);
+          await t.frames(40);
+          await t.stick(0, -1);
+          let went = false;
+          for (let k = 0; k < 120 && !went; k++) { await t.frames(2); went = await st() === "interior"; }
+          await t.stick(0, 0);
+          t.check("👜 Maison de Gelt: walking into its door goes in (no ✋)", went, JSON.stringify({ md, st: await st() }));
+          if (went && await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, "Maison de Gelt is up", 30000)) {
+            await t.frames(30);
+            const c = await camIn();
+            t.check("👜 …inside: the camera in the room, she's seen, no wall", !!c && c.in && c.seen && !c.wall, JSON.stringify(c));
+            await t.shot("maison-in");
+            await g(`(__interiors.room.leave(), true)`);
+            for (let i = 0; i < 20 && await st() !== "footRun"; i++) await t.tap(0);
+            t.check("👜 …out again on the landside", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.airport.inside`, "out of Maison de Gelt", 30000));
+          }
+        }
+      }
+      W.check(t, "JFK: the watchdog", await W.report(t), ["nan", "overlay", "flat", "underground", "hidden", "stuck", "nocontrol", "invisible"]);
+      await W.reset(t);
+    }
+
+    // ── arriving in a room NOT by its door: the ER (a crash on the highway) and an arrest (in Midwood) — with the new
+    //    on-foot camera in the rooms: no flat / black picture, no camera inside a wall, nothing stuck on the way ──
+    await playing();
+    await hwAt(10700 + 2 * LAP);
+    await W.reset(t);
+    await g(`ctx.er.admit("crash", { force: { intro: false, visitor: false } })`);
+    if (await t.until(`__lulu3d.state === "cameosER"`, "the ER", 60000)) {
+      await t.frames(120);
+      await t.shot("arrive-er");
+      W.check(t, "arriving in the ER: the watchdog", await W.report(t), ["nan", "overlay", "flat", "underground", "inwall", "hidden", "invisible"]);
+    }
+    await W.reset(t);
+    await g(`(L3.setState("playing"), true)`); await t.frames(10);
+    await playing();
+    await g(`(ctx.town.load("midwood"), true)`);
+    if (await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "Midwood loads", 90000)) {
+      await g(`ctx.town.enter({ town: "midwood", speed: 0 })`);
+      await t.until(`__lulu3d.ctx.town.active`, "into Midwood", 10000);
+      await t.frames(20); await W.reset(t);
+      await g(`ctx.law.arrest(["DOUBLE PARKING (TRIPLE, ACTUALLY)"])`);
+      if (await t.until(`__lulu3d.state === "lawArrest"`, "arrested", 30000) && await t.until(`__lulu3d.state === "placesArrive" || __lulu3d.state === "lawJail"`, "brought to the precinct", 60000)) {
+        await t.frames(120);
+        await t.shot("arrive-precinct");
+        W.check(t, "arriving at the precinct by arrest: the watchdog", await W.report(t), ["nan", "overlay", "flat", "underground", "inwall", "hidden", "invisible"]);
       }
     }
   },
