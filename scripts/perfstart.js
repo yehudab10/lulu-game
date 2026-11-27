@@ -1,0 +1,217 @@
+// ⏱️ How long ▶ PLAY takes — the REAL game (no ?test), the way a player meets it:
+//   title: first paint (FCP) and "interactive" (the title screen is up with ▶ PLAY), from navigation
+//   PLAY → control: from the click until she's walking at home (footRun / walk)
+//   …and what that time is made of: files fetched after the click (count, KB, ms), main-thread long tasks,
+//   new shader programs compiled, and the home town's slices already built behind the title before the click.
+//
+//   node scripts/perfstart.js                       # every profile, cold + warm, 3 runs each → a table
+//   PERFSTART_PROFILES=phone,desktop PERFSTART_RUNS=2 PERFSTART_OUT=file.json node scripts/perfstart.js
+//
+// Profiles: desktop (unthrottled, 1280×720) · phone (CPU 4× slower + a slow-4G network, iPhone-sized, touch) ·
+// app (CPU 4× slower, no network throttle: the iOS app reads its files locally). Cold = a fresh browser profile;
+// warm = the same profile reloaded (HTTP cache, max-age like GitHub Pages). The live multiplayer relay is blocked
+// (a measurement must never create accounts or presence on the real server) — the game then runs offline.
+// Software WebGL (SwiftShader) makes GPU work CPU work: compare before / after, not against a real phone.
+//
+// MEASURED 2026-11-27 (roadmap 37e, "start loading during the title — only if it measurably helps"), 1 run each,
+// ▶ PLAY pressed 4 s after she's ready to start at home:
+//   main            desktop 1.9 s · phone (CPU 4×, slow 4G) 3.6 s · app (CPU 4×, local files) 3.7 s  PLAY → walking at home
+//   + title warm-up + a slow-connection download line: 2.1–2.3 s · 3.9–4.8 s · 3.8–3.9 s  → no gain (not landed)
+//   Nothing is fetched after ▶ PLAY in either case: the game already downloads every model behind the title. What
+//   PLAY costs is main-thread work — ~6 new shader programs (the home crowd's / props' own materials) + building the
+//   home start — which preloading files can't remove. The ordering line DID bring "ready to start at home" forward on
+//   slow-4G cold (79 s → 66.5 s; before that PLAY silently gives a plain drive) — modest, and fragile (a model the home
+//   needs arriving late = no home start), so it wasn't kept. Title: FCP ~1 s, interactive ~53 s on slow 4G (it waits
+//   for its downloads) — the place to look next if phones on cellular matter.
+const http = require("http");
+const zlib = require("zlib");
+const GZ = new Map();
+const fs = require("fs");
+const path = require("path");
+const { chromium } = require("playwright");
+
+const ROOT = path.resolve(__dirname, "..");
+const RUNS = +(process.env.PERFSTART_RUNS || 3);
+const PROFILES = (process.env.PERFSTART_PROFILES || "desktop,phone,app").split(",");
+const EXTRA = process.env.PERFSTART_QUERY || "";          // extra URL parameters for an A/B (e.g. a feature switch)
+const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png",
+  ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".glb": "model/gltf-binary", ".json": "application/json", ".webp": "image/webp", ".woff2": "font/woff2" };
+const SAVE2D = { totalCoins: 300, ownedSkins: ["pink"], selectedSkin: "pink" };
+const SAVE3D = { best: 1000, f: { meta: { tutorialDone: true } } };
+
+function serve() {
+  const server = http.createServer((req, res) => {
+    let url = decodeURIComponent(req.url.split("?")[0]);
+    if (url.endsWith("/")) url += "index.html";
+    const file = path.join(ROOT, url);
+    if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
+    // (like GitHub Pages: gzip for code + models — lulu.boats sends .glb gzipped, ~4× smaller — not for audio / images)
+    const ext = path.extname(file), type = MIME[ext] || "application/octet-stream";
+    const zip = /gzip/.test(req.headers["accept-encoding"] || "") && /\.(js|json|html|css|svg|glb)$/.test(ext) && !process.env.PERFSTART_NOGZIP;
+    if (!zip) { res.writeHead(200, { "Content-Type": type, "Cache-Control": "max-age=600" }); return fs.createReadStream(file).pipe(res); }
+    let body = GZ.get(file);
+    if (!body) GZ.set(file, body = zlib.gzipSync(fs.readFileSync(file), { level: 6 }));
+    res.writeHead(200, { "Content-Type": type, "Cache-Control": "max-age=600", "Content-Encoding": "gzip", "Content-Length": body.length });
+    res.end(body);
+  });
+  return new Promise(r => server.listen(0, "127.0.0.1", () => r(server)));
+}
+
+const PROFILE = {
+  desktop: { ctx: { viewport: { width: 1280, height: 720 } }, cpu: 1, net: null },
+  phone: { ctx: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, cpu: 4,
+    net: { offline: false, latency: 150, downloadThroughput: 1.6 * 1024 * 1024 / 8, uploadThroughput: 750 * 1024 / 8 } },
+  app: { ctx: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, cpu: 4, net: null },
+};
+
+// installed before the game: paint + long-task + resource observers, all kept on window.__ps
+const PROBE = () => {
+  const P = window.__ps = { long: [], res: [], fcp: null };
+  try { performance.setResourceTimingBufferSize(5000); } catch (e) { }
+  try { new PerformanceObserver(l => { for (const e of l.getEntries()) P.long.push([e.startTime, e.duration]); }).observe({ type: "longtask", buffered: true }); } catch (e) { }
+  try { new PerformanceObserver(l => { for (const e of l.getEntries()) if (e.name === "first-contentful-paint") P.fcp = e.startTime; }).observe({ type: "paint", buffered: true }); } catch (e) { }
+  try { new PerformanceObserver(l => { for (const e of l.getEntries()) P.res.push([e.startTime, e.responseEnd, e.encodedBodySize || e.transferSize || 0, e.name.replace(location.origin, "")]); }).observe({ type: "resource", buffered: true }); } catch (e) { }
+};
+
+async function once(browser, base, prof, ctxHolder, warm) {
+  const pr = PROFILE[prof];
+  let context = ctxHolder.ctx;
+  if (!context) {
+    context = ctxHolder.ctx = await browser.newContext(pr.ctx);
+    await context.addInitScript(({ s2, s3 }) => {
+      if (!localStorage.getItem("luluSaveV2")) localStorage.setItem("luluSaveV2", JSON.stringify(s2));
+      if (!localStorage.getItem("lulu3dSave")) localStorage.setItem("lulu3dSave", JSON.stringify(s3));
+    }, { s2: SAVE2D, s3: SAVE3D });
+    await context.addInitScript(PROBE);
+    await context.route(/fonts\.(googleapis|gstatic)\.com|workers\.dev/, r => r.abort());
+    await context.routeWebSocket(/workers\.dev|lulu-shared-road/, ws => ws.close());
+  }
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push(String(e).slice(0, 200)));
+  const cdp = await context.newCDPSession(page);
+  if (pr.cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: pr.cpu });
+  if (pr.net) { await cdp.send("Network.enable"); await cdp.send("Network.emulateNetworkConditions", pr.net); }
+  const NET = { reqs: new Map() };
+  if (process.env.PERFSTART_NET) {
+    page.on("request", r => NET.reqs.set(r, { url: r.url().replace(base, ""), t0: Date.now(), t1: 0, size: 0 }));
+    page.on("requestfinished", async r => { const e = NET.reqs.get(r); if (!e) return; e.t1 = Date.now(); try { const s = await r.sizes(); e.size = s.responseBodySize; } catch (err) { } });
+    page.on("requestfailed", r => { const e = NET.reqs.get(r); if (e) e.t1 = -1; });
+  }
+  if (process.env.PERFSTART_BOOTPROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 1000 }); await cdp.send("Profiler.start"); }
+  const t0 = Date.now();
+  await page.goto(`${base}/3d/${EXTRA ? "?" + EXTRA.replace(/^&/, "") : ""}`);
+  await page.waitForFunction(() => window.__lulu3d && __lulu3d.state === "title" && !!document.querySelector("#screenCard #play"), null, { timeout: 300000, polling: 50 });
+  const title = await page.evaluate(() => ({ interactive: performance.now(), fcp: window.__ps.fcp }));
+  if (process.env.PERFSTART_BOOTPROFILE) {
+    const { profile } = await cdp.send("Profiler.stop");
+    const byId = new Map(profile.nodes.map(n => [n.id, n])), parent = new Map(); for (const n of profile.nodes) for (const c of (n.children || [])) parent.set(c, n.id);
+    const key = n => `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").slice(-2).join("/")}:${n.callFrame.lineNumber + 1}`;
+    const incl = new Map(), self = new Map(), dt = profile.timeDeltas, smp = profile.samples;
+    for (let i = 0; i < smp.length; i++) { const d = (dt[i] || 0) / 1000; const n0 = byId.get(smp[i]); self.set(key(n0), (self.get(key(n0)) || 0) + d);
+      const seen = new Set(); for (let id = smp[i]; id; id = parent.get(id)) { const k = key(byId.get(id)); if (seen.has(k)) continue; seen.add(k); incl.set(k, (incl.get(k) || 0) + d); } }
+    console.log("    BOOT SELF " + [...self].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${Math.round(v)}ms ${k}`).join("\n              "));
+    console.log("    BOOT INCL " + [...incl].filter(([k]) => /js\//.test(k) || /features|core|app|main|models|world/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => `${Math.round(v)}ms ${k}`).join("\n              "));
+  }
+  if (process.env.PERFSTART_TITLEMIX) console.log("      before the title: " + JSON.stringify(await page.evaluate(() => { const by = {};
+    for (const e of performance.getEntriesByType("resource")) { if (e.startTime > performance.now()) continue; const x = (e.name.split("?")[0].match(/\.(\w+)$/) || [, "other"])[1];
+      const b = by[x] || (by[x] = { n: 0, kb: 0, firstStart: 1e9, lastEnd: 0 }); b.n++; b.kb += (e.encodedBodySize || 0) / 1024; b.firstStart = Math.min(b.firstStart, Math.round(e.startTime)); b.lastEnd = Math.max(b.lastEnd, Math.round(e.responseEnd)); }
+    for (const b of Object.values(by)) b.kb = Math.round(b.kb); return by; })));
+  // a player looks at the title a moment (the time the game already uses behind it) — 4 s, then ▶ PLAY
+  // (PERFSTART_EXPERIMENT=models: load the models the home start fetches, behind the title, first — the upper bound of a preload)
+  // the home is ready (▶ PLAY would start her at home, not on a plain drive): from navigation
+  await page.evaluate(() => import("./js/features/world/home.js").then(m => { window.__wh = m.home; }));
+  // PERFSTART_EARLY=<s>: press ▶ PLAY that many seconds after the title is up (don't wait for home) — must still be the home start
+  const EARLY = process.env.PERFSTART_EARLY != null ? +process.env.PERFSTART_EARLY : null;
+  const homeReadyAt = EARLY != null ? -2 : await page.waitForFunction(() => { const h = window.__wh, T = window.__lulu3d.ctx.town, S = T && T.debug && T.debug.S;
+    return h && h.ready && (h.site !== "town" || !!(S && S.ok && S.ok[h.town && (h.town.id || h.town)])) ? performance.now() : 0; },
+    null, { timeout: 600000, polling: 250 }).then(h => h.jsonValue()).catch(() => -1);
+  if (process.env.PERFSTART_TRACE) console.log(`      home ready at ${Math.round(homeReadyAt)} ms (title ${Math.round(title.interactive)})`);
+  if (process.env.PERFSTART_EXPERIMENT === "models") await page.evaluate(() => import("./js/models.js").then(m => { const f = m.modelFiles();
+    return m.ensureModels(Object.keys(f).filter(k => /homes_|foot_|town_bochur|avigail_person/.test(f[k]))); }));
+  await page.waitForTimeout(EARLY != null ? EARLY * 1000 : 4000);
+  const pre = await page.evaluate(() => { const L3 = window.__lulu3d, ctx = L3.ctx, T = ctx.town;
+    window.__progKeys = new Set((L3.renderer.info.programs || []).map(p => p.cacheKey));
+    return { now: performance.now(), programs: (L3.renderer.info.programs || []).length, standing: T && T.standing ? T.standing.filter(s => s.ready).length : null,
+      heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null }; });
+  if (process.env.PERFSTART_CPUPROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 500 }); await cdp.send("Profiler.start"); }
+  if (process.env.PERFSTART_NET) {
+    const now = Date.now(), open = [...NET.reqs.values()].filter(e => !e.t1);
+    const by = {}; for (const e of open) { const k = (e.url.match(/([a-z]+)_?[^/]*\.(glb|mp3|png|js)/) || [, "other", ""]).slice(1).join("."); by[k] = (by[k] || 0) + 1; }
+    console.log(`      at PLAY: ${open.length} requests still open (${JSON.stringify(by)}); ${NET.reqs.size} requested so far`);
+    NET.clickWall = now;
+  }
+  const clickAt = await page.evaluate(() => { const b = document.querySelector("#screenCard #play"); const t = performance.now(); b.click(); return t; });
+  const tw = Date.now();
+  for (;;) {
+    const dl = null;
+    const st = await page.evaluate(() => { const c = window.__lulu3d.ctx, P = window.__ps;
+      return { ok: c.state === "footRun" && !!c.foot && c.foot.phase === "walk", state: c.state, phase: c.foot && c.foot.phase, view: !!c.view,
+        pending: performance.getEntriesByType("resource").length, res: P.res.length, last: (P.res[P.res.length - 1] || [])[3] }; });
+    if (st.ok) break;
+    if (st.state === "playing" && !st.phase && Date.now() - tw > 8000 && EARLY != null) throw new Error("PLAIN DRIVE (not the home start) after an early ▶ PLAY: " + JSON.stringify(st));
+    if (Date.now() - tw > (+process.env.PERFSTART_WAIT || 300000)) throw new Error("no control after PLAY: " + JSON.stringify(st) + " errors: " + errors.slice(0, 3).join(" | "));
+    if (process.env.PERFSTART_TRACE && (Date.now() - tw) % 5000 < 60) console.log("      … " + Math.round((Date.now() - tw) / 1000) + " s " + JSON.stringify(st) + " line " + JSON.stringify(dl));
+    await page.waitForTimeout(50);
+  }
+  if (process.env.PERFSTART_CPUPROFILE) {
+    const { profile } = await cdp.send("Profiler.stop");
+    // self time by function (top 25) and inclusive time for a few game entry points
+    const byId = new Map(profile.nodes.map(n => [n.id, n])), self = new Map(), dt = profile.timeDeltas, smp = profile.samples;
+    for (let i = 0; i < smp.length; i++) { const n = byId.get(smp[i]); const k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").slice(-2).join("/")}:${n.callFrame.lineNumber + 1}`; self.set(k, (self.get(k) || 0) + (dt[i] || 0) / 1000); }
+    const parent = new Map(); for (const n of profile.nodes) for (const c of (n.children || [])) parent.set(c, n.id);
+    const incl = new Map(); for (let i = 0; i < smp.length; i++) { const seen = new Set(); for (let id = smp[i]; id; id = parent.get(id)) { const n = byId.get(id); const k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").slice(-2).join("/")}:${n.callFrame.lineNumber + 1}`; if (seen.has(k)) continue; seen.add(k); incl.set(k, (incl.get(k) || 0) + (dt[i] || 0) / 1000); } }
+    console.log("    SELF  " + [...self].sort((a, b) => b[1] - a[1]).slice(0, 22).map(([k, v]) => `${Math.round(v)}ms ${k}`).join("\n          "));
+    console.log("    INCL  " + [...incl].filter(([k]) => /3d\/js|features/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([k, v]) => `${Math.round(v)}ms ${k}`).join("\n          "));
+  }
+  const post = await page.evaluate(([clickAt]) => { const L3 = window.__lulu3d, P = window.__ps, now = performance.now();
+    const res = P.res.filter(r => r[0] >= clickAt), longs = P.long.filter(l => l[0] >= clickAt);
+    const byExt = {};
+    for (const r of res) { const ext = (r[3].split("?")[0].match(/\.(\w+)$/) || [, "other"])[1]; const b = byExt[ext] || (byExt[ext] = [0, 0, 0]); b[0]++; b[1] += r[2]; b[2] = Math.max(b[2], r[1] - clickAt); }
+    return { now, programs: (L3.renderer.info.programs || []).length, files: res.length, kb: Math.round(res.reduce((a, r) => a + r[2], 0) / 1024),
+      lastFileMs: Math.round(res.reduce((a, r) => Math.max(a, r[1] - clickAt), 0)), byExt,
+      longMs: Math.round(longs.reduce((a, l) => a + l[1], 0)), longN: longs.length, maxLong: Math.round(longs.reduce((a, l) => Math.max(a, l[1]), 0)),
+      titleFiles: P.res.filter(r => r[0] < clickAt).length, titleKb: Math.round(P.res.filter(r => r[0] < clickAt).reduce((a, r) => a + r[2], 0) / 1024),
+      newProgs: (L3.renderer.info.programs || []).filter(p => !window.__progKeys.has(p.cacheKey)).map(p => p.cacheKey), oldProgs: [...window.__progKeys],
+      names: res.map(r => r[3].split('/').pop().split('?')[0] + ':' + Math.round(r[1] - clickAt)),
+      heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null }; }, [clickAt]);
+  if (process.env.PERFSTART_NET) {
+    const after = [...NET.reqs.values()].filter(e => e.t0 >= NET.clickWall);
+    console.log(`      requested after PLAY: ${after.map(e => e.url.split("/").pop() + "@" + (e.t0 - NET.clickWall) + "→" + (e.t1 > 0 ? e.t1 - NET.clickWall : "open")).join(" ")}`);
+  }
+  await page.close();
+  return { prof, warm, homeReady: Math.round(homeReadyAt), wallBootMs: Date.now() - t0, fcp: Math.round(title.fcp || 0), titleInteractive: Math.round(title.interactive),
+    playToControl: Math.round(post.now - clickAt), newPrograms: post.programs - pre.programs, programsAtClick: pre.programs, standingAtClick: pre.standing,
+    files: post.files, kb: post.kb, lastFileMs: post.lastFileMs, byExt: post.byExt, longMs: post.longMs, longN: post.longN, maxLong: post.maxLong,
+    newProgs: post.newProgs, oldProgs: post.oldProgs, names: post.names, titleFiles: post.titleFiles, titleKb: post.titleKb, heapTitle: pre.heap, heapHome: post.heap, errors };
+}
+
+const med = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
+(async () => {
+  const server = await serve();
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-precise-memory-info", "--autoplay-policy=no-user-gesture-required"] });
+  const all = [];
+  for (const prof of PROFILES) for (let i = 0; i < RUNS; i++) {
+    const holder = { ctx: null };
+    for (const warm of [false, true]) {
+      const r = await once(browser, base, prof, holder, warm);
+      all.push(r);
+      console.log(`  ${prof} ${warm ? "warm" : "cold"} #${i + 1}: FCP ${r.fcp} · title ${r.titleInteractive} · home ready ${r.homeReady} · PLAY→control ${r.playToControl} ms · ${r.files} files ${r.kb} KB (last ${r.lastFileMs} ms) · long tasks ${r.longMs} ms (${r.longN}, max ${r.maxLong}) · +${r.newPrograms} shaders (${r.programsAtClick} at click) · town slices ${r.standingAtClick} · heap ${r.heapTitle}→${r.heapHome} MB${r.errors.length ? " · ERR " + r.errors[0] : ""}`);
+      if (Object.keys(r.byExt).length) console.log(`      after PLAY by type: ${JSON.stringify(r.byExt)}`);
+      if (process.env.PERFSTART_NAMES) console.log(`      files: ${r.names.join(' ')}\n      new programs:\n        ${r.newProgs.join('\n        ')}`);
+    }
+    await holder.ctx.close();
+  }
+  await browser.close(); server.close();
+  console.log("\n| profile | cache | FCP | title interactive | home ready (PLAY starts at home) | ▶ PLAY → control | fetched after PLAY | long tasks after PLAY | new shaders |");
+  console.log("|---|---|---|---|---|---|---|---|---|");
+  const sum = {};
+  for (const prof of PROFILES) for (const warm of [false, true]) {
+    const rs = all.filter(r => r.prof === prof && r.warm === warm);
+    const row = { fcp: med(rs.map(r => r.fcp)), title: med(rs.map(r => r.titleInteractive)), home: med(rs.map(r => r.homeReady)), play: med(rs.map(r => r.playToControl)), files: med(rs.map(r => r.files)), kb: med(rs.map(r => r.kb)), long: med(rs.map(r => r.longMs)), sh: med(rs.map(r => r.newPrograms)) };
+    sum[`${prof}-${warm ? "warm" : "cold"}`] = row;
+    console.log(`| ${prof} | ${warm ? "warm" : "cold"} | ${row.fcp} ms | ${row.title} ms | ${row.home} ms | **${row.play} ms** | ${row.files} files, ${row.kb} KB | ${row.long} ms | ${row.sh} |`);
+  }
+  if (process.env.PERFSTART_OUT) fs.writeFileSync(process.env.PERFSTART_OUT, JSON.stringify({ when: new Date().toISOString(), query: EXTRA, runs: all, summary: sum }, null, 1));
+})().catch(e => { console.error(e); process.exit(1); });

@@ -48,6 +48,7 @@ import { ensureModels } from "../../models.js";
 import { UNLOCK_COST, parkBlock as parkBlockOf } from "../parking/index.js";
 import { ONEGAME } from "./switches.js";
 import { busApi } from "./bus.js";
+import "./playgate.js";             // ▶ PLAY waits (with a progress line) until the home start is ready
 
 const OG = store("onegame", { trips: 0, booth: 0, dina: 0, homes: 0 });
 const solo = () => !(ctx.party && ctx.party.active) && !(ctx.G && ctx.G.mode === "party");
