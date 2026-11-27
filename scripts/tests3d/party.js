@@ -297,6 +297,7 @@ async function body(t, guests) {
   await hostUntil(t, `(() => { const rc = ctx.party.remoteCar(${AU}); return !!rc && rc.shown && Math.abs(rc.s - ${(hs.s - 8).toFixed(2)}) < 1.5; })()`, "the host sees A pulled up behind", 30000);
   await A.game(`(ctx.banter.autopilot = { d: ${(hs.d + 1.3).toFixed(2)}, speed: 3 }, true)`);
   await hostUntil(t, `ctx.party._debug.P.bonks > 0`, "BONK on the host's screen", 30000);
+  console.log("   RACE after BONK wait", JSON.stringify(await t.game(`(() => { const A = ctx.party.activity; return { st: ctx.state, ph: A.ph, fin: A.fin, ps: A.ps, el: Math.round((ctx.party.clock() - A.t0) / 1000), end: A.endAt ? Math.round((A.endAt - A.t0) / 1000) : null, s: Math.round(ctx.car.s) }; })()`)), JSON.stringify(await A.game(`({ st: ctx.state, s: Math.round(ctx.car.s), u: ctx.party.uid })`)), JSON.stringify(await B.game(`({ st: ctx.state, s: Math.round(ctx.car.s), u: ctx.party.uid })`)));
   await A.until(`ctx.party._debug.P.bonks > 0`, "BONK on the friend's screen", 30000);
   t.check("BONK! symmetric — both screens bounced", await t.game(`ctx.party._debug.P.bonks > 0`) && await A.game(`ctx.party._debug.P.bonks > 0`));
   t.check("a bump costs no hearts", await t.game(`ctx.G.hearts === 3`) && await A.game(`ctx.G.hearts === 3`));
