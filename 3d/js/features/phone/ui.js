@@ -61,7 +61,8 @@ function badgeOf(a) {
 export function canOpen() {
     if (PH.open || ctx.paused || !PHONE_STATES.has(ctx.state)) return false;
     const def = ctx.states[ctx.state];
-    if (!def || !def.pausable || ctx.dialogOpen || ctx.skipping || ctx.view || H.screenOpen()) return false;
+    // (ctx.view: another scene on screen — a room IS one (its own set): fine there, roomFree() below decides)
+    if (!def || !def.pausable || ctx.dialogOpen || ctx.skipping || (ctx.view && ctx.state !== "interior") || H.screenOpen()) return false;
     if (ctx.cutscene && ctx.cutscene.active()) return false;
     if (ctx.streets && ctx.streets.jacking) return false;
     if (ctx.state === "interior" && !roomFree()) return false;        // (a chat, a mini-game, the doorway: not now)
