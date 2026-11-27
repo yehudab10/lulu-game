@@ -81,7 +81,7 @@ async function body(t, guests) {
   t.check("…her decorations there reach the friend's screen", await A.until(`(() => { const d = ctx.realestate.debug.friendDecor(${ID}); return !!d && d.rug === "road" && d.bed === "fluffy"; })()`, "guest knows the host's decor", 20000));
   await g(`ctx.realestate.goIn(${ID}, "owner")`);
   if (!await Hp.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "host inside her house", 60000)) return;
-  if (!await A.until(`/JOIN KUGEL KID( #\d+)? INSIDE/.test((ctx.foot.debug.interactables() || {}).label || "")`, "guest: ✋ 👯 JOIN KUGEL KID INSIDE", 60000)) {
+  if (!await A.until(`/JOIN KUGEL KID( #\\d+)? INSIDE/.test((ctx.foot.debug.interactables() || {}).label || "")`, "guest: ✋ 👯 JOIN KUGEL KID INSIDE", 60000)) {
     console.log("   guest's ✋ instead:", JSON.stringify(await A.game(`(() => { const s = ctx.foot.debug.interactables() || {}, F = ctx.foot.debug.F, h = ctx.realestate.home(${ID});
       return { label: s.label || null, kind: s.kind || (s.ent && s.ent.kind) || null, state: ctx.state, her: F ? [+F.pos.x.toFixed(1), +F.pos.z.toFixed(1)] : null, door: h && h.ap ? [+h.ap.x.toFixed(1), +h.ap.z.toFixed(1)] : null,
         hostIn: ctx.together && ctx.together.debug ? JSON.stringify(ctx.together.debug.rooms ? ctx.together.debug.rooms() : null).slice(0, 200) : null }; })()`)));
