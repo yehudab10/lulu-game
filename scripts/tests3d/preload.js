@@ -20,7 +20,8 @@ module.exports = {
     const info = () => t.L(`import("./js/models.js").then(m => m.downloadInfo())`);
     // (until() checks are synchronous: keep a handle on the home module)
     const grabHome = () => t.L(`import("./js/features/world/home.js").then(m => { window.__wh = m.home; return true; })`);
-    const HOME_READY = `!!(window.__wh && __wh.ready)`;
+    // (ready to start AT home: her house built, and — when home is in a town — that town's models loaded)
+    const HOME_READY = `!!(window.__wh && __wh.ready && (__wh.site !== "town" || (() => { const S = __lulu3d.ctx.town.debug.S, id = __wh.town && (__wh.town.id || __wh.town); return !!(S.ok && S.ok[id]); })()))`;
     const atHome = `__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`;
     const base = t.page.url().split("?")[0];
     const go = async (extra = "") => { await t.page.goto(`${base}?test${Q}${extra}`); const ok = await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title", 120000); await grabHome(); return ok; };

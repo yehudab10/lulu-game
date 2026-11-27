@@ -85,7 +85,9 @@ async function once(browser, base, prof, ctxHolder, warm) {
   // a player looks at the title a moment (the time the game already uses behind it) — 4 s, then ▶ PLAY
   // (PERFSTART_EXPERIMENT=models: load the models the home start fetches, behind the title, first — the upper bound of a preload)
   // the home is ready (▶ PLAY would start her at home, not on a plain drive): from navigation
-  const homeReadyAt = await page.waitForFunction(() => import("./js/features/world/home.js").then(m => m.home.ready ? performance.now() : 0), null, { timeout: 600000, polling: 250 }).then(h => h.jsonValue()).catch(() => -1);
+  const homeReadyAt = await page.waitForFunction(() => import("./js/features/world/home.js").then(m => { const h = m.home, T = window.__lulu3d.ctx.town, S = T && T.debug && T.debug.S;
+    return h.ready && (h.site !== "town" || !!(S && S.ok && S.ok[h.town && (h.town.id || h.town)])) ? performance.now() : 0; }), null, { timeout: 600000, polling: 250 }).then(h => h.jsonValue()).catch(() => -1);
+  if (process.env.PERFSTART_TRACE) console.log(`      home ready at ${Math.round(homeReadyAt)} ms (title ${Math.round(title.interactive)})`);
   if (process.env.PERFSTART_EXPERIMENT === "models") await page.evaluate(() => import("./js/models.js").then(m => { const f = m.modelFiles();
     return m.ensureModels(Object.keys(f).filter(k => /homes_|foot_|town_bochur|avigail_person/.test(f[k]))); }));
   await page.waitForTimeout(4000);
