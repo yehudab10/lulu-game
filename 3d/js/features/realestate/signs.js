@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { YARD, SEIZED_SIGN } from "./data.js";
+import { plateName } from "./registry.js";
 
 const G = { group: null, town: null, meshes: null, tex: {}, mats: {}, geo: null };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
@@ -28,7 +29,7 @@ function plateTex() {
     const g = c.getContext("2d");
     g.fillStyle = "#FFF3F8"; g.fillRect(0, 0, 256, 80);
     g.strokeStyle = "#E91E63"; g.lineWidth = 8; g.strokeRect(4, 4, 248, 72);
-    g.fillStyle = "#AD1457"; g.font = "bold 46px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("LULU ♥", 128, 42);
+    g.fillStyle = "#AD1457"; g.font = "bold 46px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; const nm = plateName(); g.font = `bold ${nm.length > 7 ? Math.max(22, Math.floor(46 * 7 / nm.length)) : 46}px sans-serif`; g.fillText(nm, 128, 42);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     return (G.tex.plate = t);
 }
@@ -106,3 +107,4 @@ export function clear() {
     G.group = null; G.meshes = null; G.town = null;
 }
 export { G };
+export const plateTexNow = () => plateTex();
