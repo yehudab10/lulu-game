@@ -41,7 +41,9 @@ async function body(t, guests) {
   t.check("ctx.law.crew service", await g(`!!${CR} && typeof ${CR}.partners === "function" && typeof ${CR}.bust === "function" && typeof ${CR}.wanted === "function"`));
   t.check("solo: no crew, nothing published", await g(`${CR}.current() === null`));
   // ── the host: 👯 Friends → 🌍 Hang out; the guest joins by link ──
-  await t.game(`(ctx.party.hostRoam(), true)`);     // (📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
   const A = await guestPage(t, "guest", { totalCoins: 700, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`);

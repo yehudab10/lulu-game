@@ -41,7 +41,9 @@ async function body(t, guests) {
   t.check("ctx.together service", await g(`!!ctx.together && typeof ctx.together.locate === "function"`));
   t.check("solo: no friend map in the phone (the story map keeps the 🗺️ slot)", await g(`!ctx.phone.apps().includes("tgmap")`));
   // ── the host: 👯 Friends → 🌍 Hang out (straight into Free Roam) ──
-  await t.game(`(ctx.party.hostRoam(), true)`);     // (📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   await g(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);

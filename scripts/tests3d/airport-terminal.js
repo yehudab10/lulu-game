@@ -324,7 +324,9 @@ async function friends(t) {
     await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.wanted = []; }); return true; })`);
     await t.frames(5);
     await t.boot(Q);
-    await t.game(`(ctx.party.hostRoam(), true)`);     // (📱 👯 › Play with a friend — the title has no Friends tile any more)
+    await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
     if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
     const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`);
     const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q}&party=${code}&with=${hostUid}`, { width: 960, height: 540 });

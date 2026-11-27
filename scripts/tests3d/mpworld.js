@@ -204,7 +204,9 @@ async function body(t, pages, riders) {
   // ── FRIENDS: a private group inside the same world ──
   await g(`(L3.setState("title"), true)`);
   await A.frames(5);
-  await t.game(`(ctx.party.hostRoam(), true)`);     // (📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await A.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "A: 📤 Invite → Free Roam", 120000)) return;
   await g(HOLD); await g(PLACE(400, 1.75));
   t.check("in a party she's still in EVERYONE (strangers stay in the world)", await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online in the party", 30000));
