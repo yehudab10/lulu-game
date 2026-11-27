@@ -60,7 +60,7 @@ function comboOf(a, b) {
 const ME = { i: -1, t: 0, dur: 0, seq: 0, at: -1e9, local: false, bubble: null, combos: new Map(), greet: new Map(), greetT: 0, waveT: 0 };
 const party = () => !!N.want;
 const onFootNow = () => ctx.state === "footRun" && !!ctx.foot && ctx.foot.active && ctx.foot.phase === "walk" && !!ctx.foot.person;
-const carNow = () => party() && ctx.state === "playing" && !!ctx.G && ctx.G.mode === "party";
+const carNow = () => party() && ctx.state === "playing" && !!ctx.G && (ctx.G.mode === "party" || !!(ctx.party && ctx.party.ownRun));
 /** Inside a room shared with friends (features/together: friends there see her gesture). */
 const roomNow = () => party() && ctx.state === "interior" && !!(ctx.together && ctx.together.inRoom && ctx.together.inRoom());
 /** Can I emote right now? (on foot — solo or a party — or in the car with friends) */

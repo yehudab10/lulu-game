@@ -499,8 +499,9 @@ async function party(t, guests) {
   await t.page.setViewportSize({ width: 960, height: 540 });
   if (!await g(`ctx.state === "title"`)) await t.page.goto(t.page.url().replace(/[?].*$/, "") + `?test${Q0}&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00`);
   if (!await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "party: boots", 120000)) return;
-  await t.click(/Friends/);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00`, { width: 640, height: 360 });

@@ -38,15 +38,17 @@ module.exports = {
     await g(`(${P}.debug.clear(), true)`);
     const st = await g(`({ stores: ctx.town.stores.length, lease: ${P}.leasable().length, keys: [...new Set(ctx.town.stores.map(s => s.key))] })`);
     t.check("Midwood's plain storefronts are listed (ctx.town.stores)", st.stores >= 6, JSON.stringify(st));
-    t.check("…4 of them stand FOR LEASE", st.lease === 4, JSON.stringify(st));
+    t.check("…the FOR LEASE ones are ci/storefronts' (a few at least)", st.lease >= 4, JSON.stringify(st));
     await t.frames(30);
-    t.check("…with a FOR LEASE poster each", await g(`(${P}.debug.W.group ? ${P}.debug.W.group.children.length : 0) === 4`));
+    const cl = await g(`(() => { const v = [...${P}.debug.CL.values()]; return { lease: v.filter(x => x === "lease").length, n: ${P}.leasable().length, sf: ctx.storefronts ? ctx.storefronts.leasable().length : -1 }; })()`);
+    t.check("…each claimed through ctx.storefronts (its ✋ → our landlord)", cl.lease === cl.n && cl.n > 0 && cl.sf === 0, JSON.stringify(cl));
 
     // the ✋ at a FOR LEASE front
     const F = await g(`(() => { const f = ${P}.leasable()[0]; return { id: f.id, ap: f.ap, nx: f.nx, nz: f.nz, address: f.address }; })()`);
-    await g(`(() => { const Fp = ctx.foot.debug.F; Fp.pos.set(${F.ap.x} + ${F.nx} * 1.2, 0.05, ${F.ap.z} + ${F.nz} * 1.2); ctx.foot.obj.position.copy(Fp.pos); ctx.foot.obj.rotation.y = Math.atan2(-(${F.nx}), -(${F.nz})); Fp.h = ctx.foot.obj.rotation.y; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+    await g(`(() => { const Fp = ctx.foot.debug.F; Fp.pos.set(${F.ap.x} - ${F.nx} * 0.4, 0.05, ${F.ap.z} - ${F.nz} * 0.4); ctx.foot.obj.position.copy(Fp.pos); ctx.foot.obj.rotation.y = Math.atan2(-(${F.nx}), -(${F.nz})); Fp.h = ctx.foot.obj.rotation.y; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
     await t.frames(20);
-    t.check("✋ at the door: 🪧 FOR LEASE", /FOR LEASE/.test(String(await g(`(() => { const sp = ctx.foot.spots ? ctx.foot.spots().find(s => s.short === "FOR LEASE") : null; return sp && sp.pos() ? sp.label() : ""; })()`))));
+    const lab0 = String(await g(`((ctx.foot.debug.interactables() || {}).label || "")`));
+    t.check("✋ at the door: 🪧 FOR LEASE (the storefront's ✋, our line)", /FOR LEASE/.test(lab0), lab0);
     await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__camWrap) { const o = r.render.bind(r); window.__camWrap = true; r.render = (s, c) => { const V = window.__camAt; if (V && c === __lulu3d.ctx.camera) { c.position.set(V[0], V[1], V[2]); c.lookAt(V[3], V[4], V[5]); c.updateMatrixWorld(); } o(s, c); }; } window.__camAt = [${F.ap.x} + (${F.nx}) * 6, 2.4, ${F.ap.z} + (${F.nz}) * 6, ${F.ap.x} - (${F.nx}) * 2, 1.4, ${F.ap.z} - (${F.nz}) * 2]; return true; })()`);
     await t.frames(10);
     await t.shot("for-lease");
@@ -134,7 +136,7 @@ module.exports = {
     await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("playing"), ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood", 0), speed: 0 }), true)`);
     if (await t.until(`__lulu3d.ctx.town.id === "lakewood" && __lulu3d.ctx.playershops.leasable().length > 1`, "in Lakewood", 30000)) {
       const L = await g(`(() => { const l = ${P}.leasable(); return { n: l.length, a: l[0].id, b: l[1].id, keys: [...new Set(ctx.town.stores.map(s => s.key))] }; })()`);
-      t.check("Lakewood: 6 storefronts FOR LEASE", L.n === 6, JSON.stringify(L));
+      t.check("Lakewood: storefronts FOR LEASE (≥ 2)", L.n >= 2, JSON.stringify(L));
       const cB = await g(`L3.wallet.coins`);
       await g(`(${P}.debug.landlord(${P}.debug.frontById(${JSON.stringify(L.a)})), true)`);
       t.check("buy the building for cash: Buy → handy things → Cash → ✅", await flow([/Buy the building/, /handy things/, /^💰 Cash/, /Buy it/]));

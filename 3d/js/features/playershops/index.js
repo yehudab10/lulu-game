@@ -51,7 +51,8 @@ export function fronts() {
     const T = ctx.town, town = townId();
     if (!town || !T.stores) return [];
     const list = T.stores;
-    const key = `${town}@${list.length ? Math.round(list[0].x) + "," + Math.round(list[0].z) : 0}`;
+    const nSF = ctx.storefronts && ctx.storefronts.debug && ctx.storefronts.debug.F ? ctx.storefronts.debug.F.list.length : 0;     // (re-match once its list is built)
+    const key = `${town}@${list.length ? Math.round(list[0].x) + "," + Math.round(list[0].z) : 0}|${nSF}`;
     if (W.key === key && W.fronts.length) return W.fronts;
     W.key = key;
     W.fronts = list.map(s => {
@@ -60,14 +61,59 @@ export function fronts() {
         return { id, town, key: s.key, x: s.x, z: s.z, nx, nz, ux: s.ux, uz: s.uz, rot: s.rot, w: s.w, door,
             ap: { x: door.x + nx * 1.6, z: door.z + nz * 1.6 }, anchor: s.anchor, sign: s.sign, address: addressAt(s.lx, s.lz) || "the high street" };
     });
-    // which stand FOR LEASE: a fixed few per town (by the week, so they don't jump around), never one ci/storefronts uses
+    // ci/storefronts (on main): it owns every front's state — match its fronts to ours by the door (its ids are "town:i")
+    // and offer exactly ITS FOR LEASE fronts; without it, a fixed few per town (by the week)
+    const SF = ctx.storefronts;
+    if (SF && SF.fronts) {
+        const theirs = SF.fronts();
+        for (const f of W.fronts) {
+            let best = null, bd = 6;
+            for (const t of theirs) { if (!t.door) continue; const d = Math.hypot(t.door.x - f.door.x, t.door.z - f.door.z); if (d < bd) { bd = d; best = t; } }
+            f.sid = best ? best.id : null;
+        }
+        W.sfKey = key;
+        W.forLease = leaseSet();
+        return W.fronts;
+    }
     const wk = Math.floor(today() / 7);
-    const free = W.fronts.filter(f => !(ctx.storefronts && ctx.storefronts.busy && ctx.storefronts.busy(f.id)));
     const pickN = FOR_LEASE[town] || 4;
-    W.forLease = new Set(free.slice().sort((a, b) => hash(a.id + ":" + wk) - hash(b.id + ":" + wk)).slice(0, pickN).map(f => f.id));
+    W.forLease = new Set(W.fronts.slice().sort((a, b) => hash(a.id + ":" + wk) - hash(b.id + ":" + wk)).slice(0, pickN).map(f => f.id));
     return W.fronts;
 }
 const frontById = id => fronts().find(f => f.id === id) || null;
+// ── ci/storefronts: its FOR LEASE fronts are ours to offer; we claim the ones we show (lease offers, her shops, others'
+//    shops) so its ✋ shows our line and calls our enter — and our own ✋ spots stand down (one ✋ per door) ──
+const CL = new Map();          // its front id → what we claimed it as ("lease" | "mine" | "other:<id>")
+function leaseSet() {
+    const SF = ctx.storefronts, out = new Set();
+    if (!SF || !SF.leasable) return out;
+    const ids = new Set(SF.leasable().map(l => l.id));
+    for (const [sid, what] of CL) if (what === "lease") ids.add(sid);       // (ours are claimed: leasable() leaves them out)
+    for (const f of W.fronts) if (f.sid && ids.has(f.sid)) out.add(f.id);
+    return out;
+}
+const sfOn = () => !!(ctx.storefronts && ctx.storefronts.claim && W.fronts.some(f => f.sid));
+function syncClaims() {
+    const SF = ctx.storefronts;
+    if (!SF || !SF.claim) return;
+    const want = new Map();
+    const oth = others();
+    for (const f of W.fronts) {
+        if (!f.sid) continue;
+        if (S.shops[f.id]) want.set(f.sid, ["mine", f]);
+        else { const x = oth.find(o => o.id === f.id); if (x) want.set(f.sid, ["other:" + x.id + (x.z ? ":z" : ""), f, x]); else if (W.forLease.has(f.id)) want.set(f.sid, ["lease", f]); }
+    }
+    for (const [sid, what] of CL) if (!want.has(sid) || want.get(sid)[0] !== what) { SF.release(sid); CL.delete(sid); }
+    for (const [sid, [what, f, x]] of want) {
+        if (CL.get(sid) === what) continue;
+        const spec = what === "mine" ? { get label() { const n = S.car.length && carNear(f) ? Math.min(HANDS, S.car.length) : 0; return n ? `🏪 YOUR SHOP — CARRY ${n} BOX${n === 1 ? "" : "ES"} IN` : "🏪 YOUR SHOP — GO IN"; }, enter: () => goIn(f, "owner") }
+            : what === "lease" ? { label: `🪧 FOR LEASE — ${f.address}`, enter: () => { landlord(f); return true; } }
+            : x.z ? { label: "🚧 UNDER RENOVATION", enter: () => { if (ctx.foot && ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "Under renovation. The owner hasn't been by in weeks.", 2.6); return true; } }
+            : { get label() { return x.server && SVR.SV.on ? `🛍️ SHOP AT ${(x.shopName || x.name + "'S").toUpperCase()}` : `👀 LOOK ROUND ${x.name.toUpperCase()}'S SHOP`; }, enter: () => { visitShop(f, x); return true; } };
+        SF.claim(sid, spec); CL.set(sid, what);
+    }
+}
+function dropClaims() { const SF = ctx.storefronts; if (SF && SF.release) for (const sid of CL.keys()) SF.release(sid); CL.clear(); }
 export const mine = () => Object.entries(S.shops).map(([id, s]) => Object.assign({ id }, s));
 /** Other players' shops here: friends in a party (d.x.ps) + everyone's on the relay (stage 2). [{ id, town, kind, name, server?, z?, shelf? }] */
 export function others() {
@@ -397,7 +443,7 @@ function layout() {
             // (over the storefront's own sign band: town_mw_store's is 8.4 × 0.9, town_shop's 10 × 0.98)
             const big = f.key === "town_mw_store" ? [8.7, 1.02] : [10.3, 1.1];
             W.group.add(poster(f, [`${k.emoji} ${name}`.slice(0, 30), status], fs && fs.z ? "#607D8B" : k.color, "#FFFFFF", big[0], big[1], 3.2, at, true));
-        } else if (W.forLease.has(f.id)) {
+        } else if (W.forLease.has(f.id) && !f.sid) {
             W.group.add(poster(f, ["FOR LEASE", "ask Mr. Gelbfish", "✋ at the door"], "#FFF8E1", "#B71C1C"));
         }
     }
@@ -414,13 +460,13 @@ function nearestFront(list, r) {
 }
 const leaseSpot = {
     r: 2.6, short: "FOR LEASE",
-    pos() { W.near = canAct() ? nearestFront(leasable(), 2.6) : null; return W.near ? W.near.ap : null; },
+    pos() { W.near = canAct() && !sfOn() ? nearestFront(leasable(), 2.6) : null; return W.near ? W.near.ap : null; },
     label() { return W.near ? `🪧 FOR LEASE — ${W.near.address}` : null; },
     act() { if (W.near) landlord(W.near); },
 };
 const shopSpot = {
     r: 2.8, short: "MY SHOP", door: true,
-    pos() { W.mine = canAct() ? nearestFront(fronts().filter(f => S.shops[f.id]), 2.8) : null; return W.mine ? W.mine.ap : null; },
+    pos() { W.mine = canAct() ? nearestFront(fronts().filter(f => S.shops[f.id] && !(sfOn() && f.sid)), 2.8) : null; return W.mine ? W.mine.ap : null; },
     label() {
         if (!W.mine) return null;
         const n = S.car.length && carNear(W.mine) ? Math.min(HANDS, S.car.length) : 0;
@@ -430,7 +476,7 @@ const shopSpot = {
 };
 const friendSpot = {
     r: 2.8, short: "SHOP", door: true,
-    pos() { W.fr = canAct() ? nearestFront(fronts().filter(f => others().some(x => x.id === f.id && !x.z)), 2.8) : null; return W.fr ? W.fr.ap : null; },
+    pos() { W.fr = canAct() ? nearestFront(fronts().filter(f => !(sfOn() && f.sid) && others().some(x => x.id === f.id && !x.z)), 2.8) : null; return W.fr ? W.fr.ap : null; },
     label() {
         const x = W.fr && others().find(s => s.id === W.fr.id);
         if (!x) return null;
@@ -491,21 +537,21 @@ ctx.playershops = {
         const fs = others().find(x => x.id === id); if (fs) return { state: "player", name: fs.name, kind: fs.kind, owner: fs.uid || "player" };
         return W.forLease.has(id) ? { state: "lease" } : null;
     },
-    debug: { S, W, SVR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
+    debug: { S, W, CL, syncClaims, SVR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
 };
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) for (const sp of [leaseSpot, shopSpot, friendSpot, depotSpot]) ctx.foot.addSpot(sp);
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
 });
-on("town:leave", clearSigns);
+on("town:leave", () => { clearSigns(); dropClaims(); });
 on("title", clearSigns);
-on("town:enter", () => { W.key = ""; W.built = ""; });
+on("town:enter", () => { W.key = ""; W.built = ""; dropClaims(); });
 hook("hud", dt => {
     if ((W.t += dt) < 0.5) return;
     W.t = 0;
     try {
         if (ctx.state === "playing" || ctx.state === "footRun") { dayTick(); payTick(); }
-        if (townId()) layout(); else if (W.group) clearSigns();
+        if (townId()) { layout(); syncClaims(); } else { if (W.group) clearSigns(); if (CL.size) dropClaims(); }
         depotTick();
         publish();
         serverTick();

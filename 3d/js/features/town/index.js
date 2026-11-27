@@ -978,6 +978,9 @@ ctx.town = {
     get homes() { return S.active && S.T && S.T.homes ? S.T.homes.map(h => spotWorld(h)) : []; },
     /** The plain storefronts of the copy she's in (features/playershops, ci/storefronts): world coords, `lx` / `lz` = local (the id). */
     get stores() { return S.active && S.T && S.T.stores ? S.T.stores.map(h => { const o = spotWorld(h); if (h.anchor) { const v = toWorld(h.anchor.x, h.anchor.z, {}); o.anchor = { x: v.x, y: h.anchor.y, z: v.z }; } return o; }) : []; },
+    /** The shopfronts (features/storefronts): [{ i, key, list, name, sub, st (its state: town/fronts.js' namer), x, z, rot, ux,
+     *  uz, nx (toward the street), nz, lotX, lotZ, w, face }] — WORLD coords, in build order (stable per town). */
+    get fronts() { return S.active && S.T && S.T.fronts ? S.T.fronts.map(f => spotWorld(f)) : []; },
     get drives() { return S.active && S.T && S.T.drives ? S.T.drives.map(d => { const w = toWorld(d.x, d.z, {}); return { x: w.x, z: w.z, rot: wH(d.rot) }; }) : []; },
     /** The townsfolk you can talk to: [{id, name, x, z}] (world). */
     people: () => S.active ? LIFE.people.filter(r => r.lines).map(r => ({ id: r.id, name: r.name, x: r.p.obj.position.x, z: r.p.obj.position.z })) : [],
@@ -1226,7 +1229,7 @@ function spotWorld(p) {
     if (p.cx != null) { const v = toWorld(p.cx, p.cz, {}); o.cx = v.x; o.cz = v.z; }
     if (p.lotX != null) { const v = toWorld(p.lotX, p.lotZ, {}); o.lotX = v.x; o.lotZ = v.z; }
     // (an empty lot's door / drive / kerb points: world too, headings turned)
-    for (const k of ["door", "drive", "kerb"]) if (p[k]) { const v = toWorld(p[k].x, p[k].z, {}); o[k] = Object.assign({}, p[k], v); if (p[k].h != null) o[k].h = wH(p[k].h); }
+    for (const k of ["door", "drive", "kerb", "facade"]) if (p[k]) { const v = toWorld(p[k].x, p[k].z, {}); o[k] = Object.assign({}, p[k], v); if (p[k].h != null) o[k].h = wH(p[k].h); }
     return o;
 }
 function takePatrol() {
