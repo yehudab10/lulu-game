@@ -102,8 +102,8 @@ const around = (a, b) => { const d = Math.abs(((a - b) % LAP + LAP) % LAP); retu
 export function nearest(kind, m = lapNow()) {
     const out = [];
     const T = ctx.town;
-    // (towns only where they are really there: the town feature on and its interchanges planned, as the old rule)
-    if (T && T.towns && T.exitOf && ctx.enabled("town") && T.exits && T.exits.length) for (const id of Object.keys(T.towns)) {
+    // (towns only where they are really there: the town feature on)
+    if (T && T.towns && T.exitOf && ctx.enabled("town")) for (const id of Object.keys(T.towns)) {
         const def = T.towns[id];
         if (!def.attach || !def.uses || !def.uses.civic || !def.uses.hospital) continue;
         let s = null;
