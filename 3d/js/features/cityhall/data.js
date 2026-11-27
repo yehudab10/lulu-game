@@ -420,7 +420,7 @@ export const EDICTS = [
         about: "Every bakery now has to bake the same shape: a brick. The bakers are furious. The bread is also furious." },
 ];
 export const MAYOR31 = {
-    complaint: { opt: "📜 The mayor's latest edict", reply: e => `About "${e.title}"? You and the whole neighbourhood. This window got four hundred today. I'm filing them in a big pile labelled THE PEOPLE.` },
+    complaint: { opt: "📜 The mayor's latest edict", reply: e => `About "${e.title}"? You and the whole neighbourhood. This window got four hundred today. Fine — yours goes to Courtroom 2B. The judge will hear you. Bring the neighbours.` },
     struckNotice: e => `📜 STRUCK DOWN BY THE COURT: "${e.title}". (The mayor says he will appeal to the People. The People said no.)`,
     staff: ["*sighs* Another edict came down this morning. I'm out of stamps that say EDICT.", "Off the record? I miss Pickleman. He only cut ribbons."],
     lulu: ["'The People's' everything. The People never asked.", "One cabbage. For the whole neighbourhood. That's the plan.", `${MIDWOOD_MAYOR.short}'s face is on every lamppost. Even the broken ones.`],
