@@ -104,6 +104,8 @@ module.exports = {
       await g(`(async () => { const rt = { disposed: false, choose: async () => 0, say: async () => {} }; for (const h of ctx.cityhall.windows.permits) if (await h.fn(rt, null, "Mr. Stempler")) break; })().then(() => true)`);
       await t.frames(3);
       t.check(`stamped in triplicate: the normal fee (${c0} → ${await coins()}: 120), the slip in hand`, c0 - (await coins()) === 120 && await g(`ctx.impound.released`));
+      // (the line refreshes every 0.25 s of game time: wait for it)
+      await t.until(`/slip/i.test((document.querySelector(".impound-chip") || {}).textContent || "")`, "the line updates", 3000);
       const chip = await t.L(`(document.querySelector(".impound-chip") || {}).textContent || ""`);
       t.check("the line now says: the slip ✓ → the gate", /slip/i.test(chip), chip);
       await toGate();
