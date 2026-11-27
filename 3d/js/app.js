@@ -419,8 +419,9 @@ window.__lulu3d = {
     renderer, gfx,
     // the fast test clock (core/testclock.js): is it on · gates · one real frame for a screenshot (then restore)
     get fast() { return TC.on; }, TC, setGate, gateHit, clearGate, runAdd, realFrame,
-    /** fast clock: draw this frame now if it wasn't (a check that reads the picture) · the last frame drawn */
-    drawNow() { if (TC.drawn !== ctx.frames && ctx.world && ctx.car) { present(0, true); TC.drawn = ctx.frames; } return true; },
+    /** fast clock: draw the frame now, for a check that reads the picture right after (always: a frame drawn in an
+     *  earlier browser frame has been shown, and a shown WebGL picture is gone from the canvas's buffer) */
+    drawNow() { if (ctx.world && ctx.car) { present(0, true); TC.drawn = ctx.frames; } return true; },
     get drawnFrame() { return TC.drawn; },
     afterShot() { if (TC.restore) TC.restore(); return true; },
 };
