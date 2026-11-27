@@ -187,6 +187,9 @@ function build(rt) {
     let said = null;
     try { said = ctx.moveout && ctx.moveout.build ? ctx.moveout.build(rt, { col, put, box, M, kit, RCX, LCX, KCX, D, W, WALL, X1, DOOR_X, bz: -D / 2 }) : null; } catch (e) { console.error("[decor] moveout", e); }
 
+    // ── her closet (features/clothes): changing only — nothing here is decorated (on the far wall, front of Dina's door) ──
+    try { if (ctx.clothes && ctx.clothes.placeCloset) ctx.clothes.placeCloset(rt, { x: X1 - 0.33, z: 0.62, ry: -Math.PI / 2, col, where: "ima" }); } catch (e) { console.error("[decor] closet", e); }
+
     // ── people: Ima at the stove ──
     try {
         rt.person("ima", "imaPerson", { x: KCX + 1.2, z: -1.05, ry: 0.3 }, { name: "Ima", pose: {} });

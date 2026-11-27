@@ -68,6 +68,8 @@ export const PLACES = [
       towns: { lakewood: "by the construction site on 14th St", midwood: "outside the car service on Coney Island Ave" }, spot: "shopsBlack" },
     { id: "bling", icon: "✨", name: "Refael's Bling Bay", sells: "📯 6 horns (hear them first) · 🎀 7 car decorations (fitted on your car)",
       towns: { lakewood: "at Uncle Refael's on Route 9 — the pink neon door", midwood: "at Uncle Refael's on Coney Island Ave" }, spot: "bling" },
+    { id: "clothes", icon: "👗", name: "Clothing shops", sells: "👚 Tops, skirts, shoes, coats + extras · try on in the fitting room",
+      towns: { lakewood: "Simcha's Classic Clothing, on Main St", midwood: "Avenue J'adore, on Avenue J" }, spot: "clothes" },
     { id: "garage", icon: "🏠", name: "Your garage at home", sells: "Pick which of your cars to drive",
       home: true },
 ];

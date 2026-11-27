@@ -8,6 +8,7 @@
     "start": "node local-relay.js",
     "test": "node test-relay.js",
     "test:accounts": "node test-accounts.mjs",
+    "test:wear": "node test-wear.mjs",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

@@ -68,7 +68,7 @@ function build() {
     const drv = findNodes(car, "Driver")[0]; if (drv) drv.visible = false;
     for (const h of findNodes(car, "Hair_")) h.visible = false;
     car.position.set(-2.6, 0, -1.6); car.rotation.y = 0.9; sc.add(car);
-    const lulu = spawnPerson("luluPerson");
+    const lulu = spawnPerson("luluPerson", { outfit: false });
     lulu.obj.position.set(-1.05, 0, 0.2); lulu.obj.rotation.y = 0.25; sc.add(lulu.obj);
     const dina = spawnPerson("dinaPerson");
     dina.obj.position.set(1.05, 0, 0.3); dina.obj.rotation.y = -0.25; sc.add(dina.obj);

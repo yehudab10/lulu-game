@@ -5,6 +5,7 @@
 //   item     missiles / pepperSpray / shields += give; distracted → distractedUnlocked = true
 //   horn     ownedHorns += id, horn = id
 //   decor    ownedDecor += id, decor = id
+//   clothes  (3D only) features/clothes' own save — buyClothes(def, { owned, give })
 // Coins: wallet.spend(price) — never below zero (a buy that can't be paid changes nothing).
 // → { ok: true } | { ok: false, why: "poor" | "owned" | "unknown" }
 import { ctx, emit } from "../../core/ctx.js";
@@ -117,6 +118,19 @@ export function buyDecor(id) {
         s.decor = id;
     });
     emit("shops:buy", { kind: "decor", id, price: def.price });
+    return { ok: true };
+}
+
+/** Buy a piece of clothing (features/clothes — 3D-only, kept in the clothes save): def = the piece, has(id) → owned?,
+ *  give(id) adds it. Never below zero; nothing is ever sold back. */
+export function buyClothes(def, { owned: has, give }) {
+    if (!def || def.price == null || typeof give !== "function") return { ok: false, why: "unknown" };
+    if (has && has(def.id)) return { ok: false, why: "owned" };
+    const r = pay(def.price);
+    if (!r.ok) return r;
+    give(def.id);
+    emit("stat", { id: "clothesBought", n: 1 });
+    emit("shops:buy", { kind: "clothes", id: def.id, price: def.price });
     return { ok: true };
 }
 
