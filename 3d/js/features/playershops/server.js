@@ -28,7 +28,7 @@ async function req(path, body) {
     const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
     const tm = setTimeout(() => ctl && ctl.abort(), 8000);
     try {
-        const r = await fetch(b + path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({}, me(), body)), signal: ctl && ctl.signal } : { signal: ctl && ctl.signal });
+        const r = await fetch(b + path, body ? { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({}, me(), body)), signal: ctl && ctl.signal } : { cache: "no-store", signal: ctl && ctl.signal });     // (a shelf / list read is never served from the browser cache)
         return { st: r.status, j: await r.json().catch(() => null) };
     } finally { clearTimeout(tm); }
 }
