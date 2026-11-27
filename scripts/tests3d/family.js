@@ -8,7 +8,7 @@
 module.exports = {
   name: "family",
   viewport: { width: 1280, height: 720 },
-  query: `&enable=homes,town,law,foot,atmos,interiors,seasons,memory,family,realestate`,
+  query: `&enable=homes,town,law,foot,atmos,interiors,seasons,memory,family,realestate,cameos`,
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
     const g = t.game, D = `ctx.family.debug`;
@@ -176,6 +176,62 @@ module.exports = {
         t.check("beat 3 (the lake): Lulu covered for them (\"he's my LAWYER\")", await g(`${K}.C.n === 3 && ${K}.C.cover[2] === 1`), await g(`JSON.stringify(${K}.C)`));
       }
       t.check("story only: no coins from the couple", (await g(`ctx.G.coins`)) === g0 && (await coins()) === j0);
+    });
+    await step("Avigail", async () => {
+      // Stage C: no random Avigail; her house (a fixed door, real estate never lists it); the porch visit at her door; the
+      // hall's wedding with the bouquet paid once a real day; no Avigail toast / banner
+      const V = `${D}.avigail`;
+      if (!await inTown("midwood")) return;
+      t.check("Midwood's signs (the Ballroom's too) fit the one atlas at a readable scale", await g(`ctx.town.debug.S.T.signs.scale >= 0.5`), String(await g(`ctx.town.debug.S.T.signs.scale.toFixed(2)`)));
+      t.check("no roadside Avigail walker on the cameos timer", await g(`!ctx.actors.some(a => a.kind === "avigailWalker")`));
+      const av = await g(`ctx.family.avigail()`);
+      t.check("her house: a fixed door in Midwood", !!av.door, JSON.stringify(av));
+      t.check("real estate never lists it, homes gave the door up", await g(`(() => { const a = ctx.family.avigail().door; const h = ctx.homes.householdAt(a.x, a.z, 4); return (!h || h.status === "avigail") && !ctx.realestate.listings().some(r => Math.hypot(r.ap.x - a.x, r.ap.z - a.z) < 4); })()`));
+      // not home (Tuesday 11 a.m.: the nail salon) → the note
+      await day(2, 11); await t.frames(4);
+      t.check("Tuesday 11 a.m.: at the nail salon", (await g(`ctx.family.avigail()`)).where === "salon");
+      await stand(av.door.x, av.door.z, av.door.x - 1, av.door.z); await t.frames(6);
+      await g(`(${V}.porch(), true)`);
+      await talkThrough();
+      t.check("…the note on her door says so", await t.until(`/NAIL SALON/.test((document.getElementById("dialog") || {}).textContent || "")`, "the note", 15000));
+      await talkThrough(); await t.until(`!__lulu3d.ctx.dialogOpen`, "note closed", 15000); await t.frames(10);
+      // home (Tuesday 3 p.m.): the porch visit on her porch → she's coming along (once a run)
+      await day(2, 15); await t.frames(4);
+      const rel0 = await g(`ctx.avigail.rel()`);
+      await g(`(${V}.porch(), true)`);
+      for (let k = 0; k < 80 && (await g(`ctx.dialogOpen || ctx.family.debug.avigail.A.busy`)); k++) {
+        if (await t.L(`document.querySelectorAll("#dialog button").length > 0`)) { await t.L(`document.querySelectorAll("#dialog button")[0].click()`); await t.frames(8); }
+        else { await t.tap(0); await t.frames(8); }
+      }
+      t.check("the porch visit at her door: she'll ride shotgun (pending)", (await g(`ctx.family.avigail()`)).pending === true);
+      t.check("…the meter thawed (quietly)", (await g(`ctx.avigail.rel()`)) > rel0);
+      // back in her car → Avigail rides shotgun (2×), once a run
+      if (await g(`ctx.foot.debug.getIn()`)) {
+        await t.until(`__lulu3d.state === "playing"`, "back in the car", 30000);
+        t.check("…in the car: Avigail rides shotgun (2× points)", await t.until(`!!__lulu3d.ctx.G.avigailRide`, "the ride", 15000));
+        t.check("…once a run", (await g(`ctx.family.avigail()`)).rode === true);
+        await g(`ctx.foot.start("droveOff", { noIntro: true })`);
+        await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot again", 20000);
+      } else t.check("her car to get back in", false);
+      // the hall: a wedding on a Tuesday evening — the bouquet pays once a real day
+      await day(2, 19); await t.frames(10);
+      t.check("the hall's marquee: TONIGHT — Avigail & Aviel", (await g(`ctx.family.avigail()`)).hall === "wedding");
+      const c0 = await g(`ctx.G.coins`);
+      const wed = async () => {
+        await g(`(${V}.hall(), true)`);
+        if (!await t.until(`__lulu3d.state === "footWedding"`, "the wedding in the hall", 30000)) return false;
+        await t.frames(60); await t.shot("hall");
+        await g(`(() => { for (let i = 0; i < 6; i++) ; return true; })()`);
+        for (let k = 0; k < 400 && await g(`ctx.state === "footWedding"`); k++) { await t.tap(0); await t.frames(6); }
+        return t.until(`__lulu3d.state === "footRun"`, "back outside the hall", 60000);
+      };
+      if (await wed()) {
+        const c1 = await g(`ctx.G.coins`);
+        t.check("the bouquet pays (first wedding today)", c1 - c0 >= 15, `${c0} → ${c1}`);
+        await t.frames(30);
+        if (await wed()) t.check("…a second wedding the same real day: the dancing only, no coins", (await g(`ctx.G.coins`)) === c1);
+      }
+      t.check("no Avigail toast or banner", !(await t.L(`[...document.querySelectorAll(".toast, .banner, #toasts *, #banner")].some(e => /Avigail|AVIGAIL/.test(e.textContent || ""))`)));
     });
   },
 };

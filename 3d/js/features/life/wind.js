@@ -354,6 +354,8 @@ export function windInfo() {
         piles: livePiles.length, pilesKicked: PS.piles.filter(p => p.kicked).length, pilesVisible: !!(pileMesh && pileMesh.visible), nextGust: +WS.gustT.toFixed(1) };
 }
 /** Tests: the nearest live pile → {x, z, r, kicked} or null. */
+/** Burst the nearest un-kicked pile within r of (x, z) as if she'd kicked it (features/houseitems' leaf blower / rolling pin). */
+export function kickNear(x, z, r = 3.2) { for (const p of livePiles) if (!p.kicked && Math.hypot(p.x - x, p.z - z) < r) { kickPile(p, null); return true; } return false; }
 export function nearestPile() {
     let best = null, bd = 1e9;
     for (const p of livePiles) { const d = Math.hypot(p.x - L.x, p.z - L.z); if (d < bd && !p.kicked) { bd = d; best = p; } }

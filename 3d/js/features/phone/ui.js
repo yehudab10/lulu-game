@@ -10,6 +10,7 @@ import { input, glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import { resume, showPauseMenu } from "../../core/screens.js";
+import { current as roomNow } from "../interiors/engine.js";
 
 /** The registered apps, by order. */
 export const APPS = [];
@@ -18,8 +19,22 @@ export const PH = { open: false, app: null, arg: null, fromPause: false, focus: 
 /** The home screen's notification cards (inbox.js): () => html with [data-open="<app>"][data-thread] buttons. */
 export function setHomeWidget(fn) { PH.widget = fn; }
 
-/** States the phone opens in (free driving / walking). Elsewhere the corner button is ❚❚. */
-export const PHONE_STATES = new Set(["playing", "footRun"]);
+/** States the phone opens in (free driving / walking — and inside a room: ci/doors made the doors walk-through, so a 📱
+ *  that turned into ❚❚ at every doorway was a seam; the coordinator for the owner, 2026-11-27). Elsewhere the corner is ❚❚. */
+export const PHONE_STATES = new Set(["playing", "footRun", "interior"]);
+/** In a room: the room, when it's one she's just standing / walking in (not loading, leaving, mid-chat or a mini-game). */
+export function roomFree() {
+    const r = roomNow();
+    return !!(r && r.ready && !r.disposed && !r.leaving && !r.busy && !r.lock && !r.active && !r.mode);
+}
+/** The room she's in → { name } | null (the apps say where she is). */
+export function roomHere() {
+    if (ctx.state !== "interior") return null;
+    const r = roomNow();
+    if (!r || !r.def) return null;
+    const nm = r.def.name || r.def.short || (r.def.title || "").replace(/^\S+\s/, "");
+    return { name: nm || "a room" };
+}
 export const partyOn = () => !!(ctx.party && ctx.party.active);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 export { esc };
@@ -46,9 +61,11 @@ function badgeOf(a) {
 export function canOpen() {
     if (PH.open || ctx.paused || !PHONE_STATES.has(ctx.state)) return false;
     const def = ctx.states[ctx.state];
-    if (!def || !def.pausable || ctx.dialogOpen || ctx.skipping || ctx.view || H.screenOpen()) return false;
+    // (ctx.view: another scene on screen — a room IS one (its own set): fine there, roomFree() below decides)
+    if (!def || !def.pausable || ctx.dialogOpen || ctx.skipping || (ctx.view && ctx.state !== "interior") || H.screenOpen()) return false;
     if (ctx.cutscene && ctx.cutscene.active()) return false;
     if (ctx.streets && ctx.streets.jacking) return false;
+    if (ctx.state === "interior" && !roomFree()) return false;        // (a chat, a mini-game, the doorway: not now)
     return true;
 }
 const pauseMenuUp = () => ctx.paused && H.screenOpen() && !!H.screenCard().querySelector(".pause-menu");
@@ -163,6 +180,8 @@ export function refresh() {
 function safe(fn) { try { return fn() || ""; } catch (e) { console.error("[phone] widget", e); return ""; } }
 function homeHello() {
     const G = ctx.G;
+    const rm = roomHere();
+    if (rm) return `🚪 inside ${esc(rm.name)}`;
     if (ctx.foot && ctx.foot.active) return "🚶‍♀️ on foot";
     if (ctx.hustle && ctx.hustle.job) { const d = ctx.hustle.job.def || {}; return `💼 on the clock · ${d.emoji || ""} ${esc(d.name || "")}`; }
     if (G.mode === "story" && ctx.trip && ctx.trip.label && ctx.trip.label()) return `📖 ${esc(ctx.trip.label())}`;
@@ -222,11 +241,14 @@ function renderApp(keep) {
     if (keep) { const f = el.querySelector(".focus"); idx = f ? [...el.querySelectorAll("button, .nav")].indexOf(f) : 0; }
     el.innerHTML = "";
     try { app.render(el, api, PH.arg); } catch (e) { console.error(`[phone] ${app.id}.render`, e); el.innerHTML = `<p class="lp-empty">😵 This app crashed.</p>`; }
-    el.querySelectorAll(".btn:not(button)").forEach(b => b.classList.add("nav"));
+    el.querySelectorAll(".btn:not(button):not(.nonav)").forEach(b => b.classList.add("nav"));      // (.nonav: a look-only line — a City Hall bill)
     H.refreshFocus(false);
     const list = [...el.querySelectorAll("button, .nav")].filter(b => !b.disabled && !b.classList.contains("nonav") && b.offsetParent !== null);
     const f = list[Math.min(Math.max(0, idx), list.length - 1)];
     if (f) H.setFocus(f);
+    // (QA 2026-11-27: with fingers a new page starts at its TOP — the focus ring scrolled it to the first usable button,
+    //  so 💼 Jobs on foot opened at the bottom on a phone on its side, the reason why off the screen)
+    if (!keep && input.device === "touch") { const sc = el.closest(".lp-appbody") || el; sc.scrollTop = 0; }
 }
 
 /** A little notice inside the phone (H.toast waits while a menu is open). */
@@ -243,7 +265,11 @@ export function phoneToast(text) {
 export const api = {
     close: () => closePhone(),
     back: () => back(),
-    refresh: () => renderApp(true),
+    /** Re-draw the app. Focus stays on the same slot — a new page inside the app ({ top: true }) starts at its first
+     *  control instead (QA 2026-11-27: a contact opened from far down the list put a controller on its ‹ Back). */
+    refresh: (o) => renderApp(!(o && o.top)),
+    /** Put the focus on `sel` inside the app (back to the row she came from). → bool */
+    focus: sel => { const b = sel && document.querySelector("#lpApp " + sel); if (b && b.offsetParent !== null && !b.disabled) { H.setFocus(b); return true; } return false; },
     toast: text => phoneToast(text),
     /** (extra) open another app: api.open("messages", { thread }) */
     open: (id, arg) => openApp(id, arg),

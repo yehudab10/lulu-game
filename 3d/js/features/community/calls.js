@@ -165,8 +165,15 @@ export function addContact(def) {
     return def;
 }
 const HELP = ["chaverim", "hatzalah", "shomrim", "police"];
+// (back on the list: the focus on the row she came from, not wherever the slot number lands)
+const refocus = (api, from) => { if (from && api.focus) api.focus(from.startsWith("ct:") ? `[data-ct="${from.slice(3)}"]` : `[data-org="${from}"]`); };
 const row = (attr, O, name, tag, meta = "") => `<button class="btn lp-row" ${attr}><span class="lp-av" style="background:${O.color}">${O.emoji}</span><span class="lp-tx"><b>${esc(name)}</b><small>${esc(tag)}</small></span>${meta}</button>`;
+// (the 📱 opens inside rooms too — 2026-11-27: the help orgs + Ima's call are street things — the car, the kerb, the call
+//  card on the road: in a room the org says so in one line, no call rows)
+const inRoom = () => ctx.state === "interior";
+const STEP_OUT = "🚪 Step outside and call again — they come to the street, not in here.";
 function where() {
+    if (inRoom()) return "Inside";
     const cfg = townCfg();
     if (cfg && ctx.town && ctx.town.name) return ctx.town.name;
     if (ctx.exits && ctx.exits.inside) return ctx.exits.inside;
@@ -181,7 +188,7 @@ export function registerApp() {
         id: "community", icon: "📞", name: "Contacts", order: 22, color: "#43A047", color2: "#3949AB",
         visible: () => !(ctx.party && ctx.party.active) || ctx.enabled("community"),
         badge: () => (CM.scene && CM.scene.phase === "wait" ? "!" : null),
-        back(api) { if (CM.view) { CM.view = null; api.refresh(); return true; } return false; },
+        back(api) { if (CM.view) { const from = CM.view; CM.view = null; api.refresh(); refocus(api, from); return true; } return false; },
         render(el, api, arg) {
             if (arg && arg.org && CM.viewArg !== arg) { CM.view = arg.org; CM.viewArg = arg; }
             const org = CM.view;
@@ -191,10 +198,10 @@ export function registerApp() {
                     + row(`data-ima="1"`, ORGS.ima, ORGS.ima.name, ORGS.ima.tag, '<span class="lp-meta">📞</span>')
                     + CONTACTS.map(c => row(`data-ct="${esc(c.id)}"`, { emoji: c.icon, color: c.color || "#78909C" }, c.name, c.tag || "")).join("")
                     + `<p class="lp-fine">Volunteer orgs, a hotline, the actual police, and your mother. Not affiliated with anyone real.</p>`;
-                el.querySelectorAll("[data-org]").forEach(b => b.addEventListener("click", () => { CM.view = b.dataset.org; api.refresh(); }));
-                el.querySelectorAll("[data-ct]").forEach(b => b.addEventListener("click", () => { CM.view = "ct:" + b.dataset.ct; api.refresh(); }));
+                el.querySelectorAll("[data-org]").forEach(b => b.addEventListener("click", () => { CM.view = b.dataset.org; api.refresh({ top: true }); }));
+                el.querySelectorAll("[data-ct]").forEach(b => b.addEventListener("click", () => { CM.view = "ct:" + b.dataset.ct; api.refresh({ top: true }); }));
                 const ima = el.querySelector("[data-ima]");
-                if (ima) ima.addEventListener("click", () => { CM.view = null; api.close(); callIma(); });
+                if (ima) ima.addEventListener("click", () => { if (inRoom()) { api.toast("🚪 Step outside to call Ima — the signal in here is terrible (she says)."); return; } CM.view = null; api.close(); callIma(); });
                 return;
             }
             if (org.startsWith("ct:")) {
@@ -202,11 +209,11 @@ export function registerApp() {
                 el.innerHTML = `<div class="lp-ct"></div><button class="btn lp-row lp-mini" id="cmBack">‹ Contacts</button>`;
                 try { if (c && c.render) c.render(el.querySelector(".lp-ct")); } catch (e) { console.error("[community] contact", e); }
             } else {
-                const O = ORGS[org], list = reasons(org);
+                const O = ORGS[org], list = inRoom() ? [] : reasons(org);
                 el.innerHTML = `<div class="lp-card"><span class="lp-av" style="background:${O.color}">${O.emoji}</span><span class="lp-tx"><b>${esc(O.name)}</b><small>${esc(O.tag)}</small></span></div>`
                     + (busy() && org !== "police" ? `<p class="lp-note">🚗 Somebody's already on the way to you.</p>` : "")
                     + (ctx.law && ctx.law.chasing && org !== "police" ? `<p class="lp-note">🚓 Lose the cops first — nobody pulls up mid-chase.</p>` : "")
-                    + (list.length ? list.map((r, i) => `<button class="btn lp-row" data-i="${i}"><span class="lp-av">${r.icon}</span><span class="lp-tx"><b>${esc(local(r.label))}</b><small>${esc(local(r.sub || ""))}</small></span><span class="lp-meta">📞</span></button>`).join("") : `<p class="lp-empty">${esc(nothingLine(org))}</p>`)
+                    + (inRoom() ? `<p class="lp-note lp-stepout">${STEP_OUT}</p>` : list.length ? list.map((r, i) => `<button class="btn lp-row" data-i="${i}"><span class="lp-av">${r.icon}</span><span class="lp-tx"><b>${esc(local(r.label))}</b><small>${esc(local(r.sub || ""))}</small></span><span class="lp-meta">📞</span></button>`).join("") : `<p class="lp-empty">${esc(nothingLine(org))}</p>`)
                     + `<button class="btn lp-row lp-mini" id="cmBack">‹ Contacts</button>`;
                 el.querySelectorAll("[data-i]").forEach(b => b.addEventListener("click", () => {
                     const r = list[+b.dataset.i];
@@ -217,7 +224,7 @@ export function registerApp() {
                 }));
             }
             const bk = el.querySelector("#cmBack");
-            if (bk) bk.addEventListener("click", () => { CM.view = null; api.refresh(); });
+            if (bk) bk.addEventListener("click", () => { const from = CM.view; CM.view = null; api.refresh(); refocus(api, from); });
         },
     });
 }

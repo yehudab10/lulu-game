@@ -50,7 +50,7 @@ module.exports = {
     await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
     await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000);
     await g(`(() => { const sp = ${CH}.spot(); ctx.foot.debug.F.pos.set(sp.x + sp.nx, 0.05, sp.z + sp.nz); if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
-    await g(`(${CH}.debug.force.mayorOut = false, ${CH}.debug.force.closed = 0, ${M}.MY.force.board = true, true)`);
+    await g(`(${CH}.debug.force.mayorOut = false, ${CH}.debug.force.closed = 0, ${CH}.debug.force.hour = 9, ${M}.MY.force.board = true, true)`);      // (9:00: not his lunch hour)
     await g(`${CH}.enter()`);
     if (await t.until(`__lulu3d.state === "interior" && __interiors.room && __interiors.room.ready`, "inside Borough Hall", 60000)) {
       t.check("the mayor in the office is the new one", await g(`__interiors.room.byId.mayor && __interiors.room.byId.mayor.name === ${CH}.mayor("midwood").name`));
@@ -72,8 +72,19 @@ module.exports = {
     await g(`(${M}.MY.force.board = false, ${CH}.debug.force.closed = null, true)`);
 
     // ── Courtroom 2B: the edict's case, then struck down for good ──
+    const pre = await g(`(() => { const C = ctx.civic && ctx.civic.courts, id = ${M}.today().id; delete ${CH}.debug.S.filed[id]; ${M}.addCase(); const c = C && C.caseById("cityhall:edict:" + id); return c ? c.available() : null; })()`);
+    t.check("the edict's case waits until SHE takes it to court (Midwood's 2B isn't busy with it every day)", pre === false);
+    t.check("a complaint about the edict files it", await g(`(import("./js/core/ctx.js").then(m => m.emit("cityhall:complaint", { about: "📜 The mayor's latest edict" })), true)`) && await t.until(`!!__lulu3d.ctx.cityhall.debug.S.filed[__lulu3d.ctx.cityhall.mayor31.today().id]`, "filed", 3000));
     const cs = await g(`(() => { const C = ctx.civic && ctx.civic.courts; ${M}.addCase(); const c = C && C.caseById("cityhall:edict:" + ${M}.today().id); return c ? { title: c.title, town: c.town, avail: c.available() } : null; })()`);
     t.check(`a case on Midwood's 2B docket (${cs && cs.title})`, !!cs && cs.town === "midwood" && cs.avail);
+    // ONE docket rule: her own summons (the camera, 7) › a cause she filed (the edict, 5) › other people's stories (Shloime, 0)
+    const pr = await g(`(() => { const C = ctx.civic.courts, a = C.caseIn("midwood"), D = ctx.cameras && ctx.cameras.debug; let cam = null;
+        if (D) { const T = { id: 9901, town: "midwood", where: "Ocean Parkway", mph: 40, limit: 25, fine: 40, stage: "summons", refs: [], kind: "pkwy" }; D.S.tickets.push(T); D.addCase(T); cam = C.caseIn("midwood");
+          const i = D.S.tickets.indexOf(T); if (i >= 0) D.S.tickets.splice(i, 1); }
+        const back = C.caseIn("midwood"), lw = C.caseIn("lakewood");
+        return { a: a && a.id, cam: cam && cam.id, back: back && back.id, lw: lw && lw.id, lien: !!(ctx.cityhall.tax.lienOn && ctx.cityhall.tax.lienOn()) }; })()`);
+    t.check(`the docket: a camera summons (${pr.cam}) outranks the edict (${pr.a}); answered → the edict again; Lakewood's is Shloime's (${pr.lw})`,
+      /^cityhall:edict:/.test(pr.a || "") && pr.cam === "cameras:9901" && /^cityhall:edict:/.test(pr.back || "") && (pr.lw === "shloime" || pr.lien), JSON.stringify(pr));
     await g(`(() => { const c = ctx.civic.courts.caseById("cityhall:edict:" + ${M}.today().id); window.__H = {}; c.acts.ruling(window.__H); return true; })()`);
     await drain();
     t.check(`the ruling strikes it down (${e0})`, await g(`!!${CH}.debug.S.struck[${JSON.stringify(e0)}] && ${M}.today().id !== ${JSON.stringify(e0)}`));

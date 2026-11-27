@@ -16,6 +16,13 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const ORDER = ["pink", "purple", "orange", "blue", "green", "red", "gold", "ninja"];
 
 /** The ✋ spot: beside the rear corner of the parked car, at the garage door (world coords) — null when not home. */
+/** features/cars: where a car she owns is, when it ISN'T at home ("Parked in Lakewood") — or "". */
+function away(k) {
+    const C = ctx.cars;
+    if (!C || C.atHome(k)) return "";
+    const w = C.list().find(c => c.key === k);
+    return w ? w.where.charAt(0).toUpperCase() + w.where.slice(1) : "";
+}
 function garageAt() {
     if (!home.ready || !home.park || !home.group || !home.group.visible) return null;
     const P = home.park, fx = Math.sin(P.h), fz = Math.cos(P.h), lx = Math.cos(P.h), lz = -Math.sin(P.h);
@@ -24,6 +31,7 @@ function garageAt() {
 function nearHome() {
     if (ctx.state !== "footRun" || !ctx.foot || !ctx.foot.pos || ctx.foot.chasing) return false;
     if (ctx.party && ctx.party.active) return false;
+    if (ctx.cars && ctx.enabled("cars")) return false;        // (features/cars: her cars stand in the driveway + along the kerb — she walks up to one)
     const g = garageAt();
     if (!g) return false;
     const p = ctx.foot.pos;
@@ -35,7 +43,7 @@ function nearHome() {
     return (p.x - g.x) ** 2 + (p.z - g.z) ** 2 < 25 * 25;
 }
 const spot = {
-    r: 1.7, short: "MY CARS",
+    r: 2.4, short: "MY CARS",          // (ci/doors: was 1.7 — the whole garage side of the driveway)
     pos() { if (!nearHome()) return null; const g = garageAt(); return { x: g.x, z: g.z }; },
     label: () => { syncInv(); const n = inv.ownedSkins.length; return n > 1 ? `🔑 MY CARS (${n})` : "🔑 MY CARS"; },
     act: () => openGarage(),
@@ -77,11 +85,12 @@ export function openGarage() {
         tiles: ORDER.concat(Object.keys(SKIN_SHOP).filter(k => !ORDER.includes(k) && SKINS[k] && owns("car", k))).map(k => ({
             id: k, name: SKINS[k].name, dot: SKINS[k].body,
             state: () => (owns("car", k) ? (ctx.car.skinKey === k ? "placed" : "owned") : "na"),
-            tag: () => (owns("car", k) ? (ctx.car.skinKey === k ? "✓ In the driveway" : "Yours") : `🚗 ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰`),
+            tag: () => (owns("car", k) ? (ctx.car.skinKey === k ? "✓ In the driveway" : away(k) ? `📍 ${away(k)}` : "Yours") : `🚗 ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰`),
             desc: () => (owns("car", k) ? `<i>${SKIN_SHOP[k].flavor}</i>` : SKIN_SHOP[k].where ? `At <b>${SKIN_SHOP[k].where}</b>.` : `At <b>Uncle Refael's Pre-Loved Cars</b> — Lakewood (Route 9) or Midwood (Coney Island Ave).`),
             act: () => {
                 if (!owns("car", k)) { cardSay(`Not yours (yet!) — <b>Uncle Refael's</b> lot has it: ${SKIN_SHOP[k].price.toLocaleString("en-US")} 💰.`); return; }
                 if (ctx.car.skinKey === k) return;
+                if (away(k)) { cardSay(`Your <b>${SKINS[k].name}</b> isn't here — it's ${away(k).toLowerCase()}. Go get it! <small>(📱 🗺️ Map)</small>`); return; }
                 equipSkin(k);
                 if (ctx.foot.repaintCar) ctx.foot.repaintCar();
                 if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, pick(GARAGE_LINES.swap), 2.2);

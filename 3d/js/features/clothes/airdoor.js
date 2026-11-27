@@ -51,7 +51,10 @@ function doorPos() {
     if (D.outAt && ctx.time < D.outT && Math.hypot(p.x - D.outAt.x, p.z - D.outAt.z) < 4) return null;
     const d = Math.hypot(D.at.x - p.x, D.at.z - p.z);
     if (d < 24 && ctx.interiors.clothesShop.warm) ctx.interiors.clothesShop.warm();
-    return d < 30 ? { x: D.at.x, z: D.at.z } : null;
+    if (d >= 30) return null;
+    // (the door's frame for walking straight in — ci/doors: h is the yaw toward the road, so out of the door is (sin h, cos h))
+    const h = D.at.h || 0, nx = Math.sin(h), nz = Math.cos(h);
+    return { x: D.at.x, z: D.at.z, nx, nz, ux: nz, uz: -nx };
 }
 export function enterMaison() {
     if (!D.at) return false;
@@ -61,6 +64,6 @@ export function enterMaison() {
     return enterAs("jfk", { exit: () => { setState("footRun", { resume: "interior" }); D.outAt = at; D.outT = ctx.time + 8; } });
 }
 on("boot", () => {
-    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, short: "MAISON", label: () => `👜 GO INTO ${SHOPS.jfk.name.toUpperCase()}`, act: () => enterMaison() });
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: () => doorPos(), r: 3.0, door: true, walkIn: { id: "clothesShop", n: 0.4 }, short: "MAISON", label: () => `👜 GO INTO ${SHOPS.jfk.name.toUpperCase()}`, act: () => enterMaison() });
 });
 export const airDebug = { D, AT, OPEN, tick, doorPos, enterMaison };

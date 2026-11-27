@@ -262,7 +262,7 @@ function driveOff(k, why) {
     if (ok) {
         hideLot(k, true);
         TD.gone = TD.gone || new Set(); TD.gone.add(k);
-        setTimeout(() => H.toast(`🔑 ${SKINS[k].name} — off the lot! Your other cars wait in your garage at home 🏠`, "pink", { prio: 2, key: "shopsDrive" }), 500);
+        setTimeout(() => H.toast(ctx.cars && ctx.enabled("cars") ? `🔑 ${SKINS[k].name} — off the lot! The one you came in stays parked where you left it 🚗` : `🔑 ${SKINS[k].name} — off the lot! Your other cars wait in your garage at home 🏠`, "pink", { prio: 2, key: "shopsDrive" }), 500);
     }
     emit("shops:car", { id: k, how: why === "bought" ? "drove-new" : "drove" });
     return ok;

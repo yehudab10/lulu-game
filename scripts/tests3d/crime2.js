@@ -160,7 +160,14 @@ module.exports = {
       const reasons = await g(`(() => { const E = ${O}.PORCH.E, F = ctx.foot.debug.F; E.dir = 0; /* (he stops to catch his breath: the test's page is slow) */ F.pos.x = E.x + 1.4; F.pos.z = E.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return ctx.community.reasons("shomrim"); })()`);
       t.check("📞 Shomrim lists the running porch pirate", reasons.includes("crimePorch"), JSON.stringify(reasons));
       await t.frames(2);
-      t.check("✋ TACKLE", await press(`${O}.PORCH.E && ${O}.PORCH.E.phase !== "run"`));
+      // (each try: her right by him again first — on a fast machine he's out of reach between two taps)
+      let tackled = false;
+      for (let i = 0; i < 8 && !tackled; i++) {
+        await g(`(() => { const E = ${O}.PORCH.E, F = ctx.foot.debug.F; if (!E || E.phase !== "run") return true; E.dir = 0; F.pos.x = E.x + 1.4; F.pos.z = E.z; F.vel.set(0, 0, 0); F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return true; })()`);
+        await t.frames(1); await t.tap(0); await t.frames(3);
+        tackled = await g(`!!(${O}.PORCH.E && ${O}.PORCH.E.phase !== "run")`);
+      }
+      t.check("✋ TACKLE", tackled, await g(`JSON.stringify(${O}.PORCH.E ? { ph: ${O}.PORCH.E.phase, d: +Math.hypot(${O}.PORCH.E.x - ctx.foot.debug.F.pos.x, ${O}.PORCH.E.z - ctx.foot.debug.F.pos.z).toFixed(2) } : null)`));
       await t.until(`${OU}.PORCH.E && (${OU}.PORCH.E.phase === "dropped" || ${OU}.PORCH.E.pt > 0.9)`, "the box is down", 4000);
       await g(`(() => { const E = ${O}.PORCH.E, F = ctx.foot.debug.F; F.pos.x = E.box.position.x + 0.8; F.pos.z = E.box.position.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return true; })()`);
       await t.frames(3);

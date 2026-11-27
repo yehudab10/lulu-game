@@ -75,6 +75,29 @@ export async function startWedding(opts) {
     setState("footWedding", opts);
 }
 
+/** The ballroom: back + side walls in plum and gold, a parquet dance floor, round tables, chandeliers (a few boxes). */
+function hallRoom(set) {
+    const M = c => set.own(new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+    const box = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(set.own(new THREE.BoxGeometry(w, h, d)), m); o.position.set(x, y, z); o.receiveShadow = true; set.add(o); return o; };
+    const wall = M("#5E3A6E"), trim = M("#D4AF37"), floor = M("#B07A4F"), cloth = M("#FFF8F0");
+    box(30, 6, 0.4, wall, 0, 3, -10.5);
+    for (const sx of [-1, 1]) box(0.4, 6, 26, wall, sx * 12, 3, 1.5);
+    box(30, 0.25, 0.45, trim, 0, 2.2, -10.25);
+    for (const sx of [-1, 1]) box(0.45, 0.25, 26, trim, sx * 11.8, 2.2, 1.5);
+    box(23.6, 0.02, 26, floor, 0, 0.005, 1.5);
+    const glow = set.own(new THREE.MeshBasicMaterial({ color: "#FFF1B0", toneMapped: false }));
+    for (const [x, z] of [[-5, -3], [5, -3], [-5, 6], [5, 6]]) {
+        box(0.9, 0.5, 0.9, glow, x, 5.2, z);
+        box(0.05, 0.8, 0.05, trim, x, 5.85, z);
+        const lamp = new THREE.PointLight("#FFE0A8", 4, 14, 1.6); lamp.position.set(x, 4.8, z); set.add(lamp);
+    }
+    for (const [x, z] of [[-8.5, -6], [8.5, -6], [-8.5, 0], [8.5, 0], [-8.5, 6], [8.5, 6]]) {
+        const t = new THREE.Mesh(set.own(new THREE.CylinderGeometry(1.1, 1.1, 0.75, 16)), cloth);
+        t.position.set(x, 0.375, z); set.add(t);
+        box(0.25, 0.4, 0.25, M("#F48FB1"), x, 0.95, z);
+    }
+}
+
 // ── a tiny confetti / petal / glass-shard particle system for the set ───
 class Confetti {
     constructor(set, max = 320) {
@@ -131,7 +154,8 @@ function guestColors() {
 }
 
 function build(opts) {
-    const set = makeSet({ light: "day", sky: "#FFE3B6", ground: "#8CCB6A", fog: [45, 140] });
+    // (opts.hall: the Avenue M Ballroom — features/family: a parquet floor, walls, chandeliers; otherwise the garden)
+    const set = makeSet(opts.hall ? { light: "day", sky: "#3A2340", ground: "#8D6E63", fog: [60, 160] } : { light: "day", sky: "#FFE3B6", ground: "#8CCB6A", fog: [45, 140] });
     set.sun.color.set("#FFE2BD");
     set.sun.intensity = 2.5;
     set.sun.position.set(-9, 15, 9);
@@ -152,17 +176,19 @@ function build(opts) {
         petals.setColorAt(i, col.set(FLOWER_COLS[i % FLOWER_COLS.length]));
     }
     set.add(petals);
+    if (opts.hall) hallRoom(set);
     // a hedge backdrop + a few trees round the garden
     const hedgeMat = set.own(new THREE.MeshStandardMaterial({ color: "#3E8E4A", roughness: 0.9 }));
     const hedge = new THREE.Mesh(set.own(new THREE.BoxGeometry(26, 2.2, 1.2)), hedgeMat);
+    hedge.visible = !opts.hall;
     hedge.position.set(0, 1.1, -9.5); hedge.castShadow = hedge.receiveShadow = true;
     set.add(hedge);
     for (const sx of [-1, 1]) {
         const side = new THREE.Mesh(set.own(new THREE.BoxGeometry(1.2, 1.6, 22)), hedgeMat);
         side.position.set(sx * 9, 0.8, 1.5); side.castShadow = side.receiveShadow = true;
-        set.add(side);
+        if (!opts.hall) set.add(side);
     }
-    for (const [x, z, s] of [[-7, -8, 1.5], [7.5, -7.5, 1.7], [-8, 7, 1.3], [8.2, 6, 1.4], [-5, -9.5, 1.2], [5, -9.6, 1.25]]) {
+    for (const [x, z, s] of opts.hall ? [] : [[-7, -8, 1.5], [7.5, -7.5, 1.7], [-8, 7, 1.3], [8.2, 6, 1.4], [-5, -9.5, 1.2], [5, -9.6, 1.25]]) {
         const t = (models.treeRound || models.treePine).clone(true);
         t.position.set(x, 0, z); t.scale.setScalar(s);
         set.add(t);
@@ -488,7 +514,7 @@ function giveReward(caught) {
     W.reward = true;
     const n = W.opts.onReward ? W.opts.onReward(caught) : (caught ? 40 : 15);
     const gift = $(".gift");
-    gift.textContent = `+${n} 💰${caught ? "  +1⭐" : ""}`;
+    gift.textContent = n ? `+${n} 💰${caught ? "  +1⭐" : ""}` : "💃 just the dancing tonight";
     gift.style.display = "block";
 }
 
