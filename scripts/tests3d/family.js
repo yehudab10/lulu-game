@@ -12,7 +12,7 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
     const g = t.game, D = `ctx.family.debug`;
-    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };
+    const step = async (label, fn) => { if (process.env.FAMILY_STEP && !label.includes(process.env.FAMILY_STEP)) return; try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 300)); } };
     // (a dialog ignores taps for a moment after it opens: wait, click, and again until it's taken)
     const choose = async re => { for (let k = 0; k < 14; k++) { await t.frames(6); if (!await g(`ctx.dialogOpen`)) return false; await t.click(re); await t.frames(4); if (!await t.L(`[...document.querySelectorAll("#dialog button")].some(b => ${re}.test(b.textContent))`)) return true; } return false; };
     const talkThrough = async (max = 30) => { for (let k = 0; k < max; k++) { await t.frames(8); if (!await g(`ctx.dialogOpen`)) return; if (await t.L(`document.querySelectorAll("#dialog button").length > 0`)) return; await t.tap(0); } };
@@ -136,6 +136,46 @@ module.exports = {
       t.check("…dropped off: +6 (and no more delivery)", c2 - c1 === 6 && !(await g(`ctx.homes.delivery`)), `${c1} → ${c2}`);
       t.check("never past homes' day cap", await g(`ctx.homes.jobs().coins <= ctx.homes.jobs().cap`));
       await g(`(${D}.force.where = null, true)`);
+    });
+
+    await step("Shloime + Toby", async () => {
+      const K = `${D}.couple`;
+      if (!await g(`!!(ctx.family.debug.couple)`)) { t.check("couple.js wired", false); return; }
+      await g(`(${K}.reset(), true)`);
+      const g0 = await g(`ctx.G.coins`), j0 = await coins();
+      const meet = async (town, wd, hour, id) => {
+        if (!await inTown(town)) return false;
+        await day(wd, hour); await t.frames(8);
+        if (!await t.until(`__lulu3d.ctx.family.debug.couple.beat() === "${id}"`, `the ${id} beat is out`, 20000)) return false;
+        const p = await g(`${K}.at()`), o = await g(`${K}.who()`);
+        await stand(o.x + p.nx * 1.6, o.z + p.nz * 1.6, o.x, o.z); await t.frames(4);
+        t.check(`${id}: ✋ over them`, !!(await g(`${K}.spot()`)), JSON.stringify({ label: await g(`${K}.label()`), who: await g(`${K}.who()`), me: await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z })`) }));
+        await g(`(${K}.play(), true)`);
+        return t.until(`__lulu3d.ctx.dialogOpen`, `${id} starts`, 10000);
+      };
+      // 1 · the pizza table (Midwood): sworn to secrecy
+      if (await meet("midwood", 2, 14, "pizza")) {
+        await talkThrough(); await choose(/swear/i); await talkThrough(); await t.until(`!__lulu3d.ctx.dialogOpen`, "beat 1 over", 20000); await t.frames(10);
+        t.check("beat 1 (the pizza table): done + saved", await g(`${K}.C.n === 1 && !!${K}.C.day`));
+      }
+      // one a real day: the next beat isn't out today
+      await inTown("lakewood"); await day(2, 14); await t.frames(10);
+      t.check("one beat a real day: nothing more today", await g(`${K}.now() === null && ${K}.beat() === null`));
+      // 2 · the makolet aisle (Lakewood): play along
+      await g(`(${K}.nextDay(), true)`);
+      if (await meet("lakewood", 3, 14, "makolet")) {
+        await talkThrough(); await choose(/Play along/); await talkThrough(); await t.until(`!__lulu3d.ctx.dialogOpen`, "beat 2 over", 20000); await t.frames(10);
+        t.check("beat 2 (the makolet aisle): done", await g(`${K}.C.n === 2 && ${K}.C.picks[1] === 0`));
+      }
+      // 3 · the lake — Raizy walks by: cover for them
+      await g(`(${K}.nextDay(), true)`);
+      if (await meet("lakewood", 4, 16, "lake")) {
+        for (let k = 0; k < 60 && !await t.L(`[...document.querySelectorAll("#dialog button")].some(b => /LAWYER/.test(b.textContent))`); k++) { await t.frames(10); if (await g(`ctx.dialogOpen`) && !await t.L(`document.querySelectorAll("#dialog button").length`)) await t.tap(0); }
+        t.check("…Raizy walks up (the near miss)", await g(`${K}.extra() === "raizy"`));
+        await choose(/LAWYER/); await talkThrough(); await t.until(`!__lulu3d.ctx.dialogOpen`, "beat 3 over", 20000); await t.frames(10);
+        t.check("beat 3 (the lake): Lulu covered for them (\"he's my LAWYER\")", await g(`${K}.C.n === 3 && ${K}.C.cover[2] === 1`), await g(`JSON.stringify(${K}.C)`));
+      }
+      t.check("story only: no coins from the couple", (await g(`ctx.G.coins`)) === g0 && (await coins()) === j0);
     });
   },
 };
