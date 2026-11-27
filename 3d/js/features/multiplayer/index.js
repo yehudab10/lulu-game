@@ -264,7 +264,7 @@ window.addEventListener("pointerup", e => {
     if (e.pointerId !== TAP.id || performance.now() - TAP.t > 350 || Math.hypot(e.clientX - TAP.x, e.clientY - TAP.y) > 12 || !tapOk(e)) return;
     const id = ghostAt(e.clientX, e.clientY), p = id && MP.peers[id];
     if (!p || !ctx.phone || !ctx.phone.openPhone) return;
-    ctx.phone.openPhone("nearby", { driver: id, name: p.name });
+    ctx.phone.openPhone("nearby", { driver: p.id || id, name: p.name });   // (the relay id — in place mode the key is "S:…")
 }, true);
 Object.defineProperty(ctx.mp, "myId", { get: () => (MP.connected ? MP.myId : null) });
 Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
@@ -291,7 +291,10 @@ on("world:resting", e => {
     const t = e.until ? new Date(e.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "midnight";
     H.toast(`🌙 Online play is resting until ${t}. You can keep playing.`, "", { prio: 1, key: "worldResting" });
 });
-ctx.mp.event = (k, d) => N.sendRel(k, d);          // 🌍 step 2: a reliable one-time event to the room (→ mp:event on the others)
+ctx.mp.event = (k, d) => N.sendRel(k, d);
+// 🌍 step 3: a player by her relay id (Nearby / a tap pass that; in place mode MP.peers is keyed by room / session tag) —
+// the one in my own room first
+ctx.mp.peerById = id => { let best = null; for (const k in MP.peers) { const p = MP.peers[k]; if (p.id === id) { if (!p.room || p.room === N.roomPath()) return p; best = best || p; } } return best; };          // 🌍 step 2: a reliable one-time event to the room (→ mp:event on the others)
 on("accounts:names", () => { N.relabel(); U.uiDirty(); });          // (features/accounts: a name came back from the server / ⚙️ names on-off)
 on("mp:riders", () => U.uiDirty());
 

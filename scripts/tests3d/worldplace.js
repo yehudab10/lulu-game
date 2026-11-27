@@ -1,5 +1,5 @@
 // 🌍 ROOMS BY PLACE (ci/oneserver step 3 — on ci/oneserver-place; NOT deployed while the owner is on the Free plan) —
-// real pages against a LOCAL relay with the place flag on (WORLD_PLACE=1).
+// real pages against a LOCAL relay (place: 1, as in production since 2026-11-27; WORLD_PLACE=0 turns it off for a test).
 //   SAME SPOT = SAME ROOM   A and B on the same stretch of the lap are both in "WL0" and see each other
 //   ACROSS A BOUNDARY       A just past the 500 m line ("WL1"), B just before it ("WL0"): each LISTENS to the other's
 //                           room near the line and they still see each other
@@ -48,9 +48,7 @@ module.exports = {
   query: "",
   async run(t) {
     setWallCap(8 * 60000);
-    process.env.WORLD_PLACE = "1";
-    const relay = await startRelay(PORT);
-    delete process.env.WORLD_PLACE;
+    const relay = await startRelay(PORT);           // (place: 1 is the relay's setting since the owner switched step 3 on)
     const pages = [];
     let raw = null;
     try {

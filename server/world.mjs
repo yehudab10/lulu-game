@@ -16,7 +16,7 @@
 //   sentence) says how much of today's free allowance is used; when the Durable Objects are over it, /world/usage
 //   answers 503 { resting: 1 } so a game can say "online is resting until midnight UTC" instead of failing silently.
 
-export const WORLD = { v: 1, clock: 1, reliable: 1, place: 0, claims: 0 };
+export const WORLD = { v: 1, clock: 1, reliable: 1, place: 1, claims: 0 };   // place: 1 — the owner approved step 3 on the Free plan, 2026-11-27
 
 export const REL = { maxBytes: 512, perSec: 4, keep: 32, keepMs: 20000 };
 export const FREE = { doRequests: 100000, workerRequests: 100000, wsRatio: 20 };

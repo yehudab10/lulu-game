@@ -430,7 +430,7 @@ server.on("upgrade", (req, socket, head) => {
 
 // --- 🌍 one shared world (world.mjs — the SAME code the worker runs): the clock, reliable events, the budget ---------
 let W = null;
-const worldP = import("./world.mjs").then((m) => { W = m; if (process.env.WORLD_KEEP_MS) m.REL.keepMs = Number(process.env.WORLD_KEEP_MS); if (process.env.WORLD_PLACE === "1") m.WORLD.place = 1; return m; });
+const worldP = import("./world.mjs").then((m) => { W = m; if (process.env.WORLD_KEEP_MS) m.REL.keepMs = Number(process.env.WORLD_KEEP_MS); if (process.env.WORLD_PLACE === "0") m.WORLD.place = 0; return m; });
 const roomEvents = new Map();          // room → recent reliable events
 const usage = { day: "", ws: 0, conn: 0, http: 0 };
 function count(kind) { if (!W) return; const d = W.dayOf(Date.now()); if (usage.day !== d) Object.assign(usage, { day: d, ws: 0, conn: 0, http: 0 }); usage[kind]++; }
