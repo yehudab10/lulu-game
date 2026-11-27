@@ -48,7 +48,10 @@ export function windowSpot(out = _a) {
     return out.set(car.pos.x + Math.cos(h) * 1.45 + Math.sin(h) * 0.15, 0, car.pos.z - Math.sin(h) * 1.45 + Math.cos(h) * 0.15);
 }
 export function copDoor(u, out = _b) {
-    const c = u.car, h = c.h;
+    const c = u && u.car;
+    // (the cruiser can be gone by now — recycled, a town swap: the officer walks up from just behind her car)
+    if (!c) { const me = ctx.car, mh = me.h; return out.set(me.pos.x - Math.sin(mh) * 6 + Math.cos(mh) * 1.2, 0, me.pos.z - Math.cos(mh) * 6 - Math.sin(mh) * 1.2); }
+    const h = c.h;
     return out.set(c.x + Math.cos(h) * 1.25 + Math.sin(h) * 0.3, 0, c.z - Math.sin(h) * 1.25 + Math.cos(h) * 0.3);
 }
 export function roadsideShot(dt, rate = 1.6) {
