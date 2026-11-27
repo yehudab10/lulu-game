@@ -106,14 +106,15 @@ export const cam = {
      *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street),
      *  clip(tgt, dx, dy, dz, D) → the farthest the camera may sit from the pivot along that direction (walls), or
      *  { d, noLift } (noLift: don't rise over her head when that close — she's under a tree). */
-    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null, clip = null } = {}, dt = 1 / 60) {
-        const camera = ctx.camera;
+    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null, clip = null, camera: own = null } = {}, dt = 1 / 60) {
+        // (opts.camera: a room's own camera — features/interiors, ci/doors: the SAME rig + look indoors; no world glide)
+        const camera = own || ctx.camera;
         // the rig wasn't running last frame (a cutscene's shot, a script's camera): its follow point jumps to her at
         // once and the PICTURE glides from what was on screen (a blend), so nothing swoops in from a stale spot
         const fresh = FREE.frame < ctx.frames - 1;
         // (a glide already running — getting out of the car starts a 0.7 s one, and she's walking after ~0.5 s — is
         //  restarted from the picture on screen: letting it run on toward the NEW rig jumped the picture by metres)
-        if (fresh && !st.snap && !ctx.skipping) startBlend(bl.on ? Math.max(0.45, bl.dur - bl.t) : 0.45);
+        if (fresh && !st.snap && !ctx.skipping && !own) startBlend(bl.on ? Math.max(0.45, bl.dur - bl.t) : 0.45);
         FREE.frame = ctx.frames;
         const L = lookInput(dt);
         if (L.active) { FREE.idle = 0; FREE.reT = 0; FREE.n++; } else FREE.idle += dt;
@@ -137,7 +138,8 @@ export const cam = {
         else if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > 2.5) {
             // she was moved a few metres at once (a scene put her somewhere): the rig follows now, the picture glides —
             // from what's on screen (even mid-glide); moved farther than a glide may go (a teleport), it's a cut
-            if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > BLEND_MAX) bl.on = false;
+            if (own) { /* (a room's camera: no world glide — the rig just follows) */ }
+            else if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > BLEND_MAX) bl.on = false;
             else if (!ctx.skipping) startBlend(0.35);
             FREE.tgt.copy(_t);
         } else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 12); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 12); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
@@ -159,9 +161,12 @@ export const cam = {
         const lift = D < 1.5 && !FREE.noLift ? (1.5 - D) * 1.4 : 0;
         camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D + lift, FREE.tgt.z - fz * cp * D);
         // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
-        camera.lookAt(FREE.tgt.x + fx * 1.8, FREE.tgt.y - 0.05, FREE.tgt.z + fz * 1.8);
+        // (risen over her head against a wall / a room's door: the look point comes in toward her, so she stays in frame)
+        const ahead = 1.8 - Math.min(1.5, lift * 1.2);
+        camera.lookAt(FREE.tgt.x + fx * ahead, FREE.tgt.y - 0.05 - lift * 0.3, FREE.tgt.z + fz * ahead);
         camera.fov += (fov + (portrait ? 14 : 0) - camera.fov) * Math.min(1, dt * 3);
         camera.updateProjectionMatrix();
+        if (own) return;
         st.pos.copy(camera.position);
         st.yaw = FREE.yaw;
     },
@@ -176,13 +181,14 @@ export const cam = {
         /** Is the free camera the one on screen (it ran last frame)? */
         get on() { return FREE.frame >= ctx.frames - 1; },
         /** Start from where the camera is looking right now (no swing when the rig takes over). */
-        fromCamera() {
-            const c = ctx.camera;
+        fromCamera(c = ctx.camera) {
             if (!c) return;
             c.getWorldDirection(_t);
             if (Math.hypot(_t.x, _t.z) > 1e-3) FREE.yaw = Math.atan2(_t.x, _t.z);
             FREE.pitch = LOOK.pitch; FREE.idle = 9; FREE.reT = 0;
         },
+        /** A room let go of the rig (ci/doors): the next orbit() starts fresh (its follow point jumps to her). */
+        release() { FREE.frame = -9; },
         /** Swing it back behind a yaw (R3 / V on foot), over a moment. */
         recentre(yaw) { FREE.reYaw = yaw; FREE.reT = 0.45; },
         reset(yaw = 0, pitch = LOOK.pitch) { FREE.yaw = wrapAngle(yaw); FREE.pitch = pitch; FREE.idle = 9; FREE.reT = 0; },

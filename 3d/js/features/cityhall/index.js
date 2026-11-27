@@ -70,7 +70,7 @@ function doorPos() {
     const sp = spot(), p = herPos();
     if (!sp || !p) return null;
     if (Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors.cityhall.warm();      // (walking up: the inside loads now → a soft cut)
-    return { x: sp.x, z: sp.z };
+    return sp;          // (with its axes: the ✋ reaches across the doorway — ci/doors)
 }
 function doorRef(sp) {
     const n = ctx.world.road.nearest(sp.x, sp.z, ctx.car.s, {});
@@ -91,7 +91,7 @@ export function enter() {
 // ── wiring ───────────────────────────────────────────────────────────────
 on("boot", () => {
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
-    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: doorPos, r: 2.6, label: () => `🏛️ ENTER ${(TOWNS[townId()] || TOWNS.lakewood).short.toUpperCase()}`, short: "CITY HALL", act: () => enter() });
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: doorPos, r: 2.6, door: true, walkIn: { id: "cityhall" }, label: () => `🏛️ ENTER ${(TOWNS[townId()] || TOWNS.lakewood).short.toUpperCase()}`, short: "CITY HALL", act: () => enter() });
 });
 on("interior:exit", e => { if (e && e.id === "cityhall") { const p = herPos(); C.doorsAt = ctx.time + 8; C.outAt = p ? { x: p.x, z: p.z } : null; C.said = true; } });
 on("town:enter", () => { C.said = false; nameLobby(townId()); });
