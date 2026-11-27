@@ -3,7 +3,8 @@
 //   • an old-style EVERYONE join (the 2D game's: a curated name) → hello; a second client sees it join + its state
 //   • a party-style join ("name|uid" in a private room) → hello
 //   • /health, /board/scores, /board/wanted, /homes/config, /homes/list still answer the same shapes
-//   • then server/test-accounts.mjs --url (the accounts endpoints end to end)
+//   • then server/test-accounts.mjs --url (the accounts endpoints end to end) and server/test-wear.mjs --url (👜 the
+//     limited-piece stock + one throw-away hold that's cancelled)
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -55,4 +56,6 @@ check("/homes/list", !!(hl && Array.isArray(hl.list)), JSON.stringify(hl).slice(
 console.log(fails ? `✗ ${fails} failed (old protocol)` : "✓ old protocol fine");
 const here = path.dirname(fileURLToPath(import.meta.url));
 const r = spawnSync(process.execPath, [path.join(here, "test-accounts.mjs"), "--url", BASE], { stdio: "inherit" });
-process.exit(fails || r.status ? 1 : 0);
+// 👜 limited luxury pieces (ci/clothes): the stock answers; a throw-away account holds one number and lets it go
+const ws = spawnSync(process.execPath, [path.join(here, "test-wear.mjs"), "--url", BASE], { stdio: "inherit" });
+process.exit(fails || r.status || ws.status ? 1 : 0);
