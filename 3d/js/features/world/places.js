@@ -113,7 +113,7 @@ function inBay(spot) {
 function canVisit() {
     const G = ctx.G;
     if (ctx.state !== "playing" || !ctx.enabled("world") || G.ended || G.tutorial) return false;
-    if (ctx.party && ctx.party.active && G.mode !== "party") return false;
+    if (ctx.party && ctx.party.active && !ctx.party.inWorld) return false;     // (with friends: a party run or 🌍 on her own run)
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted > 0)) return false;
     if (ctx.foot && ctx.foot.active) return false;
     return true;
