@@ -54,10 +54,12 @@ function installVirtualClock(cfg) {
   /** Fire every timer that comes due before the next game frame, in due order — including ones those timers set —
    *  the way a browser runs its timer tasks between two frames. While one runs, the clock reads its due time.
    *  Returns a promise that settles after their microtasks. */
-  function pump() {
+  function pump(toNow = false) {
     if (pumping) return pumping;
     pumping = (async () => {
-      const horizon = V.started ? V.base + FRAME : R.now();
+      // (after a game frame: up to the next one, as a browser runs its timers between frames; while an ad holds the
+      //  game — real time, no frames — only what's due by now, or the clock would creep a frame ahead every pump)
+      const horizon = V.started && !toNow ? V.base + FRAME : now();
       for (let guard = 0; guard < 5000; guard++) {
         let id = 0, e = null;
         for (const [k, x] of V.q) if (x.at <= horizon && (!e || x.at < e.at || (x.at === e.at && k < id))) { id = k; e = x; }
@@ -84,7 +86,7 @@ function installVirtualClock(cfg) {
     /** One step of game time (ms) — before the step runs, as a new frame's time. */
     advance(ms) { V.base = Math.max(V.base + ms, V.last); V.s0 = R.now(); V.idleAt = 0; },
     /** An ad holds the game: the clock follows REAL time (as it would for a player looking at the ad). */
-    idle() { const r = R.now(); const d = V.idleAt ? Math.min(250, r - V.idleAt) : 0; V.idleAt = r; V.base = Math.max(V.base + d, V.last); V.s0 = r; return pump(); },
+    idle() { const r = R.now(); const d = V.idleAt ? Math.min(250, r - V.idleAt) : 0; V.idleAt = r; V.base = Math.max(V.base + d, V.last); V.s0 = r; return pump(true); },
     pump,
     get started() { return V.started; },
     get pending() { return V.q.size; },
