@@ -50,7 +50,7 @@ module.exports = {
     await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
     await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000);
     await g(`(() => { const sp = ${CH}.spot(); ctx.foot.debug.F.pos.set(sp.x + sp.nx, 0.05, sp.z + sp.nz); if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
-    await g(`(${CH}.debug.force.mayorOut = false, ${CH}.debug.force.closed = 0, ${M}.MY.force.board = true, true)`);
+    await g(`(${CH}.debug.force.mayorOut = false, ${CH}.debug.force.closed = 0, ${CH}.debug.force.hour = 9, ${M}.MY.force.board = true, true)`);      // (9:00: not his lunch hour)
     await g(`${CH}.enter()`);
     if (await t.until(`__lulu3d.state === "interior" && __interiors.room && __interiors.room.ready`, "inside Borough Hall", 60000)) {
       t.check("the mayor in the office is the new one", await g(`__interiors.room.byId.mayor && __interiors.room.byId.mayor.name === ${CH}.mayor("midwood").name`));

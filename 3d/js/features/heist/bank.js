@@ -121,7 +121,7 @@ function door() {
     const sp = ctx.town.spot("bank");
     // (walking up to it: the inside starts loading now)
     if (sp && ctx.foot && ctx.foot.pos && ctx.interiors.bank.warm && Math.hypot(sp.x - ctx.foot.pos.x, sp.z - ctx.foot.pos.z) < 22) ctx.interiors.bank.warm();
-    return sp ? { x: sp.x, z: sp.z } : null;
+    return sp || null;      // (with its axes: the ✋ reaches across the doorway — ci/doors)
 }
 export function enterBank() {
     const sp = inTown() && ctx.town.spot("bank");
@@ -138,7 +138,7 @@ export function enterBank() {
 }
 on("boot", () => {
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
-    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: door, r: 2.6, label: () => `🏦 ENTER ${((BANK[townId()] || BANK.lakewood).name).toUpperCase()}`, short: "BANK", act: enterBank });
+    if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: door, r: 2.6, door: true, walkIn: { id: "bank" }, label: () => `🏦 ENTER ${((BANK[townId()] || BANK.lakewood).name).toUpperCase()}`, short: "BANK", act: enterBank });
 });
 // only the town's own buildings play inside a town — the bank and a house (features/homes' "home": its families
 // live on these streets) — any other interior there still sends her back to the highway (the old way)

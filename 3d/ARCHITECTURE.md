@@ -593,6 +593,22 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   with no fade, no frozen frame, no jump, and back out the same way, on foot too (Towns › Attached). A town is built in
   slices (`buildTownSteps`, ~1000+ steps of 1–3 ms) from 900 m out, so the town appears without a hitch and is in view from
   the ramp. Only a warp into a town (Free Roam) or a town whose download is late still dissolves / fades.
+- **Doors you just walk through (`ci/doors`, roadmap 29):** a door's ✋ reaches across the whole doorway, from the step
+  out to the kerb. A foot spot with `door: true` (or `door: { w, inn, out }`) whose `pos()` returns the town's spot WITH
+  its axes (`{x, z, ux, uz, nx, nz}`, as `ctx.town.spot()` gives it) gets that strip from `features/foot`
+  (`doorReach`; `ctx.foot.doorReach(at, o, p)` for features that pick the nearest of many doors — homes, real estate).
+  **Every new door spot (roadside buildings too) should use `door: true`.** Test: `scripts/tests3d/doors.js` (a probe
+  walked across every door's front in both towns + strangers' houses; each building entered and left; the phone ✋).
+  **Inside, the same camera as outside** (stage 1, `features/interiors/engine.js` › ORBIT): every room uses the free
+  on-foot rig (`ctx.cam.orbit(obj, { camera: room's camera, clip })` — same yaw / pitch / look settings / stick
+  directions, run on boost), clipped to the room's box, its ceiling (`def.ceil`, default 3 m) and its big shell meshes;
+  furniture-sized meshes between the lens and her fade; a chat turns it over her shoulder. `def.cam` is now only a hint;
+  `def.cam.fixed: true` (and any `rt.mode` mini-game) keeps the old from-above follow. **No cut** (stage 2): a spot with
+  `walkIn: { id, n? }` (id = its interior) is entered by walking into the doorway — the room was warmed from ~24 m; not
+  ready → the handle rattles; ready → the swap happens on that frame, no dissolve (`ctx.foot.walkingIn`). Inside, walking
+  back into the room's `Spot_door` heading out leaves the same way (`def.noWalkOut` opts out) and she's back in THAT
+  doorway facing the street, still walking (`ctx.foot.stepOut()`). Doors with a choice (strangers' houses, her own
+  homes, counters, the impound gate) keep ✋ only.
 - **A run starts in the world, and never ends in a card:** from the title the camera glides down to Lulu on foot at
   her porch (world › home street) and a knock-out puts her back on her feet beside her car (Run API › the knock-out) —
   the world keeps running through both. Test: `scripts/tests3d/home.js`.
@@ -1702,7 +1718,39 @@ hearing a real day, solo): Lulu speaks for the neighbours and the edict is STRUC
 `cityhall:edict` {phase: "struck"}). Ribbon cuttings in Midwood are "the People's ___"; the paving story's Midwood crew is
 "The People's Paving Collective"; Kugelman is delighted by comparison. Nothing pays or charges; no new pop-ups / texts.
 `ctx.cityhall.mayor31` = `{ today, topic, strike, addCase, standStart, standStop, MY }`.
-Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`), `cityhall4` (roadmap 31).
+**Roadmap 38 — the owner's two requested parodies** (`wrongaddress.js`, `comment.js`, `parodyday.js`; owner 2026-11-27).
+These are the owner's REQUESTED EXCEPTIONS to "never real-world politics", agreed with the coordinator before anything was
+built, with the guardrails written in: the target is the BEHAVIOUR (blaming a neighbourhood shop for a foreign conflict;
+conspiracy thinking at a town meeting), never a people — no ethnic, national or religious markers or costume on anyone, no
+flags of any real country, no real chants or slogans, nothing about any war or anyone's suffering, no slurs, no violence
+toward anyone, nobody is "the enemy"; the owner's first wording ("make [one side] look foolish") was declined and this
+version approved. The App Store risk (Apple's rule on content about religion / national origin; satire is usually allowed)
+was flagged to the owner. WHEN (`parodyday.js`, pure functions of the date): `dayOn(kind)` = a hash of the real date (the same
+for every friend) below `WRONG_ADDRESS.rate` / `COMMENT_NIGHT.rate` (0.5 each — the owner asked for 5× the proposed 1-in-10),
+never on a Friday, Shabbos, Yom Tov or a fast / solemn day (the evening one also never on the eve of one: after sunset it's
+that day — `quietDay(date, evening)` reads seasons' `calendar.js`); `onNow` adds the hours (11:30–15:00 · 18:00–21:30);
+`PD.force` for tests; 👀 a PREVIEW for one page load (never saved, like seasons' `?season=`): `?parody=address` / `?parody=comment` (or `both`) forces it on whatever the date and the hour, `&day=N` steps through the rotation, `&shop=pizza|bakery|makolet` picks the shop (`fromQuery`). Each day's line-up is a seeded shuffle of the date (`waPlan` / `pcnPlan`), so a week doesn't repeat.
+🪧 THE WRONG ADDRESS (Midwood, lunchtime): 4–5 archetypes (the clipboard, the man at every protest, the lady who thought it
+was the lunch line, a livestreamer with no viewers, megaphone guy, the sign fixer…) on the sidewalk on one side of today's
+shop (Slice of Sinai / the bakery / Yanky's makolet — `shops[].crowd`, the door kept ≥ 2 m clear), homes' instanced rigs +
+one sign each (the back of every sign blank — "DOWN WITH (see other side)"); the first sign is their own flyer — "THIS SHOP
+SELLS LAND IN ISRAEL", the only place the subject appears; the shopkeeper hands out samples; every `leaveEvery` s near her one
+gives up and walks into the shop for lunch, and when the last one goes it's packed up for the day (`WAS.done`). Half the days
+a counter-protest table (WE BROUGHT SNACKS) + somebody's Bubbe walking between the two with rugelach. ✋ 🪧: her own rhythm
+chant (protest.js's bar: "WHAT DO WE WANT? / A SLICE! / … / LUNCH!"), 💬 a line, 📢 what's it about (the flyer vs. the
+shopkeeper: "I sell pizza"), 🛒 buy the shop's thing (its price; never below 0; she never earns), 📸 a picture (a stat); ✋ 🥨
+the counter-protest. A honk → an eye-roll. Bubbles near her only; no pop-ups, no texts; no cops. 🎤 PUBLIC COMMENT NIGHT
+(Lakewood City Hall, evenings — a `LOBBY_BUILDERS` entry): a mic stand, an agenda easel (ITEM 1: THE POTHOLE ON MINIVAN WAY),
+a row of folding chairs; two of three named cranks (Gary, Darlene, Ron) give the "they're taking over" speech and it
+collapses under its own evidence; the secretary as clerk ("Sir. The item is the pothole."); the mayor asleep in his office;
+their own neighbours (Linda, Tom) sit them down by name ("Gary. The Goldbergs shovelled your driveway all winter. Sit."),
+Pothole Phil only talks about the pothole — a normal town with a couple of cranks, never two sides. The meeting runs as
+bubbles every `beat` s while she's inside (`rt.every`); ✋ 🎤 her turn (the pothole's dimensions · yield her time to the pothole
+· ask Gary about the cholent, only when he's there) → the vote → deferred. No collisions on any of them: the doorway, the
+benches and the windows room stay free (she can still pay a ticket). Nothing pays anywhere. `ctx.cityhall.parody` = `{ waPlan,
+waStart, waStop, leaveOne, buy, chant, talk, WAS, fill, pcnPlan, mic, CNS, dayOn, onNow, quietDay, PD }`; event
+`cityhall:parody` {kind: "wa" | "pcn", phase}; stats `parodyChants`, `parodyBuys`, `parodyPhotos`, `parodyMeetings`, `parodyMic`.
+Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`), `cityhall4` (roadmap 31), `cityhall5` (roadmap 38: a year of day rules, a banned-word scan with a hashed slur list, both scenes).
 
 **Shops (shops, ci/shops): the shop moved into the world** (the owner, 2026-11-20: "the shop button … seems pretty hidden
 for the average person … move the shop to places in game"). `features/shops/`: the places you buy things at, one buying

@@ -74,7 +74,8 @@ module.exports = {
       await t.shot("bar-enter");
       await sweep("bar");
       await t.game(`(() => { const r = __it.room(), s = r.spots.lulu; r.lulu.obj.position.set(s.x, 0, s.z); })()`);
-      // walk with the stick (up = into the room)
+      // walk with the stick (up = away from the camera — ci/doors: the on-foot camera indoors; pointed into the room)
+      await t.game(`(ctx.cam.free.yaw = Math.PI, true)`);
       const z0 = await t.game(`__it.room().lulu.obj.position.z`);
       await t.stick(0.3, -1); await t.frames(20); await t.stick(0, 0); await t.frames(4);
       const z1 = await t.game(`__it.room().lulu.obj.position.z`);
