@@ -249,12 +249,13 @@ function actor() {
             const P = input.pressed || {};
             if (P.itemSwap) { swap(); syncProp(true); }
             // the item button: once = use (after a beat), twice quickly = swap
+            // (the window: 0.3 s or 8 frames, whichever is longer — a slow phone's frames are long)
             if (P.item && cur()) {
                 if (R.pressT >= 0) { R.pressT = -1; swap(); syncProp(true); }
-                else R.pressT = 0;
+                else { R.pressT = 0; R.pressF = 0; }
             } else if (R.pressT >= 0) {
-                R.pressT += dt;
-                if (R.pressT > 0.3) { R.pressT = -1; use(); }
+                R.pressT += dt; R.pressF++;
+                if (R.pressT > 0.3 && R.pressF > 8) { R.pressT = -1; use(); }
             }
             return true;
         },
