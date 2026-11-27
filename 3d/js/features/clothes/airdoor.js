@@ -10,6 +10,8 @@ import { SHOPS } from "./data.js";
 import { enterAs } from "./shop.js";
 
 const AT = { f: 88, r: 201.6, signR: 202.93, y: 3.35 };     // (TERM.r0 = 203: the facade; the doors are at f −75 … 75)
+/** The door opens with stage 3 (after the relay's limited-piece counter is deployed). `?maison=1` opens it for tests. */
+export const OPEN = { on: false || new URLSearchParams(location.search).get("maison") === "1" };
 const D = { sign: null, at: null, outAt: null, outT: 0 };
 
 function signMesh() {
@@ -27,7 +29,7 @@ function signMesh() {
 }
 /** Keep the sign on the terminal while the landside is built (it drops + rebuilds as she drives the lap). */
 function tick() {
-    const A = ctx.airport, on = !!(A && A.at && A.on && ctx.scene);
+    const A = ctx.airport, on = OPEN.on && !!(A && A.at && A.on && ctx.scene);
     const sp = on ? A.at(AT.f, AT.signR) : null;
     if (!sp) { if (D.sign) { D.sign.removeFromParent(); } D.at = null; return; }
     if (!D.sign) D.sign = signMesh();
@@ -61,4 +63,4 @@ export function enterMaison() {
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, short: "MAISON", label: () => `👜 GO INTO ${SHOPS.jfk.name.toUpperCase()}`, act: () => enterMaison() });
 });
-export const airDebug = { D, AT, tick, doorPos, enterMaison };
+export const airDebug = { D, AT, OPEN, tick, doorPos, enterMaison };

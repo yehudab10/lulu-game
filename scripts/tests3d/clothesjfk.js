@@ -5,7 +5,7 @@ const W = require("../lib/qawatch.js");
 module.exports = {
   name: "clothesjfk",
   viewport: { width: 1280, height: 720 },
-  query: "&enable=airport,foot,atmos",
+  query: "&enable=airport,foot,atmos&maison=1",
   async run(t) {
     const g = t.game;
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
