@@ -8,7 +8,8 @@ const today = Math.floor(Date.now() / 86400000);
 // every title item a seasoned player sees (Shared Road needs the online backend, not in tests)
 // (roadmap 10: ▶ PLAY replaced Story Trip / Cruise / the Parking Challenge on the title — those start in the world now)
 // (2026-11-22, the owner: the Story Trip's map + Dina's tile are hidden for now — features/onegame/switches.js)
-const ITEMS = ["play", "shop", "distracted", "party", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
+const ITEMS = ["play", "shop", "distracted", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
+// ("party" — the 👯 Friends tile — left the title on 2026-11-27: friends live in 📱 👯 in the game)
 
 module.exports = {
   name: "ux",
