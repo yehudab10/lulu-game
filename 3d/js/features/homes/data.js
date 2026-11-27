@@ -50,6 +50,8 @@ export const ITEMS = {
     disguise: { name: "a disguise", emoji: "🥸", prop: "Disguise", verb: "DISGUISE", fx: "fooled", stun: 12, own: true, sfx: "poof" },
 };
 export const PICKUP_ORDER = ["pan", "seltzer", "chicken", "pillow", "kugel", "blower", "balloon"];
+/** Pickups other features add (features/houseitems — ctx.homes.addPickup): [{ id, prop, surface, make() }] */
+export const EXTRA = [];
 
 // ── item × resident: a line from them, a quip from her (★ = they fight back) ──
 // Every item has a line for every kind; `fx` overrides the item's default where the kind reacts differently.
