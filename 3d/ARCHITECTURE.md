@@ -1674,6 +1674,30 @@ stopping on the shoulder still gets her out and walking) — with it the Shared 
 card, so no ad. Test: `scripts/tests3d/parking.js` (`PARKING_PART=basic,levels,layouts`; `debug.autopark()` — a real reverse
 parallel park with the car's physics, both directions, and the pull-out between levels — parks all ten levels).
 
+**Car dealerships off the highway** (`features/dealers`, ci/dealers; the owner, 2026-11-27: "a car dealership for real good
+luxury cars somewhere near the highway … a sales man and with real negotiating and upselling packages. And real luxuries for
+certain cars"). Both stand at **lap metre 800** (`data.js` › `LAP_M`), once a lap, the same place for every friend.
+**Mazelati of Monsey** ("hand-built in Monsey, Italy"): a `world/places.js` pull-off on the right (d 30; `reserve` 766–834,
+`paved` 2 for the forecourt), a code-built glass showroom (`models.js` › `dealers_mazelati`: one merged vertex-coloured
+mesh + the glass + the fascia; `SHOW` = its layout), four cars on pedestals out front (real car clones + the kit, spawned
+only within ~110 m of her — `index.js`) and Sal Mazel at the door. The cars are new car ids registered at import into
+`car.js` › `SKINS` (stats over Uncle Refael's best + `nitro`, `perks`, `kit: "mazelati"`) and `garage/data.js` ›
+`SKIN_SHOP` / `SKIN_KEYS` (price, flavour, `where`); `car.js` › `KITS[sk.kit](model, anchors, sk)` hangs a few parts on the
+one convertible (a hood ornament, chrome). Old clients don't know the ids and draw the pink car; the classic 2D game falls
+back to pink too. On foot: ✋ at a car → the card (`shops/card.js`; the stat bars on their own longer scale) → 🤝 Sal:
+**the haggle** (`haggle.js`, the numbers in `data.js` › `HAGGLE`): a counter (−5 / −10 %) meets her halfway and costs his
+patience 1, "final offer" (≈ −12 %, floor −15 %) costs 2; out of patience → back to the sticker, take it or leave it ("you
+lost the deal, not your coins"); walking toward the door with a counter on the table → "let me talk to my manager" once
+(5 % more off, never under the floor). The deal is paid through `garage/buy.js` › `buyCar(id, { price })` (clamped to
+85–100 % of the sticker; never below 0). Then **the F&I office**: one card per option her car can still take (they work —
+`perks.js`: 🚀 launch control, 🔋 a bigger nitro tank (`ctx.G.nitroTank`, read by `core/driving.js`), 💆 massage seats
+(+1 ♥ once a run), 🥂 the fridge (a nitro sip once a run), 🛎️ the concierge horn) and the nonsense (undercoating,
+nitrogen, VIN etching, Platinum Peace of Mind — a joke, remembered: `remembered()`), paid with `buyExtra`. The Machatunim
+GT's 🅿️ self-park: ❚❚ › "Let the car park itself" in a Parking Challenge level (`ctx.parking.selfPark()`, once a level,
+★ and no level bonus). Nothing here pays coins. 3D save `dealers` (options per car, the nonsense, deals / walk-outs).
+`ctx.dealers` = { open(id), haggle(id), perks(id), has(k), debug }; events `dealers:haggle` / `dealers:option` /
+`dealers:nonsense` / `dealers:perk`. 📱 Map: `ctx.pins.add` (when ci/hud's registry exists). Test: `dealers`.
+
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at
 Courtroom 2B "⚖️ Sit in on the hearing" → state **`placesHearing`** (⏭ skippable, a soft cut both ways): a spectator scene

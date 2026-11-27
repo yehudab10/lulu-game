@@ -58,7 +58,9 @@ export function equipSkin(id) {
 export function buyCar(id, opts = {}) {
     if (!SKIN_SHOP[id] || !SKINS[id]) return { ok: false, why: "unknown" };
     if (owns("car", id)) return { ok: false, why: "owned" };
-    const r = pay(SKIN_SHOP[id].price);
+    // (opts.price: a negotiated price — features/dealers' haggle; never more than the sticker, never below 85 % of it)
+    const sticker = SKIN_SHOP[id].price, price = opts.price != null ? Math.round(Math.max(sticker * 0.85, Math.min(sticker, opts.price))) : sticker;
+    const r = pay(price);
     if (!r.ok) return r;
     writeShared(s => {
         s.ownedSkins = Array.isArray(s.ownedSkins) ? s.ownedSkins : ["pink"];
@@ -67,7 +69,17 @@ export function buyCar(id, opts = {}) {
     });
     if (opts.equip !== false) equipSkin(id);
     emit("stat", { id: "skinsBought", n: 1 });
-    emit("shops:buy", { kind: "car", id, price: SKIN_SHOP[id].price });
+    emit("shops:buy", { kind: "car", id, price });
+    return { ok: true, price };
+}
+
+/** Pay for an extra a feature keeps itself (features/dealers: a car's option, the F&I office's packages, a subscription):
+ *  `price` coins or nothing — never below 0. The feature records what was bought. → { ok, why? } */
+export function buyExtra(kind, id, price) {
+    if (!(price >= 0)) return { ok: false, why: "unknown" };
+    const r = pay(Math.round(price));
+    if (!r.ok) return r;
+    emit("shops:buy", { kind, id, price: Math.round(price) });
     return { ok: true };
 }
 

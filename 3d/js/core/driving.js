@@ -292,7 +292,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     if (wantBoost && G.boost > 0.01 && (G.boosting || G.boost > 0.12)) {
         if (!G.boosting) { A.sfxBoost(); H.toast("🔥 NITRO!", "gold"); rumble(0.5, 0.6, 250, true); emit("boost", {}); }
         G.boosting = true;
-        G.boost = Math.max(0, G.boost - 0.3 * dt);
+        G.boost = Math.max(0, G.boost - 0.3 * dt / (G.nitroTank || 1));      // (a bigger tank — features/dealers — lasts longer)
     } else {
         G.boosting = false;
         G.boost = Math.min(1, G.boost + 0.012 * dt);

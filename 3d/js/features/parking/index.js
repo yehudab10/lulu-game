@@ -91,6 +91,8 @@ ctx.parking = {
     mark: () => markCourse(),
     /** (The old roadside lot sent Shared Road party poses; the challenge happens in the world now: nothing to send.) */
     pose: () => null,
+    /** 🅿️ A luxury car's self-park (once a level; ★, no level bonus). → started? */
+    selfPark: () => startAuto(),
     /** Stopped in a START box: foot's "get out & walk" stands down (pulling up IS the start). */
     holdsStop: () => !!S.offer || (S.active && ctx.state === "parking"),
 };
@@ -440,6 +442,8 @@ function buildLevel() {
     L.trafficOn = !!cfg.traffic;
     S.auto = null;
     S.inZoneT = 0; S.touched = false; S.perfect = true; S.failHit = null; S.result = null; S.stars = 0; S.bonus = 0;
+    S.auto = null; S.autoUsed = false;
+    if (!S.autoTip && ctx.dealers && ctx.dealers.has && ctx.dealers.has("selfpark")) { S.autoTip = true; H.toast("🅿️ This car can park itself: ❚❚ › Let the car park itself (★, no bonus)", "", { key: "parkAutoTip" }); }
     S.hitCd = 0; S.flashT = 0; S.inZone = false; S.timeLeft = cfg.timeLimit; S.angry = null;
     S.introTitle = `Level ${S.level} · ${LOT.LEVEL_NAMES[Math.min(S.level - 1, 9)]}`;
     let d = `${cfg.numCameras} 📹 · ${Math.floor(cfg.timeLimit)}s`;
@@ -458,6 +462,7 @@ function buildLevel() {
 function clearLevel(soft) {
     const L = S.L;
     S.L = null;
+    S.auto = null;
     removeAngry();
     if (!L) return;
     const done = () => {
@@ -505,6 +510,7 @@ function cartModel() {
 // ── driving the level ─────────────────────────────────────────────────────
 function updateDrive(dt, P) {
     const c = S.c, L = S.L, car = ctx.car;
+    if (S.auto) { autoTick(dt, P); return; }
     drive(dt, P);
     if (leftCourse()) return;
     S.hitCd = Math.max(0, S.hitCd - dt);
@@ -813,20 +819,49 @@ function animateLevel(dt) {
 }
 
 // ── success / fail ───────────────────────────────────────────────────────
+// ── 🅿️ self-park (a luxury car's perk — features/dealers: ctx.dealers.has("selfpark")): once a level the car glides out
+//    to the lane in front of the bay, then in, lined up with the kerb. It scores ★ and no level bonus (never a coin source).
+const canSelfPark = () => S.active && S.phase === "drive" && !S.auto && !S.autoUsed && !!(ctx.dealers && ctx.dealers.has && ctx.dealers.has("selfpark"));
+function startAuto() {
+    if (!canSelfPark()) return false;
+    const L = S.L, lc = local(S.c, {});
+    const bx = (L.zx0 + L.zx1) / 2, bz = (L.zz0 + L.zz1) / 2;
+    const hA = Math.PI / 2, hB = -Math.PI / 2;
+    const toH = Math.abs(wrapAngle(lc.h - hA)) < Math.abs(wrapAngle(lc.h - hB)) ? hA : hB;
+    S.autoUsed = true;
+    S.auto = { t: 0, dur: 3.0, pts: [{ x: lc.x, z: lc.z, h: lc.h }, { x: bx, z: Math.max(lc.z, L.zz1 + 2.6), h: toH }, { x: bx, z: bz, h: toH }] };
+    tone(784, 0.08, "sine", 0.12); setTimeout(() => tone(1046, 0.12, "sine", 0.12), 110);
+    H.toast("🅿️ Self-park: hands off… it's parking itself", "gold", { key: "parkAuto" });
+    return true;
+}
+function autoTick(dt, P) {
+    const A0 = S.auto, car = ctx.car, c = S.c;
+    A0.t += dt;
+    const u = Math.min(1, A0.t / A0.dur), half = u < 0.5, k0 = half ? u * 2 : (u - 0.5) * 2, k = k0 * k0 * (3 - 2 * k0);
+    const a = A0.pts[half ? 0 : 1], b = A0.pts[half ? 1 : 2];
+    const X = a.x + (b.x - a.x) * k, Z = a.z + (b.z - a.z) * k, hl = a.h + wrapAngle(b.h - a.h) * k;
+    const w = CO.toWorld(c, X, Z, _b);
+    car.pos.x = w.x; car.pos.z = w.z; car.h = CO.hWorld(c, hl); car.vx = 0; car.vz = 0;
+    drive(dt, P, true);
+    car.pos.x = w.x; car.pos.z = w.z; car.h = CO.hWorld(c, hl); car.vx = 0; car.vz = 0;
+    H.prompt(`<b>🅿️ SELF-PARKING…</b><span class="po-bar"><i style="width:${(u * 100).toFixed(0)}%"></i></span>`);
+    if (u >= 1) { S.auto = null; success(true); }
+}
+
 function calcStars() {
     if (S.perfect && !S.touched) return 3;
     if (!S.touched) return 2;
     return 1;
 }
 
-function success() {
+function success(auto = false) {
     S.result = "success";
     S.phase = "result"; S.t = 0;
     S.resultT = 2.6;
     notes([[523, 0.1], [659, 0.1], [784, 0.1], [1046, 0.18, "triangle", 0.22]], 0.1);
     rumble(0.3, 0.7, 300, true);
-    const stars = calcStars();
-    const bonus = S.level * 25 + stars * 15;
+    const stars = auto ? 1 : calcStars();
+    const bonus = auto ? 0 : S.level * 25 + stars * 15;
     S.stars = stars; S.bonus = bonus;
     addCoins(bonus, "parking");
     S.chCoins += bonus;
@@ -841,10 +876,10 @@ function success() {
     emit("stat", { id: "parks", n: 1 });
     emit("stat", { id: "parks3", n: 1 });          // the weekly "Parallel Pro" (the pull-over's quest, now the course's)
     if (stars === 3) emit("stat", { id: "perfectParks", n: 1 });
-    emit("parking:result", { stars, coins: bonus, level: S.level, mode: "challenge", ok: true });
+    emit("parking:result", { stars, coins: bonus, level: S.level, mode: "challenge", ok: true, auto });
     showBubble(ctx.car.obj, "YAY!", 2.5, 2.4, true, 0);
     PH.vignette(0);
-    showBoard(S.c, [stars >= 3 ? "PERFECT!" : "PARKED!", "⭐".repeat(stars) + "☆".repeat(3 - stars), `+${bonus} 💰`], stars >= 3 ? "#2E7D32" : "#1565C0", 3.2);
+    showBoard(S.c, [auto ? "IT PARKED ITSELF" : stars >= 3 ? "PERFECT!" : "PARKED!", "⭐".repeat(stars) + "☆".repeat(3 - stars), `+${bonus} 💰`], stars >= 3 ? "#2E7D32" : "#1565C0", 3.2);
     H.toast(`🅿️ Level ${S.level}: ${"⭐".repeat(stars)} · +${bonus} 💰`, "gold");
     say(S.c, pick(LINES.yay), 2.6);
 }
@@ -1073,6 +1108,10 @@ function _look(out, cam) { cam.getWorldDirection(out); out.multiplyScalar(8).add
 addMenuItem("pause", { id: "parkLeave", order: 87, cls: "alt", label: "🚗 Leave the Parking Challenge",
     visible: () => ctx.state === "parking" && S.active,
     action: () => { resume(); endRun("quit"); } });
+
+addMenuItem("pause", { id: "parkSelf", order: 86, cls: "alt", label: "🅿️ Let the car park itself (★, no bonus)",
+    visible: () => ctx.state === "parking" && canSelfPark(),
+    action: () => { resume(); startAuto(); } });
 
 // preload the level's props once she's near a course (so setting out a level never waits)
 let preT = 0;
