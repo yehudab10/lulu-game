@@ -1562,6 +1562,22 @@ function updateArrest(dt) {
 
 // ── interactions (the ✋ hand button) ────────────────────────────────────
 const spotList = [];
+/**
+ * 🚪 DOORS THAT ARE EASY TO USE (ci/doors stage 0). A door's ✋ reaches across the whole doorway / shopfront and from
+ * the step out to the kerb — not one square metre. `at` is a town spot ({x, z, ux, uz, nx, nz, len?}: n points to the
+ * street, u along it; the town's door spots stand on the sidewalk 2.6 m out from the lot front). The point returned is
+ * `at` slid toward her inside that strip (then the spot's own r is measured from it, as before). Without axes → `at`.
+ *   o = { w: half-width along u, inn: metres toward the door, out: metres toward the kerb }
+ */
+const DOOR = { w: 1.6, inn: 1.6, out: 1.0 }, DOOR_FLOOR = 0.3;
+function doorReach(at, o, p = F && F.pos) {
+    if (!at || !p || at.nx == null || at.ux == null) return at;
+    const w = o && o.w != null ? o.w : at.len ? clamp(at.len / 2 - 1.2, 0.6, DOOR.w) : DOOR.w;
+    const inn = o && o.inn != null ? o.inn : DOOR.inn, out = o && o.out != null ? o.out : DOOR.out;
+    const dx = p.x - at.x, dz = p.z - at.z;
+    const u = clamp(dx * at.ux + dz * at.uz, -w, w), n = clamp(dx * at.nx + dz * at.nz, -inn, out);
+    return { x: at.x + at.ux * u + at.nx * n, z: at.z + at.uz * u + at.nz * n };
+}
 function interactables() {
     const out = [];
     const p = F.pos;
@@ -1573,7 +1589,7 @@ function interactables() {
         const reg = ctx.interiors && ctx.interiors[dr.id];
         // (walking up to a door: its inside starts loading now, so the step through is short)
         if (reg && reg.warm && Math.hypot(dr.x - p.x, dr.z - p.z) < 22) reg.warm();
-        consider("enter", dr, reg ? `🚪 ENTER ${L.FOOT_DOOR_NAME[dr.id] || dr.id.toUpperCase()}` : "🔒 CLOSED — back soon", dr.x, dr.z, 2.3);
+        consider("enter", dr, reg ? `🚪 ENTER ${L.FOOT_DOOR_NAME[dr.id] || dr.id.toUpperCase()}` : "🔒 CLOSED — back soon", dr.x, dr.z, 3.2);     // (ci/doors: was 2.3 — the whole step)
     }
     if (F.booth) consider("disguise", F.booth, "🥸 DUCK IN — change your look", F.booth.fx, F.booth.fz, 2.2);
     for (const pc of F.parked) {
@@ -1598,12 +1614,14 @@ function interactables() {
         }
     }
     for (const sp of spotList) {
-        const at = sp.pos ? sp.pos() : sp;
+        let at = sp.pos ? sp.pos() : sp;
         if (!at) continue;
         const lbl = typeof sp.label === "function" ? sp.label() : sp.label;
         if (!lbl) continue;
+        if (sp.door) at = doorReach(at, sp.door === true ? null : sp.door, p);
         const n0 = out.length;
         consider("spot", sp, lbl, at.x, at.z, sp.r || 2.0);
+        if (sp.door && out.length > n0) out[n0].score = Math.max(out[n0].score, DOOR_FLOOR);   // (a chat right beside her still wins)
         if (sp.first && out.length > n0) out[n0].score *= 0.2;      // (urgent: wins over a door / a car / a chat in reach)
     }
     out.sort((a, b) => a.score - b.score);
@@ -2170,6 +2188,12 @@ ctx.foot = {
     /** Add an on-foot interactable: { x, z } or pos() → {x, z}; r; label (string | fn); act(); first (urgent: it
      *  wins the ✋ button over other things in reach — a tackle). Returns a remover. */
     addSpot(spot) { spotList.push(spot); return () => { const i = spotList.indexOf(spot); if (i >= 0) spotList.splice(i, 1); }; },
+    /** 🚪 ci/doors: a door spot's reach — `at` ({x, z, ux, uz, nx, nz}) slid toward `p` (default: her) within the doorway
+     *  strip (o = { w, inn, out }, see DOOR). A spot with `door: true` (or door: o) and a pos() that returns the town's
+     *  spot WITH its axes gets this for free. → {x, z} */
+    doorReach(at, o = null, p = null) { return doorReach(at, o, p || (F && F.pos)); },
+    /** All registered ✋ spots (read-only — the doors test walks a probe across each door). */
+    spots: () => spotList.slice(),
     /** Another feature's parked car she can hotwire (a town's kerbside cars): pc = { vtype ("car"…), key (the shell's model),
      *  colors, obj (its Object3D — the owner adds / removes it), x, z, h, circles, r, ext: { taken(pc) when she drives off in it,
      *  drop(pc) when her walk ends } } — never pruned by distance (the owner takes it back with the remover). → remover | null */

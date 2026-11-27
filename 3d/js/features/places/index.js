@@ -61,7 +61,7 @@ function doorPos(kind) {
     if (!sp || !p) return null;
     // (walking up to it: the inside starts loading now, so the step in is a soft cut)
     if (ctx.interiors[D.id].warm && Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors[D.id].warm();
-    return { x: sp.x, z: sp.z };
+    return sp;          // (with its axes: foot stretches the ✋ across the doorway — ci/doors)
 }
 /** Dress the interiors for this town (their names / titles). */
 function nameInteriors() {
@@ -95,7 +95,7 @@ const impounded = () => !!(ctx.foot && ctx.foot.active && ctx.foot.ownCar === "g
 function gatePos() {
     if (!inTown()) return null;
     const sp = spot("impound");
-    return sp ? { x: sp.x, z: sp.z } : null;
+    return sp || null;
 }
 async function gate() {
     const o = ctx.foot && ctx.foot.obj;
@@ -130,9 +130,9 @@ on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) {
         for (const kind of Object.keys(DOORS)) {
             const D = DOORS[kind];
-            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, label: D.label, short: D.short, act: () => enter(kind) });
+            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, door: true, label: D.label, short: D.short, act: () => enter(kind) });
         }
-        ctx.foot.addSpot({ pos: gatePos, r: 2.4, label: () => impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT", short: "IMPOUND", act: gate });
+        ctx.foot.addSpot({ pos: gatePos, r: 2.4, door: { w: 2.4 }, label: () => impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT", short: "IMPOUND", act: gate });
     }
 });
 on("town:enter", () => { C.said.clear(); nameInteriors(); });

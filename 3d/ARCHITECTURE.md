@@ -571,6 +571,12 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   with no fade, no frozen frame, no jump, and back out the same way, on foot too (Towns › Attached). A town is built in
   slices (`buildTownSteps`, ~1000+ steps of 1–3 ms) from 900 m out, so the town appears without a hitch and is in view from
   the ramp. Only a warp into a town (Free Roam) or a town whose download is late still dissolves / fades.
+- **Doors you just walk through (`ci/doors`, roadmap 29):** a door's ✋ reaches across the whole doorway, from the step
+  out to the kerb. A foot spot with `door: true` (or `door: { w, inn, out }`) whose `pos()` returns the town's spot WITH
+  its axes (`{x, z, ux, uz, nx, nz}`, as `ctx.town.spot()` gives it) gets that strip from `features/foot`
+  (`doorReach`; `ctx.foot.doorReach(at, o, p)` for features that pick the nearest of many doors — homes, real estate).
+  **Every new door spot (roadside buildings too) should use `door: true`.** Test: `scripts/tests3d/doors.js` (a probe
+  walked across every door's front in both towns + strangers' houses; each building entered and left; the phone ✋).
 - **A run starts in the world, and never ends in a card:** from the title the camera glides down to Lulu on foot at
   her porch (world › home street) and a knock-out puts her back on her feet beside her car (Run API › the knock-out) —
   the world keeps running through both. Test: `scripts/tests3d/home.js`.

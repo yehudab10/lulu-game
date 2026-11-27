@@ -354,6 +354,9 @@ body.touch .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 10
 /* extra feature touch buttons (missile, pepper spray, interact…) */
 #touchExtra { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 300px);
     display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+/* ✋ USE inside a building: as big as the on-foot ✋ (ci/doors — the owner: "the enter button can be too small") */
+#tx_intTalk { width: 84px; height: 84px; border-radius: 50%; font-size: 34px; }
+#tx_intTalk small { font-size: 11px; }
 /* on its side: a column right beside the stick, from the bottom up — out of the clear window over the car (ci/hud; the row
    ran along the bottom into the middle, under the car) */
 @media (min-aspect-ratio: 1/1) { #touchExtra { right: auto; left: max(190px, calc(env(safe-area-inset-left) + 180px)); bottom: max(16px, env(safe-area-inset-bottom)); flex-direction: column-reverse; } }

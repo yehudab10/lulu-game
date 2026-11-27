@@ -150,7 +150,13 @@ function nearest(list, key, r) {
     const p = herPos();
     if (!p) return null;
     let best = null, bd = r;
-    for (const rec of list) { const at = rec[key]; if (!at) continue; const d = Math.hypot(at.x - p.x, at.z - p.z); if (d < bd) { bd = d; best = rec; } }
+    for (const rec of list) {
+        let at = rec[key]; if (!at) continue;
+        // (a front door: the ✋ reaches across the front path, step → sidewalk — ci/doors)
+        if (key === "ap" && rec.nx != null && ctx.foot && ctx.foot.doorReach && Math.abs(at.x - p.x) < 8 && Math.abs(at.z - p.z) < 8)
+            at = ctx.foot.doorReach({ x: at.x, z: at.z, ux: rec.ux, uz: rec.uz, nx: rec.nx, nz: rec.nz }, { w: 0.8, inn: 1.2, out: 1.6 }, p);
+        const d = Math.hypot(at.x - p.x, at.z - p.z); if (d < bd) { bd = d; best = rec; W.at = at; }
+    }
     return best;
 }
 // a FOR SALE sign: the viewing
@@ -166,7 +172,7 @@ const doorSpot = {
     pos() {
         W.door = canAct() && !locked() ? nearest(W.owned, "ap", 3.2) : null;
         if (W.door && ctx.interiors.realestateHouse && ctx.interiors.realestateHouse.warm) ctx.interiors.realestateHouse.warm();
-        return W.door ? W.door.ap : null;
+        return W.door ? W.at : null;      // (the nearest point of its doorway strip — ci/doors)
     },
     label() { return W.door ? "🔑 YOUR HOUSE — GO IN" : null; },
     act() { if (W.door) goIn(W.door, "owner"); },
@@ -211,20 +217,20 @@ async function contest(rec) {
 // a FRIEND's front door (a 🎉 party's Free Roam): whose it is; join them inside when they're in
 const friendSpot = {
     r: 2.6, short: "FRIEND",
-    pos() { W.fdoor = canAct() && W.friends && W.friends.length ? nearest(W.friends, "ap", 2.6) : null; return W.fdoor ? W.fdoor.ap : null; },
+    pos() { W.fdoor = canAct() && W.friends && W.friends.length ? nearest(W.friends, "ap", 2.6) : null; return W.fdoor ? W.at : null; },
     label() { const f = W.fdoor; if (!f) return null; return friendInside(f) ? `👯 JOIN ${f.who.name.toUpperCase()} INSIDE` : `🏠 ${f.who.name.toUpperCase()}'S HOUSE`; },
     act() { const f = W.fdoor; if (!f) return; if (friendInside(f)) goIn(f, "visit", f.who.name); else if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, pick([`${f.who.name}'s place! Nobody home. I'll wave at the window anyway. 👋`, `Ding-dong… ${f.who.name}'s out. Nice mailbox though.`, `${f.who.name} owns a HOUSE. I'm so proud. And jealous. Mostly proud.`]), 3.0); },
 };
 const friendInside = f => !!(ctx.together && ctx.together.friendIn && ctx.together.friendIn("realestateHouse", f.id));
 // the realtor's office door
 const officeSpot = {
-    r: 2.6, short: "REALTOR",
+    r: 2.6, door: true, short: "REALTOR",
     pos() {
         if (!canAct() || locked()) return null;
         const sp = ctx.town.spot && ctx.town.spot("realty"), p = herPos();
         if (!sp || !p) return null;
         if (ctx.interiors.realty && ctx.interiors.realty.warm && Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors.realty.warm();
-        return { x: sp.x, z: sp.z };
+        return sp;          // (with its axes: the ✋ reaches across the shopfront — ci/doors)
     },
     label() { return `🏘️ ENTER ${realtorOf(townId()).firm.toUpperCase()}`; },
     act() { enterOffice(); },
