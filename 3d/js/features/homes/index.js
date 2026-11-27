@@ -33,6 +33,7 @@ import { tone } from "../interiors/fx.js";
 import { C as CR, CROWD_MODELS, startCrowd, stopCrowd, tickCrowd, crowdHonk, crowdTalkSpot, crowdInfo, TUNE } from "./crowd.js";
 import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural, distract, debugSpot } from "./house.js";
 import { current as currentRoom } from "../interiors/engine.js";
+import { ITEMS as ITEMS_, REACT as REACT_, EXTRA as EXTRA_ } from "./data.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
 import { identity, sceneFor, presentCast, when, opinion, OPINION_LINE, byName, LIFE, clockFor, rngOf as lifeRng, hash as lifeHash, TRAITS } from "./life.js";
 import { SCENES } from "./scenes.js";
@@ -590,6 +591,10 @@ ctx.homes = {
     livedIn: id => { const h = HS.byId.get(id); return !!h && lived(h); },
     /** Mark doors as someone else's: fn(id, home) → null (the family's) | a status string ("mine", "listed", "packing",
      *  "empty", "rented", "friend"…). Homes gives those doors up entirely. Returns an unregister function. */
+    /** features/houseitems: a pickup in every house's rooms (two a house): id, { name, emoji, verb, fx, stun, uses, sfx, surface:
+     *  "counter" | "table" | "couch" | "shelf" | "coat" | "sink", make() → a prop mesh, react: { kind | "*": { line, lulu } } } */
+    addPickup(id, def) { if (!id || !def || ITEMS_[id]) return false; ITEMS_[id] = Object.assign({ verb: "SHOW", fx: "laugh", stun: 2.5, uses: 0, sfx: "poof" }, def, { prop: def.prop || id });
+        if (def.react) REACT_[id] = def.react; EXTRA_.push({ id, prop: ITEMS_[id].prop, surface: def.surface, make: def.make }); return true; },
     /** features/houseitems: a family saw her USING their stolen thing (they remember: cooler) / she gave it back (a favour). */
     noticed(key, item) { const h = HS.byId.get(key); const r = h ? rec0(h) : S.fam[key]; if (!r) return false; r.kept = (r.kept | 0) + 1; r.seen = (r.seen | 0) + 1; saveSoon(); emit("homes:noticed", { key, item }); return true; },
     returned(key, item) { const h = HS.byId.get(key); const r = h ? rec0(h) : S.fam[key]; if (!r) return false; r.favours = (r.favours | 0) + 1; saveSoon(); emit("homes:returned", { key, item }); return true; },

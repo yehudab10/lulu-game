@@ -109,6 +109,61 @@ module.exports = {
       t.check("twice quickly → swap", (await g(`${I}.hand`)) === "chicken");
     });
 
+    await step("round 2: new pickups in houses", async () => {
+      const keys = await g(`ctx.homes.homes().filter(h => h.status === null && h.cast.includes("mom")).slice(1, 4).map(h => h.key)`);
+      let got = null;
+      for (const k of keys) {
+        const h = await g(`ctx.homes.household(${JSON.stringify(k)})`);
+        await stand(h.ap.x, h.ap.z); await t.frames(4);
+        await g(`ctx.homes.enter(${JSON.stringify(k)}, "sneak", "window")`);
+        if (!await t.until(`__lulu3d.state === "interior" && __lulu3d.ctx.homes.debug.VISIT.cur && __lulu3d.ctx.homes.debug.VISIT.cur.rt.ready`, "inside", 60000)) return;
+        const extra = await g(`Object.keys(ctx.homes.debug.VISIT.cur.V.items).filter(id => ${I}.debug.ITEMS[id] && ${I}.debug.ITEMS[id].make)`);
+        t.check(`a house has two of the new things to pick up (${extra.join(", ")})`, extra.length === 2, JSON.stringify(extra));
+        if (extra.length && !got) { got = extra[0]; await g(`(ctx.homes.debug.VISIT.cur.V.held = ${JSON.stringify(got)}, true)`); }
+        await g(`(() => { const c = ctx.homes.debug.VISIT.cur; c.V.exit = "window"; c.rt.leave(); return true; })()`);
+        await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "back outside", 60000);
+        await t.frames(10);
+        if (got) break;
+      }
+      t.check(`…and one comes out with her (${got})`, !!got && (await g(`${I}.hand`)) === got);
+      t.check("…its code-built prop is in her hand", await t.until(`__lulu3d.ctx.houseitems.debug.prop()`, "the prop", 10000));
+    });
+
+    await step("from the car", async () => {
+      await g(`(${I}.debug.clear(), ${I}.add("lampshade", null, true), ${I}.add("chicken", null, true), ${I}.add("balloon", null, true), true)`);
+      if (!await g(`ctx.foot.debug.getIn()`)) { t.check("back in her car", false); return; }
+      if (!await t.until(`__lulu3d.state === "playing"`, "driving", 30000)) return;
+      await t.frames(10);
+      t.check("the swap cycle includes her pepper spray (3 things + 🌶️)", (await g(`${I}.slots()`)) === 4);
+      // the water balloon (in hand): at a road-rager → soaked
+      await g(`(${I}.debug.R.force.toss = { kind: "rager", hit() { window.__soaked = 1; } }, true)`);
+      const pep0 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2") || "{}").pepperSpray`);
+      await t.key("KeyG"); await t.frames(6);
+      t.check("the item button at the wheel: the balloon out of the window at the road-rager (soaked)", (await g(`${I}.debug.R.log.filter(e => e.ev === "use").pop()`)).verb === "CAR:TOSS" && await g(`window.__soaked === 1`));
+      t.check("…no pepper sprayed meanwhile", (await t.L(`JSON.parse(localStorage.getItem("luluSaveV2") || "{}").pepperSpray`)) === pep0);
+      await g(`(${I}.debug.R.force.toss = null, true)`);
+      // the rubber chicken on the horn
+      await g(`(${I}.debug.S.hand = ${I}.debug.S.bag.findIndex(x => x.id === "chicken"), true)`);
+      const r1 = await g(`${I}.useCar()`);
+      t.check("the rubber chicken goes on the horn (her honk squeaks this drive)", r1 && r1.verb === "CAR:HORN" && await g(`${I}.debug.R.chickenHorn === true`));
+      // the lampshade: on her head while driving, and off again
+      await g(`(${I}.debug.S.hand = ${I}.debug.S.bag.findIndex(x => x.id === "lampshade"), true)`);
+      await g(`${I}.useCar()`);
+      t.check("the lampshade on her head at the wheel", await g(`!!(ctx.car.attached && ctx.car.attached.head) && ${I}.debug.R.carWorn === "lampshade"`));
+      await g(`${I}.useCar()`);
+      t.check("…and off", await g(`!(ctx.car.attached && ctx.car.attached.head) && ${I}.debug.R.carWorn === null`));
+      // rugelach to Avigail riding shotgun
+      await g(`(${I}.add("rugelach", null, false), ctx.G.avigailRide = true, true)`);
+      const r2 = await g(`${I}.useCar()`);
+      t.check("rugelach handed to Avigail in the passenger seat", r2 && r2.verb === "CAR:GIVE_AVIGAIL" && r2.target === "avigail" && !(await g(`${I}.bag`)).some(x => x.id === "rugelach"));
+      await g(`(ctx.G.avigailRide = false, true)`);
+      // a kugel at a chasing cruiser behind her: it swerves for it
+      await g(`(${I}.add("kugel", null, false), true)`);
+      const cop = await g(`(() => { const c = ctx.traffic.add("cop", ctx.car.s - 20, ctx.car.d, 1, 12, {}); return !!c; })()`);
+      const r3 = await g(`${I}.useCar()`);
+      t.check("a kugel out of the window: the cruiser behind her swerves for it", cop && r3 && r3.target === "cop", JSON.stringify(r3));
+    });
+
     t.check("nothing pays coins", (await g(`ctx.G.coins`)) === c0, `${c0} → ${await g(`ctx.G.coins`)}`);
   },
 };
