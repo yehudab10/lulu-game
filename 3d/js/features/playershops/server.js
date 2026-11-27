@@ -111,7 +111,12 @@ export async function view(id) { try { const r = await req(`/shops/view?id=${enc
 /** Buy one from spot `slot` at the price she saw. → { ok, why, g, st, p } */
 export async function buy(id, slot, p, tip = 0) {
     if (!SV.on) return { ok: false, why: "off" };
-    try { const r = await req("/shops/buy", { id: wire(id), slot, p, tip }); return r.j || { ok: false, why: r.st === 429 ? "rate" : "error" }; } catch (e) { return { ok: false, why: "offline" }; }
+    try {
+        let r = await req("/shops/buy", { id: wire(id), slot, p, tip });
+        if (r.st === 429) { await new Promise(res => setTimeout(res, 900)); r = await req("/shops/buy", { id: wire(id), slot, p, tip }); }   // (too quick: once more)
+        SV.lastBuy = { st: r.st, j: r.j };
+        return r.j || { ok: false, why: r.st === 429 ? "rate" : "error" };
+    } catch (e) { return { ok: false, why: "offline" }; }
 }
 /** Stage 3: hire / let go of the clerk (she sells while the owner's away, for 10 % of each sale). */
 export async function clerk(id, on) { if (!SV.on) return { ok: false, why: "off" }; try { const r = await req("/shops/clerk", { id: wire(id), on: !!on }); return r.j || { ok: false }; } catch (e) { return { ok: false, why: "offline" }; } }
