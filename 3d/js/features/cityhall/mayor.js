@@ -4,7 +4,8 @@
 //   • TODAY'S EDICT (`todayEdict()`, the real day, skipping struck ones): Midwood's protests are about it (protest.js asks
 //     `edictTopic()`), the notice board shows it, the Complaints window has a line for it (COMPLAINT_EXTRAS), the staff
 //     roll their eyes (the secretary, now and then).
-//   • COURTROOM 2B (Midwood): a case per edict (`ctx.civic.courts.addCase`): Lulu speaks for the neighbours → the edict is
+//   • COURTROOM 2B (Midwood): a case per edict (`ctx.civic.courts.addCase`), on the docket only once SHE takes it to court
+//     (`file()`: a complaint at the Complaints window, or chanting at the edict's protest): Lulu speaks for the neighbours → the edict is
 //     STRUCK DOWN for good (S.struck). One hearing a real day; nothing pays.
 //   • PICKLEMAN lost by 3 votes: his pickle stand outside Borough Hall, demanding a recount every day (✋, lines only).
 // Coin rules unchanged: nothing here pays or charges (the complaint filing fee is the existing one, inside the ≤ 10 cap).
@@ -20,6 +21,7 @@ import { LOBBY_BUILDERS, COMPLAINT_EXTRAS } from "./lobby.js";
 import { S, saveSoon, inTown, townId, stat } from "./state.js";
 
 if (!S.struck || typeof S.struck !== "object") S.struck = {};
+if (!S.filed || typeof S.filed !== "object") S.filed = {};          // edict id → she's taken it to court (a complaint / the protest)
 const pick = a => a[Math.floor(Math.random() * a.length)];
 export const MY = { force: {}, log: [], stand: null, said: false };
 function log(ev, d = {}) { MY.log.push(Object.assign({ ev }, d)); if (MY.log.length > 40) MY.log.shift(); }
@@ -38,6 +40,18 @@ export function edictTopic() {
 }
 /** Has the court struck this edict down? (features/playershops: the Retail Fairness Edict → Midwood allows two shops) */
 export const isStruck = id => !!(S.struck && S.struck[id]);
+/** She takes today's edict to court (a complaint at the Complaints window, or chanting at the edict's protest): only then is
+ *  it on Courtroom 2B's docket — Midwood's 2B isn't busy with it every day for everyone. → bool (newly filed) */
+export function file(id = (todayEdict() || {}).id) {
+    if (!id || S.struck[id] || S.filed[id]) return false;
+    S.filed[id] = Date.now(); saveSoon();
+    addEdictCase();
+    emit("cityhall:edict", { phase: "filed", id });
+    log("filed", { id });
+    return true;
+}
+on("cityhall:complaint", e => { if (e && e.about === MAYOR31.complaint.opt) file(); });
+on("cityhall:protest", e => { if (e && e.phase === "chant" && /^edict:/.test(e.topic || "")) file(String(e.topic).slice(6)); });
 /** Strike an edict down (the court's ruling). → bool */
 export function strike(id) {
     if (!id || S.struck[id]) return false;
@@ -86,7 +100,7 @@ export function addEdictCase() {
     C.addCase({
         id: cid, town: "midwood", oneADay: true, solo: true, priority: 5,
         title: EC.title(e), label: EC.label, docket: () => EC.docket(e),
-        available: () => !S.struck[e.id] && todayEdict() === e,
+        available: () => !S.struck[e.id] && !!S.filed[e.id] && todayEdict() === e,
         cast: { people: Object.assign({ seat: "respCounsel", model: "npcMan", colors: { Top: "#8E2B2B", Bottom: "#263238" } }, EC.counsel) },
         acts: {
             ruling: async H => {
