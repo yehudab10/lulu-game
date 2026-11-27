@@ -152,10 +152,13 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
    world-wide LIMITED-STOCK COUNTER for the luxury clothing pieces to the relay (how many of each piece exist, who holds
    number N — one table beside accounts) and deploy it. Additive + backwards-compatible, before / after messages to the
    coordinator and a production check each deploy. Nothing else on the server is covered.
-   *Fourth exception — PLAN ONLY so far (owner, 2026-11-27: "I want friends and everyone to be as if they are in the
+   *Fourth exception (owner, 2026-11-27: "I want friends and everyone to be as if they are in the
    same world - same as Roblox and Fortnite. One server as powerful as we can make it."):* `ci/oneserver` plans the
    relay work for ONE SHARED WORLD (a world clock, rooms by place, rates + reliable events, a little shared state).
-   Nothing is built or deployed until the coordinator relays the owner's OK on that plan (it may cost money).
+   APPROVED by the owner the same day ("Go ahead with this", after reading `3d/docs/oneserver-plan.md`): steps 1–5 of
+   that plan, in order, each additive, deployed alone with a kill switch, before / after messages to the coordinator and
+   a production check. The owner is on Cloudflare's FREE plan: steps 1–2 may deploy now and must not add requests per
+   player; STEP 3 (rooms by place) is NOT deployed until the owner has switched to the Paid plan.
 4. Never change the iOS bundle id, signing, AdMob IDs, or
    `submit_to_app_store` in `codemagic.yaml`. Ad unit IDs in
    `3d/js/features/native/ads.js` and `src/10c-ads.js` must stay identical.
