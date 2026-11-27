@@ -182,6 +182,7 @@ module.exports = {
       // hall's wedding with the bouquet paid once a real day; no Avigail toast / banner
       const V = `${D}.avigail`;
       if (!await inTown("midwood")) return;
+      t.check("Midwood's signs (the Ballroom's too) fit the one atlas at a readable scale", await g(`ctx.town.debug.S.T.signs.scale >= 0.5`), String(await g(`ctx.town.debug.S.T.signs.scale.toFixed(2)`)));
       t.check("no roadside Avigail walker on the cameos timer", await g(`!ctx.actors.some(a => a.kind === "avigailWalker")`));
       const av = await g(`ctx.family.avigail()`);
       t.check("her house: a fixed door in Midwood", !!av.door, JSON.stringify(av));
