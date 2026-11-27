@@ -14,6 +14,7 @@ module.exports = {
     t.check("no flag → the look test is asleep", await g(`ctx.look && ctx.look.on === false`));
     t.check("…no look-test model loaded", await t.L(`import("./js/models.js").then(m => !m.models.looktestCar && !m.models.looktestLulu)`));
     t.check("…today's tone mapping (ACES)", await g(`L3.renderer.toneMapping === 4`));
+    t.check("…no look panel", await t.L(`!document.getElementById("lookPanel")`));
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await t.frames(10);
     t.check("…today's car (lulu_car + its shadow copy ≈ 15k triangles in the scene)", await g(`(() => { let n = 0; ctx.car.model.traverse(o => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n < 20000; })()`));
@@ -32,6 +33,23 @@ module.exports = {
     await g(`(ctx.car.setSkin("blue"), true)`);
     t.check("a repaint recolours it", await g(`(() => { let c = null; ctx.car.model.traverse(o => { if (o.isMesh && o.material.name === "Body") c = o.material.color.getHexString(); }); return c === "2196f3"; })()`));
     t.check("the scene is lit by the sky + Neutral tone mapping", await g(`!!ctx.scene.environment && L3.renderer.toneMapping === 7`));
+
+    // ── the panel: live flips + the fps readout ──
+    t.check("the 🎨 panel is there", await t.L(`!!document.querySelector("#lookPanel button")`));
+    const tris = () => g(`(() => { let n = 0; ctx.car.model.traverse(o => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n; })()`);
+    const btn = re => t.L(`(() => { const b = [...document.querySelectorAll("#lookPanel button")].find(b => ${re}.test(b.textContent)); if (b) b.click(); return b ? b.textContent : ""; })()`);
+    await btn("/Car:/"); await t.frames(3);
+    t.check("🚗 Car → Today: back to today's car", (await tris()) < 20000);
+    await btn("/Car:/"); await t.frames(3);
+    t.check("🚗 Car → New again", (await tris()) > 20000);
+    await btn("/Light:/"); await t.frames(3);     // New → Lite sky
+    t.check("💡 Light → Lite sky: no sky on the whole scene, the glow on", await g(`!ctx.scene.environment && ctx.look.live.light === "lite"`));
+    await btn("/Light:/"); await t.frames(3);     // → Full sky
+    await btn("/Light:/"); await t.frames(3);     // → Today
+    t.check("💡 Light → Today: ACES + no sky", await g(`L3.renderer.toneMapping === 4 && !ctx.scene.environment`));
+    await btn("/Light:/"); await t.frames(3);     // → New
+    await t.until(`/fps/.test(document.querySelector("#lookPanel .fps").textContent) && !/…/.test(document.querySelector("#lookPanel .fps").textContent)`, "the fps readout fills in", 20000);
+    t.check("the fps readout shows a number", /\d+ fps/.test(await t.L(`document.querySelector("#lookPanel .fps").textContent`)));
 
     // ── Lulu on foot ──
     await g(`ctx.foot.start("droveOff")`);
@@ -54,6 +72,10 @@ module.exports = {
     const stop = await g(`ctx.foot.debug.F.lulu.w`);
     t.check("stopping → back to Idle", stop.idle > 0.8, JSON.stringify(stop));
     const wave = await g(`(() => { const L1 = ctx.foot.debug.F.lulu, b = L1.bones.UpperArmR, q0 = b.quaternion.clone(); L1.update(1 / 30, { walk: 0, wave: true }); return 1 - Math.abs(q0.dot(b.quaternion)); })()`);
+    await btn("/Lulu:/"); await t.frames(3);
+    t.check("🚶‍♀️ Lulu → Today: today's Lulu on foot", await g(`!ctx.foot.debug.F.lulu.look && !!ctx.foot.debug.F.lulu.obj.parent`));
+    await btn("/Lulu:/"); await t.frames(3);
+    t.check("🚶‍♀️ Lulu → New again", await g(`!!ctx.foot.debug.F.lulu.look`));
     t.check("an old pose (wave) still moves her arm", wave > 0.05, String(wave));
     await t.shot("looktest-foot");
   },
