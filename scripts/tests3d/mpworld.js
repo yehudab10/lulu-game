@@ -85,7 +85,7 @@ async function body(t, pages, riders) {
   await g(`L3.startRun({ mode: "cruise", quick: true })`);
   if (!await A.until(`__lulu3d.state === "playing"`, "A: cruise starts")) return;
   await g(HOLD); await g(PLACE(400, 1.75));
-  if (!await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online by default (EVERYONE)")) return;
+  if (!await A.until(`${S}.connected && ctx.mp.room === "lobby"`, "A: online by default (EVERYONE)")) return;
   t.check("A: online by default — EVERYONE, no code, no lobby screen", await g(`ctx.state === "playing" && !document.querySelector("#screenCard.open, .screen.open")`));
 
   const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend" }, Q(URL));
@@ -211,7 +211,7 @@ async function body(t, pages, riders) {
   await t.L(`document.getElementById("pt_roam").click()`);
   if (!await A.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "A: 📤 Invite → Free Roam", 120000)) return;
   await g(HOLD); await g(PLACE(400, 1.75));
-  t.check("in a party she's still in EVERYONE (strangers stay in the world)", await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online in the party", 30000));
+  t.check("in a party she's still in EVERYONE (strangers stay in the world)", await A.until(`${S}.connected && ctx.mp.room === "lobby"`, "A: online in the party", 30000));
   t.check("…and B, a stranger, still shows as a ghost", await A.until(`Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`, "A sees stranger B in the party", 60000));
   await g(`(ctx.banter && (ctx.banter.autopilot = { d: 1.75, speed: 0 }), true)`);      // (A holds still while B joins)
   const code = await g(`ctx.party.code`), auid = await g(`ctx.party.uid`);

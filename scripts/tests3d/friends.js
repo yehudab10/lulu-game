@@ -56,7 +56,7 @@ async function body(t, pages) {
   const A = hostPage(t);
   t.check("friends: crypto available on the test page", await A.game(`${F}.ok`));
   await drive(A, 400, 1.75);
-  if (!await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online (EVERYONE)")) return;
+  if (!await A.until(`${S}.connected && ctx.mp.room === "lobby"`, "A: online (EVERYONE)")) return;
   const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend" }, Q(URL));
   pages.push(B);
   await B.until(`__lulu3d && __lulu3d.state === "title"`, "B boots", 120000);
