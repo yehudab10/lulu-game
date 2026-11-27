@@ -56,7 +56,8 @@ function tick(dt) {
     const st = ctx.state;
     // a party (features/party) gets the Cruise day + weather too, but driven by the shared
     // party clock + seed so every friend sees the same sky (see ctx.party.atmos*)
-    const party = !!(ctx.party && ctx.party.active && ctx.G.mode === "party" && ctx.party.atmosClock);
+    // (🌍 with friends on her OWN run too — ctx.party.inWorld: one sky for the group; her own Cruise day waits in ownClock)
+    const party = !!(ctx.party && ctx.party.active && (ctx.G.mode === "party" || ctx.party.inWorld) && ctx.party.atmosClock);
     // the world feature's live home street keeps the day + weather on the title (on the device's clock)
     let titleClock = null;
     if (st === "title" && typeof ctx.atmos.titleClock === "function") { try { titleClock = ctx.atmos.titleClock(); } catch (e) { titleClock = null; } }
@@ -93,6 +94,7 @@ function tick(dt) {
 
     // the clock runs while you drive (or walk) in Cruise
     if (party) {
+        if (ctx.G.mode !== "party" && !own && ownClock === null) ownClock = S.clock;
         S.clock = ctx.party.atmosClock();
         const pw = ctx.party.atmosWeather();
         if (pw && (pw.kind !== W.kind || !W.forced)) { W.forced = true; W.party = true; startWeather(pw.kind, pw.strength, false, 9999); }
