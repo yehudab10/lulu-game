@@ -7,7 +7,8 @@
 //   overtakes (Normal / Meshuga) when the next lane is clear. Steering, braking, nitro or the handbrake take over at once.
 //   It HANDS BACK with a chime: a chase, a work zone ahead, a job (💼 hustle), a town, getting out, a crash. It earns no
 //   close-call / style bonus (ctx.G.selfDriving — core/driving.js + moves/common.js) and pays nothing. Quirks now and then.
-//   Stage 2b (later): through town to the 📍 Ping, once ci/hud's ping lands.
+//   WITH A 📍 PING (route.js): it takes the place's exit, follows the town's streets (stop signs, the limits, school zones,
+//   whatever's in the way) and pulls up by the door. In town without a ping it hands back (it only drives where it's sent).
 import { ctx, on, emit, hook, MPH, wrapAngle, addMenuItem } from "../../core/ctx.js";
 import { saveSoon } from "../../core/save.js";
 import { resume } from "../../core/screens.js";
@@ -20,11 +21,13 @@ import { SPEED_LIMIT } from "../law/data.js";
 import { zoneAhead } from "../roadevents/construction.js";
 import { SUB, EV_IDS } from "./data.js";
 import { DS } from "./perks.js";
+import { NAV, buildExit, buildTown, exitFor, follow } from "./route.js";
+import { TAPER0 } from "../town/exit.js";
 
 const DAY = 86400000;
 const now = () => (ctx.schlepNow ? ctx.schlepNow() : Date.now());          // (tests move the clock)
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const SD = { on: false, lane: 0, changeT: 0, quirkT: 30, brakeT: 0, last: "" };
+const SD = { on: false, lane: 0, changeT: 0, quirkT: 30, brakeT: 0, last: "", route: null, replans: 0, noPass: false, log: [] };
 
 // ── the subscription ──
 function sub() { return DS.sub || null; }
@@ -75,7 +78,7 @@ function blocker() {
     if (!evCar()) return "car";
     if (ctx.state !== "playing") return "state";
     if (ctx.G && ctx.G.mode === "dina") return "dina";
-    if (ctx.town && ctx.town.active) return "town";
+    if (ctx.town && ctx.town.active && !(SD.route && SD.route.kind === "town") && !pingHere()) return pingAway() ? "away" : "town";
     if (ctx.foot && ctx.foot.active) return "foot";
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted > 0)) return "chase";
     if (ctx.hustle && ctx.hustle.job) return "job";
@@ -84,7 +87,11 @@ function blocker() {
 }
 const BACK = {
     you: "🫱 You've got it.", chase: "🚨 Police! Your car, your problem — you drive.", construction: "🚧 Work zone ahead — the car says it's your turn.",
-    job: "💼 A job? The car doesn't do jobs. You drive.", town: "🏘️ Town streets — your turn (it only does the highway, for now).",
+    job: "💼 A job? The car doesn't do jobs. You drive.", town: "🏘️ Town streets: 📍 ping a place on the 🗺️ Map and it'll take you there. For now: you drive.",
+    away: "🏘️ It only knows the way INTO a town, for now. You drive out.", arrived: "📍 You have arrived. Probably.",
+    lost: "🤷 The car got confused. Your turn.", stuck: "🚧 Something's in the way and the car won't argue with it. Your turn.",
+    near: "📍 Almost there — the pull-off's yours.", noping: "📍 No destination. Your turn.",
+    street: "🛣️ Point it down a street first — then it'll take it from there.",
     foot: "", state: "", crash: "💥 Bump! The car gave the wheel back. Sulking.", lapsed: "⚡ The subscription ended. You drive.", car: "", dina: "",
 };
 function chime(up) {
@@ -98,6 +105,7 @@ export function engage() {
         return false;
     }
     const d = ctx.car.d;
+    SD.route = null; SD.replans = 0; SD.noPass = false;
     SD.on = true; SD.lane = d > 0 && Math.abs(d - LANES_OURS[1]) < Math.abs(d - LANES_OURS[0]) ? 1 : 0;
     SD.changeT = 2; SD.quirkT = 25 + Math.random() * 40; SD.brakeT = 0;
     ctx.G.selfDriving = true;
@@ -109,7 +117,7 @@ export function engage() {
 /** Hand the wheel back (why: a key of BACK). */
 export function handBack(why = "you") {
     if (!SD.on) return;
-    SD.on = false; SD.last = why;
+    SD.on = false; SD.last = why; SD.route = null; SD.noPass = false;
     if (ctx.G) ctx.G.selfDriving = false;
     chime(false);
     if (BACK[why]) H.toast(BACK[why], why === "you" ? "" : "gold", { key: "schlep" });
@@ -121,13 +129,76 @@ export function targetSpeed() {
     const mph = Math.min(m.mph || SPEED_LIMIT, SPEED_LIMIT) - 1;
     return mph / MPH;
 }
+// ── 📍 to the ping (route.js) ──
+const pinged = () => { const P = ctx.pins, id = P && P.current; return id ? P.get(id) : null; };
+/** Is the pinged place in the town she's in? / in some other town? */
+function pingHere() { const p = pinged(); return !!(p && ctx.town && ctx.town.active && p.town === ctx.town.id); }
+function pingAway() { const p = pinged(); return !!(p && ctx.town && ctx.town.active && p.town !== ctx.town.id); }
+function note(ev, d = {}) { SD.log.push(Object.assign({ ev, t: +(ctx.time || 0).toFixed(1) }, d)); if (SD.log.length > 40) SD.log.shift(); emit("dealers:selfdrive", Object.assign({ on: true, nav: ev }, d)); }
+/** One frame of navigation → the controls (it's driving a route), null (no route: hold the lane), false (it handed back). */
+function navTick(dt) {
+    const inTown = !!(ctx.town && ctx.town.active);
+    if (inTown) {
+        if (!SD.route || SD.route.kind !== "town" || SD.route.town !== ctx.town.id) {
+            const p = pinged(), t = p && ctx.pins.target(p.id);
+            if (!p) { handBack("noping"); return false; }
+            if (!t || t.kind !== "at") { handBack("away"); return false; }
+            SD.route = buildTown(t.x, t.z);
+            if (!SD.route || SD.route.fail) { const why = SD.route && SD.route.fail; SD.route = null; handBack(why || "lost"); return false; }
+            SD.route.name = p.name;
+            if (SD.replans === 0) H.toast(`⚡ Navigating to 📍 ${p.name}`, "", { key: "schlep" });
+            note("town", { to: p.id, street: SD.route.street, m: Math.round(SD.route.cum[SD.route.cum.length - 1]) });
+        }
+        const r = follow(SD.route, dt);
+        if (!r.done) return r;
+        if (r.done === "off" && SD.replans < 3) { SD.replans++; SD.route = null; note("replan"); return { steer: 0, throttle: 0, brake: 0.6, handbrake: false, analog: true }; }
+        note(r.done, { stops: SD.route.stops });
+        handBack(r.done === "arrived" ? "arrived" : r.done === "stuck" ? "stuck" : "lost");
+        return false;
+    }
+    if (SD.route && SD.route.kind === "exit") {
+        const r = follow(SD.route, dt, { cap: targetSpeed() });
+        if (!r.done) return r;
+        if (r.done === "stuck") { handBack("stuck"); return false; }
+        if (r.done === "ran-out" && ctx.car.speed > 1) return { steer: 0, throttle: 0, brake: 0.5, handbrake: false, analog: true };   // (the town's about to take over)
+        handBack("lost"); return false;
+    }
+    if (SD.route) SD.route = null;
+    // a ping in a town: its exit, when it's next and close enough to make
+    const p = pinged();
+    SD.noPass = false;
+    if (!p) return null;
+    if (p.town) {
+        const x = exitFor(p.town);
+        if (x && x.ahead < NAV.EXIT_FROM && x.ahead > -TAPER0 + 40) {
+            SD.route = buildExit(x, targetSpeed());
+            SD.replans = 0;
+            note("exit", { town: p.town, s: Math.round(x.e.s) });
+            H.toast(`⚡ Taking the ${x.b.town.highway && x.b.town.highway.short || x.b.town.name} exit for 📍 ${p.name}`, "", { key: "schlep" });
+            return follow(SD.route, dt, { cap: targetSpeed() });
+        }
+        if (x && x.ahead < NAV.EXIT_FROM + 900) SD.noPass = true;
+        return null;
+    }
+    // a place on the highway (a rest area, a showroom, JFK): it drives on, and hands back as she gets there
+    const t = ctx.pins.target(p.id);
+    if (t && t.kind === "at" && t.d < 320) { handBack("near"); return false; }
+    return null;
+}
+on("pins:ping", () => { if (SD.route) { SD.route = null; SD.replans = 0; } });
+on("pins:clear", e => { if (SD.route && !(e && e.why === "arrived")) SD.route = null; });
+
 hook("controls", (ctl, dt) => {
     if (!SD.on) return;
     if (Math.abs(input.steer) > 0.35 || input.brake > 0.35 || input.boost || input.handbrake) { handBack("you"); return; }
     const b = blocker();
     if (b) { handBack(b); return; }
+    const nav = navTick(dt);
+    if (nav === false) return;                                  // (it handed back)
+    if (nav) { Object.assign(ctl, nav); return; }
     const car = ctx.car, M = SUB.modes[mode()], T = ctx.traffic;
     let v = targetSpeed();
+    if (SD.noPass) SD.lane = 1;                                 // (its exit's coming up: the right lane, no passing)
     // the car ahead in our lane: follow it (the mode's gap), or pull out when the next lane is clear
     let lead = null;
     const d0 = LANES_OURS[SD.lane];
@@ -140,7 +211,7 @@ hook("controls", (ctl, dt) => {
     if (lead) {
         const ds = lead.s - car.s;
         const other = 1 - SD.lane;
-        if (M.lanes && SD.changeT <= 0 && ds < M.gap * 1.6 && T.laneFree(car.s + 10, LANES_OURS[other], 1, M.gap) && T.laneFree(car.s - 8, LANES_OURS[other], 1, 12)) {
+        if (M.lanes && !SD.noPass && SD.changeT <= 0 && ds < M.gap * 1.6 && T.laneFree(car.s + 10, LANES_OURS[other], 1, M.gap) && T.laneFree(car.s - 8, LANES_OURS[other], 1, 12)) {
             SD.lane = other; SD.changeT = mode() === "meshuga" ? 3 : 6;
             emit("dealers:selfdrive", { on: true, lane: SD.lane });
         } else if (ds < M.gap) v = Math.min(v, Math.max(0, (lead.speed || 0) - (ds < M.gap * 0.6 ? 3 : 0.5)));
@@ -167,7 +238,7 @@ on("run:start", () => { if (SD.on) handBack("state"); });
 // ── ❚❚ the pause menu: on / off, the mode ──
 addMenuItem("pause", { id: "schlepOn", order: 84, cls: "alt",
     label: () => (SD.on ? "⚡ Take the wheel back" : `⚡ Let the car drive (${SUB.modes[mode()].name})`),
-    visible: () => ctx.state === "playing" && subActive() && evCar() && !(ctx.town && ctx.town.active) && !(ctx.foot && ctx.foot.active),
+    visible: () => ctx.state === "playing" && subActive() && evCar() && (!(ctx.town && ctx.town.active) || SD.on || pingHere()) && !(ctx.foot && ctx.foot.active),
     action: () => { const was = SD.on; resume(); if (was) handBack("you"); else engage(); } });
 addMenuItem("pause", { id: "schlepMode", order: 85, cls: "alt",
     label: () => `⚡ Driving mode: ${SUB.modes[mode()].name} → ${SUB.modes[nextMode()].name}`,

@@ -1794,7 +1794,19 @@ what she paid); at the end it renews once if not cancelled and she has the coins
 clear (`traffic.laneFree`). Steer / brake / nitro / handbrake take over; it hands back with a chime for a chase, a work
 zone ahead (`roadevents/construction.js` › `zoneAhead`), a 💼 job, a town, getting out, a crash. `ctx.G.selfDriving`
 turns off close calls (`core/driving.js`) and style moves (`moves/common.js` › `addMove`). Quirks (a phantom brake…).
-Not yet: through town to the 📍 Ping (needs ci/hud's ping). `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
+**To the 📍 Ping** (`route.js`): with a place pinged (`features/pins`) it TAKES THE EXIT — ~700 m out it builds one
+world-space path (the right lane, the taper, the decel lane, the branch to that town — `town/exit.js`'s own layout —
+a full STOP at the T, a right turn onto the cross road, on toward town) and a pure-pursuit follower drives it; the attached
+town takes over as she rolls up its approach. IN TOWN it plans a route over `town/plan.js`'s graph (a Dijkstra over
+crossing × the way she came in: never a U-turn, never the wrong way down a one-way) to the block with the door on her
+RIGHT; turns are the town drivers' bezier (`town/cars.js`), the circle is driven round; a full stop at every stop sign
+(`town/life.js` never says she ran one, and the +50 for a full stop isn't paid while self-driving); ≤ 24 mph in town
+(Ocean Pkwy's camera fires above 35), ≤ 14 in a school zone in school hours (`ctx.cameras.debug.inZone`), slow down a
+speed-bump street; it stops for anything in its path (traffic, `LIFE.people` / `geese` / `bikes`, + `route.js` ›
+`SOURCES` for any feature's own walkers) and pulls up double-parked beside the door: "📍 You have arrived. Probably."
+It hands back when it's lost (off its path 3 times), stuck (9 s behind the same thing), nosed across a street ("point it
+down a street first"), or the ping is in another town while she's in this one (it only knows the way IN, for now).
+Tunables: `route.js` › `NAV`. `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
 active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
 `dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
