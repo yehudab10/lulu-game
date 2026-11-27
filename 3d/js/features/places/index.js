@@ -157,10 +157,8 @@ on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) {
         for (const kind of Object.keys(DOORS)) {
             const D = DOORS[kind];
-            // (walkIn.n: a roadside place's buildings are a row of 4 m collision circles that stand ~2.5 m out in front of the
-            //  door — she stops at about n 1.1 from the spot and never reached the town default (−0.9): the push counts
-            //  from there. ci/qa, 2026-11-27 — qa27.)
-            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, door: true, walkIn: { id: () => roomId(kind, spot(kind)), get n() { const sp = spot(kind); return sp && sp.hw ? 1.8 : null; } }, label: D.label, short: D.short, act: () => enter(kind) });
+            // (a roadside place's colliders follow its walls — roadside.js colliders(): the town's walk-in push works there too)
+            ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, door: true, walkIn: { id: () => roomId(kind, spot(kind)) }, label: D.label, short: D.short, act: () => enter(kind) });
         }
         ctx.foot.addSpot({ pos: gatePos, r: 2.4, door: { w: 2.4 }, label: () => (ctx.impound && ctx.impound.gateLabel && ctx.impound.gateLabel()) || (impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT"), short: "IMPOUND", act: gate });
     }

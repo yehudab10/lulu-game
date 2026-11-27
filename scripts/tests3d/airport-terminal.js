@@ -324,8 +324,9 @@ async function friends(t) {
     await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.wanted = []; }); return true; })`);
     await t.frames(5);
     await t.boot(Q);
-    await t.click(/Friends/);
-    await t.L(`document.getElementById("pt_roam").click()`);
+    await t.game(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY first, then 📱 👯 › Play with a friend — the title has no Friends tile any more)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY: her run starts", 120000);
+  await t.game(`(ctx.party.hostRoam(), true)`);
     if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
     const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`);
     const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q}&party=${code}&with=${hostUid}`, { width: 960, height: 540 });
@@ -333,7 +334,12 @@ async function friends(t) {
     if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing"`, "guest joins Free Roam", 240000)) return;
     const guestUid = await A.game(`ctx.party.uid`);
     for (const P of [Hp, A]) await P.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
-    // both walk in through the same doors (here: the same stretch of road)
+    // both walk in through the same doors (here: the same stretch of road) — in their cars first (🌍 with friends rides on
+    // her own run now: the host starts at home, maybe on foot)
+    for (const P of [Hp, A]) {
+      await P.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+      await P.until(`ctx.state === "playing" && !ctx.foot.active`, `${P.label}: in her car`, 30000);
+    }
     await g(`ctx.party._debug.place(400, 5.25, 0)`);
     await A.game(`ctx.party._debug.place(404, 5.25, 0)`);
     await t.frames(10);
@@ -341,7 +347,11 @@ async function friends(t) {
       await P.game(`(window.__e = ctx.airport.debug.enterTerminal(), true)`);
       await P.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready && window.__interiors.room.def.id === "terminal"`, `${P.label}: inside the terminal`, 120000);
     }
-    await Hp.until(`ctx.together.debug.room().room === "terminal" && ctx.together.debug.room().mates.some(m => m.uid === ${JSON.stringify(guestUid)})`, "host sees the guest inside the terminal", 90000);
+    if (!await Hp.until(`ctx.together.debug.room().room === "terminal" && ctx.together.debug.room().mates.some(m => m.uid === ${JSON.stringify(guestUid)})`, "host sees the guest inside the terminal", 90000)) {
+      const dg = u => `(() => { const p = ctx.party.peer(${JSON.stringify("")} + ${JSON.stringify(u)}); const N = ctx.party._debug.N; return { net: { maxLen: N.maxLen | 0, slim: N.slim | 0, bcBig: N.bcBig | 0 }, me: { st: ctx.state, mode: ctx.G.mode, m: N.mode, zone: ctx.openworld.zone, room: ctx.together.debug.room() }, peer: p && { m: p.m, aid: p.aid, x: p.x, fresh: ctx.party.fresh(p, 8000) } }; })()`;
+      console.log("   TERMINAL diag host", JSON.stringify(await g(dg(guestUid))).slice(0, 900));
+      console.log("   TERMINAL diag guest", JSON.stringify(await A.game(dg(hostUid))).slice(0, 900));
+    }
     await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${JSON.stringify(hostUid)})`, "guest sees the host inside the terminal", 90000);
     t.check("…one terminal for both (the same instance)", (await g(`ctx.together.debug.room().inst`)) === "jfk" && (await A.game(`ctx.together.debug.room().inst`)) === "jfk");
     t.check("presence: the guest reads ✈️ in the JFK terminal", await g(`(() => { const p = ctx.party.presenceOf(${JSON.stringify(guestUid)}); return !!p && p.icon === "✈️" && /JFK terminal/.test(p.label); })()`), JSON.stringify(await g(`ctx.party.presenceOf(${JSON.stringify(guestUid)})`)));

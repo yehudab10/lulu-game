@@ -71,7 +71,7 @@ hook("update", (dt, P, controlsOn) => { partyStandDown(); update(dt, P, controls
  */
 function partyStandDown() {
     const pt = ctx.party;
-    if (!pt || !pt.active || !ctx.G || ctx.G.mode !== "party") return;
+    if (!pt || !pt.active || !ctx.G || !pt.inWorld) return;          // (a party run or 🌍 on her own run)
     const k = pt.activity && pt.activity.k;
     let why = "";
     if (k === "race" || k === "dash" || k === "tag") why = "race";

@@ -204,6 +204,13 @@ export class Traffic {
                     const g = (o.s - c.s) * c.dir;
                     if (g > 0 && g < gap) { gap = g; ahead = o; }
                 }
+                // (cars only another screen drives — friends on their own runs, features/party: { s, d, dir, speed } —
+                //  are followed the same way, so my traffic never drives through a friend from behind)
+                if (this.leads) for (const o of this.leads) {
+                    if (o.dir !== c.dir || Math.abs(o.d - c.d) > 2.2) continue;
+                    const g = (o.s - c.s) * c.dir;
+                    if (g > 0 && g < gap) { gap = g; ahead = o; }
+                }
                 let target = c.want;
                 if (ahead && gap < 26) {
                     target = Math.min(target, ahead.hit ? 0 : ahead.speed - 1.5);

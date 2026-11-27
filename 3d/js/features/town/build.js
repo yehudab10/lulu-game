@@ -12,6 +12,7 @@
 // malls, frontage strips, a college quad, the skyline around a city town, barricades).
 //
 // Returns T = { root, colliders + near(x, z), coins, lamps, cranes, stops, bumps, spots, jam, … dispose() }.
+import { FRONTS } from "./fronts.js";
 import * as THREE from "three";
 import { models, findNodes } from "../../models.js";
 import { worldMaterials, canvasTex } from "../../world.js";
@@ -91,7 +92,7 @@ export function* buildTownSteps(def) {
     const mergeFar = new Merger(150);     // the skyline: big cells, few draw calls
     const atlas = new Atlas(2048);
     const colliders = [];
-    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [], homes: [], drives: [] };
+    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [], homes: [], stores: [], drives: [], fronts: [] };
 
     const col = (lx, lz, r, kind = "town") => colliders.push({ x: wx(lx, lz), z: wz(lx, lz), r, kind });
     const sign = (spec, x, y, z, yaw, w, h, twoSided = false) => {
@@ -942,7 +943,7 @@ function* placeFace(B, kind, fr, counters) {
         // (features/homes: the front doors people live behind — model origin + frame, local coords)
         if (k === "town_duplex" || k === "town_townhouses" || k === "town_mw_house" || k === "town_mw_rowhouse")
             T.homes.push({ key: k, x: sx, z: sz, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, lotX, lotZ, w: D.w, dark, walls: tints && tints.Walls, face: kind });
-        let text = null, style = null;
+        let text = null, style = null, frontSmall = false;
         if (k === "town_shop") text = next("shops", S.shops);
         else if (k === "town_pizza") text = S.pizza;
         else if (k === "town_hall") text = S.hall;
@@ -953,7 +954,22 @@ function* placeFace(B, kind, fr, counters) {
         else if (k === "town_mw_carbase") text = S.carService;
         else if (k === "town_mw_shul") text = S.shul;
         else if (k === "town_mw_apts") text = next("apts", S.apts);
+        // (features/storefronts: every shopfront, in build order — its state + the name it really shows (a street never
+        //  repeats one: town/fronts.js' namer), where its door is)
+        if (text && (k === "town_shop" || k === "town_mw_store")) {
+            const list = k === "town_shop" ? "shops" : (it.list || "avej");
+            let st = null;
+            if (FRONTS.namer) { try { st = FRONTS.namer({ town: B.def.id, list, lines: text, x: sx, z: sz, i: T.fronts.length }, T.frontMemo || (T.frontMemo = {})); } catch (e) { console.error("[town] front namer", e); } }
+            if (st && st.lines) text = st.lines;
+            if (st && st.style) { style = st.style; frontSmall = !!st.small; }
+            const fa = anchorAt(k, sx, sz, fr.rot);
+            T.fronts.push({ i: T.fronts.length, key: k, list, name: text[0], sub: text[1] || "", st, dlx: lotX + fr.nx * 2.6, dlz: lotZ + fr.nz * 2.6,
+                door: { x: lotX + fr.nx * 2.6, z: lotZ + fr.nz * 2.6 }, facade: fa ? { x: fa.x, z: fa.z } : null, x: sx, z: sz, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, lotX, lotZ, w: D.w, face: kind });
+        }
         const a = text && anchorAt(k, sx, sz, fr.rot);
+        // (the PLAIN storefronts — decoration today; features/playershops leases them, ci/storefronts gives them states:
+        //  local coords like T.homes; `sign` = its lines + the sign's anchor)
+        if (k === "town_shop" || k === "town_mw_store") T.stores.push({ key: k, x: sx, z: sz, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, lotX, lotZ, w: D.w, list: it.list || kind, sign: text, door: { x: lotX + fr.nx * 0.4, z: lotZ + fr.nz * 0.4 }, anchor: a ? { x: a.x, y: a.y, z: a.z } : null });
         if (a) {
             const big = k === "town_hall" ? [15.4, 1.45, 96] : k === "town_yeshiva" ? [11.4, 1.15, 104] : k === "town_frame" ? [11.6, 1.7, 150]
                 : k === "town_mw_store" || k === "town_mw_bakery" ? [8.4, 0.9, 88] : k === "town_mw_carbase" ? [11.0, 1.1, 104] : k === "town_mw_shul" ? [9.6, 0.9, 96]
@@ -961,7 +977,7 @@ function* placeFace(B, kind, fr, counters) {
             const bg = k === "town_frame" ? "#FFFFFF" : k === "town_hall" ? "#1B1B1B" : k === "town_mw_carbase" ? "#111111" : k === "town_mw_apts" ? "#1B3A2B" : k === "town_mw_shul" ? "#F3E9D2" : style ? style.bg : "#FBF8F0";
             const fg = k === "town_frame" ? ["#B71C1C", "#1B5E20"] : k === "town_hall" ? ["#E8C766", "#F5F1E6"] : k === "town_mw_carbase" ? ["#FFD54F", "#FFFFFF"]
                 : k === "town_mw_apts" ? ["#E8C766"] : k === "town_mw_shul" ? ["#1A237E", "#5D4037"] : style ? style.fg : ["#2B1B2E", "#6D4C41"];
-            sign({ lines: text, bg, fg, w: style ? 640 : k === "town_mw_apts" ? 512 : 1024, h: Math.round(big[2] * (style ? 1.4 : 2)), radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, big[0], big[1]);
+            sign({ lines: text, bg, fg, w: frontSmall ? 448 : style ? 640 : k === "town_mw_apts" ? 512 : 1024, h: Math.round(big[2] * (frontSmall ? 1.0 : style ? 1.4 : 2)), radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, big[0], big[1]);
         }
         if (it.shtiebel && R() < 0.6) {
             // a shtiebel: a house with a little sign on the lawn

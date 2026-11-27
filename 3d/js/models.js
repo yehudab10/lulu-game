@@ -29,6 +29,9 @@ registerModels({
 registerModels({ bubbeHouse: "bubbe_house", bubbe: "bubbe" }, { preload: true });
 
 export const models = {};
+const CLIPS = {};
+/** A model's animation clips (by model key; [] for the many without). */
+export function modelClips(key) { return CLIPS[key] || []; }
 const pending = new Map();
 const loader = new GLTFLoader();
 
@@ -50,6 +53,7 @@ function loadOne(key) {
     if (!file) return Promise.reject(new Error(`unknown model "${key}" (registerModels first)`));
     const p = loader.loadAsync(`assets/${file}.glb`).then(gltf => {
         models[key] = prepare(gltf.scene);
+        if (gltf.animations && gltf.animations.length) CLIPS[key] = gltf.animations;   // (only the look test's skinned Lulu has any)
         pending.delete(key);
         warmShaders(models[key]);
         return models[key];

@@ -123,9 +123,20 @@ def render_preview():
     print("rendered", scn.render.filepath)
 
 
+def bump_sw_version():
+    """/sw.json's models key (the installed game's service worker drops its kept models when it changes)."""
+    import subprocess
+    root = os.path.abspath(os.path.join(HERE, "..", ".."))
+    try:
+        subprocess.run(["node", os.path.join(root, "scripts", "sw-version.js")], check=False)
+    except OSError:
+        print("NOTE: run `node scripts/sw-version.js` (node wasn't found) - the models changed")
+
+
 def main():
     for m in modules():
         build_module(m)
+    bump_sw_version()
     if RENDER:
         render_preview()
 

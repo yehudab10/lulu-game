@@ -59,6 +59,27 @@ export const mortgages = () => Object.entries(S.mortgage).map(([id, m]) => Objec
 const text = (msg, from) => { try { if (ctx.phone && ctx.phone.text) ctx.phone.text({ from: from || `🏦 ${banker(townId()).bank}`, emoji: "🏦", color: "#00695C", msg, thread: "bank", dur: 4.2 }); } catch (e) { /* no phone */ } };
 const mail = (id, what) => { const L = (S.bills[id] = S.bills[id] || []); L.push({ at: Date.now(), what, amount: 0, paid: true, from: "bank" }); if (L.length > 20) L.shift(); };
 
+// ── other property kinds on the same bank (features/playershops: a shop building, ids "shop:…") — one set of rules:
+//    the same plans, payments, letters and friendly foreclosure; the kind says whether she still owns it, what it's worth
+//    and how to give it back. ──
+const OTHER = {};
+/** kind = { owns(id) → bool, value(id) → coins, release(id, why) } for ids starting "<prefix>:". */
+export function addKind(prefix, kind) { OTHER[prefix] = kind; }
+const kindOf = id => OTHER[String(id).split(":")[0]] || null;
+/** A mortgage on another kind's property (the caller checked it's hers to buy): the down payment now. → { ok, why } */
+export function takeFor(id, info, p) {
+    if (!kindOf(id)) return { ok: false, why: "kind" };
+    if (S.mortgage[id]) return { ok: false, why: "has" };
+    if (wallet.coins < p.down || !wallet.spend(p.down)) return { ok: false, why: "coins" };
+    const d = today();
+    S.mortgage[id] = { address: info.address, town: info.town, price: p.price, down: p.down, loan: p.loan, fee: p.fee, total: p.total, days: p.days, perDay: p.perDay,
+        paid: 0, n: 0, missed: 0, start: d, last: d, due: false, paidIn: p.down, kind: String(id).split(":")[0] };
+    saveSoon();
+    emit("realestate:mortgage", { id, phase: "start", plan: p });
+    emit("stat", { id: "reMortgages", n: 1 });
+    return { ok: true };
+}
+
 /** Take out a mortgage on `rec` (it must be listed today): the down payment now. → { ok, why } */
 export function take(rec, p, extra = null) {
     if (party()) return { ok: false, why: "party" };
@@ -111,17 +132,17 @@ function done(id, how) {
 }
 /** The friendly foreclosure: the house goes back; she gets back the larger of the sale's leftovers or half she paid in. */
 export function foreclose(id) {
-    const m = S.mortgage[id], h = registry.get(id);
+    const m = S.mortgage[id], K = kindOf(id), h = K ? null : registry.get(id);
     if (!m) return 0;
-    const value = valueOf({ id, price: (h && h.price) || m.price });
+    const value = K ? K.value(id) || m.price : valueOf({ id, price: (h && h.price) || m.price });
     const equity = Math.round(value * (1 - SALE.fee)) - owed(m);
     const back = Math.max(0, equity, Math.round(m.paidIn * MORTGAGE.forecloseRefund));
     delete S.mortgage[id];
-    registry.release(id, "foreclosed");
+    if (K) K.release(id, "foreclosed"); else registry.release(id, "foreclosed");
     if (back) wallet.add(back);
     log({ ev: "foreclosed", id, n: back });
     saveSoon();
-    emit("realestate:owner", { id, from: "lulu", to: null, price: back, why: "foreclosed", address: m.address, town: m.town });
+    if (!K) emit("realestate:owner", { id, from: "lulu", to: null, price: back, why: "foreclosed", address: m.address, town: m.town });
     emit("realestate:mortgage", { id, phase: "foreclosed", back });
     emit("stat", { id: "reForeclosed", n: 1 });
     text(BANK_TEXTS.foreclose(m.address, fmt(back)));
@@ -139,8 +160,9 @@ export function tick() {
     for (const id of ids) {
         const m = S.mortgage[id];
         if (!m) continue;
-        if (!registry.mine(id)) { delete S.mortgage[id]; changed = true; continue; }   // (sold / gone some other way)
-        const hh = S.owned[id];
+        const K = kindOf(id);
+        if (!(K ? K.owns(id) : registry.mine(id))) { delete S.mortgage[id]; changed = true; continue; }   // (sold / gone some other way)
+        const hh = K ? null : S.owned[id];
         if (hh && (hh.seized || hh.lost)) { if (d > m.last) { m.last = d; m.due = false; changed = true; } continue; }   // (the government holds it: nothing billed)
         if (d > m.last) {
             changed = true;
