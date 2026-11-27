@@ -18,6 +18,14 @@ const townOf = (id, row) => (row.list === "shops" ? "lakewood" : row.list ? "mid
 
 /** The namer: ({ town, list, lines, x, z, i }, memo) → { lines, state, shop?, named?, reserved?, bowling? }. */
 export function nameFront(f, memo) {
+    const r = pickState(f, memo);
+    // (fronts another feature will take: ci/carcare — the whole Coney Island Ave row + both Minivan Washes; ci/lanes — the
+    //  bowling alley's Avenue M run. Their state stays as it is until that feature claims them.)
+    if (r && (f.list === "cia" || r.reserved === "carcare")) r.reserved = "carcare";
+    if (r && r.bowling) r.reserved = "lanes";
+    return r;
+}
+function pickState(f, memo) {
     const town = f.town, list = f.list || "avej";
     const used = memo.used || (memo.used = new Set());
     const B = BOWLING;
@@ -38,7 +46,8 @@ export function nameFront(f, memo) {
     // (one plain style + a smaller sign for all of them, whatever the street: one atlas cell per text — the town's sign
     //  atlas is tight, and these are a handful of shared texts)
     const k = memo.k = (memo.k || 0) + 1;
-    const state = FILL_CYCLE[(k - 1) % FILL_CYCLE.length];
+    const cyc = FILL_CYCLE[town] || FILL_CYCLE.midwood;
+    const state = cyc[(k - 1) % cyc.length];
     const signs = FILL_SIGN[town] || FILL_SIGN.midwood;
     return { lines: state === "soon" ? soonLines() : signs[state] || signs.lease, state, style: PLAIN[state] || PLAIN.lease, small: true };
 }

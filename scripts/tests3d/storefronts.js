@@ -55,6 +55,27 @@ module.exports = {
         if (id === "midwood") t.check("midwood: the long Avenue M front is kept for the bowling alley (COMING SOON: EAST MIDWOOD LANES)", fr.filter(f => f.bowl).length >= 4, String(fr.filter(f => f.bowl).length));
         const sc = await g(`ctx.town.debug.S.T.signs.scale`);
         t.check(`${id}: the town's signs stay sharp (atlas scale ${sc && sc.toFixed(3)} — before: midwood 0.531, lakewood 0.590)`, sc >= (id === "midwood" ? 0.52 : 0.58));
+        // FOR LEASE fronts for ci/playershops: enough, spread out (not all on one street / bunched)
+        const lease = await g(`ctx.storefronts.leasable()`);
+        const streets = new Set(lease.map(l => l.list)), near = lease.filter((a, i) => lease.some((b, j) => j !== i && Math.hypot(a.x - b.x, a.z - b.z) < 9)).length;
+        t.check(`${id}: FOR LEASE fronts for player shops (${lease.length} on ${streets.size} street(s), ${near} right next to another)`,
+          id === "midwood" ? lease.length >= 10 && streets.size >= 3 : lease.length >= 4 && lease.length <= 6, JSON.stringify(lease.map(l => l.id)));
+        if (id === "midwood") {
+          const cc = await g(`ctx.storefronts.reservedFor("carcare").length`), ln = await g(`ctx.storefronts.reservedFor("lanes").length`);
+          t.check(`midwood: kept for ci/carcare: the Coney Island Ave row + the Minivan Wash (${cc}) · for ci/lanes: the Avenue M run (${ln})`, cc >= 30 && ln >= 4);
+        } else t.check("lakewood: its Minivan Wash is kept for ci/carcare", (await g(`ctx.storefronts.reservedFor("carcare").map(f => f.name)`)).includes("MINIVAN WASH"));
+        // never nothing open: on a weekday, 6 am–midnight ≥ a third of each street's shops; overnight at least one
+        const cov = await t.L(`Promise.all([import("./js/features/storefronts/hours.js"), import("./js/core/ctx.js")]).then(([H, C]) => {
+          const fr = C.ctx.storefronts.fronts().filter(f => f.st && f.st.shop && f.list !== "landmark"), rows = C.ctx.storefronts.debug.F.list, bad = [];
+          const byList = {};
+          for (const f of fr) (byList[f.list] = byList[f.list] || []).push(C.ctx.storefronts.debug.F.list.find(x => x.id === f.id));
+          for (const [list, shops] of Object.entries(byList)) for (const wd of [1, 2, 3, 4]) for (let hr = 0; hr < 24; hr++) {
+            const d = new Date(2026, 10, 22 + wd, hr, 30), n = shops.filter(f => H.openAt((C.ctx.storefronts.debug.row(f) || {}).hours, d, { holy: false })).length;
+            const need = hr >= 6 ? Math.ceil(shops.length / 3) : 1;
+            if (n < need) bad.push(list + " d" + wd + " " + hr + ":30 " + n + "/" + shops.length);
+          }
+          return bad; })`);
+        t.check(`${id}: never nothing open — weekdays 6 am–midnight a third of each street's shops, overnight at least one`, cov.length === 0, cov.slice(0, 6).join(" · "));
         t.check(`${id}: one merged mesh for the door cards + papered windows`, await g(`(() => { const G = ctx.storefronts.debug.F.group; return !!G && G.children.length === 1 && ctx.storefronts.debug.F.look > 10; })()`));
       });
 
