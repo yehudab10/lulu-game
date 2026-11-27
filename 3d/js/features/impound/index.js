@@ -32,6 +32,7 @@ import { CONTACT_EXTRAS } from "../cityhall/pay.js";
 import { ID, FEE, CHARGE, L } from "./data.js";
 import { BR, breakTick, breakReset, panelSpot, startBreakIn } from "./breakin.js";
 import { TOW_FEE, L as CL } from "../cars/data.js";
+import { SKINS } from "../../car.js";
 
 export const SAVE = store(ID, { paid: 0, breakDay: "", breaks: 0, clean: 0, slip: null });
 /** Per run: where her car is held + whether the release is paid. */
@@ -119,7 +120,9 @@ export async function gate() {
     if (!live() || !heldHere()) return false;
     if (IM.released) { await say(L.gateWho, L.rolled, { emoji: L.gateEmoji }); release("slip"); return true; }
     const f = fee();
-    const i = await choose(L.gateWho, fill(L.gateAsk, { fee: f }), [fill(L.gatePay, { fee: f }), L.gateCityHall, L.gateLeave], { emoji: L.gateEmoji });
+    // (the car she's after by name — it used to say "Pink convertible" whatever she drives)
+    const sk = IM.held.key && SKINS[IM.held.key], car = sk ? sk.name : "Pink convertible";
+    const i = await choose(L.gateWho, fill(L.gateAsk, { fee: f, car }), [fill(L.gatePay, { fee: f }), L.gateCityHall, L.gateLeave], { emoji: L.gateEmoji });
     if (i !== 0) return true;
     const r = pay("gate");
     if (r === "broke") { await say(L.gateWho, brokeLine(), { emoji: L.gateEmoji }); return true; }
