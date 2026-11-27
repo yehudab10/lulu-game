@@ -228,19 +228,28 @@ function buildWeigh() {
 const BUILD = { hatzalah: buildHatzalah, trooper: buildTrooper, weigh: buildWeigh };
 for (const R of ROADSIDE) { const k = "roadside_" + R.id; if (!models[k]) models[k] = BUILD[R.id](); }
 
-/** Colliders (world circles) for the copy's buildings: their footprints, filled with ~1.6 m circles. */
+/** Colliders (world circles) for the copy's buildings: their footprints (model-local x0, x1, z0, z1) — see colliders(). */
 const FOOT = {
     hatzalah: [[-8, 13, -12, -3]],
     trooper: [[-22, -6, -14, -5], [-27.5, -22.5, -12, -5], [2, 16, -12, -6], [19, 29, -14, -13.6], [19, 19.4, -14, -2], [28.6, 29, -14, -2], [19, 22.6, -2.3, -2], [25.4, 29, -2.3, -2]],
     weigh: [[-13, -3, -11, -4], [4, 16, -10, -3], [-25, -15, -12, -11.6], [-25, -24.6, -12, -3], [-15.4, -15, -12, -3], [-25, -21, -3.3, -3], [-18, -15, -3.3, -3]],
 };
 function colliders(R, F) {
-    const out = [];
+    // (circles whose edges sit ON the walls — a ring of small ones round each footprint + a row down its middle — so
+    //  the doorstep in front of a door is free and nothing stands out past a wall; qa27)
+    const out = [], add = (x, z, r) => { const p = toW(F, x, z); out.push({ x: p.x, z: p.z, r, kind: "building" }); };
     for (const [x0, x1, z0, z1] of FOOT[R.id]) {
-        const r = 0.8, nx = Math.max(1, Math.round((x1 - x0) / (r * 2))), nz = Math.max(1, Math.round((z1 - z0) / (r * 2)));
-        for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
-            const w = toW(F, x0 + (i + 0.5) * (x1 - x0) / nx, z0 + (j + 0.5) * (z1 - z0) / nz);
-            out.push({ x: w.x, z: w.z, r: Math.max(r, Math.min(x1 - x0, z1 - z0) / 2 * 0.9), kind: "building" });
+        const w = x1 - x0, d = z1 - z0, thin = Math.min(w, d);
+        const r = Math.min(0.6, Math.max(0.3, thin / 2)), step = r * 1.6;
+        const ax0 = x0 + Math.min(r, w / 2), ax1 = x1 - Math.min(r, w / 2), az0 = z0 + Math.min(r, d / 2), az1 = z1 - Math.min(r, d / 2);
+        const edge = (xa, za, xb, zb) => { const n = Math.max(1, Math.ceil(Math.hypot(xb - xa, zb - za) / step)); for (let i = 0; i <= n; i++) add(xa + (xb - xa) * i / n, za + (zb - za) * i / n, r); };
+        edge(ax0, az0, ax1, az0);
+        if (az1 > az0) { edge(ax0, az1, ax1, az1); edge(ax0, az0, ax0, az1); edge(ax1, az0, ax1, az1); }
+        // the middle: a row of big circles down the long axis, each inside the walls
+        if (thin > 2.4) {
+            const ri = thin / 2 - 0.3, long = w >= d;
+            const a0 = (long ? x0 : z0) + thin / 2, a1 = (long ? x1 : z1) - thin / 2, n = Math.max(1, Math.ceil((a1 - a0) / ri));
+            for (let i = 0; i <= n; i++) { const t = a0 + (a1 - a0) * i / n; if (long) add(t, (z0 + z1) / 2, ri); else add((x0 + x1) / 2, t, ri); }
         }
     }
     return out;
