@@ -39,7 +39,8 @@ ctx.mp = {
     emote: idx => N.sendEmote(idx),
     get connected() { return MP.connected; },
     get riders() { return N.riderCount(); },
-    get room() { return MP.room; },
+    get room() { return MP.roomKind === "place" ? "lobby" : MP.room; },   // (🌍 a place room is "the everyone world" to the rest of the game)
+    get placeRoom() { return MP.roomKind === "place" ? MP.room : null; },
     parkingRng: N.parkingRng,
     parkingSpotIndex: N.parkingSpotIndex,
     parkingGhosts: N.parkingGhosts,

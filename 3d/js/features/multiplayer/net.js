@@ -20,7 +20,8 @@
 import { ctx, emit } from "../../core/ctx.js";
 import { save3d, shared } from "../../core/save.js";
 import { tone } from "../parking/sfx.js";
-import * as WC from "./worldclock.js";   // 🌍 the world clock + the relay's kill switches (ci/oneserver)
+import * as WC from "./worldclock.js";
+import * as PL from "./place.js";        // 🌍 step 3: rooms by place (only when the relay's flag says so)   // 🌍 the world clock + the relay's kill switches (ci/oneserver)
 
 const QS = new URLSearchParams(location.search);
 export const MP_URL_LIVE = "wss://lulu-shared-road.lulu-boats-1f4cdd.workers.dev";
@@ -51,6 +52,7 @@ const fin = (v, lo, hi) => typeof v === "number" && isFinite(v) ? Math.max(lo, M
 export const MP = {
     sock: null, want: false, connected: false, ever: false, room: "lobby", roomKind: "everyone",
     myId: null, peers: {}, clock: 0, sendT: 0, pingT: 0, reconnectAt: 0, reconnectDelay: 1, wantSince: 0,
+    sid: Math.random().toString(36).slice(2, 10).padEnd(8, "0"), alias: {},
     piN: 0, piWall: 0, quickPings: 0, quickAt: 0, gotHello: false, failRun: 0, relOut: new Map(), relSeen: new Set(),   // 🌍 ci/oneserver
     switchTo: null, forceSends: 0,
     codeSlots: [0, 0, 0, 0].map(() => Math.floor(Math.random() * 26)),
@@ -81,7 +83,7 @@ export function targetRoom() {
     if (MP.roomKind !== "friend") return "lobby";
     return MP.codeSlots.map(c => String.fromCharCode(65 + c)).join("");
 }
-export function friendRoom() { return MP.connected && MP.room !== "lobby"; }
+export function friendRoom() { return MP.connected && MP.roomKind === "friend"; }   // (a place room is strangers, like the lobby)
 /** The relay room I'm actually in (EVERYONE shards to lobby2… when the first is full). */
 export function roomPath() { return MP.room === "lobby" ? (MP.shard ? "lobby" + (MP.shard + 1) : "lobby") : MP.room.toUpperCase(); }
 function hash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h >>> 0; }
@@ -90,12 +92,12 @@ export function partyTag(code) { return (hash("pt:" + code) % 1679616).toString(
 export function strangerLabel(id, sk) { return `${COLOUR[sk] || "Rider"} ${10 + hash(id) % 90}`; }
 /** What I show for a peer: friends (a code room) by their curated name, everyone else by a generated label. */
 export function labelFor(p) {
-    const fr = MP.room === "lobby" && ctx.friends && ctx.friends.byMp ? ctx.friends.byMp(p.id) : null;   // (features/friends: a friend told me which ghost she is — sealed)
+    const fr = MP.roomKind !== "friend" && ctx.friends && ctx.friends.byMp ? ctx.friends.byMp(p.id) : null;   // (features/friends: a friend told me which ghost she is — sealed)
     if (fr) return "👯 " + fr;
     // (features/accounts: a USERNAME — never the text they sent: the server tells me whose ticket this is; ⚙️ can hide it)
-    const un = p.un && ctx.accounts && ctx.accounts.ghostName ? ctx.accounts.ghostName(roomPath(), p.id, p.un) : null;
+    const un = p.un && ctx.accounts && ctx.accounts.ghostName ? ctx.accounts.ghostName(p.room || roomPath(), p.id, p.un) : null;
     if (un) return un;
-    if (MP.room !== "lobby" && CURATED_NAMES.includes(p.raw)) return p.raw;
+    if (MP.roomKind === "friend" && CURATED_NAMES.includes(p.raw)) return p.raw;
     return strangerLabel(p.id, p.sk);
 }
 /** Labels again (features/friends learnt which ghost a friend is). */
@@ -113,6 +115,7 @@ export function send(obj) { try { if (sockOpen()) MP.sock.send(JSON.stringify(ob
 export function connect(room, kind) {
     if (!allowed()) return;
     if (room) { MP.room = room; MP.roomKind = kind || (room === "lobby" ? "everyone" : "friend"); }
+    if (MP.room === "lobby" && MP.roomKind === "everyone" && WC.flag("place")) { const pr = PL.roomFor(MP.me.w); if (pr) { MP.room = pr; MP.roomKind = "place"; } }   // 🌍 step 3
     if (!shared.get().mpName) shared.update(s => { s.mpName = CURATED_NAMES[Math.floor(Math.random() * CURATED_NAMES.length)]; });
     MP.want = true; MP.wantSince = MP.clock; MP.ever = true; MP.shard = 0;
     MP.connected = false; MP.peers = {}; MP.reconnectDelay = 1; MP.reconnectAt = MP.clock;
@@ -126,6 +129,7 @@ export function disconnect(optOut = true) {
     MP.convoy.active = false; MP.convoy.t = MP.convoy.grace = 0;
     MP.draft.active = false; MP.draft.t = MP.draft.grace = 0;
     if (MP.sock) { try { MP.sock.onclose = null; MP.sock.close(); } catch (e) { } MP.sock = null; }
+    placeStop();
     if (optOut) shared.update(s => { s.mpAutoOff = true; });   // explicit solo: cruise won't auto-join
     emit("mp:status", { want: false });
 }
@@ -138,7 +142,9 @@ export function switchRoom(room, kind) {
     MP.tag = null; MP.tagBanner = null;
     MP.draft.active = false; MP.draft.t = MP.draft.grace = 0;
     if (MP.sock) { try { MP.sock.onclose = null; MP.sock.close(); } catch (e) { } MP.sock = null; }
-    MP.connected = false; MP.myId = null; MP.peers = {};
+    MP.connected = false; MP.myId = null;
+    if (!(kind === "place" && MP.roomKind === "place")) MP.peers = {};   // (place → place: keep who we hear; pruned on the hello)
+    if (kind !== "place") placeStop();
     MP.room = room; MP.roomKind = kind; MP.want = true; MP.ever = true; MP.shard = 0;
     MP.wantSince = MP.clock; MP.reconnectDelay = 1; MP.reconnectAt = MP.clock;
     MP.switchTo = roomLabel(room);
@@ -174,8 +180,11 @@ function onOpen() {
 }
 function onClose(ws, ev) {
     if (ws !== MP.sock) return;
-    MP.sock = null; MP.connected = false; MP.peers = {};
+    MP.sock = null; MP.connected = false;
+    if (MP.roomKind !== "place") MP.peers = {};
     if (!MP.want) return;
+    // 🌍 step 3: a full place room → its next split, straight away
+    if (ev && ev.code === 4001 && MP.roomKind === "place") { const nx = PL.nextSplit(MP.room); if (nx) { MP.room = nx; MP.reconnectAt = MP.clock; return; } }
     // EVERYONE is full (close 4001): straight on to the next shard — no waiting, no message
     if (ev && ev.code === 4001 && MP.room === "lobby" && MP.shard < SHARDS - 1) { MP.shard++; MP.reconnectAt = MP.clock; return; }
     // 🌍 the relay keeps refusing: if it's the free daily allowance, say so once (worldclock.js) — play goes on solo
@@ -185,35 +194,57 @@ function onClose(ws, ev) {
 }
 function scheduleReconnect() { MP.reconnectAt = MP.clock + MP.reconnectDelay; MP.reconnectDelay = Math.min(MP.reconnectDelay * 2, 10); }
 
+// Where a message came from: the main socket (src.main), or 🌍 step 3's listener / bridge. A peer's KEY is src.prefix +
+// its relay id: "" for the lobby / a friend room (exactly as before), "ROOM:" in place mode (so a player heard by the
+// listener keeps the same key once she's in the main room — no blink), "L:" for an old copy heard in the lobby bridge.
+const LEGACY = { prefix: "", room: null, main: true };
+function mainSrc() { if (MP.roomKind !== "place") return LEGACY; const r = roomPath(); return { prefix: r + ":", room: r, main: true }; }
 function onMessage(ev) {
     let msg;
     try { msg = JSON.parse(ev.data); } catch (e) { return; }
     if (!msg || !msg.t) return;
+    handle(msg, mainSrc());
+}
+// 🌍 a player's relay id changes with every room she joins; in place mode her state carries a session tag (`sid`, made
+// once per page load) and she's kept under "S:" + sid — the SAME entry (and the same car on screen) as she crosses rooms.
+const SID_RE = /^[a-z0-9]{6,12}$/;
+const pkey = (src, id) => (src.prefix && MP.alias[src.prefix + id]) || src.prefix + id;
+function handle(msg, src) {
+    const key = id => pkey(src, id);
     if (msg.t === "h") {
-        MP.myId = msg.id; MP.connected = true; MP.switchTo = null; MP.peers = {};
-        MP.gotHello = true; MP.failRun = 0; WC.clearResting();
-        for (const pp of msg.peers || []) { addPeer(pp.id, pp.name, pp.sk); if (pp.d) applyState(pp.id, pp.d, true); }
-        emit("mp:status", { connected: true });
-        if (Array.isArray(msg.r)) for (const e of msg.r.slice(-32)) relIn(e, true);    // 🌍 step 2: what happened just before I came
-    } else if (msg.t === "+") addPeer(msg.id, msg.name, msg.sk);
-    else if (msg.t === "s") { applyState(msg.id, msg.d); const p = MP.peers[msg.id]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
-    else if (msg.t === "r") relIn(msg, false);
-    else if (msg.t === "ra") MP.relOut.delete(msg.id);
-    else if (msg.t === "e") peerEvent(msg.id, msg.e);
-    else if (msg.t === "-") { const p = MP.peers[msg.id]; if (p) p.dropping = true, p.left = true; }
-    else if (msg.t === "po" && MP.piAt) {
+        if (src.main) {
+            MP.myId = msg.id; MP.connected = true; MP.switchTo = null;
+            if (src.prefix) placePrune(); else MP.peers = {};
+            MP.gotHello = true; MP.failRun = 0; WC.clearResting();
+        }
+        for (const pp of msg.peers || []) { addPeer(pp.id, pp.name, pp.sk, src); if (pp.d) applyState(pp.id, pp.d, true, src); }
+        if (src.main) emit("mp:status", { connected: true });
+        if (Array.isArray(msg.r)) for (const e of msg.r.slice(-32)) relIn(e, true, src);    // 🌍 step 2: what happened just before I came
+    } else if (msg.t === "+") addPeer(msg.id, msg.name, msg.sk, src);
+    else if (msg.t === "s") { applyState(msg.id, msg.d, false, src); const p = MP.peers[key(msg.id)]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
+    else if (msg.t === "r") relIn(msg, false, src);
+    else if (msg.t === "ra") { if (src.main) MP.relOut.delete(msg.id); }
+    else if (msg.t === "e") peerEvent(key(msg.id), msg.e);
+    else if (msg.t === "-") {
+        const k = key(msg.id), p = MP.peers[k];
+        if (src.prefix) delete MP.alias[src.prefix + msg.id];
+        if (p && (!k.startsWith("S:") || (p.id === msg.id && p.room === src.room))) p.dropping = true, p.left = true;   // (an old connection of someone who moved on: ignored)
+    }
+    if (!src.main) return;
+    if (msg.t === "po" && MP.piAt) {
         const rtt = performance.now() - MP.piAt;
         MP.rtt = Math.round(rtt); MP.piAt = 0;
         if (typeof msg.st === "number" && msg.n === "c" + MP.piN) WC.addSample(msg.st, rtt, MP.piWall + rtt);   // 🌍 step 1
     }
 }
 
-function addPeer(id, name, sk) {
-    if (!id || id === MP.myId || typeof id !== "string" || id.length > 24) return null;
+function addPeer(id, name, sk, src = LEGACY) {
+    if (!id || (src.main && id === MP.myId) || typeof id !== "string" || id.length > 24) return null;
     sk = typeof sk === "string" && SK_RE.test(sk) ? sk : null;
-    let p = MP.peers[id];
+    const k = pkey(src, id);
+    let p = MP.peers[k];
     if (!p) {
-        p = MP.peers[id] = { id, raw: "", name: "", sk: sk || "pink", m: 0, vk: "car", ct: 0, co: null,
+        p = MP.peers[k] = { id, key: k, room: src.room, raw: "", name: "", sk: sk || "pink", m: 0, vk: "car", ct: 0, co: null,
             x: X_MID, tx: X_MID, di: 0, sp: 0, seen: false, lastPacket: MP.clock, honkT: 0, waveT: 0, emT: 0,
             rel: 0, vis: 0, dropping: false, bonkCd: 0, bonkOverlap: false, evAt: -9, emAt: -9, pbAt: -999, w: null };
     } else if (sk) p.sk = sk;
@@ -222,9 +253,21 @@ function addPeer(id, name, sk) {
     return p;
 }
 
-function applyState(id, d, snap) {
-    if (!id || id === MP.myId || !d) return;
-    const p = MP.peers[id] || addPeer(id, null, null);
+function applyState(id, d, snap, src = LEGACY) {
+    if (!id || (src.main && id === MP.myId) || !d) return;
+    if (src.bridge && d.pl) { delete MP.peers[src.prefix + id]; return; }   // 🌍 a new copy in the lobby bridge: we see her in her place room
+    if (src.prefix && !src.bridge && typeof d.sid === "string" && SID_RE.test(d.sid)) {
+        const raw = src.prefix + id, sk = "S:" + d.sid;
+        if (MP.alias[raw] !== sk) {
+            const tmp = MP.peers[raw];
+            if (tmp && !MP.peers[sk]) { MP.peers[sk] = tmp; tmp.key = sk; }
+            if (tmp) delete MP.peers[raw];
+            MP.alias[raw] = sk;
+        }
+        const q = MP.peers[sk];
+        if (q) { q.id = id; q.room = src.room; q.left = false; if (q.un && q.unRoom !== src.room) { q.un = null; } q.unRoom = src.room; }
+    }
+    const p = MP.peers[pkey(src, id)] || addPeer(id, null, null, src);
     if (!p) return;
     p.lastPacket = MP.clock; p.dropping = false;
     if (d.m === 0 || d.m === 1) p.m = d.m;
@@ -329,13 +372,13 @@ export function sendRel(k, d = null) {
     send(msg);
     return id;
 }
-function relIn(e, late) {
-    if (!e || typeof e.from !== "string" || typeof e.id !== "string" || !REL_K.test(e.k) || e.from === MP.myId) return;
-    const key = e.from + ":" + e.id;
+function relIn(e, late, src = LEGACY) {
+    if (!e || typeof e.from !== "string" || typeof e.id !== "string" || !REL_K.test(e.k) || (src.main && e.from === MP.myId)) return;
+    const pk = pkey(src, e.from), key = pk + ":" + e.id;
     if (MP.relSeen.has(key)) return;
     MP.relSeen.add(key);
     if (MP.relSeen.size > 400) MP.relSeen.delete(MP.relSeen.values().next().value);
-    emit("mp:event", { from: e.from, peer: MP.peers[e.from] || null, k: e.k, d: e.d && typeof e.d === "object" ? e.d : null, st: e.st, late: !!late });
+    emit("mp:event", { from: pk, peer: MP.peers[pk] || null, k: e.k, d: e.d && typeof e.d === "object" ? e.d : null, st: e.st, late: !!late });
 }
 function relTick() {
     for (const [id, o] of MP.relOut) {
@@ -354,6 +397,7 @@ function sendState() {
     if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     if (MP.fr) d.fr = MP.fr;                          // (features/friends: my ➕ friend handshake entries, ≤ 3)
     const un = MP.myId && ctx.accounts && ctx.accounts.ticketFor ? ctx.accounts.ticketFor(roomPath(), MP.myId) : null;
+    if (MP.roomKind === "place") d.sid = MP.sid;      // (🌍 step 3: the same me across rooms — net.js › pkey)
     if (un) d.un = un;                                // (features/accounts: "this connection is account X", signed by the server)
     const pk = ctx.parking && ctx.parking.pose ? ctx.parking.pose() : null;
     if (pk) d.pk = pk;
@@ -370,6 +414,7 @@ function sendState() {
         if (MP.tag.over && MP.tag.resultsSentAt >= 0 && MP.clock - MP.tag.resultsSentAt < 4) d.tgr = [MP.tag.gid, Math.round(MP.tag.myItTime)];
     }
     send({ t: "s", d });
+    MP.lastD = d;                                     // (🌍 step 3: the lobby bridge repeats it once a second)
 }
 
 // ── records / emotes ─────────────────────────────────────────────────────
@@ -623,6 +668,7 @@ export function tick(dt, me) {
     if (sockOpen()) { MP.pingT += dt; if (MP.pingT >= 25) { MP.pingT = 0; pingRelay(); } }
     if (MP.connected && MP.quickPings > 0 && !MP.piAt && MP.clock >= MP.quickAt) { MP.quickPings--; MP.quickAt = MP.clock + 0.4; pingRelay(); }   // 🌍 step 1
     if (MP.relOut.size) relTick();
+    placeTick(dt);
     raceUpdate(dt);
     if (MP.connected && (me.sending || me.hidden || MP.race)) {
         MP.sendT += dt;
@@ -657,3 +703,39 @@ export function tick(dt, me) {
 ctx.mpNet = { MP, connect, disconnect, switchRoom, sendEmote, raceStart, tagStart, noteRecord };
 
 WC.setBase(MP_URL ? String(MP_URL).replace(/^ws/, "http") : "");   // 🌍 worldclock.js talks to the same relay
+
+// ── 🌍 STEP 3: rooms by place — the main room follows her, a listener near a boundary, a bridge for old copies ─────
+// (only when the relay's /world/config says place: 1 — off until the owner is on Cloudflare's Paid plan)
+const PS = { at: 0, listen: null, bridge: null, bridgeAt: 0 };
+function placeStop() { if (PS.listen) { PS.listen.close(); PS.listen = null; } if (PS.bridge) { PS.bridge.close(); PS.bridge = null; } }
+/** Forget players heard in rooms we no longer follow (on a main hello). */
+function placePrune() {
+    const keep = new Set([roomPath(), PS.listen && PS.listen.room, PS.bridge && "L"]);
+    for (const k in MP.peers) { const p = MP.peers[k]; const r = k.startsWith("L:") ? "L" : p.room; if (!keep.has(r)) delete MP.peers[k]; }
+    for (const a in MP.alias) if (!MP.peers[MP.alias[a]]) delete MP.alias[a];
+}
+function placeSub(room, opts) {
+    return new PL.Sub(MP_URL, room, Object.assign({ name: myName(), sk: ctx.car ? ctx.car.skinKey : "pink",
+        onMsg: (m, sub) => handle(m, sub.src),
+        onDown: sub => { if (sub.src.room === roomPath()) return; for (const k in MP.peers) { const p = MP.peers[k]; if (k.startsWith(sub.src.prefix) || (k.startsWith("S:") && p.room === sub.src.room)) delete MP.peers[k]; } } }, opts));
+}
+function placeTick(dt) {
+    if ((PS.at -= dt) > 0) return;
+    PS.at = 0.5;
+    const on = WC.flag("place") && MP.want && (MP.roomKind === "place" || (MP.roomKind === "everyone" && MP.room === "lobby"));
+    if (!on) {
+        if (MP.roomKind === "place" && MP.want) switchRoom("lobby", "everyone");     // (the kill switch went off: back to the lobby)
+        placeStop();
+        return;
+    }
+    const w = MP.me.w, want = PL.roomFor(w);
+    if (want && PL.baseOf(MP.room) !== want) { switchRoom(want, "place"); return; }
+    if (!MP.connected) return;
+    // the listener: the neighbouring segment when she's near it
+    const edge = PL.edgeFor(w);
+    if (PS.listen && PS.listen.room !== edge) { PS.listen.close(); PS.listen = null; }
+    if (edge && !PS.listen) { PS.listen = placeSub(edge, { listen: true }); PS.listen.src = { prefix: edge + ":", room: edge, main: false }; }
+    // the lobby bridge: old copies of the game still see her (once a second) and she sees them
+    if (!PS.bridge) { PS.bridge = placeSub("LOBBY", {}); PS.bridge.src = { prefix: "L:", room: "LOBBY", main: false, bridge: true }; }
+    if (MP.clock - PS.bridgeAt >= 1 && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; PS.bridge.send({ t: "s", d: Object.assign({}, MP.lastD, { pl: 1 }) }); }
+}
