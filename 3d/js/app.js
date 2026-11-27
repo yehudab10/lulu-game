@@ -198,6 +198,7 @@ async function testFrame(dt) {
     if (m === "idle") { const r = testRealNow(); if (r - TC.idleAt < TC.idleMs) return; TC.idleAt = r; }
     stepping = true;
     try {
+        if (TC.restore) TC.restore();   // (a full-size picture drawn for a check / a screenshot: back to the small canvas)
         testBeforeStep();               // (the page's clock: one frame later)
         const P = frameInput(dt);
         if (skipping()) { await fastForward(P); TC.drawn = ctx.frames; }
@@ -421,7 +422,14 @@ window.__lulu3d = {
     get fast() { return TC.on; }, TC, setGate, gateHit, clearGate, runAdd, realFrame,
     /** fast clock: draw the frame now, for a check that reads the picture right after (always: a frame drawn in an
      *  earlier browser frame has been shown, and a shown WebGL picture is gone from the canvas's buffer) */
-    drawNow() { if (ctx.world && ctx.car) { present(0, true); TC.drawn = ctx.frames; } return true; },
+    drawNow() {
+        if (!ctx.world || !ctx.car) return true;
+        // (at FULL size: on the small canvas a close wall loses its texture and reads as one flat colour — qa7's flat
+        //  check. Back to the small canvas on the next frame)
+        if (TC.scale !== 1 && !TC.restore) { renderer.setPixelRatio(gfx.pixelRatio); TC.restore = () => { renderer.setPixelRatio(gfx.pixelRatio * TC.scale); TC.restore = null; }; }
+        present(0, true); TC.drawn = ctx.frames;
+        return true;
+    },
     get drawnFrame() { return TC.drawn; },
     afterShot() { if (TC.restore) TC.restore(); return true; },
 };
