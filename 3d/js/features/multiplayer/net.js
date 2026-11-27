@@ -737,7 +737,7 @@ function placeTick(dt) {
     const edge = PL.edgeFor(w);
     if (PS.listen && PS.listen.room !== edge) { PS.listen.close(); PS.listen = null; }
     if (edge && !PS.listen) { PS.listen = placeSub(edge, { listen: true }); PS.listen.src = { prefix: edge + ":", room: edge, main: false }; }
-    // the lobby bridge: old copies of the game still see her (once a second) and she sees them
+    // the lobby bridge: old copies of the game still see her (every 2 s — they fade out as copies update) and she sees them
     if (!PS.bridge) { PS.bridge = placeSub("LOBBY", {}); PS.bridge.src = { prefix: "L:", room: "LOBBY", main: false, bridge: true }; }
-    if (MP.clock - PS.bridgeAt >= 1 && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; PS.bridge.send({ t: "s", d: Object.assign({}, MP.lastD, { pl: 1 }) }); }
+    if (MP.clock - PS.bridgeAt >= 2 && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; PS.bridge.send({ t: "s", d: Object.assign({}, MP.lastD, { pl: 1 }) }); }
 }

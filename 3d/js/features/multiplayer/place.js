@@ -2,16 +2,19 @@
 // ONLY when the relay says so (GET /world/config → place: 1 — it stays 0 until the owner is on Cloudflare's Paid plan).
 // Without it, nothing here runs and EVERYONE stays the old lobby…lobby8 rooms.
 //
-//  • THE ROOM IS THE PLACE: the highway lap in 500 m segments ("WL0" … "WL31"), each town ("WTMIDWOOD"…). Two players
+//  • THE ROOM IS THE PLACE: the highway lap in 2 km stretches ("WL0" … "WL7"), each town ("WTMIDWOOD"…). Two players
 //    in the same spot are always in the same room. A full room (40, the relay's cap) splits: "WL3" → "WL3X2" → "WL3X3"…
-//  • NO BLINK AT A BOUNDARY: within 150 m of the next segment the game also LISTENS there (a join with lo: 1 — it hears
+//  • NO BLINK AT A BOUNDARY: within 320 m (the drawing range) of the next stretch the game also LISTENS there (a join with lo: 1 — it hears
 //    everything, says nothing, costs nothing: messages out are free). Players heard that way are the same entries
 //    (keyed "ROOM:id") as when she then joins that room, so nobody pops in or out as she crosses.
-//  • OLD COPIES OF THE GAME still see her: a BRIDGE in the old "lobby" room sends her state once a second (marked pl: 1
+//  • OLD COPIES OF THE GAME still see her: a BRIDGE in the old "lobby" room sends her state every 2 s (marked pl: 1
 //    so new copies ignore it there — they see her in the place room) and hears old copies' players.
 // net.js owns the main socket; this file decides the room, and runs the listener + the bridge (Sub sockets) whose
 // messages go through net.js's handle(msg, src).
-export const SEG = 500, EDGE = 150, LAP = 16000;
+// 2 km stretches: every room change is a new connection, and each one counts on Cloudflare's free daily allowance —
+// at highway speed 500 m stretches cost ~+70 % on the budget, 2 km ones ~+15 %. Players are drawn only within a few
+// hundred metres anyway (nearest few), so a bigger room shows nothing extra.
+export const SEG = 2000, EDGE = 320, LAP = 16000;   // (EDGE = net.js VIS_M: anyone close enough to draw is heard)
 const SPLITS = ["", "X2", "X3", "X4", "X5", "X6"];   // a full room splits: "WL3" → "WL3X2" → "WL3X3"…
 
 /** The place room for my world spot (`me.w` = [zone, a, b, h]) → "WL7" / "WTMIDWOOD", or null (hidden / unknown). */

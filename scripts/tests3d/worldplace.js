@@ -1,7 +1,7 @@
 // 🌍 ROOMS BY PLACE (ci/oneserver step 3 — on ci/oneserver-place; NOT deployed while the owner is on the Free plan) —
 // real pages against a LOCAL relay (place: 1, as in production since 2026-11-27; WORLD_PLACE=0 turns it off for a test).
 //   SAME SPOT = SAME ROOM   A and B on the same stretch of the lap are both in "WL0" and see each other
-//   ACROSS A BOUNDARY       A just past the 500 m line ("WL1"), B just before it ("WL0"): each LISTENS to the other's
+//   ACROSS A BOUNDARY       A just past the 2 km line ("WL1"), B just before it ("WL0"): each LISTENS to the other's
 //                           room near the line and they still see each other
 //   NO BLINK                B drives across into "WL1": on A's screen B is the SAME entry (key "S:" + B's session tag)
 //                           before and after — she never vanishes or pops in
@@ -59,14 +59,14 @@ module.exports = {
       t.check("…and they see each other", await A.until(`Object.values(ctx.mp._debug.peers).some(p => p.seen && p.room === "WL0")`, "A sees B") && await B.until(`Object.values(ctx.mp._debug.peers).some(p => p.seen)`, "B sees A"));
       t.check("the rest of the game still calls it the everyone world", await A.game(`ctx.mp.room`) === "lobby");
       // across the 500 m line
-      await MOVE(A, 560); await MOVE(B, 470);
+      await MOVE(A, 2060); await MOVE(B, 1900);   // (both within 320 m of the line)
       t.check("A past the line → WL1; B just before it stays in WL0", await A.until(`ctx.mp.placeRoom === "WL1" && ctx.mp._debug.connected`, "A in WL1") && await B.until(`ctx.mp.placeRoom === "WL0"`, "B in WL0"));
       t.check("…they still see each other across the line (each listens next door)", await A.until(`Object.values(ctx.mp._debug.peers).some(p => p.seen && p.room === "WL0")`, "A hears B in WL0", 60000) && await B.until(`Object.values(ctx.mp._debug.peers).some(p => p.seen && p.room === "WL1")`, "B hears A in WL1", 60000));
       const bKey = (await keysOf(A)).find(k => k.startsWith("S:"));
       t.check("A keeps B under B's session tag", !!bKey, JSON.stringify(await keysOf(A)));
       // B crosses into WL1: the same entry on A's screen, never gone
       await A.game(`(window.__gone = 0, window.__watch = setInterval(() => { const p = __lulu3d.ctx.mp._debug.peers[${JSON.stringify(bKey)}]; if (!p || p.left) window.__gone++; }, 50), true)`);
-      await MOVE(B, 540);
+      await MOVE(B, 2040);
       t.check("B drives across → B is in WL1 now", await B.until(`ctx.mp.placeRoom === "WL1" && ctx.mp._debug.connected`, "B in WL1"));
       t.check("…on A's screen B is the SAME entry, now heard in WL1", await A.until(`(() => { const p = ctx.mp._debug.peers[${JSON.stringify(bKey)}]; return !!p && p.room === "WL1" && !p.left; })()`, "B moved rooms on A's screen", 60000));
       await framesOn(A.page, 30);
@@ -77,7 +77,7 @@ module.exports = {
       t.check("A sees an old copy in the lobby (through the bridge)", await A.until(`Object.keys(ctx.mp._debug.peers).some(k => k.startsWith("L:") && ctx.mp._debug.peers[k].seen)`, "A sees the old copy", 60000));
       await framesOn(A.page, 60);
       t.check("…and doesn't see B a second time through the bridge (only the old copy comes in that way)", (await keysOf(A)).filter(k => k.startsWith("L:")).length === 1, JSON.stringify(await keysOf(A)));
-      t.check("the old copy sees A and B (once a second, marked as new copies)", await waitFor(() => raw.states.filter(d => d.pl === 1).length >= 4, 30000), raw.states.length);
+      t.check("the old copy sees A and B (every 2 s, marked as new copies)", await waitFor(() => raw.states.filter(d => d.pl === 1).length >= 4, 40000), raw.states.length);
     } catch (e) {
       t.check("worldplace threw", false, String(e && e.stack || e).slice(0, 500));
     } finally {
