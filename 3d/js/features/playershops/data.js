@@ -107,3 +107,29 @@ export const SALES = {
     selfUse: 3,            // the owner may take this many of her own goods a day, at cost
     idleDays: 14, holdDays: 7,   // the homes rule: unseen → "under renovation" → back on the market
 };
+
+// ── stage 4: MIDWOOD'S HEARING — a second shop in Midwood means striking Mayor Marxdani's Retail Fairness Edict down in
+//    Courtroom 2B (the Midwood courthouse). She files it with the landlord when he turns her away; the judge decides. ──
+export const HEARING = {
+    edict: "shops",                  // (cityhall/data.js › EDICTS: striking it is what lets Midwood allow two)
+    win: 0.5,                        // the court's odds
+    retryDays: 7,                    // lose → she may try again after this many real days
+    title: "SHOPKEEPER v. THE PEOPLE'S RETAIL FAIRNESS EDICT",
+    label: "⚖️ Appeal the one-shop edict",
+    docket: "📋 NOW: a shopkeeper v. the People's Retail Fairness Edict (one shop per person)",
+    counsel: { name: "THE PEOPLE'S LAWYER", emoji: "📢", color: "#8E2B2B" },
+    open: "Case 2B: a shopkeeper asks the court to strike down the People's Retail Fairness Edict. One shop per person. All rise. One at a time.",
+    people: ["Your honour, two shops is a CHAIN. Chains are how it starts. First two shops, then three, then a FOOD COURT.",
+        "The mayor asks the court to note: he once owned two lemonade stands. It changed him. He doesn't want that for anyone."],
+    ask: "So. You already have a shop in Midwood. Why should you have two?",
+    args: [
+        { label: "🥘 \"Two kugel shops are not a chain. They're a craving.\"", judge: "The court has had the kugel. The court… understands." },
+        { label: "🚶‍♀️ \"Half of Midwood walks twenty minutes for my rugelach.\"", judge: "Twenty minutes. On Shabbos that's a whole journey. Noted." },
+        { label: "📜 \"The edict says one shop per PERSON. My second one is for my car.\"", judge: "…That is not how persons work. But it was brave." },
+    ],
+    win_: "The court strikes down the Retail Fairness Edict. Midwood may have TWO shops per person. Not three. Don't push it.",
+    lose: "The edict stands. For now. The court suggests the shopkeeper try again next week, with better kugel.",
+    filed: "Fine. FINE. Take it to the judge — Courtroom 2B, the Midwood courthouse. If you win, I have another shop for you. If you lose, I have tissues.",
+    file: "⚖️ Take the edict to court (Courtroom 2B, Midwood)",
+    wait: d => `The court just said no. Mr. Gelbfish says try again in ${d} day${d === 1 ? "" : "s"}. "Judges forget. Eventually."`,
+};
