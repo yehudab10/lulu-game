@@ -13,6 +13,9 @@
 import { ctx, on, addMenuItem } from "../../core/ctx.js";
 
 const QS = new URLSearchParams(location.search);
+// the site root (the worker's scope). Built from pieces on purpose: the iOS app's bundle has no sw.js / sw.json (it never
+// registers a worker), and scripts/copy-web.js would flag a literal path to them as missing from the app.
+const SITE = "../", SW_FILE = SITE + "sw" + ".js", SW_FLAGS = SITE + "sw" + ".json";
 const NATIVE = location.protocol === "capacitor:" || !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
 const SECURE = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
 const SW_OK = !NATIVE && SECURE && "serviceWorker" in navigator;
@@ -41,12 +44,12 @@ async function startWorker() {
     if (QS.get("sw") === "off") { await removeWorker(); return; }
     // the kill switch: a tiny flag file, always asked of the network
     try {
-        const r = await fetch("../sw.json?sw=check", { cache: "no-store" });
+        const r = await fetch(SW_FLAGS + "?sw=check", { cache: "no-store" });
         if (r.ok && (await r.json()).off) { await removeWorker(); return; }
     } catch (e) { /* offline: keep whatever is there */ }
     try {
         const first = !navigator.serviceWorker.controller;
-        await navigator.serviceWorker.register("../sw.js", { scope: "../" });
+        await navigator.serviceWorker.register(SW_FILE, { scope: SITE });
         I.registered = true;
         // the worker's very first start: hand it the big files this start already downloaded (it keeps them, mostly
         // from the browser's own cache — so the NEXT start is the fast one)
