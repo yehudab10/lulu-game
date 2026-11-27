@@ -577,6 +577,16 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   (`doorReach`; `ctx.foot.doorReach(at, o, p)` for features that pick the nearest of many doors — homes, real estate).
   **Every new door spot (roadside buildings too) should use `door: true`.** Test: `scripts/tests3d/doors.js` (a probe
   walked across every door's front in both towns + strangers' houses; each building entered and left; the phone ✋).
+  **Inside, the same camera as outside** (stage 1, `features/interiors/engine.js` › ORBIT): every room uses the free
+  on-foot rig (`ctx.cam.orbit(obj, { camera: room's camera, clip })` — same yaw / pitch / look settings / stick
+  directions, run on boost), clipped to the room's box, its ceiling (`def.ceil`, default 3 m) and its big shell meshes;
+  furniture-sized meshes between the lens and her fade; a chat turns it over her shoulder. `def.cam` is now only a hint;
+  `def.cam.fixed: true` (and any `rt.mode` mini-game) keeps the old from-above follow. **No cut** (stage 2): a spot with
+  `walkIn: { id, n? }` (id = its interior) is entered by walking into the doorway — the room was warmed from ~24 m; not
+  ready → the handle rattles; ready → the swap happens on that frame, no dissolve (`ctx.foot.walkingIn`). Inside, walking
+  back into the room's `Spot_door` heading out leaves the same way (`def.noWalkOut` opts out) and she's back in THAT
+  doorway facing the street, still walking (`ctx.foot.stepOut()`). Doors with a choice (strangers' houses, her own
+  homes, counters, the impound gate) keep ✋ only.
 - **A run starts in the world, and never ends in a card:** from the title the camera glides down to Lulu on foot at
   her porch (world › home street) and a knock-out puts her back on her feet beside her car (Run API › the knock-out) —
   the world keeps running through both. Test: `scripts/tests3d/home.js`.
