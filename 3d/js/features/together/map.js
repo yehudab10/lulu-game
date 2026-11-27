@@ -9,6 +9,7 @@
 import { ctx, css } from "../../core/ctx.js";
 import { lapS } from "../../world.js";
 import { drawLap } from "../world/lapmap.js";
+import * as PINS from "../pins/map.js";
 import { locateAll, locate, myPos, myZone, zoneOf, townName, friendHex, friends, townExits, fmtDist, toL } from "./where.js";
 
 css("together-map", `
@@ -126,7 +127,8 @@ export function render(el, api, tg) {
         ${all.length ? rows : `<p class="lp-note">No friends here yet. Tap Play with a friend in Nearby.</p>`}
         ${dest ? `<button class="btn lp-row" id="tgClear"><span class="lp-av">✖</span><span class="lp-tx"><b>Clear the destination</b><small>the beam goes away</small></span></button>` : ""}
         <button class="btn lp-row" id="tgPtr"><span class="lp-av">🧭</span><span class="lp-tx"><b>Friend pointers: ${tg.pointersOn() ? "ON" : "OFF"}</b><small>${tg.pointersOn() ? "a small arrow at the screen's edge for each friend" : "no arrows — the map is still here"}</small></span></button>
-        <p class="lp-fine">Tap a friend to head their way: a beam over them + the distance.</p>`;
+        <p class="lp-fine">Tap a friend to head their way: a beam over them + the distance.</p>
+        ${PINS.html()}`;
     const cv = el.querySelector("canvas");
     fit(cv);
     V.pts = draw(cv, list, dest);
@@ -140,6 +142,7 @@ export function render(el, api, tg) {
     el.querySelectorAll("[data-u]").forEach(b => b.addEventListener("click", () => pickFriend(b.dataset.u, api, tg)));
     const c = el.querySelector("#tgClear"); if (c) c.addEventListener("click", () => { tg.setDest(""); api.refresh(); });
     el.querySelector("#tgPtr").addEventListener("click", () => { tg.setPointers(!tg.pointersOn()); api.refresh(); });
+    PINS.bind(el, api);      // (features/pins: the places + 📍 ping, the same card as the solo map)
 }
 function pickFriend(uid, api, tg) {
     if (tg.dest() === uid) { tg.setDest(""); api.refresh(); return; }
