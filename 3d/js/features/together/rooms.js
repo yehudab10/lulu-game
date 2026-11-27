@@ -37,6 +37,7 @@ export const SHARED = {
     shopsPizza: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null), shopsBakery: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),   // (features/shops: the walk-in shops, one per town)
     terminal: () => "jfk",                                      // ✈️ the JFK terminal (features/airport): one hall
     clothesShop: () => (ctx.clothes && ctx.clothes.shopNow ? ctx.clothes.shopNow() : null),   // 👗 features/clothes: one per town (+ JFK's luxury house)
+    lanes: () => "midwood",                                     // 🎳 features/lanes: East Midwood Lanes (one alley — its games are shared, net.js)
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
 export const NOT_SHARED = {
