@@ -228,7 +228,8 @@ function applySnap(rid, d, hello) {
     // broadcasts
     if (Array.isArray(d.bc)) for (const b of d.bc) {
         if (!Array.isArray(b) || typeof b[0] !== "number") continue;
-        if (b[0] <= p.bcSeen) continue;
+        if (b[0] <= p.bcSeen) { if (N.bcLog) N.bcLog.push(["dup", d.u, b[0], b[1], p.bcSeen]); continue; }
+        if (N.bcLog) { N.bcLog.push([d.u, b[0], b[1]]); if (N.bcLog.length > 16) N.bcLog.shift(); }
         p.bcSeen = Math.max(p.bcSeen === Infinity ? -1 : p.bcSeen, b[0]);
         emit("party:bc", { p, k: b[1], a: b.slice(2) });
     }
