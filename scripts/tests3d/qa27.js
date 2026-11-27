@@ -42,13 +42,16 @@ module.exports = {
           seen: Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95 && v.z < 1, wall: r.debugBlocked ? r.debugBlocked() : "" }; })()`);
     const playing = async () => { if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); } if (await st() !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); } };
     const hwAt = async s => {
-      await W.moved(t);          // (ending her walk by script is the test's own cut — ci/doors: this was the "Hatzalah jump")
+      // (the test's own set-up — her walk ended by script, the car put down at the next place: the watchdog looks away; this
+      //  was the "Hatzalah jump" — the chase cam re-seating after foot.end("test"), ci/doors)
+      await W.pause(t);
       await playing();
       if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
       await W.moved(t);
       await g(`(() => { const c = ctx.car, p = ctx.world.highway.point(${s}, 5.25, {}); c.place(p.x, p.z, p.h); c.s = ${s}; c.d = 5.25; c.vx = c.vz = c.vF = 0; ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
       await W.moved(t);          // (…and the car put down at the next place: the test's teleport, the chase cam re-seats)
       await t.frames(20);
+      await W.pause(t, true);
     };
     let phoneIndoors = null;
     for (const [lap, w, h] of [[0, 412, 915], [1, 667, 375]]) {
