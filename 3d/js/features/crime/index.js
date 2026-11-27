@@ -43,14 +43,16 @@ function registerCharges() {
 on("boot", registerCharges);
 
 // ── the town's street pieces: built on the way in, gone on the way out ───
-function enterTown() {
+function enterTown(e) {
     if (!ctx.enabled(ID)) return;
     CR.town = ctx.town && ctx.town.id || "";
     buildCart();
     othersEnter();
     buildHerring();
     buildAir();
-    if (live()) maybeTip();
+    // (the Fixer's tip comes when she DRIVES into a town — never on a day's start at home, a warp or a reload: a fresh
+    //  player's phone starts with nothing unread — qa18)
+    if (live() && e && !e.home && !e.quiet) maybeTip();
     ensureActor();
 }
 function leaveTown() {
@@ -66,7 +68,7 @@ function leaveTown() {
 }
 on("town:enter", enterTown);
 on("town:leave", leaveTown);
-on("run:start", () => { CR.sus = {}; parkReset(); resetJay(); othersRun(); corruptReset(); ensureActor(); if (inTown() && !CART.obj) enterTown(); });
+on("run:start", () => { CR.sus = {}; parkReset(); resetJay(); othersRun(); corruptReset(); ensureActor(); if (inTown() && !CART.obj) enterTown(null); });
 on("state", ({ to }) => { if (to === "title") leaveTown(); });
 
 // ── per frame ─────────────────────────────────────────────────────────────
