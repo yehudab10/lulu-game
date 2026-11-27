@@ -15,13 +15,11 @@ export const TUNE = {
     joinRange: 4.5,     // m — "Join Lulu's lane" shows this close to a lane
 };
 
-// the shopfront: town data (features/town/towns/midwood.js › uses.lanes) — Kings Hwy, between Coney Island Ave + E 15th St
-export function lanesUse() {
-    return { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, spot: "lanes",
-        sign: ["🎳 EAST MIDWOOD LANES 🎳", "BOWLING · SINCE 1961 · LEAGUES TUE + THU"],
-        tints: { Walls: "#7E3B2F", Awning: "#C62828" }, signSize: [9.4, 1.1, 70], signW: 900, signBg: "#1A1033", signFg: ["#FF4F9A", "#6FE3FF"],
-        with: [-20.8, -10.4, 10.4, 20.8].map(u => ({ key: "town_mw_store", u, list: "kh" })) };
-}
+// WHERE: Midwood, the east end of Avenue M, north side — the run of six fronts ci/storefronts keeps for the alley
+// (`BOWLING` in features/storefronts/data.js: x 95…165). With features/storefronts the alley CLAIMS those fronts
+// (ctx.storefronts.reservedFor("lanes") + claim: their ✋ walks in here); without it, one ✋ at the middle of the run.
+// Local town coordinates: the doors' line on Avenue M's north sidewalk (z), the street to the south (n = −z).
+export const DOOR = { town: "midwood", x: 130, z: -46.6, x0: 95, x1: 165 };
 
 export const SHELDON = { name: "Sheldon", key: "npcMan", colors: { Shirt: "#5D4037", Pants: "#3E2723", Skin: "#E0B48F" } };
 export const RIVKY = { name: "Rivky", key: "npcWoman", colors: { Top: "#F48FB1", Skirt: "#4A148C" } };
@@ -66,7 +64,7 @@ export const LINES = {
     ],
     strike: ["*Sheldon looks up from his paper* …huh.", "STRIKE! *the lights flicker — they always do that*", "*someone at the snack bar claps* STRIKE!"],
     spare: ["Spare! Picked it up. Like a mensch.", "*Sheldon* Clean-up crew. Respect."],
-    split: ["Oy, a split.", "*Sheldon* The seven-ten. The Grand Canyon of Kings Highway."],
+    split: ["Oy, a split.", "*Sheldon* The seven-ten. The Grand Canyon of Avenue M."],
     turkey: ["THREE IN A ROW! A TURKEY! *Rivky rings the snack bar bell*"],
     over: ["Good game. Return the shoes. I count them.", "*Sheldon* Next time, bring a friend. Or a better arm."],
     knish: [

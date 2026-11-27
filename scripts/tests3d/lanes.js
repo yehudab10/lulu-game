@@ -6,7 +6,7 @@
 //   • the counter: a lane costs a small fee (never below 0), a quick 3-frame game, Shimmy's solo game, the knish (once
 //     a day); a first 200+ game → the LANES shirt in her closet + a badge; nothing pays coins
 //   • the trophy: brought back → in the case, a badge
-//   • the door on Kings Hwy (Midwood), the 📍 Map pin
+//   • the door at the east end of Avenue M (Midwood; ci/storefronts' reserved run — claimed when that feature is in), the 📍 Map pin
 //   • two pages in one group on one lane: the same balls, the same pins, the same score on both screens, frame by frame
 const path = require("path");
 const W = require("../lib/qawatch.js");
@@ -183,7 +183,7 @@ module.exports = {
     // ── nothing in the room ever paid ──
     t.check("the wallet never went up in the alley", await coins() <= c0);
 
-    // ── out, then the door on Kings Hwy + the map pin ──
+    // ── out, then the map pin ──
     await g(`(__interiors.room.leave(), true)`);
     await t.until(`__lulu3d.state === "footRun"`, "out of the lanes", 30000);
     t.check("📍 the Map knows the lanes", await g(`!!(ctx.pins && ctx.pins.get && ctx.pins.get("midwood:lanes"))`));
@@ -205,17 +205,18 @@ module.exports = {
     }
     await g(`(${D}.LG.force.when = null, true)`);
 
-    // ── the door on Kings Hwy (Midwood) ──
+    // ── the door: Avenue M's east end (Midwood) ──
     await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("playing"), true)`); await t.frames(5);
     await g(`(ctx.town.load("midwood"), true)`);
     await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "Midwood's models load", 90000);
     await g(`ctx.town.enter({ town: "midwood", speed: 0 })`);
     if (await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "into Midwood", 8000)) {
       await t.frames(30);
-      t.check("Midwood has the lanes' storefront on Kings Hwy", await g(`!!ctx.town.spot("lanes")`));
+      const sf = await g(`!!(ctx.storefronts && ctx.storefronts.reservedFor)`);
+      if (sf) t.check("storefronts: the Avenue M run is claimed for the lanes (≥ 1 front)", await g(`(ctx.lanes.debug.claimed() || []).length >= 1`));
       await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
-      await g(`(() => { const sp = ctx.town.spot("lanes"); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 0.3, 0.05, sp.z + sp.nz * 0.3); F.phase = "walk"; return true; })()`);
+      await g(`(() => { const sp = ctx.lanes.debug.doorWorld(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 0.3, 0.05, sp.z + sp.nz * 0.3); F.phase = "walk"; return true; })()`);
       await t.frames(10);
       const l = await g(`(ctx.foot.debug.interactables() || {}).label || ""`);
       t.check(`✋ at the door: GO INTO EAST MIDWOOD LANES (${l})`, /EAST MIDWOOD LANES/.test(l));
@@ -224,7 +225,7 @@ module.exports = {
       t.check("…and in she goes", await t.until(`__lulu3d.state === "interior" && ${inLanes}`, "in through the door", 60000));
       await t.frames(10);
       await g(`(__interiors.room.leave(), true)`);
-      await t.until(`__lulu3d.state === "footRun"`, "back out on Kings Hwy", 30000);
+      await t.until(`__lulu3d.state === "footRun"`, "back out on Avenue M", 30000);
     }
 
     // ── two pages, one lane ──

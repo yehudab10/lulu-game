@@ -1,5 +1,5 @@
 // features/lanes — 🎳 EAST MIDWOOD LANES (the owner, 2026-11-27: "fill every building with something… I'm open to new
-// immersive game mechanics"; the game is "mainly multiplayer" now). A retro bowling alley on Kings Hwy, Midwood — walk in
+// immersive game mechanics"; the game is "mainly multiplayer" now). A retro bowling alley at the east end of Avenue M, Midwood — walk in
 // (ci/doors: no button) and really bowl, alone, against the house bowler, or with whoever's in the alley.
 //
 //   pins.js   the roll (the ball's line, speed + spin → the pins that fall) + 10-pin scoring — pure code
@@ -27,7 +27,8 @@ import { order, BOT } from "./game.js";
 import { V, LANES_DEF, laneX, APPROACH_Z, COUNTER, SNACK, CASE, drawBoard, addHouse, showGame } from "./room.js";
 import { G, startGame, joinGame, endGame, atLane, tickBot, laneCamera, myId, playDebug } from "./play.js";
 import { sync, publish, freeLane, joinable, peersHere, netDebug } from "./net.js";
-import { ID, NAME, TUNE, LINES, SHIMMY } from "./data.js";
+import { ID, NAME, TUNE, LINES, SHIMMY, DOOR } from "./data.js";
+import { toW } from "../together/where.js";
 
 const S = store("lanes", { best: 0, games: 0, strikes: 0, shirt: false, trophy: false, knishDay: "" });
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
@@ -242,8 +243,10 @@ function gameOver(rt, g) {
     } else rt.bubble(total > 0 && total === S.best && S.games > 1 ? LINES.best(total) : pick(LINES.over), sh.p.obj, 3);
 }
 
-// ── the door on Kings Hwy (✋ — and ci/doors: just walk in) ──
-const inTown = () => !!(ctx.town && ctx.town.active && ctx.town.id === "midwood");
+// ── the door: Midwood, Avenue M's east end (north side) — ci/doors: just walk in ──
+// With features/storefronts: the run of fronts it keeps for us is CLAIMED (its ✋ on any of them walks in here).
+// Without it: one ✋ at the middle of that run (data.js › DOOR).
+const inTown = () => !!(ctx.town && ctx.town.active && ctx.town.id === DOOR.town);
 const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || null;
 function canWalkIn() {
     if (!inTown() || ctx.state !== "footRun" || !ctx.interiors) return false;
@@ -252,20 +255,36 @@ function canWalkIn() {
     return true;
 }
 const OUT = { at: null, t: 0 };
+/** The claimed fronts (features/storefronts), claimed once per town build: [{ id, x, z }] | null (no storefronts). */
+function claimed() {
+    const SF = ctx.storefronts;
+    if (!SF || !SF.reservedFor || !SF.claim) return null;
+    const r = SF.reservedFor("lanes") || [], key = r.map(f => f.id).join(",");
+    if (key !== LG.claims) { LG.claims = key; for (const f of r) SF.claim(f.id, { label: `🎳 GO INTO ${NAME.toUpperCase()}`, enter: () => enterLanes() }); }
+    return r;
+}
+/** The world spot of the door (the middle of the run, on the sidewalk): {x, z, nx, nz} | null. */
+export function doorWorld() {
+    if (!inTown() || !ctx.town.plan) return null;
+    const P = ctx.town.plan, w = toW(P, DOOR.x, DOOR.z), s = toW(P, DOOR.x, DOOR.z - 1);
+    return { x: w.x, z: w.z, nx: s.x - w.x, nz: s.z - w.z };
+}
 function doorPos() {
     if (!canWalkIn()) return null;
-    const sp = ctx.town.spot("lanes"), p = herPos();
+    const p = herPos(), sp = doorWorld();
     if (!sp || !p) return null;
-    if (OUT.at && ctx.time < OUT.t && Math.hypot(p.x - OUT.at.x, p.z - OUT.at.z) < 4) return null;
     const d = Math.hypot(sp.x - p.x, sp.z - p.z);
-    if (d < 24 && ctx.interiors.lanes && ctx.interiors.lanes.warm) ctx.interiors.lanes.warm();
+    if (d < 60 && ctx.interiors.lanes && ctx.interiors.lanes.warm) ctx.interiors.lanes.warm();
+    const c = claimed();
+    if (c && c.length) return null;                 // (storefronts' own ✋ on each claimed front walks in)
+    if (OUT.at && ctx.time < OUT.t && Math.hypot(p.x - OUT.at.x, p.z - OUT.at.z) < 4) return null;
     return d < 30 ? sp : null;
 }
 export function enterLanes(opts = {}) {
     if (!ctx.interiors.lanes) return false;
     if (opts.exit) return ctx.interiors.lanes.enter(Object.assign({ from: "foot" }, opts));
-    const sp = inTown() && ctx.town.spot("lanes");
-    if (!sp) return false;
+    const sp = doorWorld();
+    if (!sp || !inTown()) return false;
     const n = ctx.world.road.nearest(sp.x, sp.z, ctx.car.s, {});
     const dr = { id: "lanes", s: n.s, d: n.d, side: Math.sign(n.d) || 1 };
     emit("stat", { id: "footInteriors", n: 1 });
@@ -277,7 +296,7 @@ function addDoors() {
     ctx.foot.addSpot({ pos: () => doorPos(), r: 2.4, door: true, walkIn: { id: "lanes" }, short: "LANES", label: () => `🎳 GO INTO ${NAME.toUpperCase()}`, act: () => enterLanes() });
 }
 function addPinAndBadges() {
-    if (ctx.pins && ctx.pins.add && !LG.pinned) { LG.pinned = true; try { ctx.pins.add({ id: "midwood:lanes", town: "midwood", spot: "lanes", cat: "town", icon: "🎳", name: NAME, sub: "bowling · alone or with friends" }); } catch (e) { console.error("[lanes] pin", e); } }
+    if (ctx.pins && ctx.pins.add && !LG.pinned) { LG.pinned = true; try { ctx.pins.add({ id: "midwood:lanes", town: DOOR.town, local: [DOOR.x, DOOR.z], cat: "town", icon: "🎳", name: NAME, sub: "bowling · alone or with friends" }); } catch (e) { console.error("[lanes] pin", e); } }
     if (ctx.meta && ctx.meta.addBadge && !LG.badges) {
         LG.badges = true;
         ctx.meta.addBadge({ id: "lanes200", icon: "🎳", name: "The 200 Club", desc: "Bowl a 200 game at East Midwood Lanes", test: s => ((s.stats && s.stats.lanes200) || 0) >= 1 });
@@ -291,7 +310,7 @@ ctx.lanes = {
     enter: enterLanes,
     game: () => G.game,
     get best() { return S.best; },
-    debug: { S, G, V, LG, play: playDebug, net: netDebug, order, nameOf, peersHere, freeLane, joinable, showGame, laneX, doorPos, canWalkIn, hasTrophy,
+    debug: { S, G, V, LG, play: playDebug, net: netDebug, order, nameOf, peersHere, freeLane, joinable, showGame, laneX, doorPos, doorWorld, claimed, canWalkIn, hasTrophy,
         lanesDef: LANES_DEF, myId },
 };
 export { ID };

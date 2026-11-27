@@ -18,7 +18,6 @@
 import * as L from "./midwood-lines.js";
 import { dealerUse } from "../../shops/lot.js";
 import { clothesUse } from "../../clothes/data.js";
-import { lanesUse } from "../../lanes/data.js";
 import { cityhallUse } from "../../cityhall/place.js";
 
 // the grid
@@ -67,7 +66,7 @@ export default {
         "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "clothes", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia", s: "cityhall" } },
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts", w: "luluHome" } },
         "0,Kings Hwy": { faces: { s: "kh", w: "pkwy", n: "avem" } }, "1,Kings Hwy": { faces: { s: "kh", n: "avem", e: "cia" } },
-        "2,Kings Hwy": { faces: { s: "lanes", n: "avem", w: "cia" } }, "3,Kings Hwy": { faces: { s: "kh", n: "avem", w: "rowhouses", e: "rowhouses" } },
+        "2,Kings Hwy": { faces: { s: "kh", n: "avem", w: "cia" } }, "3,Kings Hwy": { faces: { s: "kh", n: "avem", w: "rowhouses", e: "rowhouses" } },
         "4,Kings Hwy": { faces: { s: "kh", n: "simchahall", e: "apts" } },      // (features/family: the Avenue M Ballroom — Avigail's wedding)
     },
     // landmark uses modelled by other features (build.js › layoutFace): the bank on Avenue J (features/heist) —
@@ -104,8 +103,6 @@ export default {
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#E6DCCB", Trim: "#1565C0", Roof: "#4A4E55" }, signBg: "#1565C0", signFg: ["#FFFFFF", "#FFE082"] }),
         // features/clothes (roadmap 24): Avenue J'adore, the boutique on Avenue J among the storefronts
         clothes: clothesUse("midwood"),
-        // features/lanes: East Midwood Lanes, the bowling alley on Kings Hwy (between Coney Island Ave + E 15th St)
-        lanes: lanesUse(),
         // features/realestate (roadmap 16): the realtor's storefront in the middle of the Avenue M store row
         realty: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
             tints: { Walls: "#7B4A3A", Awning: "#1B3A2B" }, signSize: [8.4, 0.9, 62], signW: 640, signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
