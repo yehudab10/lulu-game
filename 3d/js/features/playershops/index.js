@@ -25,6 +25,7 @@ import * as MG from "../realestate/mortgage.js";
 import { bindRoom, enterShop, ROOM } from "./room.js";
 import { depotSpot, depotTick, bindDepot, depotTalk, DEPOT_STATE } from "./depot.js";
 import { publish, friendShops, SHOP_PARTY, bindParty } from "./party.js";
+import * as SVR from "./server.js";
 
 export const S = store(ID, { shops: {}, car: [], home: [], met: {}, day: null, log: [] });
 if (!S.shops || typeof S.shops !== "object") S.shops = {};
@@ -68,14 +69,20 @@ export function fronts() {
 }
 const frontById = id => fronts().find(f => f.id === id) || null;
 export const mine = () => Object.entries(S.shops).map(([id, s]) => Object.assign({ id }, s));
+/** Other players' shops here: friends in a party (d.x.ps) + everyone's on the relay (stage 2). [{ id, town, kind, name, server?, z?, shelf? }] */
+export function others() {
+    const out = friendShops().slice();
+    for (const [id, x] of SVR.SV.list) if (!S.shops[id] && !out.some(o => o.id === id)) out.push({ id, town: id.split(":")[1], kind: x.k, name: x.o || "A neighbour", shopName: x.n, server: true, z: x.z, t: x.t });
+    return out;
+}
 export const owns = id => !!S.shops[id];
 const inTown = town => mine().filter(s => s.town === town);
 /** For lease right now (not hers, not a friend's). */
-export const leasable = () => fronts().filter(f => W.forLease.has(f.id) && !S.shops[f.id] && !friendShops().some(x => x.id === f.id));
+export const leasable = () => fronts().filter(f => W.forLease.has(f.id) && !S.shops[f.id] && !others().some(x => x.id === f.id));
 /** How many shops of `kind` the town still licenses (her own count; stage 2: everyone's, on the relay). */
 export function licencesLeft(town, kind) {
     const all = (LICENCES[town] || {})[kind] || 0;
-    const used = inTown(town).filter(s => s.kind === kind).length + friendShops().filter(x => x.town === town && x.kind === kind).length;
+    const used = inTown(town).filter(s => s.kind === kind).length + others().filter(x => x.town === town && x.kind === kind).length;
     return Math.max(0, all - used);
 }
 /** How many shops a town allows her: Midwood's one becomes two once the court strikes Marxdani's edict down. */
@@ -123,7 +130,8 @@ async function lease(f) {
     const j = await choose(LANDLORD.who, `${KINDS[kind].emoji} A ${KINDS[kind].name} at ${f.address}. ${fmt(LEASE.deposit)} now, back when you hand me the keys. ${LEASE.perDay} a day you play. Miss ${LEASE.missLocks} days and I change the locks.`,
         [`✅ Sign the lease — ${fmt(LEASE.deposit)} 💰`, "✖ Not yet"], o);
     if (j !== 0) return;
-    if (!wallet.spend(LEASE.deposit)) return;
+    if (!await serverClaim(f, kind)) return;
+    if (!wallet.spend(LEASE.deposit)) { SVR.release(f.id); return; }
     open(f, kind, { how: "lease", deposit: LEASE.deposit });
     await afterSign(f, kind);
 }
@@ -138,22 +146,36 @@ async function buyBuilding(f, price) {
     if (i === 0) {
         if (wallet.coins < price) { await say(LANDLORD.who, `It's ${fmt(price)}. You have ${fmt(wallet.coins)}. The bank does mortgages, you know.`, o); return; }
         const j = await choose(LANDLORD.who, `${f.address}, the whole building, for ${fmt(price)}. Sure?`, [`✅ Buy it — ${fmt(price)} 💰`, "✖ Not yet"], o);
-        if (j !== 0 || !wallet.spend(price)) return;
+        if (j !== 0 || !await serverClaim(f, kind)) return;
+        if (!wallet.spend(price)) { SVR.release(f.id); return; }
         open(f, kind, { how: "own", price, paid: price });
     } else {
         const p = plans[i - 1];
         if (wallet.coins < p.down) { await say(LANDLORD.who, `The bank wants ${fmt(p.down)} down. You have ${fmt(wallet.coins)}.`, o); return; }
         const j = await choose(LANDLORD.who, `${fmt(p.down)} down now, then ${fmt(p.perDay)} a day you play, ${p.days} days (the bank's fee: ${fmt(p.fee)}). Miss three days and the bank takes it back.`,
             [`✅ Sign — ${fmt(p.down)} 💰 down`, "✖ Not yet"], o);
-        if (j !== 0) return;
+        if (j !== 0 || !await serverClaim(f, kind)) return;
         const id = f.id;
         S.shops[id] = { pending: true };          // (so the bank's kind check sees it as hers)
         const r = MG.takeFor(id, { address: f.address, town: f.town }, p);
         delete S.shops[id];
-        if (!r.ok) { await say(LANDLORD.who, "The bank said no. They didn't say why. Banks never say why.", o); return; }
+        if (!r.ok) { SVR.release(id); await say(LANDLORD.who, "The bank said no. They didn't say why. Banks never say why.", o); return; }
         open(f, kind, { how: "own", price, paid: p.down, mortgage: true });
     }
     await afterSign(f, kind);
+}
+/** The world-wide registry says yes first (taken / the edict / licences / the cap) — before any coin moves. */
+async function serverClaim(f, kind) {
+    const c = await SVR.claim(f.id, kind, capOf("midwood") > (CAP.midwood || 1));
+    if (c.ok) return true;
+    const E = EDICT[f.town] || EDICT.lakewood;
+    const line = c.why === "taken" ? `Oy. ${c.o || "Somebody"} JUST signed for this one. A minute ago. The ink's still wet.`
+        : c.why === "edict" || c.why === "cap" ? E.refuse
+        : c.why === "licence" ? "The licence office says that kind is all taken in this town. Pick something else."
+        : "The town's computer is thinking. Try again in a moment.";
+    await say(LANDLORD.who, line, o);
+    W.built = "";
+    return false;
 }
 function open(f, kind, extra) {
     const d = today();
@@ -186,6 +208,7 @@ export function release(id, why = "keys") {
     for (const x of (s.stock || []).concat((s.shelf || []).filter(Boolean))) S.home.push({ g: x.g, n: x.n, stars: x.stars || 0 });
     if (S.home.length > 60) S.home.splice(0, S.home.length - 60);
     delete S.shops[id];
+    SVR.release(id);
     if (why === "sold" && MG.mortgages().some(x => x.id === id)) { try { delete ctx.realestate.debug.S.mortgage[id]; } catch (e) { /* */ } }
     if (back) wallet.add(back);
     log("release", { id, why, back });
@@ -215,6 +238,7 @@ function dayTick() {
         sh.stock = (sh.stock || []).filter(fresh);
         sh.shelf = sh.shelf.map(x => (fresh(x) ? x : null));
         const lost = before - sh.stock.length - sh.shelf.filter(Boolean).length;
+        if (lost) SVR.dirty(s.id);
         if (lost) text(`🗑️ ${lost} thing${lost === 1 ? "" : "s"} went stale at ${sh.address}. Into the bin. The pigeons say thank you.`);
         if (sh.how !== "lease") continue;
         if (d > sh.last) {
@@ -287,6 +311,7 @@ export function shelve(id, k, slot, price) {
     log("shelve", { id, g: it.g, slot, n: take, p });
     saveSoon();
     emit("playershops:shelve", { id, slot });
+    SVR.dirty(id);
     return true;
 }
 /** Off a shelf back into the back room. */
@@ -297,6 +322,7 @@ export function unshelve(id, slot) {
     sh.stock.push({ g: x.g, n: x.n, stars: x.stars, day: x.day });
     sh.shelf[slot] = null;
     saveSoon();
+    SVR.dirty(id);
     return true;
 }
 /** Bake: one ingredients box of `g` → BAKE units with `stars` (the room's oven game decides the stars). */
@@ -355,8 +381,8 @@ function layout() {
     const town = townId();
     if (!town || !ctx.scene) { clearSigns(); return; }
     const L = fronts();
-    const fr = friendShops();
-    const key = `${W.key}|${[...W.forLease].join(",")}|${Object.keys(S.shops).map(id => id + (S.shops[id].kind || "")).join(",")}|${fr.map(x => x.id + x.kind).join(",")}`;
+    const fr = others();
+    const key = `${W.key}|${[...W.forLease].join(",")}|${Object.keys(S.shops).map(id => id + (S.shops[id].kind || "")).join(",")}|${fr.map(x => x.id + x.kind + x.name + (x.z ? "z" : "")).join(",")}|${SVR.SV.on}`;
     if (W.built === key && W.group) return;
     clearSigns();
     W.built = key;
@@ -365,11 +391,12 @@ function layout() {
         const sh = S.shops[f.id], fs = fr.find(x => x.id === f.id);
         if (sh || fs) {
             const k = KINDS[(sh || fs).kind] || KINDS.kugel;
-            const name = sh ? sh.name.toUpperCase() : `${fs.name.toUpperCase()}'S ${k.name.toUpperCase()}`;
+            const name = sh ? sh.name.toUpperCase() : fs.shopName ? fs.shopName.toUpperCase() : `${fs.name.toUpperCase()}'S ${k.name.toUpperCase()}`;
+            const status = fs && fs.z ? "🚧 UNDER RENOVATION" : SVR.SV.on ? "OPEN" : "OPENING SOON";
             const at = f.anchor ? { x: f.anchor.x + f.nx * 0.06, y: f.anchor.y, z: f.anchor.z + f.nz * 0.06 } : null;
             // (over the storefront's own sign band: town_mw_store's is 8.4 × 0.9, town_shop's 10 × 0.98)
             const big = f.key === "town_mw_store" ? [8.7, 1.02] : [10.3, 1.1];
-            W.group.add(poster(f, [`${k.emoji} ${name}`.slice(0, 30), "OPENING SOON"], k.color, "#FFFFFF", big[0], big[1], 3.2, at, true));
+            W.group.add(poster(f, [`${k.emoji} ${name}`.slice(0, 30), status], fs && fs.z ? "#607D8B" : k.color, "#FFFFFF", big[0], big[1], 3.2, at, true));
         } else if (W.forLease.has(f.id)) {
             W.group.add(poster(f, ["FOR LEASE", "ask Mr. Gelbfish", "✋ at the door"], "#FFF8E1", "#B71C1C"));
         }
@@ -402,11 +429,26 @@ const shopSpot = {
     act() { if (W.mine) goIn(W.mine, "owner"); },
 };
 const friendSpot = {
-    r: 2.8, short: "LOOK ROUND", door: true,
-    pos() { W.fr = canAct() && party() ? nearestFront(fronts().filter(f => friendShops().some(x => x.id === f.id)), 2.8) : null; return W.fr ? W.fr.ap : null; },
-    label() { const x = W.fr && friendShops().find(s => s.id === W.fr.id); return x ? `👀 LOOK ROUND ${x.name.toUpperCase()}'S SHOP` : null; },
-    act() { const x = W.fr && friendShops().find(s => s.id === W.fr.id); if (x) goIn(W.fr, "visit", x); },
+    r: 2.8, short: "SHOP", door: true,
+    pos() { W.fr = canAct() ? nearestFront(fronts().filter(f => others().some(x => x.id === f.id && !x.z)), 2.8) : null; return W.fr ? W.fr.ap : null; },
+    label() {
+        const x = W.fr && others().find(s => s.id === W.fr.id);
+        if (!x) return null;
+        return x.server && SVR.SV.on ? `🛍️ SHOP AT ${(x.shopName || x.name + "'S").toUpperCase()}` : `👀 LOOK ROUND ${x.name.toUpperCase()}'S SHOP`;
+    },
+    act() { const x = W.fr && others().find(s => s.id === W.fr.id); if (x) visitShop(W.fr, x); },
 };
+/** Into another player's shop: a friend's (looking) or, with the relay up, anyone's (buying). */
+async function visitShop(f, x) {
+    if (x.server && SVR.SV.on) {
+        const v = await SVR.view(f.id);
+        if (!v || !v.ok) { if (ctx.foot && ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "Closed. The sign says 'back in 5 minutes'. It always says that.", 2.6); return; }
+        const shelf = new Array(SHELF.slots).fill(null);
+        for (const it of v.shelf || []) if (it.s >= 0 && it.s < SHELF.slots && GOODS[it.g]) shelf[it.s] = { g: it.g, n: it.n, price: it.p, stars: it.st, so: !!it.so };
+        return enterShop(f, "shop", { id: f.id, name: v.shop.o || x.name, shopName: v.shop.n, kind: v.shop.k, shelf, thumbs: v.shop.t | 0 });
+    }
+    return goIn(f, "visit", x);
+}
 /** Is her car parked within 30 m of the shop (so she can carry boxes in)? */
 function carNear(f) {
     const pc = ctx.foot && ctx.foot.parkedCar, p = pc ? { x: pc.x, z: pc.z } : null;
@@ -420,20 +462,36 @@ function goIn(f, mode, friend = null) {
     return enterShop(f, mode, friend);
 }
 
+// ── stage 2: the relay (server.js) ──
+const SVT = { busy: false };
+function serverTick() {
+    if (SVT.busy) return;
+    const t = SVR.svNow(), V = SVR.SV;
+    let job = null;
+    if (!V.on) { if (t - V.probeAt > (V.probeAt < 0 ? 3 : 600)) job = SVR.probe(); }
+    else if (townId() && (V.town !== townId() || t - V.listAt > 120)) job = SVR.list(townId()).then(() => { W.built = ""; });
+    else if ((ctx.state === "playing" || ctx.state === "footRun") && t - V.helloAt > 300 && Object.keys(S.shops).length) job = SVR.hello(S).then(r => {
+        if (r.coins > 0) { wallet.add(r.coins); log("till", { n: r.coins }); text(`🛎️ Your shop${mine().length > 1 ? "s" : ""} sold ${r.sold || "some"} thing${r.sold === 1 ? "" : "s"} while you were out. The till: ${fmt(r.coins)} coins (the town kept its 15 %).`); }
+        if (r.sold) { saveSoon(); W.built = ""; }
+    });
+    else job = SVR.pushTick(S);
+    if (job && job.then) { SVT.busy = true; job.catch(() => null).finally(() => { SVT.busy = false; }); }
+}
+
 // ── the API ──────────────────────────────────────────────────────────────────────────────────────────────────────
-bindRoom({ S, shelve, unshelve, band, bakeDone, release, permitted, today });
+bindRoom({ S, shelve, unshelve, band, bakeDone, release, permitted, today, SVR });
 bindParty(S);
 bindDepot({ mine, carBoxes, carCap, loadCar });
 ctx.playershops = {
-    mine, owns, fronts, leasable, licencesLeft, capBlock, capOf, carCap, carBoxes, taxed, permitted,
+    mine, owns, others, fronts, leasable, licencesLeft, capBlock, capOf, carCap, carBoxes, taxed, permitted,
     /** ci/storefronts: is this storefront ours? → null | { state: "lease" | "player", name, kind, owner } */
     claim(frontId) {
         const id = String(frontId).startsWith("shop:") ? frontId : "shop:" + frontId;
         const s = S.shops[id]; if (s) return { state: "player", name: s.name, kind: s.kind, owner: "me" };
-        const fs = friendShops().find(x => x.id === id); if (fs) return { state: "player", name: fs.name, kind: fs.kind, owner: fs.uid };
+        const fs = others().find(x => x.id === id); if (fs) return { state: "player", name: fs.name, kind: fs.kind, owner: fs.uid || "player" };
         return W.forLease.has(id) ? { state: "lease" } : null;
     },
-    debug: { S, W, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
+    debug: { S, W, SVR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
 };
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) for (const sp of [leaseSpot, shopSpot, friendSpot, depotSpot]) ctx.foot.addSpot(sp);
@@ -450,5 +508,6 @@ hook("hud", dt => {
         if (townId()) layout(); else if (W.group) clearSigns();
         depotTick();
         publish();
+        serverTick();
     } catch (e) { console.error("[playershops] tick", e); }
 });

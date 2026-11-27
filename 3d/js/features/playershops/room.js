@@ -6,7 +6,8 @@
 //   ✋ the keys    → hand them back (a lease: the deposit back) / sell the building (two presses)
 // A friend in a party walks in to LOOK (her shelves as she stocked them; nothing to buy yet).
 import * as THREE from "three";
-import { ctx, css, setState } from "../../core/ctx.js";
+import { ctx, css, setState, emit } from "../../core/ctx.js";
+import { wallet, saveSoon } from "../../core/save.js";
 import { input } from "../../input.js";
 import { defineInterior, pick } from "../interiors/engine.js";
 import { rooms, W, D } from "../realestate/rooms.js";
@@ -33,7 +34,7 @@ export function enterShop(f, mode, friend = null) {
     if (!ctx.interiors || !ctx.interiors.playershop || !ctx.foot) return false;
     const sh = mode === "owner" ? API.S.shops[f.id] : null;
     const k = KINDS[(sh || friend || {}).kind] || KINDS.kugel;
-    SHOP_DEF.name = mode === "owner" ? sh.name : `${friend.name}'s ${k.name}`;
+    SHOP_DEF.name = mode === "owner" ? sh.name : (friend.shopName || `${friend.name}'s ${k.name}`);
     SHOP_DEF.title = `${k.emoji} ${SHOP_DEF.name.toUpperCase()}`;
     ROOM.cur = { f, id: f.id, mode, friend };
     const n = ctx.world.road.nearest(f.ap.x, f.ap.z, ctx.car.s, {});
@@ -69,6 +70,7 @@ const UNITS = [[-2.0, -D / 2 + 0.35, 0], [0.0, -D / 2 + 0.35, 0], [-W / 2 + 0.35
 const LEVELS = [0.62, 1.22];
 function build(rt) {
     const c = ROOM.cur, owner = c && c.mode === "owner";
+    ROOM.bought = 0;
     const sh = owner ? API.S.shops[c.id] : null;
     const kind = KINDS[(sh || (c && c.friend) || {}).kind] || KINDS.kugel;
     const V = rt.data.V = { slots: [], unitAt: [], stockObjs: [], key: "" };
@@ -88,16 +90,19 @@ function build(rt) {
         const sw = Math.abs(Math.cos(ry)) > 0.5;
         B.col("unit" + k, x - (sw ? 0.72 : 0.24), x + (sw ? 0.72 : 0.24), z - (sw ? 0.24 : 0.72), z + (sw ? 0.24 : 0.72));
         const hx = x + Math.sin(ry) * 0.9, hz = z + Math.cos(ry) * 0.9;
-        rt.hot({ id: "shelf:" + k, x: hx, z: hz, r: 1.1, label: () => (owner ? `🧺 Shelf ${k + 1} — stock it` : `👀 Shelf ${k + 1}`), action: r => (owner ? shelfMenu(r, k) : lookShelf(r, k)) });
+        const shop = c && c.mode === "shop";
+        rt.hot({ id: "shelf:" + k, x: hx, z: hz, r: 1.1, label: () => (owner ? `🧺 Shelf ${k + 1} — stock it` : shop ? `🛍️ Shelf ${k + 1}` : `👀 Shelf ${k + 1}`), action: r => (owner ? shelfMenu(r, k) : shop ? buyMenu(r, k) : lookShelf(r, k)) });
     });
     // the counter by the door + the OPENING SOON card
     B.box(1.6, 0.95, 0.6, "#6D4C41", SF + 1.6, 0.475, 0.2);
     B.col("counter", SF + 0.8, SF + 2.4, -0.1, 0.5);
-    const card = new THREE.Mesh(rt.own(new THREE.PlaneGeometry(0.9, 0.42)), rt.own(new THREE.MeshBasicMaterial({ map: rt.own(cardTex(["OPENING SOON", "only real players buy"], kind.color)), toneMapped: false })));
+    const live = !!(API && API.SVR && API.SVR.SV.on);
+    const card = new THREE.Mesh(rt.own(new THREE.PlaneGeometry(0.9, 0.42)), rt.own(new THREE.MeshBasicMaterial({ map: rt.own(cardTex(live ? ["OPEN", "real players only"] : ["OPENING SOON", "only real players buy"], kind.color)), toneMapped: false })));
     card.position.set(SF + 1.6, 1.18, 0.51); rt.add(card);
-    rt.hot({ id: "counter", x: SF + 1.6, z: 1.1, r: 1.1, label: "🛎️ The counter", action: r => r.say("Lulu", owner
-        ? pick(["Opening soon! Only REAL players can buy here — no pretend customers. When the shop opens for real, they'll pay at this counter.", "The till is empty. Tidy. Ready. Like me."])
-        : `${c.friend ? c.friend.name : "Your friend"}'s shop isn't open yet. Only real players will buy here, once it opens. Looking is free!`, { emoji: "💁‍♀️" }) });
+    rt.hot({ id: "counter", x: SF + 1.6, z: 1.1, r: 1.1, label: c && c.mode === "shop" ? "🛎️ The counter — 👍 / 🚩" : "🛎️ The counter", action: r => (c && c.mode === "shop" ? counterMenu(r) : r.say("Lulu", owner
+        ? (live ? pick(["Open for business! Only REAL players buy here. While I'm out, what sells goes into the till — it comes to my phone.", "The till's ready. Real customers only. No pretend ones."])
+            : pick(["Opening soon! Only REAL players can buy here — no pretend customers. When the shop opens for real, they'll pay at this counter.", "The till is empty. Tidy. Ready. Like me."]))
+        : `${c.friend ? c.friend.name : "Your friend"}'s shop isn't open yet. Only real players will buy here, once it opens. Looking is free!`, { emoji: "💁‍♀️" })) });
     // the back room: her boxes, the oven (baking kinds), the desk + keys
     rt.hot({ id: "stock", x: BR - 1.6, z: -0.8, r: 1.3, label: () => `📦 The back room (${owner && sh ? sh.stock.length : 0} boxes)`, action: r => (owner ? stockList(r) : r.say("Lulu", "The back room's private. Even friends don't see the back room. Especially friends.", { emoji: "💁‍♀️" })) });
     if (kind.bake) {
@@ -229,6 +234,52 @@ async function keysMenu(rt) {
     const got = API.release(c.id, lease ? "keys" : "sold");
     await say(rt, `Done. ${fmt(got)} coins back. Goodbye, little shop.`);
     rt.leave();
+}
+
+// ── buying in another player's shop (stage 2: the relay says yes first, then her coins move) ──
+const GIFT_LINES = { cake: "Honey cake. Still warm-ish. A heart's worth of happy.", rugelach: "Rugelach! Flaky. Dangerous.", sushi: "Sushi from Lakewood. Brave. Delicious. Brave.",
+    giftbox: "A gift box! For a friend. Or for her. She's a friend.", washToken: "A car-wash token. The car will be SO clean (once the car wash opens).", airFresh: "Pine-scented. The car smells like a forest now. A forest that drives." };
+async function buyMenu(rt, k) {
+    const c = ROOM.cur, shelf = shelfOf(), idx = [0, 1, 2, 3, 4, 5].map(j => k * 6 + j).filter(s => shelf[s]);
+    if (!idx.length) { await rt.say("Shelf " + (k + 1), "Empty. She'll restock. Probably.", { emoji: "🧺" }); return; }
+    const rows = idx.map(s => { const x = shelf[s]; return `${GOODS[x.g].emoji} ${GOODS[x.g].name}${x.stars ? " " + "⭐".repeat(x.stars) : ""} — ${fmt(x.price)} 💰${x.so ? " (sold out today)" : ` (${x.n} left)`}`; });
+    const i = await rt.choose("Shelf " + (k + 1), `${c.friend.name}'s shelf. You have ${fmt(wallet.coins)} coins.`, rows.concat(["‹ Back"]));
+    if (i < 0 || i >= idx.length) return;
+    const slot = idx[i], x = shelf[slot];
+    if (x.so) { await rt.say("The shelf", "Sold out for today. Come back tomorrow!", { emoji: "🧺" }); return; }
+    if (wallet.coins < x.price) { await say(rt, `It's ${fmt(x.price)}. I have ${fmt(wallet.coins)}. Next time.`); return; }
+    const j = await rt.choose("The shelf", `${GOODS[x.g].emoji} ${GOODS[x.g].name} for ${fmt(x.price)} coins?`, [`✅ Buy it — ${fmt(x.price)} 💰`, "‹ Not now"]);
+    if (j !== 0) return;
+    const r = await API.SVR.buy(c.id, slot, x.price);
+    if (!r || !r.ok) {
+        const why = r && r.why;
+        if (why === "price" && r.p) { x.price = r.p; await say(rt, `The price changed to ${fmt(r.p)}. Shops!`); return; }
+        await say(rt, why === "new" ? "Shops only sell to players who've been around a few days. Come back soon!"
+            : why === "spent" ? "That's all I can spend at her shops today. Tomorrow!"
+            : why === "buys" ? "Three from one shop a day. That's the town's rule. (Fairness. Apparently.)"
+            : why === "soldout" ? "Sold out for today!"
+            : why === "gone" ? "Somebody just bought the last one. Shopping is a contact sport."
+            : "The till's stuck. Try again in a moment.");
+        if (why === "soldout") x.so = true;
+        if (why === "gone") { x.n = 0; shelf[slot] = null; }
+        return;
+    }
+    if (!wallet.spend(r.p)) return;
+    x.n = r.left; if (x.n <= 0) shelf[slot] = null;
+    ROOM.bought = (ROOM.bought || 0) + 1;
+    const item = GOODS[r.g] && GOODS[r.g].item;
+    if (item && ctx.houseitems && ctx.houseitems.add) ctx.houseitems.add(item, "shop:" + c.friend.name, false);
+    emit("playershops:bought", { id: c.id, g: r.g, p: r.p });
+    emit("stat", { id: "shopBuys", n: 1 });
+    saveSoon();
+    await say(rt, item ? `${GOODS[r.g].emoji} Mine! It's in my bag.` : GIFT_LINES[r.g] || "Bought!");
+}
+async function counterMenu(rt) {
+    const c = ROOM.cur;
+    const opts = [ROOM.bought ? "👍 Leave a thumbs up" : "👍 (buy something first)", "🚩 Report this shop's name", "‹ Never mind"];
+    const i = await rt.choose("🛎️ The counter", `${c.friend.name}'s shop. ${c.friend.thumbs || 0} 👍 so far. Nobody's at the counter — a bell, a note: "ring for service (I'm out)".`, opts);
+    if (i === 0 && ROOM.bought) { const ok = await API.SVR.thumb(c.id); await say(rt, ok ? "👍 Done. She'll see it." : "Already did that today."); }
+    else if (i === 1) { await API.SVR.report(c.id); await say(rt, "Reported. If enough people agree, the name goes back to plain."); }
 }
 
 // ── the oven: the baking game ────────────────────────────────────────────────────────────────────────────────────
