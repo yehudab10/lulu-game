@@ -42,7 +42,7 @@ module.exports = {
     });
 
     await step("BONK", async () => {
-      await stand(...(await g(`(() => { const h = ctx.homes.household(${K}); return [h.ap.x + h.nx * 30, h.ap.z + h.nz * 30]; })()`)));
+      await stand(...(await g(`(() => { const h = ctx.homes.household(${K}); const dx = h.ap.x - h.door.x, dz = h.ap.z - h.door.z, d = Math.hypot(dx, dz) || 1; return [h.ap.x + dx / d * 30, h.ap.z + dz / d * 30]; })()`)));
       await t.frames(4);
       await g(`(() => { const p = ctx.foot.pos; return ctx.foot.startChase({ x: p.x + 2, z: p.z + 1.5 }); })()`);
       await t.until(`!!__lulu3d.ctx.foot.debug.F.chase`, "a cop chasing her", 10000);
@@ -85,7 +85,7 @@ module.exports = {
 
     await step("in front of its owner", async () => {
       const h = await g(`ctx.homes.household(${K})`);
-      await stand(h.ap.x + h.nx * 3, h.ap.z + h.nz * 3); await t.frames(4);
+      { const dx = h.ap.x - h.door.x, dz = h.ap.z - h.door.z, d = Math.hypot(dx, dz) || 1; await stand(h.ap.x + dx / d * 3, h.ap.z + dz / d * 3); } await t.frames(4);
       const k0 = await g(`(ctx.homes.family(${K}) || {}).kept | 0`);
       console.log("   DBG owner", JSON.stringify(await g(`(() => { const h = ctx.homes.household(${K}); return { h: h && [h.ap.x, h.ap.z, h.status], me: [ctx.foot.pos.x, ctx.foot.pos.z], bag: ${I}.bag, hand: ${I}.hand }; })()`)));
       const r = await g(`${I}.use()`);
@@ -96,7 +96,7 @@ module.exports = {
     });
 
     await step("the button + swap", async () => {
-      await stand(...(await g(`(() => { const h = ctx.homes.household(${K}); return [h.ap.x + h.nx * 30, h.ap.z + h.nz * 30]; })()`)));
+      await stand(...(await g(`(() => { const h = ctx.homes.household(${K}); const dx = h.ap.x - h.door.x, dz = h.ap.z - h.door.z, d = Math.hypot(dx, dz) || 1; return [h.ap.x + dx / d * 30, h.ap.z + dz / d * 30]; })()`)));
       await g(`(${I}.add("chicken", null, true), true)`);
       t.check("two things: the newest in hand", (await g(`${I}.hand`)) === "chicken");
       await g(`${I}.swap()`);
