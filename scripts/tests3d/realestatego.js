@@ -46,16 +46,20 @@ module.exports = {
     await t.frames(6);
     t.check("📞 Your places: a 🏠 Go there button for her house", await t.L(`!!document.querySelector('[data-go="${rec.id}"]') && /Go there/.test(document.querySelector('[data-go="${rec.id}"]').textContent)`));
 
-    // ── 1. from the highway (tapping the phone button) ──
+    // ── 1. from the highway — the 📱 🗺️ Map: tap her home → 🏠 Go there (the same goto.js path) ──
     await W.moved(t).catch(() => null);
     await g(`(ctx.phone.closePhone(), ctx.town.leave("highway"), true)`);
     await t.until(`!__lulu3d.ctx.town.active && __lulu3d.state === "playing"`, "on the highway", 15000);
-    await g(`(ctx.phone.openPhone("community"), true)`);
+    await g(`(ctx.phone.openPhone("lapmap"), true)`);
     await t.frames(6);
-    await t.L(`(() => { const b = [...document.querySelectorAll("[data-ct]")].find(b => b.dataset.ct === "realtor"); if (b) b.click(); return true; })()`);
+    t.check("📱 🗺️ Map: her home is listed", await t.L(`!!document.querySelector('[data-mh="${rec.id}"]')`));
+    t.check("…no Go there until she taps it", !(await t.L(`!!document.querySelector('.re-go[data-go="${rec.id}"]')`)));
+    await t.L(`document.querySelector('[data-mh="${rec.id}"]').click()`);
     await t.frames(6);
-    await t.L(`document.querySelector('[data-go="${rec.id}"]').click()`);
-    await atDoor("from the highway");
+    t.check("…tap it: 🏠 Go there", await t.L(`!!document.querySelector('.re-go[data-go="${rec.id}"]')`));
+    await t.shot("go-map");
+    await t.L(`document.querySelector('.re-go[data-go="${rec.id}"]').click()`);
+    await atDoor("from the highway (the Map)");
     t.check("…the phone closed itself", !(await g(`ctx.phone.isOpen`)));
     await t.shot("go-from-highway");
 

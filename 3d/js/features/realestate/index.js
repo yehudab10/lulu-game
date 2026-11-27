@@ -29,6 +29,7 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { CAP, PITCH, PATTER, OFFICE, SIGNING, SOLD, MINE, PASS_SIGN, VIEWING, BASE } from "./data.js";
 import { registry, S, NAMES, plateName } from "./registry.js";
+import { MAP_EXTRAS } from "../phone/apps.js";
 import { A as ACC } from "../accounts/index.js";
 import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT, isStarter, starters } from "./market.js";
 import { layout, counts, clear as clearSigns, G as SIGNS, plateTexNow } from "./signs.js";
@@ -537,6 +538,26 @@ on("boot", () => {
         const R = REALTOR_CONTACT;
         ctx.community.addContact({ id: "realtor", icon: "🏘️", name: R.name, tag: R.tag, color: "#8D6E63", render: contactRender });
     }
+});
+// 📱 🗺️ the Map: her homes under the ring — tap one → 🏠 Go there (the same goto.js path as the realtor's contact)
+const MAPSEL = { id: null };
+MAP_EXTRAS.push({
+    id: "realestate",
+    html() {
+        const mine = registry.listFor(null).filter(m => !m.lost);
+        if (!mine.length) return "";
+        if (!mine.some(m => m.id === MAPSEL.id)) MAPSEL.id = null;
+        const town = t => (t === "midwood" ? "Midwood" : "Lakewood");
+        return `<div class="lp-note"><b>🔑 Your homes</b></div>` + mine.map(m => {
+            const open = m.id === MAPSEL.id, why = open ? GOTO.goBlock(m.id) : "";
+            return `<button class="btn lp-row re-maphome" data-mh="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.label} in ${town(m.town)}</small></span><span class="lp-meta">${open ? "▲" : "▼"}</span></button>`
+                + (open ? `<div class="re-home" style="display:flex;flex-direction:column;gap:4px;margin:2px 0 8px">${why ? `<p class="lp-note re-why">${why}</p>` : ""}<button class="btn re-go" data-go="${m.id}">🏠 Go there</button></div>` : "");
+        }).join("");
+    },
+    bind(el, api) {
+        el.querySelectorAll("[data-mh]").forEach(b => b.addEventListener("click", () => { MAPSEL.id = MAPSEL.id === b.dataset.mh ? null : b.dataset.mh; api.refresh(); }));
+        el.querySelectorAll(".re-go[data-go]").forEach(b => b.addEventListener("click", () => { if (GOTO.goHome(b.dataset.go)) api.refresh(); }));
+    },
 });
 // (features/together: a house's instance is its id — the owner + anyone visiting it share the room; a viewing is personal)
 SHARED.realestateHouse = () => (CUR.rec && (CUR.mode === "owner" || CUR.mode === "visit") ? CUR.rec.id : null);
