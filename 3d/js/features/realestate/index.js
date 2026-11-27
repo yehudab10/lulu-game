@@ -557,7 +557,7 @@ ctx.realestate = {
     /** 🏠 Go there: to the front door of home `id` she owns (goto.js) → "" (on her way) | the line why not. */
     goTo: id => GOTO.goHome(id),
     /** Why she can't go to home `id` right now ("" = she can). */
-    goBlock: id => GOTO.goBlock(id),
+    goBlock: (id, o) => GOTO.goBlock(id, o),
     ownerOf: id => registry.ownerOf(id),
     count: () => registry.count(),
     cap: CAP,

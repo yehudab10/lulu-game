@@ -29,15 +29,23 @@ function why() {
     try { ctx.party.setX("rv", id); } catch (e) { /* */ }
     return "";
 }
+let clearT = null;
 function start({ me, by }) {
     if (me === by) {
         const id = myVisitHome(), r = id && lookup(id), p = herPos();
-        try { ctx.party.setX("rv", null); } catch (e) { /* */ }
+        // (the home's id stays up a little: friends read it as their start arrives — clearing it now raced them)
+        clearTimeout(clearT); clearT = setTimeout(() => { try { ctx.party.setX("rv", null); } catch (e) { /* */ } }, 30000);
         if (r && p && Math.hypot(r.ap.x - p.x, r.ap.z - p.z) > 20 && !goBlock(id)) goHome(id);
         return;
     }
-    const peer = ctx.party.peer && ctx.party.peer(by), id = peer && peer.x && peer.x.rv;
-    if (typeof id === "string") goHome(id, { friend: true });
+    // a friend: her home's id from her snapshot (give it a moment to arrive)
+    const t0 = performance.now();
+    const look = () => {
+        const peer = ctx.party.peer && ctx.party.peer(by), id = peer && peer.x && peer.x.rv;
+        if (typeof id === "string") { goHome(id, { friend: true }); return; }
+        if (performance.now() - t0 < 4000) setTimeout(look, 150);
+    };
+    look();
 }
 on("boot", () => {
     if (ctx.group && ctx.group.invitable) {
