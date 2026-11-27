@@ -13,7 +13,7 @@ import { LAP, lapS } from "../../world.js";
 import { REST } from "../exits/index.js";
 import { NAMES } from "../exits/lines.js";
 import { GAS_LAP, LOOK_LAP } from "./places.js";
-import { ROADSIDE } from "../places/roadside.js";
+import { mapEntries as roadsideEntries } from "../places/roadside.js";
 
 let CACHE = null;
 /** Every place on the lap, from fixed data (the towns' + JFK's lap metres are planned once, the same everywhere). */
@@ -33,7 +33,7 @@ export function lapPlaces() {
     GAS_LAP.forEach((m, i) => out.push({ addr: "hw:gas:" + i, name: "Gas 'n' Go", emoji: "⛽", m, kind: "gas" }));
     LOOK_LAP.forEach((m, i) => out.push({ addr: "hw:lookout:" + i, name: "the Lookout", emoji: "🌄", m, kind: "lookout" }));
     // 🚔🚑 the roadside trooper post + traffic court, Hatzalah, Doc-in-a-Box (features/places/roadside.js — ci/roadside)
-    for (const R of ROADSIDE) out.push({ addr: R.addr, name: R.id === "trooper" ? "Trooper Post 7 + Traffic Court" : R.id === "weigh" ? "Weigh Station + Doc-in-a-Box" : R.name, emoji: R.emoji, m: R.m, kind: "roadside" });
+    out.push(...roadsideEntries());
     out.sort((a, b) => a.m - b.m);
     // (only cache once the towns' exits could be planned — a world exists)
     if (ctx.world && ctx.world.highway) CACHE = out;

@@ -288,6 +288,12 @@ export function hwSpot(door, P = null) {
     }
     return best;
 }
+/** The roadside places as map entries — the ONE place they're handed to a map (a places registry can take them as-is:
+ *  name, icon, group "highway", lap metre). */
+export function mapEntries() {
+    return ROADSIDE.map(R => ({ addr: R.addr, name: R.id === "trooper" ? "Trooper Post 7 + Traffic Court" : R.id === "weigh" ? "Weigh Station + Doc-in-a-Box" : R.name,
+        emoji: R.emoji, m: R.m, kind: "roadside", group: "highway" }));
+}
 /** Names for the interiors / the lobby (the roadside place's, by door). */
 export function hwNames(id) { const R = BY_ID[id]; return R ? R.names : null; }
 export { KIND_OF };
