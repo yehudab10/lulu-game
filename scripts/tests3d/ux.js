@@ -47,7 +47,7 @@ module.exports = {
     t.check("home: ▶ PLAY is the hero tile and has the focus", await t.L(`!!document.querySelector("#screenCard .tile.hero#play")`) && await focusId() === "play");
     t.check("home: coins in the top bar", await t.L(`/12,345/.test(document.querySelector(".home-bar").textContent)`));
     t.check("home: the streak is a top-bar chip", await t.L(`/🔥 3/.test(document.querySelector(".home-bar").textContent)`));
-    t.check("home: one small play tile under it (👯 Friends — 👧 Dina's is hidden for now), no 'More to play'", await t.L(`[...document.querySelectorAll("#screenCard .home-tiles .tile")].map(b => b.id).join() === "party" && !document.getElementById("tg_play")`));
+    t.check("home: no small play tiles under it (👯 Friends is in the game now, 👧 Dina's is hidden for now), no 'More to play'", await t.L(`[...document.querySelectorAll("#screenCard .home-tiles .tile")].length === 0 && !document.getElementById("tg_play")`));
     const hidden = await g(`L3.titleLabels().filter(i => i.id === "dina" || i.id === "storyMap").map(i => i.id)`);
     t.check("hidden for now: no 👧 Dina tile, no 🗺️ Road to Vegas map (even with story progress)", hidden.length === 0, hidden.join(","));
     t.check("home: the controller is a small chip (no footer line)", await t.L(`!!document.querySelector(".home-bar .pad-status.on") && !document.querySelector(".home-foot")`));

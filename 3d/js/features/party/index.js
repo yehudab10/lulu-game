@@ -386,7 +386,10 @@ function openJoin(code = "", msg = "", msgCls = "") {
 addMenuItem("title", {
     id: "party", group: "play", order: 60, cls: "purple",
     label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} online</small>` : ""}`,
-    visible: () => !ctx.TEST || ctx.enabled("party") || ctx.enabled("multiplayer"),
+    // (the owner, 2026-11-27: "get rid of the friends button from the main menu since it's supposed to be an in game
+    //  thing" — everything it offered is in 📱 👯 Friends now: Play with a friend, Join with a code, join a friend;
+    //  an invite link opened from outside still joins straight from the title: autoJoin)
+    visible: () => false,
     action: openHub,
 });
 addMenuItem("pause", { id: "partyLobby", order: 86, cls: "",
@@ -394,7 +397,8 @@ addMenuItem("pause", { id: "partyLobby", order: 86, cls: "",
     label: () => (N.A.fromRoam && ACTS.roam ? "🌍 End the game for everyone" : "🏠 Everyone back to the lobby"),
     visible: () => N.want && N.isHost && N.A.k !== "lobby" && N.A.k !== "roam",
     action: () => { resume(); if (N.A.fromRoam && ACTS.roam) hostStart("roam"); else hostToLobby(); } });
-addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Stop playing with friends", visible: () => N.want, action: () => leave() });
+addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Stop playing with friends", visible: () => N.want,
+    action: () => { if (lightRoam()) { resume(); leave(false); H.toast("You're playing on your own now.", "", { prio: 1 }); } else leave(); } });   // (on her own run: she stays right where she is)
 
 // ── host actions ─────────────────────────────────────────────────────────
 function hostStart(k = P.pick, extra = null) {

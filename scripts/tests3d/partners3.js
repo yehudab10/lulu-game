@@ -37,8 +37,7 @@ module.exports = {
 async function body(t, guests) {
   const g = t.game, Hp = hostPage(t);
   t.check("ctx.partners service", await g(`!!${PZ} && typeof ${PZ}.ring === "function" && ${PZ}.PAY.dare.pot === 30`));
-  await t.click(/Friends/);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await t.game(`(ctx.party.hostRoam(), true)`);     // (📱 👯 › Play with a friend — the title has no Friends tile any more)
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
   const A = await guestPage(t, "guest", { totalCoins: 300, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`);

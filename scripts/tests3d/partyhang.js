@@ -70,13 +70,21 @@ async function partyRun(t, guests) {
   await t.frames(6);
 
   // ── 🌍 Hang out: the host goes straight into Free Roam ──
-  await t.click(/Friends/);
-  t.check("the hub's first choice is 🌍 Hang out (Free Roam)", await t.L(`(() => { const b = document.querySelector("#screenCard button"); return !!b && b.id === "pt_roam"; })()`));
+  // (the title has no 👯 tile any more — owner 2026-11-27: friends are in the game: ▶ PLAY, then 📱 👯 Friends)
+  t.check("the title has no Friends tile", await t.L(`![...document.querySelectorAll("#screenCard .btn")].some(b => /Friends/.test(b.textContent))`));
+  await g(`L3.startRun({ mode: "cruise", quick: true })`);
+  if (!await Hp.until(`ctx.state === "playing" || ctx.state === "footRun"`, "▶ PLAY: her run starts", 60000)) return;
+  await g(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+  await Hp.until(`ctx.state === "playing"`, "in her car", 30000);
+  const run0 = await g(`ctx.G.startS`);
+  await g(`ctx.phone.openPhone("friends")`);
+  await t.frames(6);
+  t.check("📱 👯 Friends: Play with a friend + Join with a code", await t.L(`!!document.getElementById("frHost") && !!document.getElementById("frPcode")`));
   await t.L(`(() => { window.__states = []; import("./js/core/ctx.js").then(m => m.on("state", e => window.__states.push(e.to))); return true; })()`);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await t.L(`document.getElementById("frHost").click()`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "🌍 Hang out → driving in Free Roam", 120000)) return;
   // (friends = the same game: 🌍 Free Roam rides on her OWN run — a normal ▶ PLAY run, no party run)
-  t.check("…on her own run (no party run)", await g(`ctx.G.mode === "cruise" && ctx.party.ownRun`));
+  t.check("…on her own run (the same one: no party run, no reset)", await g(`ctx.G.mode === "cruise" && ctx.party.ownRun && ctx.G.startS === ${run0}`));
   const hostStates = await t.L(`window.__states.slice()`);
   t.check("no 3-2-1 grid on the way into Free Roam", !hostStates.includes("partyGrid"), hostStates.join(">"));
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
