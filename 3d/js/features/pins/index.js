@@ -19,7 +19,7 @@
 //    list() · get(id) · ping(id, { from }) · pingKind(key) · clear() · current · target(id?) · groups() · debug
 //  }
 // ─────────────────────────────────────────────────────────────────────────
-import { ctx, on, emit, hook, css } from "../../core/ctx.js";
+import { ctx, on, emit, hook, css, addMenuItem } from "../../core/ctx.js";
 import { store, saveSoon } from "../../core/save.js";
 import * as H from "../../hud.js";
 import { LAP, lapS } from "../../world.js";
@@ -29,7 +29,7 @@ import * as PTR from "../together/pointers.js";
 import { lapPlaces, ahead } from "../world/lapmap.js";
 import { seed } from "./data.js";
 
-const PS = store("pins", { ping: null, from: "", kind: "", n: 0, arrived: 0 });
+const PS = store("pins", { ping: null, from: "", kind: "", n: 0, arrived: 0, pointer: true });
 const REG = new Map();
 const HEX = "#7C4DFF";
 const P = { t: null, tT: 0, chip: null, text: "", fchip: null, ftext: "", fT: 0, seen: {}, fl: [] };
@@ -224,7 +224,7 @@ function tick(dt) {
     }
     const p = PS.ping && get(PS.ping), t = P.t;
     if (!p || !live()) { hideBeacon("pin"); chip(p && live() ? `📍 ${short(p.name)}` : ""); return; }
-    if (t && (t.kind === "at" || t.d < 1200)) beacon("pin", t.x, t.z, HEX, 2.6, 34); else hideBeacon("pin");
+    if (t && PS.pointer !== false && (t.kind === "at" || t.d < 1200)) beacon("pin", t.x, t.z, HEX, 2.6, 34); else hideBeacon("pin");
     chip(`📍 ${short(p.name)}${t ? ` · ${fmtDist(t.d)}` : ""}`);
 }
 hook("hud", dt => { try { tick(dt || 1 / 60); } catch (e) { console.error("[pins]", e); } });
@@ -233,7 +233,7 @@ on("state", ({ to }) => { if (to === "title") { hideBeacons("pin"); chip(""); fc
 /** The edge pointer (together/pointers.js asks every frame): my ping only, never in an activity. */
 PTR.extra(() => {
     const p = PS.ping && get(PS.ping), t = P.t;
-    if (!p || !t || t.arrived || (ctx.engaged && ctx.engaged())) return null;
+    if (!p || !t || t.arrived || PS.pointer === false || (ctx.engaged && ctx.engaged())) return null;
     return { uid: "pin", name: `${p.icon} ${short(p.name)}`, hex: HEX, x: t.x, z: t.z, dist: t.d, label: t.label, kind: "ping", dest: true };
 });
 
@@ -261,8 +261,17 @@ function friendsTick() {
 }
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
+// ⚙️ 📍 Destination pointer: off = no beam and no edge pointer (the map still marks the place, the line still says it)
+export const pointerOn = () => PS.pointer !== false;
+export function setPointer(v) { PS.pointer = !!v; saveSoon(); if (!PS.pointer) hideBeacon("pin"); emit("settings", { id: "pinPointer" }); }
+addMenuItem("settings", {
+    id: "pinPointer", order: 60,
+    label: () => `📍 Destination pointer <b>${pointerOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${pointerOn() ? "A light over a place you ping on the 📱 Map + an arrow at the screen's edge" : "No light, no arrow — the Map still shows your pin"}</small>`,
+    action: () => setPointer(!pointerOn()),
+});
+
 ctx.pins = {
-    add, list, get, ping, pingKind, clear, target, groups, lapM,
+    add, list, get, ping, pingKind, clear, target, groups, lapM, pointerOn, setPointer,
     get current() { return PS.ping; },
     get from() { return PS.from; },
     debug: { PS, P, tick: dt => tick(dt || 0.2) },

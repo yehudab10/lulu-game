@@ -517,7 +517,12 @@ objective line's lowest slot (`H.OBJ.info`). In another town it points at the wa
 town's next exit; arriving clears it (a town place within 12 m, a rest area / JFK when she's in it), a new ping replaces
 it, ✕ Clear in the map. 🛍️ Where to shop (shops/guide.js) marks through it (`pingKind`). With friends: `d.x.pg` = my
 ping's id (the party packet — no relay change); a friend's ping = their beam in their colour + one quiet line for 8 s.
-Test `pins`.
+⚙️ 📍 Destination pointer (off = no beam, no edge pointer; the map + the line stay). Test `pins`.
+
+**📶 Show connection (`features/netping`, ⚙️, OFF by default):** a small "📶 48 ms" pill in the top band by the coins;
+it times the relay heartbeat the game already sends (`multiplayer/net.js › pingRelay()`: "pi" → the relay's "po" →
+`MP.rtt`) every 10 s while it's on and online, never while ⚙️ Play online is off ("📶 offline"); amber ≥ 250 ms, red
+≥ 500 ms; hidden in Dina's mode. No server change. Test `netping`.
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop

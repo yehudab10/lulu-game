@@ -50,6 +50,7 @@ import "./shul/index.js";         // 🕍 shul: a walk-in shul in each town (the
 import "./shops/index.js";        // 🛍️ shops: the shop moved into the world — 🚗 Uncle Refael's Pre-Loved Cars in each town (look, test drive, buy), 🔑 pick your car in your garage at home, 🛍️ Where to shop (directions, not a store)
 import "./clothes/index.js";      // 👗 clothing shops (Midwood: Avenue J'adore · Lakewood: Simcha's Classic Clothing) — racks, the fitting room (try on: a curtain + a spin), buy at the counter; outfits on Lulu herself
 import "./pins/index.js";         // 📍 places on the 📱 🗺️ Map + one PING (a beam, one edge pointer, the objective line's lowest slot); friends see it in their colour
+import "./netping/index.js";      // 📶 ⚙️ Show connection (ping): an optional, off-by-default readout of the relay round trip
 import "./airport/index.js";      // ✈️ the airport exit — JFK (stage 1: its own interchange, the kerb loop, parking, taxis + shuttles, the terminal outside, the tower, the runway fence + its joke, planes overhead; OFF by default until ci/exits2: ?airport=1)
 import "./airport/terminal.js";       // ✈️ the JFK terminal (airport stage 2): one walk-in hall — check-in (Kugel Air, El Oy, Shmear Jet), the departures board, the security-line gag, a food court, the gate window, arrivals; shared with friends
 import "./airport/stage3.js";         // ✈️ JFK stage 3: 🚕 airport taxi runs (a hustle job, only from the airport), 🧳 the lost suitcase, 🎤 Dovid Dov on tour down the VIP carpet — each capped per real day
