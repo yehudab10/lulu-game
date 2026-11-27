@@ -118,8 +118,25 @@ module.exports = {
     await t.tap(5); await t.frames(3);
 
     // save code made in 3D is a valid 2D code (2D's own codeToSave)
-    await t.L(`document.querySelector("#mbCopy").click()`); await t.frames(3);
+    await t.L(`document.querySelector("#mbCopy").click()`);
+    await t.until(`!!document.querySelector("#mbCodeOut")`, "the save code card opens", 15000);
+    // the code she's shown is the SHORT one (it has to survive being texted); the long one is one tap away for Classic 2D
+    const short = await t.L(`document.querySelector("#mbCodeOut").value`);
+    await t.L(`document.getElementById("mbLongCode").click()`);
+    await t.until(`/^LULU1:/.test((document.querySelector("#mbCodeOut") || {}).value || "")`, "the long code shows", 15000);
     const code = await t.L(`document.querySelector("#mbCodeOut").value`);
+    t.check("the save code she's shown is the short one (under half the long one)", /^LULU2:/.test(short) && short.length < code.length * 0.5, `${short.length} vs ${code.length}`);
+    const rd = c => t.L(`import("./js/features/meta/screens.js").then(m => m.readCode(${JSON.stringify(c)})).then(r => ({ err: r.err || "", got: r.got || 0, want: r.want || 0, coins: r.obj ? r.obj.totalCoins : -1, three: !!(r.obj && r.obj.lulu3d) }))`);
+    const r1 = await rd(short);
+    t.check("the short code loads back the same save", r1.coins === 1018 && r1.three, JSON.stringify(r1));
+    const r2 = await rd("hey this is my code:\n" + short.slice(0, 40) + " \n" + short.slice(40, 90) + "\u200b" + short.slice(90) + "\n\nthanks!!");
+    t.check("…also from inside a chatty message, with line breaks a chat app added", r2.coins === 1018, JSON.stringify(r2));
+    const r3 = await rd(short.slice(0, Math.floor(short.length * 0.6)));
+    t.check("a code a chat app cut short says exactly that (how much arrived)", r3.err === "cut" && r3.got > 0 && r3.want > r3.got, JSON.stringify(r3));
+    const r4 = await rd("my code " + code.slice(0, 50) + "\n" + code.slice(50));
+    t.check("the long code still loads (with junk around it)", r4.coins === 1018, JSON.stringify(r4));
+    const r5 = await rd(code.slice(0, Math.floor(code.length * 0.7)));
+    t.check("a long code cut short is reported as cut short too", r5.err === "cut", JSON.stringify(r5));
     const dec = twoD.codeToSave(code);
     t.check("3D save code decodes with the 2D game's codeToSave", !!dec && dec.totalCoins === 1018 && !!dec.lulu3d, code.slice(0, 16) + "…");
     await t.shot("savecode");
@@ -128,6 +145,25 @@ module.exports = {
     await t.tap(1); await t.frames(3);
     t.check("○ closes the scrapbook to the title", await t.game(`ctx.state === "title"`) && await t.L(`!!document.getElementById("metaScrapbook")`));
     t.check("…with the cursor back on 📒 Scrapbook", await t.L(`document.getElementById("metaScrapbook").classList.contains("focus")`));
+
+    // 📲 Move to another device — straight from ⚙️ Settings (the save code was only at the bottom of the Stats page)
+    await t.game(`(L3.openMenuItem("title", "settings"), true)`); await t.frames(6);
+    t.check("⚙️ Settings lists 📲 Move to another device", await t.L(`/Move to another device/.test((document.getElementById("set_x_transfer") || {}).textContent || "")`));
+    await t.L(`document.getElementById("set_x_transfer").click()`); await t.frames(6);
+    t.check("⚙️ › 📲 Move to another device: copy + load buttons", await t.L(`!!document.getElementById("mbXCopy") && !!document.getElementById("mbXLoad")`));
+    await t.shot("move-phone");
+    await t.L(`document.getElementById("mbXCopy").click()`);
+    await t.until(`!!document.querySelector("#mbCodeOut")`, "the Move card's code opens", 15000);
+    t.check("…its copy card shows the short save code", /^LULU2:/.test(await t.L(`(document.querySelector("#mbCodeOut") || {}).value`)));
+    await t.tap(1); await t.frames(3);
+    t.check("…○ goes back to the Move card (not the scrapbook)", await t.L(`!!document.getElementById("mbXCopy") && !document.querySelector("#mbStats")`));
+    await t.L(`document.getElementById("mbXLoad").click()`); await t.frames(3);
+    t.check("…its load card takes a pasted code", await t.L(`!!document.querySelector("#mbCodeIn") && !!document.getElementById("mbDoLoad")`));
+    await t.tap(1); await t.frames(3);
+    await t.tap(1); await t.frames(4);
+    t.check("…and ○ leaves it, back in ⚙️ Settings", await t.L(`!document.getElementById("mbXCopy") && !document.querySelector("#mbCodeIn") && !!document.getElementById("set_x_transfer")`));
+    await t.tap(1); await t.frames(6);
+    t.check("…and ○ again is the title", await t.game(`ctx.state === "title"`) && await t.L(`!document.getElementById("set_x_transfer")`));
     await t.tap(17); await t.frames(3);
     t.check("the touchpad (map) opens the scrapbook", await t.L(`!!document.querySelector(".card.meta-book")`));
     await t.tap(1); await t.frames(3);
@@ -246,7 +282,7 @@ module.exports = {
     await t.L(`document.querySelector("#mbLoad").click()`); await t.frames(3);
     await t.L(`document.querySelector("#mbCodeIn").value = "nope"`);
     await t.click(/Load this save/);
-    t.check("a bad code is refused", await t.L(`/doesn't look like a save code/.test(document.querySelector("#mbErr").textContent)`));
+    t.check("a bad code is refused", await t.L(`/can't find a save code/.test(document.querySelector("#mbErr").textContent)`));
     await t.L(`document.querySelector("#mbCodeIn").value = ${JSON.stringify(code2d)}`);
     await t.click(/Load this save/);
     t.check("confirm screen shows coins → coins", await t.L(`/4,242 coins/.test(document.querySelector("#screenCard").textContent)`));
