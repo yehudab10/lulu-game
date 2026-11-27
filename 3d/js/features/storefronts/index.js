@@ -298,8 +298,8 @@ function hiddenPins() {
 // ── for ci/playershops: a FOR LEASE front can be claimed (like realestate claims doors) ──
 /** The FOR LEASE fronts of the town she's in: [{ id, name, x, z }]. */
 export function leasable() { return F.list.filter(f => f.st && f.st.state === "lease" && !f.st.reserved && !F.claims.has(f.id)).map(f => ({ id: f.id, list: f.list, x: f.door.x, z: f.door.z })); }
-/** The fronts kept for a feature in the town she's in: reservedFor("carcare") (ci/carcare: the Coney Island Ave row +
- *  both Minivan Washes) · reservedFor("lanes") (ci/lanes: East Midwood Lanes' Avenue M run). → [{ id, name, state, x, z }] */
+/** The fronts kept for a feature in the town she's in: reservedFor("carcare") (ci/carcare: the four named Coney Island Ave
+ *  shops + both Minivan Washes) · reservedFor("lanes") (ci/lanes: East Midwood Lanes' Avenue M run). → [{ id, name, state, x, z }] */
 export function reservedFor(tag) { return F.list.filter(f => f.st && f.st.reserved === tag).map(f => ({ id: f.id, name: f.name, state: stateOf(f), x: f.door.x, z: f.door.z })); }
 /** Claim a front: spec { label?, enter?(front) } — its ✋ is the claimer's from then on. */
 export function claim(id, spec = {}) { if (!id) return false; F.claims.set(id, spec); return true; }

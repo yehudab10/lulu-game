@@ -19,9 +19,10 @@ const townOf = (id, row) => (row.list === "shops" ? "lakewood" : row.list ? "mid
 /** The namer: ({ town, list, lines, x, z, i }, memo) → { lines, state, shop?, named?, reserved?, bowling? }. */
 export function nameFront(f, memo) {
     const r = pickState(f, memo);
-    // (fronts another feature will take: ci/carcare — the whole Coney Island Ave row + both Minivan Washes; ci/lanes — the
+    // (fronts another feature will take: ci/carcare — the named Coney Island Ave shops + both Minivan Washes; ci/lanes — the
     //  bowling alley's Avenue M run. Their state stays as it is until that feature claims them.)
-    if (r && (f.list === "cia" || r.reserved === "carcare")) r.reserved = "carcare";
+    // (only the NAMED car-care shops: the row's unnamed copies are ordinary fronts — FOR LEASE for player shops etc.)
+    if (r && r.reserved === "carcare") r.reserved = "carcare";
     if (r && r.bowling) r.reserved = "lanes";
     return r;
 }

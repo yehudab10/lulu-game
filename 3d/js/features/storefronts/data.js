@@ -186,7 +186,7 @@ export const SHOPS = {
 
 /** Named shops that are NOT a one-joke room: their own state (the name stays on its one front). */
 export const NAMED = {
-    // saved for ci/carcare (after ci/cars): the whole Coney Island Ave row + both Minivan Washes (a wash, a body shop, tires, a muffler, a gas station)
+    // saved for ci/carcare (after ci/cars): the four named Coney Island Ave shops + both Minivan Washes (the row's unnamed copies are ordinary fronts) (a wash, a body shop, tires, a muffler, a gas station)
     "MIDWOOD MINIVAN WASH": { state: "use", reserved: "carcare", shut: "BACK IN 5 — under a minivan" },
     "MINIVAN WASH": { state: "use", reserved: "carcare", shut: "BACK IN 5 — finding the Cheerios" },
     "BUMPER TO BUMPER BODY SHOP": { state: "use", reserved: "carcare", shut: "BACK IN 5 — under a Buick" },
