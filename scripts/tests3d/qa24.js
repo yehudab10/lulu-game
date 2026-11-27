@@ -43,6 +43,8 @@ module.exports = {
     // back out: online again
     await g(`(ctx.dina.leave ? ctx.dina.leave() : ctx.onegame.home(), true)`);
     await t.until(`!__lulu3d.ctx.dina.active`, "out of Dina's mode", 30000);
+    // (leaving Dina's mode lands on the title; the EVERYONE room is the world's — ▶ PLAY again)
+    if (await g(`L3.state === "title"`)) { await t.frames(10); await t.click(/PLAY/); await t.until(`__lulu3d.state === "footRun"`, "▶ PLAY again", 60000); }
     if (online) t.check("out of Dina's mode → online again", await t.until(`__lulu3d.ctx.mp && __lulu3d.ctx.mp.connected`, "back online", 40000));
   },
 };

@@ -10,8 +10,8 @@ import { SHOPS } from "./data.js";
 import { enterAs } from "./shop.js";
 
 const AT = { f: 88, r: 201.6, signR: 202.93, y: 3.35 };     // (TERM.r0 = 203: the facade; the doors are at f −75 … 75)
-/** The door opens with stage 3 (after the relay's limited-piece counter is deployed). `?maison=1` opens it for tests. */
-export const OPEN = { on: false || new URLSearchParams(location.search).get("maison") === "1" };
+/** The door is open (stage 3 landed with the relay's limited-piece counter). `?maison=0` shuts it (a quick off switch). */
+export const OPEN = { on: new URLSearchParams(location.search).get("maison") !== "0" };
 const D = { sign: null, at: null, outAt: null, outT: 0 };
 
 function signMesh() {

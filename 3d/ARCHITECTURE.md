@@ -1519,8 +1519,15 @@ counts down over the till) → put it on (the fitting room). Changing clothes ha
 mirror view, shops' card of what she owns slot by slot (+ "my old top" / "no coat" / "no extra"), a preview on her as she picks,
 👗 Put it on (the same spin) and ≤ 3 saved looks (`S.saved`). `stage.js` holds what both share (`changeAnim`, `mirrorOn`: the room
 def's camera swapped for a close one, put back on any exit). **JFK** (stage 3): `SHOPS.jfk` — Maison de Gelt, the luxury house
-(2,000–25,000; one bag costs more than the cheapest house), the same room via `ctx.clothes.enterAs("jfk", { exit })`; its door is
-the airport account's to give (asked in `docs/airport-plan.md` › Sync log, 2026-11-27) — until then nothing in the world opens it.
+(2,000–25,000; one bag costs more than the cheapest house), the same room via `ctx.clothes.enterAs("jfk", { exit })`. Its door
+(`airdoor.js`; the owner allowed this one change at the airport): a sign on Terminal 4½'s front past the last door + a ✋ spot on
+the pavement (`ctx.airport.at(f, r)`, the airport's one helper for it; logged in `docs/airport-plan.md` › Sync log); out = the
+same spot. `?maison=0` shuts it. **Numbered pieces, world-wide** (`limited.js`; the relay's `server/wear.mjs`, golden rule 3's
+third exception): `LIMITED` (bag 25 · trench 50 · wrap 75 · shades 100) — the shelf asks `stockOf(id)` (the relay's
+`/wear/stock`, cached a minute): "12 of 75 left" / SOLD OUT behind glass / "No. 17 of 50" once hers; buying = `/wear/reserve`
+(her number held 5 min) → the coins (`buyClothes`) → `/wear/confirm`; a failed pay cancels, a hold that ran out refunds, a paid
+buy not yet confirmed (`S.pending`) finishes at the next launch, `/wear/mine` restores numbers on a new phone (never charged
+twice). Needs an account with a username; offline / the relay down → "come back when you're online", the rest of the shop works.
 Every number + line: `data.js`. Test `clothes`.
 
 **City hall (cityhall, ci/cityhall — roadmap 17: "a town that governs (badly)"):** 🏛️ the owner: "Taxes. Banks. Annoying

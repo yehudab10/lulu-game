@@ -94,6 +94,8 @@ async function body(t, guests) {
   await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host", 60000);
   t.check("the same room on both screens (the house id)", (await g(`ctx.together.debug.room().inst`)) === id && (await A.game(`ctx.together.debug.room().inst`)) === id);
   t.check("…the guest's visit: no decorating hotspots", !(await A.game(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)) && (await A.game(`ctx.realestate.debug.CUR.mode`)) === "visit");
+  // (the room's pieces load a moment after "ready": wait for her rug + bed, up to 20 s)
+  await A.until(`(() => { const C = (window.__interiors.room.data.V || {}).cache || {}; const vis = sl => Object.keys(C[sl] || {}).filter(k => C[sl][k] && C[sl][k].visible); return vis("rug").includes("road") && vis("bed").includes("fluffy"); })()`, "the friend's screen: her rug + her bed", 20000);
   const seen = await A.game(`(() => { const C = window.__interiors.room.data.V.cache || {}; const vis = sl => Object.keys(C[sl] || {}).filter(k => C[sl][k] && C[sl][k].visible); return { rug: vis("rug"), bed: vis("bed") }; })()`);
   t.check("…the friend sees HER decorations (her rug + her bed)", seen.rug.includes("road") && seen.bed.includes("fluffy"), JSON.stringify(seen));
   t.check("…in a party the owner doesn't redecorate either", !(await g(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)));
