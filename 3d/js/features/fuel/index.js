@@ -27,10 +27,12 @@ import * as H from "../../hud.js";
 import { SKINS } from "../../car.js";
 import { buyExtra } from "../garage/buy.js";
 import { X, X_IN, XW } from "../town/exit.js";
-import { RANGE, NITRO_BURN, PRICE, IOU, TIME, LOW, BORROWED, PUMPS, PINS, NO_GAUGE, L } from "./data.js";
+import { RANGE, NITRO_BURN, PRICE, IOU, TIME, LOW, BORROWED, PUMPS, PINS, NO_GAUGE, L, HOME } from "./data.js";
+import { initCharge, chargeDebug, buyHome } from "./charge.js";
 
 export const FS = store("fuel", { cars: {}, iou: 0, fills: 0, km: 0 });
 const F = { ride: new Map(), anim: null, pad: { armed: true, t: 0 }, ui: null, fill: null, chip: null, chipTxt: "", log: [] };
+initCharge(FS, F);
 function log(ev, d = {}) { F.log.push(Object.assign({ ev, t: +(ctx.time || 0).toFixed(1) }, d)); if (F.log.length > 40) F.log.shift(); }
 
 // ── which tank, how big ──
@@ -98,6 +100,7 @@ hook("update", (dt, P, controlsOn) => {
 export function fill(why = "pump") {
     const k = key();
     if (!k) return { ok: false, why: "none" };
+    if (isEV(k)) { H.toast(L.evAtPump, "", { key: "fuel" }); return { ok: false, why: "ev" }; }       // (an EV charges — charge.js)
     const from = level(k), need = 1 - from;
     if (need < 0.01) { H.toast(L.full, "", { key: "fuel" }); return { ok: false, why: "full" }; }
     const full = price(k);
@@ -146,7 +149,7 @@ function townPad() {
     return null;
 }
 hook("hud", dt => {
-    if (ctx.state !== "playing" || !ctx.car || !key()) return;
+    if (ctx.state !== "playing" || !ctx.car || !key() || isEV(key())) return;
     if ((F.padT = (F.padT || 0) - dt) > 0) return;
     F.padT = 0.2;
     const p = townPad();
@@ -204,11 +207,16 @@ hook("hud", dt => {
 
 // ── the ⛽ places on the 📱 Map ──
 on("boot", () => {
-    try { if (ctx.pins && ctx.pins.add) for (const p of PINS) ctx.pins.add({ id: p.id, lap: p.lap, cat: "help", icon: "⛽", name: p.name, sub: p.sub, group: "highway" }); } catch (e) { /* no pins */ }
+    try {
+        if (!ctx.pins || !ctx.pins.add) return;
+        for (const p of PINS) ctx.pins.add({ id: p.id, lap: p.lap, cat: "help", icon: p.icon || "⛽", name: p.name, sub: p.sub, group: "highway" });
+        for (const t of ["midwood", "lakewood"]) ctx.pins.add({ id: `${t}:charger`, town: t, spot: "cityhall", cat: "help", icon: "🔋", name: "Shlepercharger (kerbside)", sub: "🔋 charging · outside city hall", group: t });
+    } catch (e) { /* no pins */ }
 });
 
 ctx.fuel = {
-    level, set, range, key, fill,
+    level, set, range, key, fill, buyHome, HOME,
+    get home() { return FS.home || null; },
     get gauge() { return F.ui ? { w: F.ui.w, cls: F.ui.cls, icon: F.ui.icon } : null; },
-    debug: { FS, F, townPad, price, pads: (dd = 0) => { const hw = ctx.world.highway || ctx.world.road; return X.exits.map(e => { const u = X_IN + XW + dd, p = hw.point(e.s + u, PUMPS.towns.d, {}); return { s: e.s, hs: e.s + u, hd: PUMPS.towns.d, x: p.x, z: p.z, h: p.h }; }); } },
+    debug: { FS, F, charge: chargeDebug, townPad, price, pads: (dd = 0) => { const hw = ctx.world.highway || ctx.world.road; return X.exits.map(e => { const u = X_IN + XW + dd, p = hw.point(e.s + u, PUMPS.towns.d, {}); return { s: e.s, hs: e.s + u, hd: PUMPS.towns.d, x: p.x, z: p.z, h: p.h }; }); } },
 };

@@ -20,6 +20,16 @@ export const IOU = 0.25;
 
 /** How long things take (s). */
 export const TIME = { fill: 4 };
+/** 🔋 Charging (step 2): fraction a second — 10 → 80 % in 20 s, 80 → 100 % in 15 s — and the chargers' reach (m). */
+export const CHARGE = {
+    fast: 0.035, fastTo: 0.8, slow: 0.0133,
+    r: { tushla: 18, bay: 9, kerb: 6 },    // Tushla's whole forecourt · a rest area's pump bay · the kerbside post
+    hold: 5,                               // + this while a session's going (getting out parks the car a step off)
+    restD: 28.6,                           // (exits › BAYS.pump.d: the rest area's pump bay, off the highway)
+    kerbSpot: "cityhall", kerbOut: 4.5,    // the kerbside charger: out from this town spot's front toward the street
+};
+/** 🏠 The home charger (Tushla sells it; installed at a home she OWNS). */
+export const HOME = { price: 1500, move: 300, cord: 0.3, reach: 25, box: [1.4, 0] };
 
 /** The gauge: the low badge below this fraction. */
 export const LOW = 0.15;
@@ -37,11 +47,12 @@ export const PUMPS = {
 /** The ⛽ places on the 📱 Map (ctx.pins, "help": always shown). */
 export const PINS = [
     { id: "hw:fuel:gng0", lap: 1300, name: "Yanky's Gas 'n' Go", sub: "⛽ gas · a rugelach" },
-    { id: "hw:fuel:rest0", lap: 5700, name: "PetroLatke (rest area)", sub: "⛽ gas" },
+    { id: "hw:fuel:rest0", lap: 5700, name: "PetroLatke (rest area)", sub: "⛽ gas · 🔋 charging" },
     { id: "hw:fuel:gng1", lap: 6900, name: "Yanky's Gas 'n' Go", sub: "⛽ gas · a rugelach" },
-    { id: "hw:fuel:rest1", lap: 14200, name: "PetroLatke (rest area)", sub: "⛽ gas" },
-    { id: "hw:fuel:midwood", lap: 3780, name: "Fill-a-Kvetch (the Midwood exit)", sub: "⛽ gas · at the T" },
-    { id: "hw:fuel:lakewood", lap: 12180, name: "Fill-a-Kvetch (the Lakewood exit)", sub: "⛽ gas · at the T" },
+    { id: "hw:fuel:rest1", lap: 14200, name: "PetroLatke (rest area)", sub: "⛽ gas · 🔋 charging" },
+    { id: "hw:fuel:midwood", lap: 3780, name: "Fill-a-Kvetch (the Midwood exit)", sub: "⛽ gas · 🔋 charging · at the T" },
+    { id: "hw:fuel:lakewood", lap: 12180, name: "Fill-a-Kvetch (the Lakewood exit)", sub: "⛽ gas · 🔋 charging · at the T" },
+    { id: "hw:charge:tushla", lap: 800, icon: "🔋", name: "Tushla Shlepercharger", sub: "🔋 charging · 4 bays" },
 ];
 /** Cars / rides with no gauge at all: Ima's family minivan never runs out (features/cars › MINIVAN — she drives it as a
  *  borrowed shell, so it's matched as a ride kind too). */
@@ -56,4 +67,8 @@ export const L = {
     low: "⛽ Low fuel",
     empty: "⛽ On E",
     townPump: "Fill-a-Kvetch",
+    charging: "🔋 Charging… (get out if you like — it keeps going)",
+    charged: cost => `🔋 Charged${cost ? ` — ${cost} 💰` : ""}. *ding*`,
+    chargeBroke: "🔋 Out of coins — the charger stopped. (It's not personal. It's a charger.)",
+    evAtPump: "⛽ Yanky eyes the Tushla: \"Electric? I got a toaster outlet in the back. Try a charger.\"",
 };

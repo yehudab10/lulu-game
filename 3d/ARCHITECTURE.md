@@ -1928,8 +1928,17 @@ through their visit (`world:visit` ids in `PUMPS.bays`: Yanky's Gas 'n' Go, the 
 interchange's gas station has a pad on the paved cross road alongside it (`PUMPS.towns`) — stop there; full in
 `TIME.fill` s, paid pro rata (`PRICE`, via `garage/buy.js` › `buyExtra`); short of coins → what she can pay for; 0 coins
 → a quarter tank on account (`IOU`, one at a time, paid off at the next paid fill) — never below 0. The pumps are ⛽
-"help" pins on the 📱 Map. Next: chargers + the home charger (2), then running dry — the reserve, coasting, the jerrycan,
-Chaverim / Tuvia, the job warnings, self-drive to a pump (3). `ctx.fuel` = { level(key?), set, range(key?), key(), fill };
+"help" pins on the 📱 Map. Step 2 (`charge.js`): a Tushla at a gas pump gets Yanky's joke, no fill; stopped at a
+CHARGER it charges (`CHARGE`: 10 → 80 % in 20 s, 80 → 100 % in 15 s) while it stands there — with her in it or out
+(a running session holds `CHARGE.hold` m further: getting out parks the car a step off) — paying a coin as each coin's
+worth goes in (`PRICE.charge` a full charge), the same one IOU at 0 coins, a chime when full. Chargers: Tushla's
+forecourt, the rest areas' pump bays, each town interchange's pad, and a kerbside post outside each town's city hall
+(drawn on `town:enter`). THE HOME CHARGER (`HOME`): Tushla's tablet sells it (two taps) for a home she OWNS
+(`ctx.realestate`) — a wall box by the door; a Tushla parked there (`ctx.cars.where(k)`: left at that house, or her
+parked car by it) is set full; moving it to another of her homes costs `HOME.move`; a home she no longer owns → it
+comes back in a box (`fuel.boxed`). Ima's house: no charger; the extension cord trickles a Tushla there (`ctx.cars`
+kind "home") up to `HOME.cord` once a real day. Next: running dry — the reserve, coasting, the jerrycan, Chaverim /
+Tuvia, the job warnings, self-drive to a pump (3). `ctx.fuel` = { level(key?), set, range(key?), key(), fill };
 event `fuel:fill`.
 
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).

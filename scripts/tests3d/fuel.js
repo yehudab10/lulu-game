@@ -6,11 +6,14 @@
 //   • filling: a pump's visit (Gas 'n' Go / the rest areas) or the pad at a town interchange's gas station → full, paid
 //     pro rata; short of coins → what she can pay for; at 0 coins a quarter tank on account (one IOU), paid off next time
 //   • the pumps are on the 📱 Map
+//   • step 2 — 🔋: a Tushla at a pump gets Yanky's joke (no fill); stopped at a charger it CHARGES (fast to 80 %), paying as
+//     it goes, and keeps going with her out of the car; a chime when full. The HOME CHARGER: needs a home she owns; bought
+//     → a Tushla parked at that house is full; Ima's extension cord trickles to 30 % once a day; selling the home boxes it
 module.exports = {
   name: "fuel",
   viewport: { width: 1280, height: 720 },
   query: "&enable=world",
-  save2d: { totalCoins: 500, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink" },
+  save2d: { totalCoins: 500, cruiseUnlocked: true, ownedSkins: ["pink", "tushla_nu"], selectedSkin: "pink" },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
     const g = t.game;
@@ -111,6 +114,49 @@ module.exports = {
         JSON.stringify(await g(`({ car: [ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, ctx.car.d], P: ctx.fuel.debug.pads(-1.85)[0], pad: ctx.fuel.debug.townPad(), v: ctx.car.speed, st: L3.state, town: ctx.town.active, key: ctx.fuel.key(), F: { armed: ctx.fuel.debug.F.pad.armed, t: ctx.fuel.debug.F.pad.t }, pads: ctx.fuel.debug.pads().map(p => Math.round(p.s)) })`)));
     });
 
-    t.check("⛽ the pumps are on the 📱 Map (help: always shown)", await g(`["hw:fuel:gng0", "hw:fuel:rest0", "hw:fuel:midwood"].every(id => { const p = ctx.pins.get(id); return p && p.cat === "help"; })`));
+    await step("charge", async () => {
+      await t.L(`import("./js/core/ctx.js").then(m => { window.__ch = []; m.on("fuel:charge", e => __ch.push(e)); })`);
+      await g(`(() => { const s = ctx.car.s + 400, p = ctx.world.road.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+      await t.L(`import("./js/core/save.js").then(m => m.wallet.add(3000))`); await t.frames(40);
+      await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("tushla_nu"))`); await t.frames(10);
+      t.check("🔋 in a Tushla the gauge is a battery", await g(`ctx.fuel.key() === "tushla_nu"`) && (await g(`ctx.fuel.gauge`)).icon === "🔋");
+      await g(`(ctx.fuel.set("tushla_nu", 0.5), true)`);
+      t.check("a Tushla at a gas pump: Yanky's joke, no fill", (await g(`ctx.fuel.fill("test")`)).why === "ev" && await g(`ctx.fuel.level()`) === 0.5);
+      const c0 = await coins();
+      await g(`(() => { const P = ctx.fuel.debug.pads(-1.85)[0]; ctx.car.place(P.x, P.z, P.h); ctx.car.s = P.hs; ctx.car.d = P.hd; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
+      await t.frames(100);
+      const l1 = await g(`ctx.fuel.level()`), paid = c0 - await coins();
+      t.check("stopped at the interchange charger: it CHARGES (fast below 80 %)", l1 > 0.55 && (await t.L(`window.__ch`)).some(e => e.act === "start"), l1.toFixed(3));
+      t.check("…paying as it goes (≈ 15 coins a full charge)", paid >= 1 && Math.abs(paid - (l1 - 0.5) * 15) <= 1.5, `${paid} for +${((l1 - 0.5) * 100).toFixed(1)} %`);
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
+      const l2 = await g(`ctx.fuel.level("tushla_nu")`); await t.frames(60);
+      t.check("…and keeps charging while she's out of the car", await g(`ctx.fuel.level("tushla_nu")`) > l2 + 0.02,
+        JSON.stringify(await g(`({ ev: ctx.fuel.debug.charge.evHere(), sk: ctx.car.skinKey, st: L3.state, stub: !!(ctx.foot.debug.F.car && ctx.foot.debug.F.car.stub), log: ctx.fuel.debug.charge.C.log.slice(-3) })`)));
+      await g(`(ctx.fuel.set("tushla_nu", 0.985), true)`); await t.frames(60);
+      t.check("full: it stops, with a chime", (await t.L(`window.__ch`)).some(e => e.act === "end" && e.why === "full") && await g(`ctx.fuel.level("tushla_nu")`) >= 0.999);
+      await g(`(ctx.foot.end("test"), true)`); await t.frames(3);
+      if (await g(`L3.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); }
+    });
+
+    await step("home charger", async () => {
+      t.check("no home of her own: it won't sell one (Ima's wall is off limits)", (await g(`ctx.fuel.buyHome()`)).why === "nohome");
+      await g(`ctx.realestate.registry.claim("midwood:120:60", { town: "midwood", address: "1234 E 34th St (test)" })`);
+      const c0 = await coins();
+      const r = await g(`ctx.fuel.buyHome()`);
+      t.check("with a home: 1,500 coins, installed there", r.ok && c0 - await coins() === 1500 && await g(`ctx.fuel.home && ctx.fuel.home.id === "midwood:120:60"`), JSON.stringify(r));
+      await g(`(ctx.fuel.set("tushla_nu", 0.2), ctx.cars.leaveAt("tushla_nu", { kind: "left", town: "midwood", lx: 122, lz: 64, h: 0 }), true)`);
+      await t.frames(80);
+      t.check("a Tushla parked at that house is full next time", await g(`ctx.fuel.level("tushla_nu")`) >= 0.999, String(await g(`ctx.fuel.level("tushla_nu")`)));
+      await g(`(ctx.fuel.set("tushla_nu", 0.1), ctx.cars.leaveAt("tushla_nu", { kind: "home" }), ctx.fuel.debug.FS.cord = {}, true)`);
+      await t.frames(80);
+      t.check("🔌 at Ima's: the extension cord — a trickle to 30 %, once a day", Math.abs(await g(`ctx.fuel.level("tushla_nu")`) - 0.3) < 0.01);
+      await g(`(ctx.fuel.set("tushla_nu", 0.1), true)`); await t.frames(80);
+      t.check("…only once a real day", Math.abs(await g(`ctx.fuel.level("tushla_nu")`) - 0.1) < 0.01);
+      await g(`ctx.realestate.registry.release("midwood:120:60")`); await t.frames(80);
+      t.check("the home's sold: the charger comes back in a box", await g(`!ctx.fuel.home && ctx.fuel.debug.FS.boxed === true`));
+    });
+
+    t.check("⛽ the pumps + 🔋 chargers are on the 📱 Map (help: always shown)", await g(`["hw:fuel:gng0", "hw:fuel:rest0", "hw:fuel:midwood", "hw:charge:tushla", "midwood:charger"].every(id => { const p = ctx.pins.get(id); return p && p.cat === "help"; })`));
   },
 };
