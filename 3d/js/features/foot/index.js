@@ -1579,7 +1579,7 @@ const spotList = [];
  * `at` slid toward her inside that strip (then the spot's own r is measured from it, as before). Without axes → `at`.
  *   o = { w: half-width along u, inn: metres toward the door, out: metres toward the kerb }
  */
-const DOOR = { w: 1.6, inn: 1.6, out: 1.0 }, DOOR_FLOOR = 0.3;
+const DOOR = { w: 1.6, inn: 1.6, out: 1.0 }, DOOR_FLOOR = 0.5;      // (floor: someone within half their reach — the inspector at her door, a chat — still wins)
 /**
  * 🚶‍♀️ NO CUT (ci/doors stage 2): a PUBLIC door (a spot with `walkIn: { id, n? }` — id = its interior) is entered by
  * walking into the doorway: within ±WALKIN.w of the door's middle, past n (metres from the spot toward the door —
