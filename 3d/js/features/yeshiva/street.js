@@ -6,7 +6,7 @@
 //    she wins by standing still. Never hostile.
 //  Mrs. Weiss (daytime, some days, until her lunch is delivered): hands Lulu Yossi's lunch for row nine (room.js › sleepAction
 //    emits "yeshiva:lunch" — Ima's list picks it up when it's on today's list; no coins from here).
-//  OTD guys (Sammy on the dorm bench, Yitzy at the back of the campus lot, Mo on his stool): dusk / night, some evenings — funny, warm,
+//  OTD guys (Sammy on the dorm bench, Yitzy at the back of the campus lot, Mo on his stool by the hall's corner): dusk / night, some evenings — funny, warm,
 //    sharp, they know everyone in the yeshiva by name and ask how So-and-so is doing. No cautionary tale, no contempt.
 import { ctx, on, emit, addActor, hook } from "../../core/ctx.js";
 import { shared, saveSoon } from "../../core/save.js";
@@ -108,7 +108,7 @@ function scan(dt) {
     for (const id of want) {
         if (id === "weiss") { const a = at("campus", -6.5, 0.4); if (a) spawn("weiss", "npcWoman", { Top: "#7B4A8A", Bottom: "#4A2F5A", Hair: "#2B2B2B" }, a.x, a.z, a.ry, { name: "Mrs. Weiss", label: "🥪 MRS. WEISS (a lunch)", kind: "mom" }); }
         else {
-            const o = OTD[id], a = o.where === "campusLot" ? at("campusLot", 3.2, 0.6) : o.where === "campusDorm" ? at("campusDorm", -5.5, 0.9) : at("chair", 1.6, 1.4);
+            const o = OTD[id], a = o.where === "campusLot" ? at("campusLot", 3.2, 0.6) : o.where === "campusDorm" ? at("campusDorm", -5.5, 0.9) : at("campus", 14.5, 0.8);
             if (a) spawn(id, "npcMan", { Top: "#4A5568", Bottom: "#2B3A55", Kippah: "#3B2A22", Shoes: "#222222" }, a.x, a.z, a.ry, { name: o.name, label: `${o.icon} ${o.name.toUpperCase()}`, kind: "otd", lines: o.lines });
         }
     }

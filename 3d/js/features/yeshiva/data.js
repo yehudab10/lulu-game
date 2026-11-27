@@ -201,7 +201,7 @@ export const OTD = {
         ],
     },
     mo: {
-        name: "Mo", where: "chair", icon: "🪑", lines: [
+        name: "Mo", where: "campus", icon: "🪑", lines: [
             "I own a stool and a story. The stool is better.",
             "Everyone in this town knows my name and nobody knows my occupation. I like it that way.",
             "Ask me how Shmuel's doing. Go on. Nobody asks. I'm always the one who asks.",
