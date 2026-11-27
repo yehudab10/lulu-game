@@ -621,6 +621,15 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 
 - Polish round 3 (`ci/polish`, 2026-11-22): (a) Ima's 📝 list chip's second line is one line with an ellipsis (`.day-chip small` — a long errand used to wrap on a 375×667 phone and push the WELCOME banner 8 px into the ✋ button); `hudfit` now forces the longest errand text every run (it was date-dependent). (b) Fewer pop-ups on foot in town (`calm` foot: 12–14 → 7): Bubbe's SECOND town text goes to 💬 Messages only (no bubble), a traffic jam's yells every 5–9 s (was 2–5 s), Lulu's walking chatter 18–28 s on Normal (was 14–22).
 
+- Loading (from `ci/preload`, 2026-11-27): ▶ PLAY waits on the title until the home start is ready (`onegame/playgate.js`:
+  a progress line on the tile, tap again to stop, a failed download → retry) — it used to start a plain drive. A failed
+  model download is now forgotten and retried (`models.js`; it used to fail forever). Measure the start with
+  `node scripts/perfstart.js` (real game, desktop / phone (CPU 4× + slow 4G, gzip like Pages) / app). Not built (measured,
+  small or big): title preloading (nothing is fetched after ▶ PLAY — it's shader compiles + building); the slow-4G title
+  (~26 s: 248+ JS modules arrive by ~11 s, then boot work); shrinking the models (41 MB raw, ~10.5 MB gzipped on Pages —
+  drop the unused UVs −3.2 MB raw, quantize positions/normals ~−17 MB raw, load airport / Dina / Story / interiors /
+  cameos models on approach ~−4 MB gzipped on a first visit).
+
 ## 8. Owner-only to-dos (agents can't do these — remind the owner if relevant)
 
 - App Store Connect for **2.0**: set the version to 2.0, new iPhone + iPad
