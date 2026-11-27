@@ -117,14 +117,17 @@ module.exports = {
       return { bad, moved: V.moved || [], rooms: rooms.map(x => x.type).join("+") };
     })()`);
     const houseRun = async (label, setup, id) => {
-      await g(`Promise.resolve(${setup}).then(() => (ctx.interiors[${JSON.stringify(id)}].enter({ exit: () => L3.setState("playing") }), true))`);
+      // (the real way in: on foot in town, through foot's hand-off — the same path the homes / real estate doors use)
+      await onFoot();
+      await g(`Promise.resolve(${setup}).then(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff(${JSON.stringify(id)}, { id: ${JSON.stringify(id)}, s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })`);
       if (!await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, `${label}: built`, 60000)) return null;
       await t.frames(2);
       const f = await flood();
       await g(`(__interiors.room.leave(), true)`);
-      await t.until(`__lulu3d.state === "playing"`, `${label}: out`, 20000);
+      await t.until(`__lulu3d.state === "footRun"`, `${label}: out`, 20000);
       return f;
     };
+    await town("midwood");
     const offenders = new Map();
     const CASTS = [["dad", "mom"], ["dad", "mom", "boy"], ["bubbe", "dad", "mom", "baby"], ["zeidy", "girl"]];
     for (const cast of CASTS) for (let seed = 1; seed <= 10; seed++) {
