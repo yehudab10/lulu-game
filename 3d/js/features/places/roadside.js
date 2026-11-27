@@ -109,7 +109,9 @@ export function nearest(kind, m = lapNow()) {
         try { s = T.exitOf(id, 0); } catch (e) { s = null; }
         if (s != null) out.push({ town: id, m: lapS(s), d: around(m, lapS(s)) });
     }
-    for (const R of ROADSIDE) if (R.kinds.includes(kind)) out.push({ hw: R, m: R.m, d: around(m, R.m) });
+    // (only where they're really built: world/places builds them under the same gate — a test without &enable=world
+    //  has no roadside buildings, so the towns / the old flow)
+    if (ctx.enabled("world")) for (const R of ROADSIDE) if (R.kinds.includes(kind)) out.push({ hw: R, m: R.m, d: around(m, R.m) });
     out.sort((a, b) => a.d - b.d);
     return out[0] || null;
 }
@@ -274,7 +276,7 @@ const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car &
 const onHighway = () => !!ctx.world && !(ctx.town && ctx.town.active);
 /** The door spot of `door` at the roadside place she's at / taken to (`P`: places' STAY.place; else within 400 m of her). */
 export function hwSpot(door, P = null) {
-    if (!onHighway() || !ctx.car) return null;
+    if (!onHighway() || !ctx.car || !ctx.enabled("world")) return null;
     if (P && P.hw) { const R = BY_ID[P.hw]; return R && R.doors[door] ? doorSpot(R, door, P.s) : null; }
     const p = herPos(), s = ctx.car.s;
     let best = null, bd = 400;
