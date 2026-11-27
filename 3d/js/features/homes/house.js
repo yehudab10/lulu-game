@@ -18,7 +18,7 @@ import * as H from "../../hud.js";
 import { heal } from "../../core/driving.js";
 import { defineInterior } from "../interiors/engine.js";
 import { tone, sfx } from "../interiors/fx.js";
-import { KINDS, ITEMS, PICKUP_ORDER, REACT, SPOTTED, SPOTTED_AGAIN, SUSPICIOUS, FIGHT, LULU_HIT, TALK, COUCH, COUCH_LINES, COUCH_EMPTY, COUCH_CAPPED,
+import { KINDS, ITEMS, EXTRA, PICKUP_ORDER, REACT, SPOTTED, SPOTTED_AGAIN, SUSPICIOUS, FIGHT, LULU_HIT, TALK, COUCH, COUCH_LINES, COUCH_EMPTY, COUCH_CAPPED,
     SOUVENIRS, CHOLENT, CHOLENT_SEEN, CHOLENT_FULL, CHOLENT_NOT_YET, CHOLENT_CAP, CALL_LINES, WINDOW_IN, WINDOW_OUT, DOOR_OUT, WET_FLOOR, dressLine } from "./data.js";
 import { anchors, stageScene, buildProps, heldProp, catchFor, CATCH, ANIMALS } from "./stage.js";
 import { linesFor } from "./scenes.js";
@@ -64,6 +64,8 @@ function kit(name) {
     return c;
 }
 export function itemProp(name) {
+    const ex = EXTRA.find(e => e.prop === name);
+    if (ex && ex.make) { const m = ex.make(); if (m) return m; }       // (another feature's code-built prop: features/houseitems)
     const src = models.homesItems && findNodes(models.homesItems, "Prop_" + name)[0];
     if (!src) return new THREE.Group();
     const c = src.clone(true); c.position.set(0, 0, 0);
@@ -224,6 +226,20 @@ function build(rt) {
         rt.add(obj);
         V.items[id] = { id, obj, home: obj.position.clone(), rot: obj.rotation.clone(), taken: false, used: false };
         rt.hot({ id: "grab_" + id, x: obj.position.x, z: at.z + 0.5, r: 1.35, label: `${it.emoji} Grab the ${it.name}`, enabled: () => !V.items[id].taken, action: r2 => grab(r2, id) });
+    }
+    // ── other features' pickups (features/houseitems): two a house, picked by the house's seed, on a free surface ──
+    const SURF = { counter: surf.counter || surf.table, table: surf.table || surf.ktable, couch: surf.couch || surf.bunk, shelf: surf.souvenir || surf.dsouvenir || surf.coat,
+        coat: surf.coat, sink: surf.sink || surf.counter };
+    const extra = EXTRA.filter(e => SURF[e.surface]);
+    for (let k = 0; k < Math.min(2, extra.length); k++) {
+        const e = extra[(seed + k * 7) % extra.length];
+        if (V.items[e.id]) continue;
+        const at = SURF[e.surface], obj = itemProp(e.prop);
+        obj.position.set(at.x - 0.55 + k * 0.3, (at.y || 0) + 0.04, at.z + 0.1);
+        rt.add(obj);
+        V.items[e.id] = { id: e.id, obj, home: obj.position.clone(), rot: obj.rotation.clone(), taken: false, used: false };
+        const it = ITEMS[e.id];
+        rt.hot({ id: "grab_" + e.id, x: obj.position.x, z: at.z + 0.5, r: 1.35, label: `${it.emoji} Grab the ${it.name}`, enabled: () => !V.items[e.id].taken, action: r2 => grab(r2, e.id) });
     }
     // ── loot ──
     if (surf.couch) rt.hot({ id: "couch", x: surf.couch.x - 0.6, z: surf.couch.z, r: 1.2, label: "🛋️ Dig in the couch cushions", action: r2 => couch(r2) });
@@ -497,7 +513,7 @@ async function chat(rt, r) {
 /** Lulu uses `id` on resident r: the reaction from the table, the effect, the consequences. */
 export function applyItem(rt, r, id) {
     const V = rt.data.V, it = ITEMS[id];
-    const tab0 = (REACT[id] && (REACT[id][r.kind] || REACT[id][r.K.like])) || { line: "...?!", lulu: "Oops." };
+    const tab0 = (REACT[id] && (REACT[id][r.kind] || REACT[id][r.K.like] || REACT[id]["*"])) || { line: "...?!", lulu: "Oops." };
     const tab = Object.assign({}, tab0, { line: dressLine(r, tab0.line) });
     const fx = tab.fx || it.fx;
     rt.luluPose = { point: true };

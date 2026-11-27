@@ -446,5 +446,5 @@ ctx.cameras = {
     tickets: () => S.tickets.map(t => Object.assign({ owed: owedOf(t) }, t)),
     unread: () => unread().length, mailbox, read, schoolHours,
     get warrant() { return S.warrant; },
-    debug: { S, CM, buildCams, check, fire, ladder, rule, owedOf, inZone },
+    debug: { S, CM, buildCams, check, fire, ladder, rule, owedOf, inZone, addCase },
 };

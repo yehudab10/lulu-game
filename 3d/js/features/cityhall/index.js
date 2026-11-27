@@ -141,7 +141,7 @@ ctx.cityhall = {
     /** Stage 4 — protests (protest.js). */
     protest: { start: PROTEST.protestStart, stop: PROTEST.protestStop, hours: PROTEST.protestHours, topic: PROTEST.topicToday, chant: PROTEST.startChant, PR: PROTEST.PR },
     /** Roadmap 31 — Midwood's mayor (mayor.js): today's edict, striking one down, Pickleman's recount stand. */
-    mayor31: { today: MAYORM.todayEdict, topic: MAYORM.edictTopic, strike: MAYORM.strike, addCase: MAYORM.addEdictCase, standStart: MAYORM.standStart, standStop: MAYORM.standStop, MY: MAYORM.MY },
+    mayor31: { today: MAYORM.todayEdict, topic: MAYORM.edictTopic, strike: MAYORM.strike, file: MAYORM.file, addCase: MAYORM.addEdictCase, standStart: MAYORM.standStart, standStop: MAYORM.standStop, MY: MAYORM.MY },
     /** Roadmap 38 — the owner's two parodies (guardrails in data.js): 🪧 the wrong address (Midwood, lunchtime) + 🎤 public
      *  comment night (Lakewood City Hall, evenings). Pure day rules in parodyday.js (PD.force for tests). */
     parody: { waPlan: WRONG.waPlan, waStart: WRONG.waStart, waStop: WRONG.waStop, leaveOne: WRONG.leaveOne, buy: WRONG.buy, chant: WRONG.startChant, talk: WRONG.talk, WAS: WRONG.WAS, fill: WRONG.fill,

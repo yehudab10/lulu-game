@@ -20,6 +20,7 @@
 import { ctx, emit } from "../../core/ctx.js";
 import { save3d, shared } from "../../core/save.js";
 import { tone } from "../parking/sfx.js";
+import * as WC from "./worldclock.js";   // 🌍 the world clock + the relay's kill switches (ci/oneserver)
 
 const QS = new URLSearchParams(location.search);
 export const MP_URL_LIVE = "wss://lulu-shared-road.lulu-boats-1f4cdd.workers.dev";
@@ -50,6 +51,7 @@ const fin = (v, lo, hi) => typeof v === "number" && isFinite(v) ? Math.max(lo, M
 export const MP = {
     sock: null, want: false, connected: false, ever: false, room: "lobby", roomKind: "everyone",
     myId: null, peers: {}, clock: 0, sendT: 0, pingT: 0, reconnectAt: 0, reconnectDelay: 1, wantSince: 0,
+    piN: 0, piWall: 0, quickPings: 0, quickAt: 0, gotHello: false, failRun: 0, relOut: new Map(), relSeen: new Set(),   // 🌍 ci/oneserver
     switchTo: null, forceSends: 0,
     codeSlots: [0, 0, 0, 0].map(() => Math.floor(Math.random() * 26)),
     race: null, raceSeq: Math.floor(Math.random() * 1e6) + 1,
@@ -105,7 +107,7 @@ export function rerollCode() { MP.codeSlots = MP.codeSlots.map(() => Math.floor(
 // ── connection ───────────────────────────────────────────────────────────
 function sockOpen() { return !!MP.sock && MP.sock.readyState === 1; }
 /** The heartbeat ("pi" → the relay's "po"), timed: MP.rtt = the last round trip in ms (features/netping's 📶 readout). */
-export function pingRelay() { if (!sockOpen()) return false; MP.piAt = performance.now(); send({ t: "pi" }); return true; }
+export function pingRelay() { if (!sockOpen()) return false; MP.piAt = performance.now(); MP.piWall = Date.now(); send({ t: "pi", n: "c" + (++MP.piN) }); return true; }
 export function send(obj) { try { if (sockOpen()) MP.sock.send(JSON.stringify(obj)); } catch (e) { /* offline is fine */ } }
 
 export function connect(room, kind) {
@@ -167,6 +169,7 @@ function openSocket() {
 }
 function onOpen() {
     MP.reconnectDelay = 1; MP.pingT = 0; MP.sendT = 0;
+    MP.quickPings = WC.flag("clock") ? 6 : 0; MP.quickAt = MP.clock + 0.3;   // 🌍 step 1: a few quick pings to learn the server's clock
     send({ t: "j", v: 1, room: roomPath(), name: myName(), sk: ctx.car ? ctx.car.skinKey : "pink" });
 }
 function onClose(ws, ev) {
@@ -175,6 +178,9 @@ function onClose(ws, ev) {
     if (!MP.want) return;
     // EVERYONE is full (close 4001): straight on to the next shard — no waiting, no message
     if (ev && ev.code === 4001 && MP.room === "lobby" && MP.shard < SHARDS - 1) { MP.shard++; MP.reconnectAt = MP.clock; return; }
+    // 🌍 the relay keeps refusing: if it's the free daily allowance, say so once (worldclock.js) — play goes on solo
+    if (!MP.gotHello && ++MP.failRun === 4) WC.checkResting();
+    MP.gotHello = false;
     scheduleReconnect();
 }
 function scheduleReconnect() { MP.reconnectAt = MP.clock + MP.reconnectDelay; MP.reconnectDelay = Math.min(MP.reconnectDelay * 2, 10); }
@@ -185,13 +191,21 @@ function onMessage(ev) {
     if (!msg || !msg.t) return;
     if (msg.t === "h") {
         MP.myId = msg.id; MP.connected = true; MP.switchTo = null; MP.peers = {};
+        MP.gotHello = true; MP.failRun = 0; WC.clearResting();
         for (const pp of msg.peers || []) { addPeer(pp.id, pp.name, pp.sk); if (pp.d) applyState(pp.id, pp.d, true); }
         emit("mp:status", { connected: true });
+        if (Array.isArray(msg.r)) for (const e of msg.r.slice(-32)) relIn(e, true);    // 🌍 step 2: what happened just before I came
     } else if (msg.t === "+") addPeer(msg.id, msg.name, msg.sk);
-    else if (msg.t === "s") applyState(msg.id, msg.d);
+    else if (msg.t === "s") { applyState(msg.id, msg.d); const p = MP.peers[msg.id]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
+    else if (msg.t === "r") relIn(msg, false);
+    else if (msg.t === "ra") MP.relOut.delete(msg.id);
     else if (msg.t === "e") peerEvent(msg.id, msg.e);
     else if (msg.t === "-") { const p = MP.peers[msg.id]; if (p) p.dropping = true, p.left = true; }
-    else if (msg.t === "po" && MP.piAt) { MP.rtt = Math.round(performance.now() - MP.piAt); MP.piAt = 0; }
+    else if (msg.t === "po" && MP.piAt) {
+        const rtt = performance.now() - MP.piAt;
+        MP.rtt = Math.round(rtt); MP.piAt = 0;
+        if (typeof msg.st === "number" && msg.n === "c" + MP.piN) WC.addSample(msg.st, rtt, MP.piWall + rtt);   // 🌍 step 1
+    }
 }
 
 function addPeer(id, name, sk) {
@@ -298,6 +312,38 @@ function peerEvent(id, e) {
 
 /** Tell the room I honked / waved. */
 export function sendEvent(e) { if (MP.connected) send({ t: "e", e }); }
+
+// ── 🌍 step 2: RELIABLE one-time events (ci/oneserver) ────────────────────
+// sendRel(k, d) → the relay passes it on ONCE to everyone else in the room, acks it, and keeps it 20 s for players who
+// arrive late. Receivers get the event `mp:event` { from, peer, k, d, st, late } exactly once (deduplicated by from +
+// id). Use it INSTEAD of repeating a one-time thing inside the 5-a-second state (emotes, a bump, a ping, entering a
+// room) — that's no extra messages on the free plan, and nothing "expires before it was sent". k: [a-z0-9_]{1,12},
+// d: a small object (≤ ~450 bytes). ≤ 4 a second. Returns the id, or null (offline / an older relay — then fall back).
+const REL_K = /^[a-z0-9_]{1,12}$/;
+export function sendRel(k, d = null) {
+    if (!MP.connected || !WC.flag("reliable") || !REL_K.test(k)) return null;
+    const id = (Date.now() % 1e8).toString(36) + Math.floor(Math.random() * 1296).toString(36);
+    const msg = { t: "r", id, k, d: d && typeof d === "object" ? d : null };
+    if (JSON.stringify(msg).length > 480) return null;
+    MP.relOut.set(id, { msg, at: MP.clock, tries: 1 });
+    send(msg);
+    return id;
+}
+function relIn(e, late) {
+    if (!e || typeof e.from !== "string" || typeof e.id !== "string" || !REL_K.test(e.k) || e.from === MP.myId) return;
+    const key = e.from + ":" + e.id;
+    if (MP.relSeen.has(key)) return;
+    MP.relSeen.add(key);
+    if (MP.relSeen.size > 400) MP.relSeen.delete(MP.relSeen.values().next().value);
+    emit("mp:event", { from: e.from, peer: MP.peers[e.from] || null, k: e.k, d: e.d && typeof e.d === "object" ? e.d : null, st: e.st, late: !!late });
+}
+function relTick() {
+    for (const [id, o] of MP.relOut) {
+        if (MP.clock - o.at < 2) continue;
+        if (o.tries >= 2 || !MP.connected) { MP.relOut.delete(id); continue; }
+        o.tries++; o.at = MP.clock; send(o.msg);            // (same id: receivers drop a duplicate)
+    }
+}
 
 // ── my state → 2D format ─────────────────────────────────────────────────
 function sendState() {
@@ -575,6 +621,8 @@ export function tick(dt, me) {
     M.sp = (me.sp || 0) * DI_PER_M;
     if (MP.want && (!MP.sock || MP.sock.readyState >= 2) && MP.clock >= MP.reconnectAt) openSocket();
     if (sockOpen()) { MP.pingT += dt; if (MP.pingT >= 25) { MP.pingT = 0; pingRelay(); } }
+    if (MP.connected && MP.quickPings > 0 && !MP.piAt && MP.clock >= MP.quickAt) { MP.quickPings--; MP.quickAt = MP.clock + 0.4; pingRelay(); }   // 🌍 step 1
+    if (MP.relOut.size) relTick();
     raceUpdate(dt);
     if (MP.connected && (me.sending || me.hidden || MP.race)) {
         MP.sendT += dt;
@@ -607,3 +655,5 @@ export function tick(dt, me) {
 
 // debug: shrink the tag game in tests, inspect state
 ctx.mpNet = { MP, connect, disconnect, switchRoom, sendEmote, raceStart, tagStart, noteRecord };
+
+WC.setBase(MP_URL ? String(MP_URL).replace(/^ws/, "http") : "");   // 🌍 worldclock.js talks to the same relay

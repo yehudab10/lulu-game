@@ -1618,7 +1618,9 @@ function walkIn(dt) {
         }
         F.pushT = 0; F.walkInT = ctx.time;
         // (where she went in: she comes back out of THIS doorway — just outside it, on the step)
-        F.walkInAt = { x: at.x - at.nx * 0.7, z: at.z - at.nz * 0.7, nx: at.nx, nz: at.nz, town: ctx.town && ctx.town.active ? ctx.town.id : null };
+        // (exactly where she stood pushing — free ground by definition: a fixed step toward the door put her INSIDE a roadside
+        //  building's collision circle, and the next frame shoved her + the camera ~5 m out: qa27's Hatzalah jump)
+        F.walkInAt = { x: p.x, z: p.z, nx: at.nx, nz: at.nz, town: ctx.town && ctx.town.active ? ctx.town.id : null };
         emit("doors:walkIn", { id: wid });
         try { sp.act(); } catch (e) { console.error("[foot] walk in", e); }
         return;

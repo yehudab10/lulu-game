@@ -63,10 +63,15 @@ export const caseDone = (c = caseById("shloime")) => !!c && progress(c).n >= c.h
 /** Is a hearing of case c on today (not over, not already seen today, solo / available as the case says)? */
 export const hearingToday = (c = caseById("shloime")) => !!c && !caseDone(c) && (!c.oneADay || progress(c).day !== today())
     && !(c.solo && party()) && (!c.available || !!c.available());
-/** The case on 2B's docket in this town: the highest `priority` (then the first registered) that's not over and may run. */
+/** THE DOCKET RULE — the case on 2B's docket in this town: of the cases not over that may run, one with a hearing TODAY
+ *  comes first (a case she's already sat through today doesn't block the next one), then the highest `priority`, then the
+ *  first registered. Priorities by convention: her OWN summons + liens she must answer 7–8 (the camera summons 7, City Hall's
+ *  lien 8) › causes she filed herself 5 (an edict she took to court) › other people's stories 0 (Shloime, the default). One
+ *  hearing of each case a real day (`oneADay`); her own trials (law/court.js, Abba in Midwood) never go through the docket. */
 export function caseIn(town) {
     const here = CASES.filter(c => !c.town || c.town === town).sort((a, b) => (b.priority || 0) - (a.priority || 0));   // (stable: same priority → registration order)
-    return here.find(c => !caseDone(c) && (!c.available || c.available())) || null;
+    const open = here.filter(c => !caseDone(c) && (!c.available || c.available()));
+    return open.find(c => hearingToday(c)) || open[0] || null;
 }
 export function docketText(c) {
     const p = progress(c), N = c.hearings.length;
