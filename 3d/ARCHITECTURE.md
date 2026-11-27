@@ -1794,6 +1794,33 @@ gateLabel(), release(how), panel(), breakIn(), debug }`; events `impound:<held |
 `impoundPaid`, `impoundReleases`, `impoundBreakIns`, `impoundBreakOuts`, `impoundBreakClean`, `impoundBreakBusts`. Test
 `scripts/tests3d/impound.js`.
 
+**Every car she owns is somewhere (cars, `features/cars` — ci/cars, roadmap 35):** 🚗 the owner (2026-11-27): "I don't
+necessarily want cars just reappearing at the garage if it was impounded or left somewhere". One record per owned car in the 3D
+save (`store("cars")` — so the 💾 save code carries it): `with` (the car `ctx.car` is: she's driving it, or it's foot's stub
+where she got out) · `home` · `left` `{ town, lx, lz, h, day }` in that town's LOCAL frame (`ctx.town.plan` ORIGIN / COS / SIN
+/ ROT — the same spot in every lap's copy) · `impound` `{ town }`. The first look (`migrate`): the selected car is `with`, every
+other owned car `home`. A look every `TUNE.tick` s (the `hud` hook, never per frame): foot's stub of her OWN car (`F.car.key ===
+"lulu"`) → that car is `with` and its town pose is written to `SAVE.pend` (a page that closes mid-walk → `left` there on the next
+boot); driving her own car (not a borrowed shell) → `with`. When foot's stub stops being hers (`resolve`): she's in a borrowed /
+stolen ride or a taxi → LEFT at the stub's pose (foot's orphaned stub is swapped for ours); the town was torn down round it while
+she walks → left; the run ends (title, a new `runStart`) → left; the law has it (`ctx.impound.held`) or a carless start (the ER, a
+jailbreak) → not decided here (stage 3); a cutscene / an interior → waits. The family driveway / lot counts as `home`; the highway
+and rest areas send it home for now (stage 3: Tuvia's tow). A `left` car in the town she's in, inside `TUNE.near` (230 m; taken
+down past 260), is a real parked car: a traffic car of kind `cars_lulu` (the `lulu` model in its skin's paint, free + keep +
+immune, its AI holds the pose — solid to her car and to her on foot, standable like her own) + a foot spot ✋ "🔑 GET IN — your
+<name>" → `getIn(key)`: the car she was using is recorded `left` where its stub stands (impounded → `impound`; elsewhere → `home`),
+a borrowed ride she got out of is let go (it stays a car on the street), `equipSkin(key)`, `ctx.foot.hopInto({ own: true })` at
+the parked car's pose. A new run (`runStart` hook, prio 50 — before world's home start): the selected car not `with` / `home` →
+the first car that's `home` is equipped instead (she starts with the car that's AT home); none → (stage 1) it comes home as
+before. Another pick (the 🔑 garage picker, a new car bought → `skin` event): the one she had → `home`; the 🔑 picker
+(`shops/home.js`) says "📍 Parked in Lakewood" for a car that isn't home instead of fetching it. 📱 🗺️ Map › 🚗 Your cars
+(`phone/apps.js MAP_EXTRAS`, shown with 2+ cars or one away): each car, where, how far (metres in its town, else miles up the
+road from `lapmap`). Off in Dina's mode and in a party (friends: each player's cars are her own; no network traffic).
+`ctx.cars { list(), where(key), atHome(key), leaveAt(key, rec), getIn(key), debug }` — `leaveAt` is how another feature says
+where a car is (ci/dealers: the old car waits on the lot, `{ kind: "dealer", town, lx, lz, h, name }`); events `cars:change {key,
+kind}`, `cars:getin {key}`. Stage 2: home slots (Ima's driveway + kerb, her owned homes) + the walk-up picker; stage 3: tows, 📞
+Tuvia's delivery, no auto-return from the impound, Ima's minivan. Test `scripts/tests3d/cars.js`.
+
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;
 never in a party — friends have Crimes for two — or Dina's mode; `ctx.enabled("crime")`). Each: a spot / a moment in the world →
