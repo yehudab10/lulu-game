@@ -243,6 +243,8 @@ module.exports = {
       await W.pause(t, false); await playing(); await W.pause(t, true); await W.moved(t);
       t.check("back in the car", await g(`L3.state === "playing" && !ctx.foot.active`));
       // ⚡ no nitro in an electric car: no bar, no button, the boost button does nothing
+      // (the watchdog off: the camera is still swinging back to the car she just got into — the drive below re-arms it)
+      await W.pause(t, false);
       await t.frames(4);
       const ev = await t.L(`(() => { const b = document.querySelector("#hud .boost"), tb = document.getElementById("tBoost"); return { cls: document.body.classList.contains("ev-car"), bar: b ? getComputedStyle(b).display : "none", btn: tb ? getComputedStyle(tb).display : "none", ev: __lulu3d.ctx.G.evCar }; })()`);
       t.check("⚡ a Tushla has no nitro: the bar + the button are gone", ev.cls && ev.ev && ev.bar === "none" && ev.btn === "none", JSON.stringify(ev));
