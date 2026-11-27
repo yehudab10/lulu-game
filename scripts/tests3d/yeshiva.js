@@ -289,6 +289,8 @@ module.exports = {
       t.check("four at once earns the badge (Patient Zero)", await t.L(`import("./js/core/save.js").then(m => ((m.shared.get().stats || {}).lsdPeak || 0) >= 1 || true)`) && await g(`ctx.yeshiva.debug.ST.badge || ctx.yeshiva.debug.ST.peak >= 4`));
       t.check("…and the 👀 badge is in the scrapbook's list", await g(`(async () => { const B = await import("./js/features/meta/badges.js"); return B.BADGES.some(b => b.id === "lsd"); })()`));
       // the contest: stand still and she wins
+      await g(`(async () => { const L = await import("./js/features/town/life.js"); const p = ctx.foot.pos, r = L.LIFE.people[0]; r.p.obj.position.set(p.x + 2.2, 0, p.z); r.y0 = r.p.obj.rotation.y; return true; })()`);
+      await t.frames(60);
       const w0 = await g(`ctx.yeshiva.debug.ST.wins`);
       await g(`(ctx.yeshiva.debug.contest(), true)`);
       await t.frames(260);
@@ -306,14 +308,17 @@ module.exports = {
       t.check("at night: Sammy (the lake), Yitzy (the car park) and Mo (his stool) are out", await t.until(`["sammy", "yitzy", "mo"].every(id => __lulu3d.ctx.yeshiva.debug.ST.npcs.some(n => n.id === id))`, "the OTD guys", 14000));
       const c0 = await coins();
       for (const id of ["sammy", "yitzy", "mo"]) {
-        await g(`(() => { const n = ctx.yeshiva.debug.ST.npcs.find(n => n.id === ${JSON.stringify(id)}); ctx.foot.debug.F.pos.set(n.x + 1.1, 0.05, n.z); return true; })()`);
-        await t.frames(4);
+        // (a still of him: the camera overridden to stand a few metres off, looking at him; she herself stays put)
+        await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__camWrap) { const o = r.render.bind(r); window.__camWrap = true; r.render = (s, c) => { const V = window.__camAt; if (V && c === __lulu3d.ctx.camera) { c.position.set(V[0], V[1], V[2]); c.lookAt(V[3], V[4], V[5]); c.updateMatrixWorld(true); } o(s, c); }; } })()`);
+        await g(`(() => { const n = ctx.yeshiva.debug.ST.npcs.find(n => n.id === ${JSON.stringify(id)}); window.__camAt = [n.x + 3.2, 2.2, n.z + 3.2, n.x, 1.1, n.z]; return true; })()`);
+        await t.frames(8);
+        await t.shot("yeshiva-otd-" + id);
+        await t.L(`window.__camAt = null`);
         for (let i = 0; i < 2; i++) { await g(`(ctx.yeshiva.debug.talk(ctx.yeshiva.debug.ST.npcs.find(n => n.id === ${JSON.stringify(id)})), true)`); await tapThrough(8); await t.frames(6); }
       }
       t.check(`they just talk — nothing pays (coins ${c0} → ${await coins()})`, await coins() === c0);
-      const lines = await g(`Object.values((await import("./js/features/yeshiva/data.js")).OTD).flatMap(o => o.lines)`);
+      const lines = await g(`(async () => Object.values((await import("./js/features/yeshiva/data.js")).OTD).flatMap(o => o.lines))()`);
       t.check(`each of them asks after a yeshiva name or two (affection: ${lines.filter(l => /how's|how is|tell \w+ (i said )?hi|tell the/i.test(l)).length} lines)`, lines.filter(l => /how's|how is|tell \w+ (i said )?hi|tell the/i.test(l)).length >= 4);
-      await t.shot("yeshiva-otd");
       await g(`(ctx.yeshiva.debug.force.night = 0, ctx.yeshiva.debug.scan(99), true)`);
       t.check("by day they're gone", await t.until(`!__lulu3d.ctx.yeshiva.debug.ST.npcs.some(n => ["sammy", "yitzy", "mo"].includes(n.id))`, "gone by day", 14000));
       await g(`(ctx.yeshiva.debug.force.always = false, ctx.yeshiva.debug.force.night = null, true)`);
