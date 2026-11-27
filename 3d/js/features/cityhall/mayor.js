@@ -1,5 +1,5 @@
-// features/cityhall/mayor.js — 📢 MIDWOOD'S NEW MAYOR (roadmap 31): a FICTIONAL communist-wannabe planner (name: data.js ›
-// PEOPLESKY, one constant). Pure policy satire, tied to no real person; every edict lands on EVERYONE equally — the joke
+// features/cityhall/mayor.js — 📢 MIDWOOD'S NEW MAYOR (roadmap 31): a communist-wannabe planner, policy satire only (name: data.js ›
+// MIDWOOD_MAYOR, one constant). Policy satire only (the name is a pun on politics); every edict lands on EVERYONE equally — the joke
 // is a one-size-fits-all planner who doesn't know the neighbourhood he governs. The residents win small victories.
 //   • TODAY'S EDICT (`todayEdict()`, the real day, skipping struck ones): Midwood's protests are about it (protest.js asks
 //     `edictTopic()`), the notice board shows it, the Complaints window has a line for it (COMPLAINT_EXTRAS), the staff

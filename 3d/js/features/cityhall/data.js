@@ -3,9 +3,10 @@
 
 export const ID = "cityhall";
 
-/** Midwood's mayor (roadmap 31): a FICTIONAL communist-wannabe planner — pure policy satire, tied to no real person, his
- *  edicts land on everyone equally. ONE constant: swap the name here and everything follows. */
-export const PEOPLESKY = { name: "Mayor Sasha Peoplesky", short: "Mayor Peoplesky", first: "Sasha", last: "Peoplesky" };
+/** Midwood's mayor (roadmap 31): a communist-wannabe planner — POLICY satire only; the name is a pun on politics (the owner
+ *  asked for one that rhymes with a real mayor's; no religion / ethnicity / looks, nobody singled out, every edict lands on
+ *  everyone equally). ONE constant: swap the name here and everything follows. */
+export const MIDWOOD_MAYOR = { name: "Mayor Marxdani", short: "Mayor Marxdani", last: "Marxdani" };
 
 /** Per town: the building, its mayor, the colours. */
 export const TOWNS = {
@@ -28,7 +29,7 @@ export const TOWNS = {
         signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"],
         tints: { Walls: "#C9B9A0", Trim: "#EDE6D8", Roof: "#3F6B4F", Accent: "#1B3A2B" },
         mayor: {
-            name: PEOPLESKY.name, short: PEOPLESKY.short, emoji: "📢",
+            name: MIDWOOD_MAYOR.name, short: MIDWOOD_MAYOR.short, emoji: "📢",
             colors: { Top: "#8E2B2B", Bottom: "#263238", Hair: "#3E2723" },
         },
         secretary: { name: "Mrs. Rivky Fein", colors: { Top: "#00897B", Bottom: "#263238", Hair: "#212121" } },
@@ -137,7 +138,7 @@ export const MAYOR = {
         poster: ["RE-ELECT", "MAYOR KUGELMAN", "He cut it. He'll cut it again."],
     },
     midwood: {
-        hello: [`${PEOPLESKY.first} Peoplesky! Mayor of the People! You're a People! Welcome, comrade-constituent!`, "Come in! Mind the line. Everything has a line now. It's fairer that way."],
+        hello: [`${MIDWOOD_MAYOR.last}! Mayor of the People! You're a People! Welcome, comrade-constituent!`, "Come in! Mind the line. Everything has a line now. It's fairer that way."],
         done: [
             "What have I done? The People's Grocery! Everyone gets the same thing. Today it's a cabbage. One. We're sharing it.",
             "Free buses! Totally free. Free to ride, free to wait for. Mostly free to wait for.",
@@ -146,7 +147,7 @@ export const MAYOR = {
         ],
         selfie: "A selfie? For the People's Archive! Hold it level — every photo the same height. Equality!",
         bye: ["Go in solidarity! And in a line. Single file.", "Remember: what's mine is yours. What's yours is… under review."],
-        poster: ["THE PEOPLE'S MAYOR", PEOPLESKY.last.toUpperCase(), "Everything for everyone (eventually)"],
+        poster: ["THE PEOPLE'S MAYOR", MIDWOOD_MAYOR.last.toUpperCase(), "Everything for everyone (eventually)"],
     },
 };
 
@@ -381,7 +382,7 @@ export const STORY_LINES = {
     },
 };
 
-// ── roadmap 31: Mayor Peoplesky's edicts (mayor.js) ───────────────────────────────────────────────────────────────
+// ── roadmap 31: Midwood's mayor's edicts (mayor.js) ───────────────────────────────────────────────────────────────
 // One is "today's" (the real day); Midwood's protests, the notice board, the Complaints window and a Courtroom 2B case are
 // about it. Every edict lands on EVERYONE equally (the joke is a one-size-fits-all planner who doesn't know the
 // neighbourhood). Striking one down in court (mayor.js) is a small win for the residents: it stays struck for good.
@@ -421,7 +422,7 @@ export const MAYOR31 = {
     complaint: { opt: "📜 The mayor's latest edict", reply: e => `About "${e.title}"? You and the whole neighbourhood. This window got four hundred today. I'm filing them in a big pile labelled THE PEOPLE.` },
     struckNotice: e => `📜 STRUCK DOWN BY THE COURT: "${e.title}". (The mayor says he will appeal to the People. The People said no.)`,
     staff: ["*sighs* Another edict came down this morning. I'm out of stamps that say EDICT.", "Off the record? I miss Pickleman. He only cut ribbons."],
-    lulu: ["'The People's' everything. The People never asked.", "One cabbage. For the whole neighbourhood. That's the plan.", "Mayor Peoplesky's face is on every lamppost. Even the broken ones."],
+    lulu: ["'The People's' everything. The People never asked.", "One cabbage. For the whole neighbourhood. That's the plan.", `${MIDWOOD_MAYOR.short}'s face is on every lamppost. Even the broken ones.`],
 };
 /** Pickleman lost by 3 votes: a pickle stand outside Borough Hall, demanding a recount every single day. */
 export const PICKLEMAN = {

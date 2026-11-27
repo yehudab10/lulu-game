@@ -1588,9 +1588,10 @@ street in front of city hall (solo): ✋ 📸 a photo (evidence) · 🤝 a cut (
 {who, act}, `cityhall:story` {town, step, how}, `ctx.memory.remember("cityhall", …)`.
 **Roadmap 31 — Midwood's new mayor** (`mayor.js`; owner 2026-11-27). The owner asked for a parody of a real politician
 written as an enemy of Jews; the agents declined THAT part (a real, identifiable person is not written as persecuting a
-community, and no edict is aimed at one) and the coordinator told the owner. What's built is a FICTIONAL communist-wannabe
-planner, pure policy satire, tied to no real person by name or hint — "never real-world politics" stays the rule. His name
-is ONE constant (`data.js` › `PEOPLESKY`, default "Mayor Sasha Peoplesky"); a generic young politician in a suit. Pickleman
+community, and no edict is aimed at one) and the coordinator told the owner. What's built is a communist-wannabe planner,
+POLICY satire only. His name is ONE constant (`data.js` › `MIDWOOD_MAYOR`, "Mayor Marxdani" — the owner asked for a name that
+rhymes with a real mayor's; the pun is on politics, never on the person or where a name comes from); a generic young
+politician in a suit; no religion / ethnicity / looks, no real party or quotes, nobody singled out. Pickleman
 lost by 3 votes: his pickle stand on the sidewalk outside Borough Hall (✋ 🥒 PICKLEMAN'S RECOUNT, lines only). `EDICTS`
 (10, every one landing on EVERYONE equally: the People's Grocery's one cabbage, free buses that never come, the rent freeze
 that froze the boilers, a Five-Year Plan for one pothole, one People's Kugel Kitchen, Avenue K-for-Kollective, the People's

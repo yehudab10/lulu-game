@@ -1,5 +1,5 @@
-// 🏛️ City hall › Midwood's new mayor (roadmap 31, features/cityhall/mayor.js): a FICTIONAL communist-wannabe planner (one name
-// constant), pure policy satire; today's edict drives Midwood's protest, the notice board and a Complaints line; a Courtroom 2B
+// 🏛️ City hall › Midwood's new mayor (roadmap 31, features/cityhall/mayor.js): a communist-wannabe planner (one name
+// constant, a pun on politics), policy satire only; today's edict drives Midwood's protest, the notice board and a Complaints line; a Courtroom 2B
 // case strikes it down for good; Pickleman lost by 3 votes and demands a recount from his pickle stand; nothing pays.
 const W = require("../lib/qawatch.js");
 
@@ -24,7 +24,7 @@ module.exports = {
     // ── the data: one name constant, ≥ 10 edicts, no real person anywhere in the words ──
     const src = await t.L(`fetch("js/features/cityhall/data.js").then(r => r.text())`);
     t.check("no real politician's name in city hall's words", !/mamdani|zohran/i.test(src));
-    t.check("Midwood's mayor is the one name constant", await g(`${CH}.mayor("midwood").name`) === (src.match(/name: "([^"]+)", short: "Mayor Peoplesky"/) || [])[1]);
+    t.check("Midwood's mayor is the one name constant", await g(`${CH}.mayor("midwood").name`) === (src.match(/MIDWOOD_MAYOR = \{ name: "([^"]+)"/) || [])[1]);
     t.check("Lakewood keeps Mayor Kugelman", /Kugelman/.test(await g(`${CH}.mayor("lakewood").name`)));
     t.check("at least 10 edicts, each with a notice, signs and a chant", await t.L(`import("./js/features/cityhall/data.js").then(m => m.EDICTS.length >= 10 && m.EDICTS.every(e => e.notice && e.signs.length >= 3 && e.chant.length === 4))`));
 
@@ -53,7 +53,7 @@ module.exports = {
     await g(`(${CH}.debug.force.mayorOut = false, ${CH}.debug.force.closed = 0, ${M}.MY.force.board = true, true)`);
     await g(`${CH}.enter()`);
     if (await t.until(`__lulu3d.state === "interior" && __interiors.room && __interiors.room.ready`, "inside Borough Hall", 60000)) {
-      t.check("the mayor in the office is the new one", await g(`__interiors.room.byId.mayor && /Peoplesky/.test(__interiors.room.byId.mayor.name)`));
+      t.check("the mayor in the office is the new one", await g(`__interiors.room.byId.mayor && __interiors.room.byId.mayor.name === ${CH}.mayor("midwood").name`));
       const use = async id => { await g(`(() => { const r = __interiors.room, h = r.hots.find(h => h.id === ${JSON.stringify(id)}); r.lulu.obj.position.set(h.x, 0, h.z); r.use(h); return true; })()`); await t.until(`__lulu3d.ctx.dialogOpen`, `${id} talks`, 6000); };
       const c0 = await coins();
       await use("board");
