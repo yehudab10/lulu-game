@@ -501,6 +501,28 @@ shows the card for a line answering something she just did, never during an acti
 friends' requests / asks to join. Home screen: 👯 Friends · 🗺️ Map · 💼 Jobs · 💬 Messages · 📞 Contacts · 📻 Radio ·
 📸 Camera. An app with `home: false` is opened from another app (📍 Nearby from Friends, 🎨 Paint & Pray from a Jobs
 row while she's wanted).
+
+**Places on the map + 📍 ping (`features/pins`, `ci/hud`, 2026-11-27 — the owner: "an easier way for players to see
+where each store is … they should be able to ping it"):** a registry, `ctx.pins.add({ id, name, icon, cat: "shops" |
+"town" | "help" | "mine", town + spot (a town build's spot) | local: [lx, lz] | lap: m | "jfk", group?, sub? })` — the
+places that exist today are registered by `pins/data.js` from each feature's own name data; a NEW place registers itself
+(one line in its feature) and shows on the map with nothing else to do. Her homes come live from realestate's registry.
+The 📱 🗺️ Map (solo: phone/apps.js › lapmap; with friends: together/map.js) shows them: in a town its streets with every
+place an icon where it stands, on the highway the lap ring with each town's places beside its exit; a list grouped by
+where it is along the lap, in the order she'd reach them (`ctx.pins.groups()`); a filter row 🛍️ · 🏛️ · 🚑 · 🏠. Tap →
+📍 Ping = ONE destination: openworld's beacon at the place (`target()`: the spot nudged out to the first point
+`ctx.unstuck.normal` accepts — the town copy she's in, so every lap is right), one edge pointer (together/pointers.js ›
+`extra(fn)`: the friend pointers' pill, kept out of the clear window on a phone, hidden in an activity) and the
+objective line's lowest slot (`H.OBJ.info`). In another town it points at the way out, on the highway at the place's
+town's next exit; arriving clears it (a town place within 12 m, a rest area / JFK when she's in it), a new ping replaces
+it, ✕ Clear in the map. 🛍️ Where to shop (shops/guide.js) marks through it (`pingKind`). With friends: `d.x.pg` = my
+ping's id (the party packet — no relay change); a friend's ping = their beam in their colour + one quiet line for 8 s.
+⚙️ 📍 Destination pointer (off = no beam, no edge pointer; the map + the line stay). Test `pins`.
+
+**📶 Show connection (`features/netping`, ⚙️, OFF by default):** a small "📶 48 ms" pill in the top band by the coins;
+it times the relay heartbeat the game already sends (`multiplayer/net.js › pingRelay()`: "pi" → the relay's "po" →
+`MP.rtt`) every 10 s while it's on and online, never while ⚙️ Play online is off ("📶 offline"); amber ≥ 250 ms, red
+≥ 500 ms; hidden in Dina's mode. No server change. Test `netping`.
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
@@ -739,7 +761,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.law` | law | `startChase(reason, {heat, msg, at: {x, z} (the witness who saw it leads the chase)})` · **heat before a chase** (cops.js `notice` / `callIn` / `changeLook`): `notice(charge, {msg, warn, witness, src, amount})` a PETTY offense a cop saw — the first is a ⚠️ WARNING (`suspicion` 0–1, drains ~22 s of clean driving), another while it is live (or `amount` 1: reckless — nitro / > 92 mph) is the chase · `callIn(charge, {msg, delay})` a witness phoned it in: 📞 `reported`, after 8–14 s one unlit cruiser prowls up the road looking for the car she is in (sees her ~1 s → chase; she switches cars / paints / ditches it / keeps out of its way 35 s → called off) · `changeLook(how)` a new car / paint / disguise unseen: drops a call-in + the warning, and `lowKey` — the warrant file does not know her this run (`wanted` 0) · `copSees(x, z, r)` a cop with a clear line of sight (crimes only count when SEEN) · `hiding` mid-chase she is stopped (≤ 4 m/s) + tucked away while they search (`cops.js hideInfo()`): "lot" (a rest area's lot) / "verge" (> 9.2 m off the highway's centre line) / "town" (`ctx.town.hideSpot`: at the kerb among parked cars, or off the street surface — never a travel lane, a crossing or an empty kerb); verge + town also need no chasing cruiser with a clear line of sight within `tune.hideSeen` (25 m). Hidden, cruisers only spot her within 10 m and the LOSING THEM meter runs 2×; stopped somewhere that does not count, the HUD hint says why ("not hidden — park at the kerb or get out of sight"). Searching cruisers drive on to where she was heading (in a town: `ctx.town.searchPoint`, then crossing to crossing with `prowlPoint` — they do not know where she is) · `lose(how)` (unseen: she got away — `town:enter` while they search does it) · events `law:warning` {charge, heat}, `law:bolo` {active, charge | why}, `law:look` {how, had} · `arrest(charges[], opts)` · `wanted` (0–5) · `chasing` · `searching` (lost sight of her: the stars flash) · `searchProgress` 0–1 · `clearHeat(msg)` · `copNear(x, z, r)` · `addWarrant(charges)` · `hold(sec)` · `crew` (🔗 partners in crime with friends — `law/crew.js`: `current()` · `partners(uids, why)` · `wanted(n, reason)` · `bust(charges)` · `leave()` · `friendsInside()` · `bailOut(uid)` · `springOut(uid)`; see Partners in crime) · `spot(sec)` (a tip-off — features/community's Shomrim radio: mid-chase she counts as SEEN for `sec`) · `trap(ahead, side)` (park a hidden speed trap up the road — another feature wants a cop around) · `clearWarning()` (wipe a live ⚠️) · `addCharge({key, name, weight, cop, lulu, defense, court, nudge})` (a feature's charge gets its own arrest lines, the lawyer's argument and a courtroom event that always plays — `chargeEvent(charges)`) · the pull-over asks `ctx.underworld.bustOffer()` before her tactics · `lightBar(obj)` → `{set(on, t)}` · `tune` (the pursuit table: cop speed × her top speed, sight range, search time by ★ — tuned with the streets chase lab)  **Releases follow her wheels:** `service.js` `captureRide()` notes at the arrest whether she was in her own intact car (`own`), a `stolen` ride, a `wrecked` car or none (`impounded`); bail / a fine / dismissal / a jailbreak hand back only her own car — otherwise she walks out (copWalk / the jumpsuit jailbreak on foot); served time always walks. The ER does the same (`discharged`). · for a 🎉 party: `partyUnits(n)` (her lit cruisers as `[x×10, z×10, h×1000, …]` for friends' puppets) · `standDown(why)` (a pursuit winds down — law/index.js does it during party races and Free Roam games) |
 | `ctx.streets` | streets | `carjack(car?)` (on foot) · `ride` {kind, color} · `jacking` · `canBail()` / `bail()` · `bailHint()` · `rides` (jackable kinds + handling — features/rides adds its fleet here) · `cams` (ride model key → {d, h}: a roomier chase cam for big rides) · `roadblock(ahead, {gap, spikes})` · `spikes(s, d)` · `flat` / `puncture()` / `repairTyres()` · `paint.{cost(), nearest(), enter(), repaint(color), color}` · `damage` ($ this drive) · `smashNear(x, z, r)` · `chop.{request(), job}` · `debug.sim({stars, seed, bot, gap})` (the chase lab) |
 | `ctx.er` | cameos | `admit(reason)` — the ER visit (now and then after a knock-out; its bill instead of the tow fee; a patch-up leaves 2 hearts, a bonus 3). In a town (or, solo Cruise, the nearest town) it's that town's hospital and she walks out of its door (features/places) |
-| `ctx.civic` | places | the civic buildings (precinct, courthouse, hospital, impound lot): `spot(kind)` (the door, world coords; `cx/cz` the model centre) · `here` · `names()` · `enter(kind)` (walk in) · `place` (where she's being taken: `{kind: law \| er, id, exitS, here}`) · `claim(kind)` · `tick()` · `ready()` · `walkOut({door, car, reason, impound, soft})` · `arrive({charges, sResume})` (the `placesArrive` beat) · `clear()` · `debug.{impoundedCar(), STAY}`. ARCHITECTURE › Places |
+| `ctx.civic` | places | the civic buildings (precinct, courthouse, hospital, impound lot): `spot(kind)` (the door, world coords; `cx/cz` the model centre) · `here` · `names()` · `enter(kind)` (walk in) · `place` (where she's being taken: `{kind: law \| er, id, exitS, here}`) · `claim(kind)` · `tick()` · `ready()` · `walkOut({door, car, reason, impound, soft})` · `arrive({charges, sResume})` (the `placesArrive` beat) · `clear()` · `roadside` · `nearest(kind, lapM?)` (THE rule, ci/roadside) · `judgeLine()` · `debug.{impoundedCar(), STAY}`. ARCHITECTURE › Places, › Roadside places |
 | `ctx.crime` | crime | 🦹 town crimes (solo): `active` (in a town with the feature on) · `PAY` / `TUNE` (data.js — every cap and knob) · `paidToday(kind)` · `start(kind)` (`"cart"` beside the cart on foot · `"park"` stopped double-parked · `"air"` at the stand · `"herring"` at the kiddush table) · `corruption.{who(id), list(), evidence}` (for `ci/cityhall`: Malka / Tuvia / Pinchas — mood friendly · bribed · partner · nervous · gone) · `debug.{CR, SAVE, CART, JAY, PARK, force: {cop: true \| false}, settleJay(), parkEnd(), today(), day (a Date: tests), log}`. Events `crime:<ev>` (pay, warn, chase, cart, jaywalk, park, monte, watch, porch, tags, herring, air, malka, scene, evidence, hush, ia, cop) + `crime:corrupt` {who, act: bribe · cut · hush · exposed · wink} + `crime:porch` {id, fam, phase: back · kept · gone} (features/homes); stats `crimeCartRides`, `crimeCartMeters`, `crimeJaywalks`, `crimeJaywalkSprees`, `crimeDoubleParks`, `crimeChases`. ARCHITECTURE › Town crimes |
 | `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
 | `ctx.phone` | journey + phone | journey: `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car call card (Ima's calls use it) · `text({ from, emoji, color, msg, dur, thread? })` · `active` / `talking` / `busy()` / `hangUp()` / `prop(on, pose)`. phone (`features/phone/`): the 📱 phone screen + apps — see **Lulu's phone** below |
@@ -755,7 +777,8 @@ and keep working sensibly when another feature is missing.
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `register(id, create, def, {listed})` (another feature's job type on this framework — underworld's Fixer; `listed()` → the extra ids the 💼 Jobs app shows) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
 | `ctx.town` | town | `active` · `id` / `name` · `street` (the street she's on) · `streets` · `occluders` (world rects) · `enter({town: "lakewood" | "midwood", speed})` / `leave(why)` (no ramp: tests/debug) · `load(id)` / `loaded(id)` (a town's models) · for law: `blocksSight(ax, az, bx, bz)` · `copRoute(car, u, to?)` → `{gap, aim(la, out)}` (to her, or to `to` {x, z, s}) · `hideSpot(x, z)` → `{ok, spot: kerb | mall | walk | yard | lane | junction, why: lane | empty}` · `searchPoint(last)` / `prowlPoint(at, car)` (where a searching cruiser drives) · `copSpawn(how)` → `{s, d, dir}` · for foot: `footYaw(F, roadH, dt)` · `towns` (the data) · for features that live in a town: `def` (the current town's data), `allowState(name)` (your state may play in town), `spot(name)` (a built spot in world coords: pizza, hall, a `uses` landmark…), `exits` (`[{s, id, name, town, emoji, no, label, branch}]` this run: one row per town an interchange offers) · `span` ({a, b}: an exit's signs → ramps, relative to its s), `addDriver(kind, {minD})` (a lane-following town driver the town never respawns), `curbSpot({len, near, minD, maxD, still})` (a free stretch of parking lane; `still`: only parked cars count — a party's seeded pick) · `debug`. Events `town:enter` {town, exitS}, `town:leave` {town, why: highway \| wreck \| quiet \| reset}, `town:gossip` {kind, msg}, `town:talk` {id, line}, `town:stopSign`, `town:bump`, `town:geese`, `town:bike`, `town:oneway` {street}, `town:train` {line}; stats `townVisits`, `townStopSigns`, `townTalks`, `townGossip`, `townEscapes`, `townWrongWay` · for openworld: `plan` (PL, local frame) · `spots` (landmarks, local) · `coins` · for homes: `homes` (the houses' model origin + frame + lot point, world) / `drives` (driveway minivans) · `people()` → [{id, name, x, z}] |
 | `ctx.community` | community | The 📞 **Phone** app (`calls.js`, app id `community`, order 22 — right after 💬 Messages) is on the phone EVERYWHERE she has it (highway, rest areas, both towns; car and foot): Chaverim · Hatzalah · Shomrim · 911 · 👩 Ima (a sweater, no reward) · added contacts. Help comes anywhere: in town round the grid, on the highway from behind (in the car once she's stopped — at speed the call card says "pull over"; on foot to where SHE stands, `luluRoad()`), across a rest area's lot (off the lanes the responder drives straight to her). Shomrim only in a town. Lines name the town (`towns.js` FLAVOR + `local()`: Midwood says Coney Island Ave / Avenue J); Midwood has all three orgs but NO cruisers (its triangle / draw-call budget — they come when called). `active` (in a town with volunteer orgs) · `towns` / `register(id, cfg)` / `config(id)` (the per-town registry, `features/community/towns.js`) · `vehicles` · `scene` · `chase` · `help` · `by` · `heat` · `startScene(kind)` · `call(org, reason)` / `reasons(org)` · `addReason(org, fn)` (another feature's reason to call an org: fn() → {id, icon, label, sub, run} | null) · `addContact({id, icon, name, tag, color, render(el)})` (a contact with a page of its own in the 📞 **Phone** app, below Ima — world's 🏡 Family & places is one; the phone stays one 3 × 3 screen) · `nothing(org)` (the one line an org says when there's nothing to call about here) · `heal` {max 3, gap 60 s, left} (hearts from the volunteers, called or not, per run) · `gasGap` (90 s between Chaverim nitro refills) · `callOut(org, lines, then, done)` · `request(kind)` (`fix` `gas` `tow` `unlock` `patch` `fine` `visit` `geese`) · `shomrim(reason, {join, withCops})` / `endShomrim(why)` · `blend({auto})` · `stats` · `debug`. Events `community:scene` {kind, org, phase, byLulu}, `community:help` {kind, org, phase}, `community:shomrim` {active, reason, lead, join, called, why}, `community:hold` {result}, `community:by` {phase, result}, `community:call` {org}; stats `communityChesed`, `communityHelped`, `communityPatched`, `communityCalls`, `communityShomrimChases`, `communityHolds`, `communityBlends`, `communityBlendTries`, `communitySelfReports`, `communitySurrenders` |
-| `ctx.homes` | homes | `inside` · `house` ({name, key, mode} \| null) · `homes()` (this town's front doors: `[{i, key, name, cast, ap, door, model}]`, `ap` = where to stand) · `enter(i, mode: "sneak" \| "guest" \| "kid", via: "door" \| "window")` · `knock(i)` · `family(key)` → what that family remembers `{visits, seen, burgled, guest, items}` · `crowd()` (counts + LOD / perf numbers) · `debug.{room(), use(item, kind), near(kind), report(i), force.{knock, unlocked, cop}, startCrowd(), stopCrowd(), RUN, VISIT, CR}` — 🏠 living towns + houses (`features/homes/`). Events `homes:enter` {key, name, mode, via} · `homes:exit` {key, name, exit, reported, spotted} · `homes:knock` {key, outcome: kvetch \| meal \| kid \| nobody \| again_bad \| again_good} · `homes:use` {item, who, fx, line} · `homes:spotted` · `homes:called` · `homes:report` {key, charges, chase} · `homes:couch` {coins, capped} · `homes:recognized` · `homes:grab` · `homes:cholent` · `homes:souvenir` · `homes:hit` · crowd: `homes:wave` · `homes:gossip` · `homes:scatter` · `homes:honked` · `homes:talk` · `homes:jingle`; stats `homesVisits`, `homesBreakIns`, `homesGuest`, `homesKnocks`, `homesItemUses`, `homesCouchCoins`, `homesSpotted`, `homesReported`, `homesWindowExits`, `homesCholent`, `homesSouvenirs`, `homesScatters`, `homesGossip`, `homesChats`, `homesLemonade` · **who lives here** (stable door ids `town:lx:lz` = the door in the town's own frame, the same as `ctx.realestate.keyOf`): `household(id)` → `{id, name, family, cast, names, ap, door, status}` · `householdAt(x, z, r)` · `livedIn(id)` · `idAt(x, z)` · `claim(fn(id, home) → status \| null)` (any status = homes gives the door up: no family, porch scene, knock, break-in or ✋ — real estate uses `mine` / `rented` / `empty`…; homes' own: `lulu`, `moved`) → unregister fn · `refresh()` · `moveOut(id, why)` / `moveIn(id)` · **life**: `sceneAt(id)` → `{id, name, emoji, here, traits}` · `opinion(key)` · `jobs()` (today's ledger + caps) · `delivery`. Events `homes:moved`, `homes:caught` {who, how}, `homes:guest`, `homes:treat`, `homes:wet`, `homes:waveIn`, `homes:offer`, `homes:job` {type, paid, capped}, `homes:jobStart`, `homes:jobDone`, `homes:task`; stats `homesFavours`, `homesJobCoins`, `homesPlayed`, `homesCleaningLady`, `homesWaveIns`, `homesAfikoman` |
+| `ctx.homes` | homes | `inside` · `house` ({name, key, mode} \| null) · `homes()` (this town's front doors: `[{i, key, name, cast, ap, door, model}]`, `ap` = where to stand) · `enter(i, mode: "sneak" \| "guest" \| "kid", via: "door" \| "window")` · `knock(i)` · `family(key)` → what that family remembers `{visits, seen, burgled, guest, items}` · `crowd()` (counts + LOD / perf numbers) · `debug.{room(), use(item, kind), near(kind), report(i), force.{knock, unlocked, cop}, startCrowd(), stopCrowd(), RUN, VISIT, CR}` — 🏠 living towns + houses (`features/homes/`). Events `homes:enter` {key, name, mode, via} · `homes:exit` {key, name, exit, reported, spotted} · `homes:knock` {key, outcome: kvetch \| meal \| kid \| nobody \| again_bad \| again_good} · `homes:use` {item, who, fx, line} · `homes:spotted` · `homes:called` · `homes:report` {key, charges, chase} · `homes:couch` {coins, capped} · `homes:recognized` · `homes:grab` · `homes:cholent` · `homes:souvenir` · `homes:hit` · crowd: `homes:wave` · `homes:gossip` · `homes:scatter` · `homes:honked` · `homes:talk` · `homes:jingle`; stats `homesVisits`, `homesBreakIns`, `homesGuest`, `homesKnocks`, `homesItemUses`, `homesCouchCoins`, `homesSpotted`, `homesReported`, `homesWindowExits`, `homesCholent`, `homesSouvenirs`, `homesScatters`, `homesGossip`, `homesChats`, `homesLemonade` · **who lives here** (stable door ids `town:lx:lz` = the door in the town's own frame, the same as `ctx.realestate.keyOf`): `household(id)` → `{id, name, family, cast, names, ap, door, status}` · `householdAt(x, z, r)` · `livedIn(id)` · `idAt(x, z)` · `claim(fn(id, home) → status \| null)` (any status = homes gives the door up: no family, porch scene, knock, break-in or ✋ — real estate uses `mine` / `rented` / `empty`…; homes' own: `lulu`, `moved`) → unregister fn · `refresh()` · `moveOut(id, why)` / `moveIn(id)` · **life**: `sceneAt(id)` → `{id, name, emoji, here, traits}` · `opinion(key)` · `jobs()` (today's ledger + caps) · `delivery`. Events `homes:moved`, `homes:caught` {who, how}, `homes:guest`, `homes:treat`, `homes:wet`, `homes:waveIn`, `homes:offer`, `homes:job` {type, paid, capped}, `homes:jobStart`, `homes:jobDone`, `homes:task`; stats `homesFavours`, `homesJobCoins`, `homesPlayed`, `homesCleaningLady`, `homesWaveIns`, `homesAfikoman` · **households other features bring** (features/family): `addHousehold(fn(townId, ctx.town) → [{key, name, cast, names, colors, door, ap, nx, nz, rooms, palette, basement, scenes, scene(w), menu(api), talk(kind), label, inside}])` · their jobs on homes' ledger: `jobsAdd({type: {emoji, name, pay, cap, deliver}})` · `pay(type)` · `paid(type)` · `errand({type, to, fromName, label})` |
+| `ctx.family` | family | `secret` ({n, of, day}: Shloime + Toby's beats) · `where()` → Fayge's `{where: home \| playgroup \| makolet \| bakery \| clothes \| ima \| walk \| away, scene, ash}` · `isFamily(x, z)` (her house: real estate never lists it) · `fayge` ({x, z, where} \| null) · `debug.{F, SAVE, force.{where, scene}, placeOf(where), talk(), home()}` — 👨‍👩‍👧 Lulu's sister Fayge, Ash + Chani (`features/family/`). Events `family:place` {where} · `family:knock` · `family:talk` · `family:chani` · `family:circle` {paid} · `family:bags` {paid}; stats `familyVisits`, `familyCircle` |
 | `ctx.openworld` | openworld | `partyTowns()` (towns on in a party = 🌍 Free Roam) · `seeded(key, fn)` (Math.random seeded from the party for fn) · `zone` ("" highway \| town id) · `game` (a copy of the live game) · `start(k)` → "" or why not (`cnr` `pin` `kugel` `photo`) · `end()` (host) · `warpTo(uid)` · `pin({x, z, name, icon, uid?})` / `unpin()` / `pinned` · `townLoops()` (a party town's block loops, read-only: community's org cruisers ride them) · `debug`. Events `openworld:start` {k, n}, `openworld:warp` {zone}; stats `owGames`, `owWins`, `owBusts`, `owStashes`, `owSnaps`, `owWarps` |
 | `ctx.memory` | memory | `grudges` (live list of remembered carjack victims `{id, name, key, colors, kind, color, run, seen, lastRun}`, ≤ 6) · `notoriety()` → `{score, level 0–4, title, arrests, mugshots, escapes, er, carjacks, maxStars, grudges}` · `remember(kind, data)` (`"grudge"` streets:carjack-shaped · `"poster"` {heat, why} owes a WANTED billboard · `"text"` queues a text · anything else → a capped log) · `recall(kind)` (a copy) · `recognize(who, info)` → a rate-limited line or `""` (`"cop"`, `"moishe"` {color}, `"hitch"` {event: pick\|pass\|drop}, `"avigailRoad"`, `"avigailPorch"`) · `spawnGrudge(rec?, {act, behind})` → Promise<car> (acts `yell` `tailgate` `brakecheck` `cops` `forgive`) · `canMeet()` · `forgive(rec)` · `text(t, {next, after})` · `poster(ahead, side, variant)` · `runs`. Events `memory:grudge` {name, kind, color, act, seen}, `memory:billboard` {variant, key, s, side} |
 | `ctx.underworld` | underworld | `heat` (0–100) · `level` {i, name} · `addHeat(n, why)` · `enc` (the live bad-guy encounter {kind: rager \| gang \| pickpocket, phase, result, rival, stolen}) · `offer` (Krupnik's cruiser / Velvel's shack up the road {kind, s, done}) · `rivals` · `SPAWN` / `TUNE` (the knobs, `data.js`) · `bustOffer({reason})` (law/bust.js asks at a pull-over) · `live` · `why()` ("" = a bad guy could show up now) · `spawn(kind, opts)` · `debug {UW, SAVE, force: {offer, sting, hot, flat, trap, always, report}, log, shoulderCop, placeShack, fixerOffer, callShomrim, chaverimFlat, shomerAfter, tackle, payOwed, reset}`. Events `underworld:<ev>` (offer, bribe, velvel, hot, encounter, bump, flat, end, shomrim, chaverim, pick, owed, job, fixer, heat); stats `uwBribes`, `uwStings`, `uwVelvelFixes`, `uwVelvelPaints`, `uwVelvelSales`, `uwJobs`, `uwRagers`, `uwGangs`, `uwPickpockets`, `uwBumps`, `uwCopBusts`, `uwShomrimCalls`, `uwShomrimBusts`, `uwTackles`, `uwChaverim`, `uwBadBusts`, `uwBadEscapes` |
@@ -892,7 +915,9 @@ Free Roam). `Road.headingFn` repeats every lap — the first lap is the old endl
 seed by lap chunk (`k % (LAP / CHUNK)`: the same trees every lap). `s` keeps counting (distance, score, chases); every
 PLACE comes round once a lap at a FIXED lap metre — the same place, not a copy: Midwood's exit 3600 (home, E 34th St) ·
 rest area 5700 · JFK 8800 (`airport/plan.js` › `AIR.every = LAP`) · Lakewood 12000 (`towns/index.js` › `ROUTE`, period
-`LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · Gas 'n' Go 1300 / 6900 +
+`LAP`) · rest area 14200 (`exits` › `REST.lap`, placed at its metre every lap, the same name) · the roadside places
+(ci/roadside): Trooper Post 7 + the Highway Traffic Court 6800 (`hw:trooper`, `hw:court`), Hatzalah 10700 (`hw:hatzalah`),
+the Weigh Station + Doc-in-a-Box 15700 (`hw:weigh`, `hw:clinic`) · Gas 'n' Go 1300 / 6900 +
 the Lookout 2400 / 8200 (`world/places.js`) · the roadside storefront blocks (`foot/street.js`: the first lap's, repeated).
 The Story Trip's family stops (Bubbe's, the beach…) are its own road: not built on the lap (Story is hidden for now).
 Test `exits` › "lap". **ADDRESSES (stage 2):** a place's identity is a fixed string — the same every lap, every run, every
@@ -1217,6 +1242,33 @@ weight are added to law's tables at boot (`law/data.js` `CHARGE_DIALOGUE` / `CHA
 `ctx.town.homes` / `ctx.town.drives` (build.js records them), `ctx.town.allowState("interior")`; foot hooks: `ctx.foot.handoff(id, door)`,
 `startChase(from, { charges })`.
 
+**Fayge's family (features/family, roadmap 32 — `fayge.js`, `scenes.js`, `data.js`):** Lulu's older married sister Fayge,
+her husband Ash (a mashgiach at a Lakewood catering hall; four words a day) and Chani (2) live in the BASEMENT of the
+landlords' house on East 15th St, Midwood (Avenue M → L; the house at town-local (26, −21) — the landlords stay an
+ordinary household). Her side door (a few steps down by the driveway — a dark well + rail + sign, code-built, one draw
+call) is a household homes knows through `ctx.homes.addHousehold`: its own id `midwood:fayge`, cast + colours, a fixed
+layout (`rooms`), its own scenes (`faygeMorning` / `Supper` / `Bedtime` / `Night` / `Friday` / `Out`, picked by the
+clock — never by chance), its own ✋ door menu (she knocks; Fayge or Ash answers; family walks in as a guest; nobody home
+→ the note on the door says where she is) and talk lines (sister banter that follows `ctx.moveout`'s days). Real estate
+never lists the house (`market.js isFamily` → `ctx.family.isFamily`). Her day (`data.js dayOf(w)`, homes' `when()`, so a
+party sees one Fayge): Sun–Thu 8:30–1 Morah Leah's playgroup (the driveway of the house at local (23, 24) on Avenue L —
+a baby gate, tiny chairs, six toddlers + Chani), 1–4:30 errands with the stroller (Yanky's makolet, the bakery, Avenue
+J'adore's window — rotating by weekday), 4:30–5:30 Ima's, then supper / bedtime / the night at home; Friday the bakery
+then cooking for Ima's table; Shabbos at Ima's (a walk past it 2–5). Out in town she's a ✋: talk, say hi to Chani, and
+two tiny jobs on homes' ledger (`ctx.homes.jobsAdd`): 🎵 circle time (5) and 🛍️ her bags home — a delivery to her door
+(6); each once a real day, inside homes' DAY_CAP. She moves between places only while Lulu isn't standing next to her.
+
+**Shloime + Toby (features/family, roadmap 32 — `couple.js`, `couple-data.js`):** a secret couple found in the world,
+never a pop-up. Shloime Pollack (Lakewood, Courtroom 2B's single dad, Baby Gitty) and Lulu's cousin Toby (Brooklyn; her
+family on East 8th St, Midwood) are quietly seeing each other — he went out with her older sister RAIZY at seventeen and
+Toby's mother (Aunt Brochie) never got over it. Six BEATS in order (`BEATS`), one a real day (`store("family").couple`
+{ n, day, cover, picks }), each out at a real place on its hours (never Shabbos / Yom Tov): the little table outside
+Midwood's pizza shop · Lakewood's makolet ("strangers") · a walk by Lakewood's lake (Raizy walks up: pick a cover) · the
+far end of Midwood's municipal lot (Fayge walks up: distract her) · Toby needs a ride from Lakewood's pizza shop (a soft
+beacon round the corner from her house: E 8th St & Avenue L) · Ima on her porch with a Look. From a distance they're
+terrible at hiding (bubbles); up close a ✋ plays the beat (dialog + a choice; every cover works, badly). Story only —
+nothing pays; the last beat → 🤫 Secret Keeper (secret badge, stat `familySecretKept`). `ctx.family.secret` → { n, of, day }.
+
 **Households with a life (homes, roadmap 15 — `life.js`, `scenes.js`, `stage.js`, `visits.js`, `jobs.js`):** every door's family is
 a pure function of its STABLE id (`town:lx:lz`, the door in the town's own frame — the same id as features/realestate; a landmark
 replacing a neighbour never renames a family; old index-keyed saves migrate once per town) + two `TRAITS` (bakers, musical, neat,
@@ -1328,6 +1380,21 @@ beside one → ✕ prompt; the card lists who's around + the games; solo it star
 touch button) — on foot (solo + party: ↑ has no other job on foot) and in a party car (↑ is blanked there); my pose is posed on
 top of foot's in a `hud` hook (`person.update(0, pose)`), moving off cancels it. Test: `scripts/tests3d/partyhang.js`.
 
+**Roadside places (places/roadside.js, ci/roadside; the owner 2026-11-27: "more hospitals and different prisons/jails/courts
+to the highway so people don't end up back in the city")**: three short pull-offs, once a lap at fixed lap metres where they
+halve the gaps between the towns, code-built (one model each, shared materials), each with a sign 190 m before and a hello if
+she stops in the bay (world/places `addPlace`, kind `roadside`): 🚔 **Trooper Post 7** 6800 (`hw:trooper`: the barracks —
+Sgt. Feldman, Lenny in the two-bunk cell — its first-aid room with Trooper Ruthie, its impound yard; and `hw:court`: the
+**Highway Traffic Court** in a double-wide next door, Judge Kessler with a tee time), 🚑 **Hatzalah Highway Station** 10700
+(`hw:hatzalah`: the garage, the ambulance, Yossi), ⚖️ **the Weigh Station** 15700 (`hw:weigh`: a scale house with a one-bunk
+lock-up, Officer Dot, Judge Pfeffer on a video screen from Boca, an impound corner; and `hw:clinic`: **Doc-in-a-Box** next
+door). The judges' openers: `ctx.civic.judgeLine` (law/court.js). Worst distance from anywhere on the lap: a jail / court
+2.6 km (inside JFK's zone), a hospital / clinic 1.95 km (the towns alone: 4.2 km). `ctx.civic.spot(door)` on the highway is
+the roadside door (`hwSpot`: `sp.hw`, `sp.addr`, `sp.kerbAt(ahead)` its stalls, `sp.car` the impound bay); walking in → their
+own rooms (`places/roadrooms.js`, code-built on the interiors engine, lines only); the scenes are law's / the ER's unchanged
+(same fines, bail, bills). A 🎉 party on the highway keeps the old flow (as for towns). On the 📱 🗺️ map (lapmap `kind:
+roadside`). Test `roadside`.
+
 **Places (places): jail, court and the ER are real places in town** (roadmap 4). **The buildings are town DATA**: each
 town's `uses.civic` (`places_precinct` + — its `with` entries are landmarks too, build.js `layoutFace` — `places_court` and
 `places_impound`, sharing ONE block face: the towns are tight) and `uses.hospital` (`places_hospital`, an ambulance in its
@@ -1344,7 +1411,9 @@ Courtroom 2B, the fountain; lines only, nothing pays); titles per town (`data.js
 keeps them in town; she walks back out of the same door. Not in a chase / a party / while ✋ is a tackle. Walking past:
 one Lulu line per building per visit. **Being taken there** (`places/out.js`, `ctx.civic`): `claim(kind)` at the arrest
 (law/arrest.js enter, `law.arrest({skipCinematic})`) or the admission (cameos/er.js `admit`) decides WHERE: in a town that
-town (`here`); on the highway in a SOLO Cruise the nearest planned interchange's town (`ctx.town.exits` + `placeOf`);
+town (`here`); on the highway in a SOLO Cruise **the nearest place of that kind ALONG THE LAP, either way round, towns and
+roadside places alike** (ci/roadside, `places/roadside.js` › `nearest(kind)` = `ctx.civic.nearest`; the same answer on every
+lap — a town: its copy nearest her, `exitOf(id, s − LAP/2)`; a roadside place: `{kind, id, hw, s}` at its copy on THIS lap);
 otherwise null = the old flow (the stand-in precinct set, back on the highway; Story / Shabbos / a 🎉 party / the tests that
 don't enable town). In town the arrest plays on the street (no `leave("quiet")`), the cruiser pulls away, then
 **`placesArrive`** (⏭, a soft cut): a cruiser rolls up to the kerb in front of THAT precinct and she's walked up its steps
@@ -1603,7 +1672,23 @@ street in front of city hall (solo): ✋ 📸 a photo (evidence) · 🤝 a cut (
 (`CONTACT_EXTRAS`): 📰 the local paper (+10) / 🕵️ Internal Affairs (+10) → exposed: the crew gone, the mayor sheepish
 (`MAYOR_LINES`) · 💰 sell it back (+6) → the mayor friendly. Every payout once per town, ≤ 15 a real day; `cityhall:corrupt`
 {who, act}, `cityhall:story` {town, step, how}, `ctx.memory.remember("cityhall", …)`.
-Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`).
+**Roadmap 31 — Midwood's new mayor** (`mayor.js`; owner 2026-11-27). The owner asked for a parody of a real politician
+written as an enemy of Jews; the agents declined THAT part (a real, identifiable person is not written as persecuting a
+community, and no edict is aimed at one) and the coordinator told the owner. What's built is a communist-wannabe planner,
+POLICY satire only. His name is ONE constant (`data.js` › `MIDWOOD_MAYOR`, "Mayor Marxdani" — the owner asked for a name that
+rhymes with a real mayor's; the pun is on politics, never on the person or where a name comes from); a generic young
+politician in a suit; no religion / ethnicity / looks, no real party or quotes, nobody singled out. Pickleman
+lost by 3 votes: his pickle stand on the sidewalk outside Borough Hall (✋ 🥒 PICKLEMAN'S RECOUNT, lines only). `EDICTS`
+(10, every one landing on EVERYONE equally: the People's Grocery's one cabbage, free buses that never come, the rent freeze
+that froze the boilers, a Five-Year Plan for one pothole, one People's Kugel Kitchen, Avenue K-for-Kollective, the People's
+Bench, a ticket quota, one umbrella per block, the People's Loaf) — `todayEdict()` by the real day, skipping struck ones —
+drive Midwood's protest topic (protest.js asks `edictTopic()`), the notice board (`LOBBY_BUILDERS`), a Complaints line
+(`COMPLAINT_EXTRAS`, lobby.js), staff eye-rolls, and a Courtroom 2B case per edict (`cityhall:edict:<id>`, priority 5, one
+hearing a real day, solo): Lulu speaks for the neighbours and the edict is STRUCK DOWN for good (`S.struck`, event
+`cityhall:edict` {phase: "struck"}). Ribbon cuttings in Midwood are "the People's ___"; the paving story's Midwood crew is
+"The People's Paving Collective"; Kugelman is delighted by comparison. Nothing pays or charges; no new pop-ups / texts.
+`ctx.cityhall.mayor31` = `{ today, topic, strike, addCase, standStart, standStop, MY }`.
+Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`), `cityhall4` (roadmap 31).
 
 **Shops (shops, ci/shops): the shop moved into the world** (the owner, 2026-11-20: "the shop button … seems pretty hidden
 for the average person … move the shop to places in game"). `features/shops/`: the places you buy things at, one buying
@@ -1690,6 +1775,45 @@ on the prompt line, the red low-time vignette and bump flash (`hud.js`). 🎥 cy
 stopping on the shoulder still gets her out and walking) — with it the Shared Road party lot (`pose()` → null). Ads: there's no
 card, so no ad. Test: `scripts/tests3d/parking.js` (`PARKING_PART=basic,levels,layouts`; `debug.autopark()` — a real reverse
 parallel park with the car's physics, both directions, and the pull-out between levels — parks all ten levels).
+
+**Car dealerships off the highway** (`features/dealers`, ci/dealers; the owner, 2026-11-27: "a car dealership for real good
+luxury cars somewhere near the highway … a sales man and with real negotiating and upselling packages. And real luxuries for
+certain cars"). Both stand at **lap metre 800** (`data.js` › `LAP_M`), once a lap, the same place for every friend.
+**Mazelati of Monsey** ("hand-built in Monsey, Italy"): a `world/places.js` pull-off on the right (d 30; `reserve` 766–834,
+`paved` 2 for the forecourt), a code-built glass showroom (`models.js` › `dealers_mazelati`: one merged vertex-coloured
+mesh + the glass + the fascia; `SHOW` = its layout), four cars on pedestals out front (real car clones + the kit, spawned
+only within ~110 m of her — `index.js`) and Sal Mazel at the door. The cars are new car ids registered at import into
+`car.js` › `SKINS` (stats over Uncle Refael's best + `nitro`, `perks`, `kit: "mazelati"`) and `garage/data.js` ›
+`SKIN_SHOP` / `SKIN_KEYS` (price, flavour, `where`); `car.js` › `KITS[sk.kit](model, anchors, sk)` hangs a few parts on the
+one convertible (a hood ornament, chrome). Old clients don't know the ids and draw the pink car; the classic 2D game falls
+back to pink too. On foot: ✋ at a car → the card (`shops/card.js`; the stat bars on their own longer scale) → 🤝 Sal:
+**the haggle** (`haggle.js`, the numbers in `data.js` › `HAGGLE`): a counter (−5 / −10 %) meets her halfway and costs his
+patience 1, "final offer" (≈ −12 %, floor −15 %) costs 2; out of patience → back to the sticker, take it or leave it ("you
+lost the deal, not your coins"); walking toward the door with a counter on the table → "let me talk to my manager" once
+(5 % more off, never under the floor). The deal is paid through `garage/buy.js` › `buyCar(id, { price })` (clamped to
+85–100 % of the sticker; never below 0). Then **the F&I office**: one card per option her car can still take (they work —
+`perks.js`: 🚀 launch control, 🔋 a bigger nitro tank (`ctx.G.nitroTank`, read by `core/driving.js`), 💆 massage seats
+(+1 ♥ once a run), 🥂 the fridge (a nitro sip once a run), 🛎️ the concierge horn) and the nonsense (undercoating,
+nitrogen, VIN etching, Platinum Peace of Mind — a joke, remembered: `remembered()`), paid with `buyExtra`. The Machatunim
+GT's 🅿️ self-park: ❚❚ › "Let the car park itself" in a Parking Challenge level (`ctx.parking.selfPark()`, once a level,
+★ and no level bonus). Nothing here pays coins. 3D save `dealers` (options per car, the nonsense, deals / walk-outs).
+`ctx.dealers` = { open(id), haggle(id), perks(id), has(k), debug }; events `dealers:haggle` / `dealers:option` /
+`dealers:nonsense` / `dealers:perk`. 📱 Map: `ctx.pins.add` (when ci/hud's registry exists). Test: `dealers`.
+**Tushla Motors** (stage 2, `ev.js`): across the highway at the same lap metre — a LEFT pull-off (d −30, `reserve` side −1),
+reached by crossing the oncoming lanes like any left turn (never driving along them the wrong way). White, minimalist, no
+salesmen: a tablet kiosk (✋ → the card: four EVs at a fixed price, two taps to buy; acceleration off Refael's chart) and
+the founder, Reb Zev Volt, who posts too much (toasts while she's there). **⚡ Full Schlep Driving** (`schlep.js`, the
+numbers in `data.js` › `SUB`): 100 coins per 30 REAL days, "renews in N days"; cancel any time (it runs to the end of
+what she paid); at the end it renews once if not cancelled and she has the coins, else it lapses quietly — never a debt
+(`buyExtra`). In a Tushla on the highway, ❚❚ › "⚡ Let the car drive": a `controls` hook (after `core/driving.js` ›
+`autoDrive`) holds a lane of OUR side at the mode's speed — 👵 Bubbe 50 mph / 🙂 Normal / 🌶️ Meshuga at the limit
+(`law/data.js` › `SPEED_LIMIT` − 1 mph: a radar never flags it), a gap to the car ahead, overtakes when the next lane is
+clear (`traffic.laneFree`). Steer / brake / nitro / handbrake take over; it hands back with a chime for a chase, a work
+zone ahead (`roadevents/construction.js` › `zoneAhead`), a 💼 job, a town, getting out, a crash. `ctx.G.selfDriving`
+turns off close calls (`core/driving.js`) and style moves (`moves/common.js` › `addMove`). Quirks (a phantom brake…).
+Not yet: through town to the 📍 Ping (needs ci/hud's ping). `ctx.dealers.schlep` = { subscribe, cancel, renewCheck,
+active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
+`dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at
@@ -1787,6 +1911,62 @@ every handler ignores a repeat); small additions in others' files: `streets:carj
 door menu + `ctx.homes.distract`. Tune `PAY` / `TUNE` in `features/partners/index.js`. Events `partners:job` {kind, with,
 coins}, `partners:ring`, `partners:rung`, `partners:peel`, `partners:peeled`; stats `partnerJobs`, `partnerPeels`,
 `crewPeelHits`. Test `scripts/tests3d/partners3.js`.
+
+**Getting an impounded car back (impound, `features/impound` — ci/impound, roadmap 30):** 🚗 when the law walks her out of a
+precinct on foot, her car stays behind that town's impound fence (features/places `walkOut(impound)` → `places:out` {car: false} →
+`IM.held = {town}`; `ctx.foot.ownCar === "gone"`). THE LEGAL WAY: one fee (`FEE` in `data.js`: 120, the very first time ever 60 —
+a sink, never below 0) at ONE of: the lot's own window (✋ at its gate — places' gate spot asks `ctx.impound.gate()` first) ·
+City Hall's PERMITS window (`cityhall/lobby.js addWindowHook("permits", …)`, prio 30: "Form VR-7, in triplicate") · 📞 Contacts ›
+City Hall (`cityhall/pay.js CONTACT_EXTRAS`: tap, tap; one `need: true` text). City Hall / the phone give a slip
+(`IM.released`); the gate with it (or paying there) → `release()`: the clone behind the fence goes, her car is placed at the
+kerb in front of the gate (`places/out.js kerbAt`) and foot restarts `droveOff` beside it (ownCar "parked" — ✋ in and away).
+Can't afford it → told, nothing taken, still held: a new run (home) resets it — today's fallback. THE BREAK-IN (`breakin.js`):
+✋ at the loose panel (the front fence, left of the gate) → `ctx.foot.script`: she sneaks inside the 12 × 12 lot (camera-relative
+stick, run = faster + a faster meter; the fence, her car and the two cruisers are solid); Bruno (heist's guard model) paces the
+back with a flashlight cone and a camera sweeps from the front-right post (both drawn as fans on the ground); in a cone the "?"
+meter fills — full = spotted: first his ⚠️ look (`TUNE.lookLife` 25 s), again while that's live → she's put outside the gate and
+`ctx.foot.startChase(gate, { charges: ["GRAND THEFT AUTO (HER OWN CAR)"] })` (its arrest + court lines via `law.addCharge` —
+the victim is the defendant); caught → the usual arrest → out of the precinct on foot, the car back behind the fence, the fee
+still owed. ✋ at her car unseen for `TUNE.hotwire` s → `release("breakin")` (no fee). One try a REAL day (`SAVE.breakDay`):
+after it Bruno is "extra awake" (a wider, longer light that sweeps, no sandwich breaks). Shown on the objective line's LOWEST slot
+(`H.OBJ.info`, `.impound-chip`) and on the 📱 Map via `ctx.pins` when that exists. Gated by `ctx.enabled("impound")` (off → the
+gate says its old line). Friends: each her own car + fee (all local). `ctx.impound { held, released, fee(), pay(where), gate(),
+gateLabel(), release(how), panel(), breakIn(), debug }`; events `impound:<held | paid | broke | release | breakin>`; stats
+`impoundPaid`, `impoundReleases`, `impoundBreakIns`, `impoundBreakOuts`, `impoundBreakClean`, `impoundBreakBusts`. Test
+`scripts/tests3d/impound.js`.
+
+**Speed cameras (cameras, `features/cameras` — ci/cameras, roadmap 36):** 📸 the owner (2026-11-27): "speed cameras… only on
+ocean parkway for now at 25mph and only trigger if going above 35mph… a flash… a few days later it'll come on the mail to one of
+lulus houses with the pic attached and the fine… court or cops will come after her… speed cameras to all schools as well with
+maybe a 15mph limit for that block". THE POLES (built on the town tick, keyed by town id + ORIGIN so a town placed somewhere new
+gets new poles; disposed on `town:leave` / title; one baked mesh + a canvas sign each, school ones + a beacon): Ocean Parkway
+(Midwood) — `PKWY.at` local z 95 + 200 (between the avenues), on the sidewalk (`st.outer + 1`); the zone is the whole boulevard
+(|lx − c| < outer + 1, ±6 m along). Every school block — town spots `school` / `yeshiva` / `baisyaakov`: the same street as the
+spot (`road.nearest`) within `SCHOOL.reach` m; only in school hours (device clock, `SCHOOL_HOURS`: Sun–Thu 7:30–16:30, Fri to 13:00,
+never Shabbos) — the beacon blinks then. Numbers (all in `data.js`): parkway limit 25, fires ONLY above 35, fine 40; school limit
+15, fires above 25, fine 60. One ticket per pass (re-armed `TUNE.rearm` m past the pole), ≤ `TUNE.dayCap` (3) a REAL day, never in
+a chase / as a fugitive, never outside cruise / story mode, never a self-driving car. THE FLASH (`fire()`): a white overlay pop
+(`#camFlash`; reduced motion → a fainter, slower fade), a point light on the car for 0.15 s, Lulu's one bubble line (banter, only
+when `H.bubbleOk`) — no toast; and THE PICTURE: the scene rendered from the pole into a 192 × 112 target (a pale clear colour for
+the sky), gamma-fixed, a caption strip (mph · limit · where) → a ~5 kB JPEG data URL kept on the ticket (≤ `TUNE.photos`; the
+oldest closed ticket's picture goes first). THE LADDER runs on `cityhall:day` (City Hall's played-day clock, `tax.ledger.played` —
+playing rarely never misses a step, not playing can't dodge one): `mailAfter` (2) played days after the flash → `addLine("fine",
+…)` on City Hall's ledger (paid at the Taxes window / 📞 Contacts › City Hall like the property tax, `cityhall:paid` closes the
+ticket), the notice is unread, ONE `need: true` 💬 line ("📬 Mail from the Borough of Midwood"), Ima's one line when the day
+starts at the family house, and "📬 You have mail" on the objective line's LOWEST slot (`H.OBJ.info`, `.cam-chip`) until she reads
+it; + `dueAfter` (3) unpaid → a late fee (`TUNE.lateFee` 20, another line) + a SECOND NOTICE; + `summonsAfter` (3) → a SUMMONS: a
+case `cameras:<id>` in that town's Courtroom 2B (`ctx.civic.courts.addCase`, the Borough Attorney, three defences; `rule()`:
+dismissed `TUNE.dismiss` → its lines waived, else upheld → she pays what she has, the rest stays owed, never below 0); an
+unanswered summons `warrantAfter` (3) played days, or `warrantUnpaid` (3) OVERDUE tickets at once → a BENCH WARRANT on law's own
+file (`ctx.law.addWarrant("UNPAID SPEED CAMERA TICKETS")` — a cop who gets a good look at her lights her up; only a judge clears
+it; the charge's cop / Lulu / court lines via `law.addCharge`); `law:arrest` while it's on → the warrant's served (its open
+tickets closed). Licence points: none. THE MAILBOX: where her day starts — `ctx.home.startAt.door` (her own house, realestate's
+"🏠 Start my day here") or the family house's mailbox (house-local 3.0, 12.4 — decor/props.js); a `ctx.foot.addSpot` (`first`,
+"📬 MAIL FROM THE CITY") while anything's unread → `read()`: one `H.showScreen` card, every notice with its photo, where, the speed,
+the fine owed and the pay-by. 📱 Map: a "Pay tickets here" pin (`ctx.pins`, cat mine) at the city hall of the town she owes in.
+`ctx.cameras { cams, tickets(), unread(), mailbox(), read(), schoolHours(), warrant, debug }`; events `cameras:<built | flash |
+capped | skip | mail | late | summons | ruled | paid | warrant | served | read>`; stats `camFlashes`, `camPaid`, `camDismissed`,
+`camUpheld`, `camWarrants`. Test `scripts/tests3d/cameras.js` (tests set `debug.CM.force.manual` and drive `check()` themselves).
 
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;

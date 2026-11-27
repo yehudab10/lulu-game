@@ -104,6 +104,8 @@ export function rerollCode() { MP.codeSlots = MP.codeSlots.map(() => Math.floor(
 
 // ── connection ───────────────────────────────────────────────────────────
 function sockOpen() { return !!MP.sock && MP.sock.readyState === 1; }
+/** The heartbeat ("pi" → the relay's "po"), timed: MP.rtt = the last round trip in ms (features/netping's 📶 readout). */
+export function pingRelay() { if (!sockOpen()) return false; MP.piAt = performance.now(); send({ t: "pi" }); return true; }
 export function send(obj) { try { if (sockOpen()) MP.sock.send(JSON.stringify(obj)); } catch (e) { /* offline is fine */ } }
 
 export function connect(room, kind) {
@@ -189,6 +191,7 @@ function onMessage(ev) {
     else if (msg.t === "s") applyState(msg.id, msg.d);
     else if (msg.t === "e") peerEvent(msg.id, msg.e);
     else if (msg.t === "-") { const p = MP.peers[msg.id]; if (p) p.dropping = true, p.left = true; }
+    else if (msg.t === "po" && MP.piAt) { MP.rtt = Math.round(performance.now() - MP.piAt); MP.piAt = 0; }
 }
 
 function addPeer(id, name, sk) {
@@ -571,7 +574,7 @@ export function tick(dt, me) {
     M.x = Math.round(Math.max(4, Math.min(476, X_MID + me.d * X_PER_M)));
     M.sp = (me.sp || 0) * DI_PER_M;
     if (MP.want && (!MP.sock || MP.sock.readyState >= 2) && MP.clock >= MP.reconnectAt) openSocket();
-    if (sockOpen()) { MP.pingT += dt; if (MP.pingT >= 25) { MP.pingT = 0; send({ t: "pi" }); } }
+    if (sockOpen()) { MP.pingT += dt; if (MP.pingT >= 25) { MP.pingT = 0; pingRelay(); } }
     raceUpdate(dt);
     if (MP.connected && (me.sending || me.hidden || MP.race)) {
         MP.sendT += dt;

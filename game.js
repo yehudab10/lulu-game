@@ -16340,7 +16340,7 @@
 
         // Title
         drawText("LULU'S", W / 2, titleY - 22,
-            "bold 56px 'Segoe UI', Arial, sans-serif", SKINS[save.selectedSkin].body, "#333", 7);
+            "bold 56px 'Segoe UI', Arial, sans-serif", (SKINS[save.selectedSkin] || SKINS.pink).body, "#333", 7);
         drawText("ROAD TRIP", W / 2, titleY + 28,
             "bold 44px 'Segoe UI', Arial, sans-serif", "#FFF", "#333", 6);
 

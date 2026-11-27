@@ -133,7 +133,8 @@ module.exports = {
       const spots = await g(`(() => { const S = ctx.town.spots; return Object.keys(S).filter(k => k === "dealer" || k.startsWith("lot_")); })()`);
       t.check("Lakewood has Uncle Refael's + 7 cars on the lot", spots.includes("dealer") && spots.filter(k => k.startsWith("lot_")).length === 7, spots.join(","));
       await view("dealer", "lot-lakewood", 10, 7, 20);
-      t.check("the mark is over Uncle Refael's door in town", await g(`(() => { const tg = ctx.shops.debug.guide.target(), sp = ctx.town.spot("dealer"); return !!(tg && tg.x != null && Math.hypot(tg.x - sp.x, tg.z - sp.z) < 1); })()`));
+      // (ci/hud: the mark is features/pins' ping — over the first spot in front of the door she can stand on)
+      t.check("the mark is over Uncle Refael's door in town", await g(`(() => { const tg = ctx.shops.debug.guide.target(), sp = ctx.town.spot("dealer"); return !!(tg && tg.x != null && Math.hypot(tg.x - sp.x, tg.z - sp.z) < 13); })()`), JSON.stringify(await g(`[ctx.pins.current, ctx.shops.debug.guide.target()]`)));
       // the ✋ is up wherever she'd naturally stand — not only on the one spot in front of a price board (the owner
       // walked up to the cars and to the man himself and found nothing to press)
       const labelAt = async (name, du, dn) => {
@@ -265,8 +266,8 @@ module.exports = {
 
     // ════ 7. every catalogue car is buyable somewhere a solo player reaches ════
     await step("catalogue", async () => {
-      const r = await t.L(`Promise.all([import("./js/features/garage/data.js"), import("./js/features/shops/lot.js")]).then(([d, l]) => ({ cars: d.SKIN_KEYS.filter(k => d.SKIN_SHOP[k].price > 0 && !l.LOT.includes(k)) }))`);
-      t.check("every car for sale stands on Uncle Refael's lot", r.cars.length === 0, JSON.stringify(r));
+      const r = await t.L(`Promise.all([import("./js/features/garage/data.js"), import("./js/features/shops/lot.js"), import("./js/car.js")]).then(([d, l, c]) => ({ cars: d.SKIN_KEYS.filter(k => d.SKIN_SHOP[k].price > 0 && !l.LOT.includes(k) && !c.SKINS[k].marque), marque: d.SKIN_KEYS.filter(k => c.SKINS[k].marque && !d.SKIN_SHOP[k].where) }))`);
+      t.check("every car for sale stands on Uncle Refael's lot (a marque's cars — features/dealers — at its own showroom, which says where)", r.cars.length === 0 && r.marque.length === 0, JSON.stringify(r));
     });
 
     // ════ 7b. the makolet + Shmerel's van (items) ════

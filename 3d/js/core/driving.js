@@ -292,7 +292,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     if (wantBoost && G.boost > 0.01 && (G.boosting || G.boost > 0.12)) {
         if (!G.boosting) { A.sfxBoost(); H.toast("🔥 NITRO!", "gold"); rumble(0.5, 0.6, 250, true); emit("boost", {}); }
         G.boosting = true;
-        G.boost = Math.max(0, G.boost - 0.3 * dt);
+        G.boost = Math.max(0, G.boost - 0.3 * dt / (G.nitroTank || 1));      // (a bigger tank — features/dealers — lasts longer)
     } else {
         G.boosting = false;
         G.boost = Math.min(1, G.boost + 0.012 * dt);
@@ -322,7 +322,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
             else if (imp > 2.5) { A.sfxBump(); rumble(0.6, 0.4, 160, true); G.shake = Math.max(G.shake, 0.3); }
         }
         for (const coin of ch.coins) {
-            if (coin.taken) continue;
+            if (coin.taken || G.selfDriving) continue;      // (a self-driving car doesn't collect: no AFK coins — features/dealers)
             const dx = coin.x - car.pos.x, dz = coin.z - car.pos.z;
             if (dx * dx + dz * dz < (G.magnet ? 30 : 4.2)) {
                 coin.taken = true;
@@ -382,7 +382,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
             if (e.car && e.car.onCrash && e.car.onCrash(e) === false) continue;
             if (e.impact > 6.5) damage(e.impact / 16, e.oncoming ? "Head-on? REALLY, Lulu?" : "Tailgating doesn't pay", e.kind);
             else if (e.impact > 1.5) { A.sfxBump(); rumble(0.5, 0.5, 150, true); G.shake = Math.max(G.shake, 0.25); }
-        } else if (e.type === "nearMiss" && controlsOn && G.invT <= 0) closeCall(e.oncoming);
+        } else if (e.type === "nearMiss" && controlsOn && G.invT <= 0 && !G.selfDriving) closeCall(e.oncoming);   // (self-driving: no bonus)
         else if (e.type === "moved") H.toast("📣 Move it, buddy!", "");
         else if (e.type === "oncomingHonk") honkFromAfar();
     }

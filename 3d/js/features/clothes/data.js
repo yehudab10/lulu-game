@@ -21,6 +21,16 @@ export const BASE = { top: "#4FC3F7", skirt: "#283593", tights: "#2B2B3A", shoes
  * acc: shades | headband | scarf | pearls | bag | bigbag | coffee) · brand · line (the card's one line).
  */
 export const PIECES = [
+    // ── HER OWN (the owner: "Lulu should also have the default clothes in her closet"): owned from the start, free, in her
+    //    closet always — she can change back to her original look piece by piece; a saved look can include them ──
+    { id: "lulu_top", slot: "top", shop: "own", price: 0, color: "#4FC3F7", brand: "Lulu's own", name: "My sky-blue top", icon: "👚",
+      line: "The one she always wears. It's a classic. It's HER classic." },
+    { id: "lulu_skirt", slot: "skirt", shop: "own", price: 0, color: "#283593", brand: "Lulu's own", name: "My navy skirt", icon: "👗",
+      line: "Long, navy, comfortable. Has survived three car chases." },
+    { id: "lulu_tights", slot: "tights", shop: "own", price: 0, color: "#2B2B3A", brand: "Lulu's own", name: "My dark tights", icon: "🧦",
+      line: "Dark tights. No ladders. Yet." },
+    { id: "lulu_shoes", slot: "shoes", shop: "own", price: 0, color: "#E91E63", brand: "Lulu's own", name: "My pink shoes", icon: "👟",
+      line: "Pink. Obviously." },
     // ── MIDWOOD: Avenue J'adore (the trendy boutique) ──
     { id: "mw_coffee", slot: "acc", shape: "coffee", shop: "midwood", price: 60, color: "#A1745B", brand: "Bean There", name: "Iced Oat Latte", icon: "🧋",
       line: "Not for drinking. For holding. Very important." },
@@ -92,6 +102,8 @@ export const PIECES = [
       line: "Costs more than a house. In this game: literally. Holds one kugel." },
 ];
 export const pieceById = id => PIECES.find(p => p.id === id) || null;
+/** Her own pieces (owned from the start, never sold). */
+export const OWN = PIECES.filter(p => p.shop === "own").map(p => p.id);
 /** 👜 LIMITED IN THE WHOLE WORLD (the owner: "limited supply of items rather than time based"): how many of each exist.
  *  The relay keeps the real count (server/wear.mjs › LIMITED — keep the two in step); these numbers are what the shelf
  *  shows before the server has answered. Numbered: hers is "No. 17 of 50". One of each per account; never resold. */
