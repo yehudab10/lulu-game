@@ -12,6 +12,17 @@
 // warm = the same profile reloaded (HTTP cache, max-age like GitHub Pages). The live multiplayer relay is blocked
 // (a measurement must never create accounts or presence on the real server) — the game then runs offline.
 // Software WebGL (SwiftShader) makes GPU work CPU work: compare before / after, not against a real phone.
+//
+// MEASURED 2026-11-27 (roadmap 37e, "start loading during the title — only if it measurably helps"), 1 run each,
+// ▶ PLAY pressed 4 s after she's ready to start at home:
+//   main            desktop 1.9 s · phone (CPU 4×, slow 4G) 3.6 s · app (CPU 4×, local files) 3.7 s  PLAY → walking at home
+//   + title warm-up + a slow-connection download line: 2.1–2.3 s · 3.9–4.8 s · 3.8–3.9 s  → no gain (not landed)
+//   Nothing is fetched after ▶ PLAY in either case: the game already downloads every model behind the title. What
+//   PLAY costs is main-thread work — ~6 new shader programs (the home crowd's / props' own materials) + building the
+//   home start — which preloading files can't remove. The ordering line DID bring "ready to start at home" forward on
+//   slow-4G cold (79 s → 66.5 s; before that PLAY silently gives a plain drive) — modest, and fragile (a model the home
+//   needs arriving late = no home start), so it wasn't kept. Title: FCP ~1 s, interactive ~53 s on slow 4G (it waits
+//   for its downloads) — the place to look next if phones on cellular matter.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -20,7 +31,7 @@ const { chromium } = require("playwright");
 const ROOT = path.resolve(__dirname, "..");
 const RUNS = +(process.env.PERFSTART_RUNS || 3);
 const PROFILES = (process.env.PERFSTART_PROFILES || "desktop,phone,app").split(",");
-const EXTRA = process.env.PERFSTART_QUERY || "";          // e.g. "&nopreload" to compare
+const EXTRA = process.env.PERFSTART_QUERY || "";          // extra URL parameters for an A/B (e.g. a feature switch)
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png",
   ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".glb": "model/gltf-binary", ".json": "application/json", ".webp": "image/webp", ".woff2": "font/woff2" };
 const SAVE2D = { totalCoins: 300, ownedSkins: ["pink"], selectedSkin: "pink" };
@@ -97,7 +108,6 @@ async function once(browser, base, prof, ctxHolder, warm) {
     window.__progKeys = new Set((L3.renderer.info.programs || []).map(p => p.cacheKey));
     return { now: performance.now(), programs: (L3.renderer.info.programs || []).length, standing: T && T.standing ? T.standing.filter(s => s.ready).length : null,
       heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null }; });
-  if (process.env.PERFSTART_TRACE) console.log("      line at PLAY: " + JSON.stringify(await page.evaluate(() => import("./js/models.js").then(m => m.downloadInfo && m.downloadInfo(true)))));
   if (process.env.PERFSTART_CPUPROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 500 }); await cdp.send("Profiler.start"); }
   if (process.env.PERFSTART_NET) {
     const now = Date.now(), open = [...NET.reqs.values()].filter(e => !e.t1);
@@ -108,7 +118,7 @@ async function once(browser, base, prof, ctxHolder, warm) {
   const clickAt = await page.evaluate(() => { const b = document.querySelector("#screenCard #play"); const t = performance.now(); b.click(); return t; });
   const tw = Date.now();
   for (;;) {
-    const dl = process.env.PERFSTART_TRACE ? await page.evaluate(() => import("./js/models.js").then(m => m.downloadInfo ? m.downloadInfo() : null)) : null;
+    const dl = null;
     const st = await page.evaluate(() => { const c = window.__lulu3d.ctx, P = window.__ps;
       return { ok: c.state === "footRun" && !!c.foot && c.foot.phase === "walk", state: c.state, phase: c.foot && c.foot.phase, view: !!c.view,
         pending: performance.getEntriesByType("resource").length, res: P.res.length, last: (P.res[P.res.length - 1] || [])[3] }; });

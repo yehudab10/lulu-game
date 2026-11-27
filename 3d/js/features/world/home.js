@@ -146,7 +146,7 @@ function buildHouse(g, lot) {
     home.people.lulu = null; home.luluSig = null;
     makeLulu();
     // Ima in the doorway (only for a run's start: she sees Lulu off)
-    ensureModels(["imaPerson"], { first: true }).then(() => {
+    ensureModels(["imaPerson"]).then(() => {
         if (home.group !== g) return;
         const p = spawnPerson("imaPerson");
         p.obj.position.copy(A.door);
@@ -209,7 +209,7 @@ function buildStreet() {
     world.reserve(-30, S_HOME + 52, 0, 8.9, 42);
 
     // Mr. Pinsky across the street (lazy)
-    ensureModels(["npcMan"], { first: true }).then(() => {
+    ensureModels(["npcMan"]).then(() => {
         if (home.group !== g) return;
         const p = spawnPerson("npcMan", { colors: { Top: "#7CB342", Bottom: "#5D4037", Hair: "#9E9E9E" } });
         const pos = roadPt(S_HOME - 6, -14.5);
@@ -219,7 +219,7 @@ function buildStreet() {
         home.people.pinsky = p;
     }).catch(() => {});
     // the minivan that laps the cul-de-sac (journey's model, lazy)
-    ensureModels(["journey_minivan"], { first: true }).then(() => {
+    ensureModels(["journey_minivan"]).then(() => {
         if (home.group !== g) return;
         const van = cloneWithColors(models.journey_minivan);
         van.visible = false;
