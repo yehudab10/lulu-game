@@ -9,6 +9,8 @@ const LIGHT_NAMES = { off: "Today", new: "New", lite: "Lite sky", full: "Full sk
 const LIGHT_ORDER = ["off", "new", "lite", "full"];
 const TIME_ORDER = ["", "noon", "dusk", "night"];
 const TIME_NAMES = { "": "Live", noon: "Noon", dusk: "Dusk", night: "Night" };
+const TIER_ORDER = ["", "low", "medium", "high"];
+const TIER_NAMES = { "": "Auto", low: "Low (weak phones)", medium: "Medium (phones)", high: "High (laptops)" };
 
 export function makePanel(LOOK, LIVE, act) {
     if (document.getElementById("lookPanel")) return;
@@ -50,17 +52,21 @@ export function makePanel(LOOK, LIVE, act) {
     const time = btn(() => `🕐 Time: ${TIME_NAMES[LIVE.time] || "Live"}`, () => {
         LIVE.time = TIME_ORDER[(TIME_ORDER.indexOf(LIVE.time) + 1) % TIME_ORDER.length]; act.time();
     });
+    const tier = btn(() => `🖥️ Level: ${TIER_NAMES[LIVE.tier] || "Auto"}`, () => {
+        LIVE.tier = TIER_ORDER[(TIER_ORDER.indexOf(LIVE.tier) + 1) % TIER_ORDER.length]; act.tier();
+    });
     const fps = document.createElement("div");
     fps.className = "fps";
     fps.textContent = "… fps";
     box.appendChild(fps);
     function paint() {
-        for (const b of [tog, all, car, lulu, light, time]) b.textContent = b._label();
+        for (const b of [tog, all, car, lulu, light, time, tier]) b.textContent = b._label();
         all.classList.toggle("on", allNew());
         car.classList.toggle("on", LIVE.car);
         lulu.classList.toggle("on", LIVE.lulu);
         light.classList.toggle("on", LIVE.light !== "off");
         time.classList.toggle("on", !!LIVE.time);
+        tier.classList.toggle("on", !!LIVE.tier);
     }
     paint();
     document.body.appendChild(box);
@@ -71,8 +77,8 @@ export function makePanel(LOOK, LIVE, act) {
         n++;
         if (now - t0 >= 2000) {
             const f = n * 1000 / (now - t0);
-            const tier = ctx.gfx ? String(ctx.gfx.tier).toUpperCase() : "";
-            fps.textContent = `${f.toFixed(0)} fps · ${(1000 / f).toFixed(1)} ms · ${tier}`;
+            const lvl = ctx.gfx ? String(ctx.gfx.tier).toUpperCase() : "";
+            fps.textContent = `${f.toFixed(0)} fps · ${(1000 / f).toFixed(1)} ms · ${lvl}`;
             n = 0; t0 = now;
         }
         requestAnimationFrame(tick);

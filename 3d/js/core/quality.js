@@ -64,9 +64,13 @@ export function guessTier(gpu, platform = {}) {
 }
 
 /** Resolve the setting (+ AUTO's guess / demotion) into gfx.tier / gfx.T and the pixel-ratio range. */
+// A graphics level forced for this page only (features/looktest: ?look=2&tier=low, the 🎨 panel) — never saved.
+let forced = null;
+export function forceTier(t) { forced = TIERS[t] ? t : null; }
+
 export function resolveTier(renderer, platform) {
     const S = save3d.settings;
-    gfx.setting = S.quality || "auto";
+    gfx.setting = forced || S.quality || "auto";
     if (!gfx.gpu) gfx.gpu = gpuName(renderer);
     let tier;
     if (gfx.setting !== "auto" && TIERS[gfx.setting]) { tier = gfx.setting; gfx.reason = "chosen"; gfx.demoted = null; }
