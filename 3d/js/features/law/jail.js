@@ -464,7 +464,11 @@ function goCourt(tier) {
 }
 function updateCell(dt) {
     const j = J;
-    st.courtT -= dt;
+    // (with a cellmate the court clock runs on real time: a slow screen's frames would let the two clocks drift apart;
+    //  a pause / a hidden tab counts ≤ 1 s)
+    const now = performance.now(), wdt = st.lastWall ? Math.min(1, (now - st.lastWall) / 1000) : dt;
+    st.lastWall = now;
+    st.courtT -= st.crew ? wdt : dt;
     // 🔗 partners caught with her (crew.js): one court clock — it waits for a partner on her way in, then starts over
     const cw = cellInfo(dt, st.j ? st.j.bail : 0);
     // a friend's help (crew.js): 💰 bail paid at the desk → out now · 🔓 a spring at the door → the GO button
