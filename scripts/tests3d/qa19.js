@@ -33,7 +33,9 @@ module.exports = {
       return r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 && !btns.some(b => b.bottom > innerHeight + 1 || b.right > innerWidth + 1) ? "" : JSON.stringify({ r: [r.left, r.top, r.right, r.bottom].map(Math.round), W: innerWidth, H: innerHeight }); })()`);
     const coins = () => g(`L3.wallet.coins`);
     // (the page booted before the relay was listening on some machines: back to the title once so it asks)
-    if (!await t.until(`!!document.getElementById("acctIdeas")`, "the name card over the title", 20000)) {
+    let seen = false;
+    for (let i = 0; i < 40 && !seen; i++) { await t.frames(15); seen = await card(); }
+    if (!seen) {
       await g(`(L3.setState("title"), true)`);
       if (!await t.until(`!!document.getElementById("acctIdeas")`, "the name card over the title (2nd try)", 20000)) return;
     }
@@ -85,7 +87,7 @@ module.exports = {
     await t.L(`import("./js/core/screens.js").then(m => (m.showTitle(true), true))`);
     await t.frames(10);
     // (a name, so there's an account on this relay to delete)
-    console.log("   a name for the delete case →", JSON.stringify(await g(`ctx.accounts.setName("Qa Kugel " + Math.floor(Math.random() * 900 + 100))`)));
+    console.log("   a name for the delete case →", JSON.stringify(await g(`ctx.accounts.ideas("").then(l => ctx.accounts.setName(l[0]))`)));
 
     // ── 3 · delete my online account, then play on ──
     const has = await g(`!!(ctx.accounts && ctx.accounts.deleteAccount)`);
