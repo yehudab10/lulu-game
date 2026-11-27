@@ -223,6 +223,8 @@ async function partyRun(t, guests) {
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 10000);
   }
   await sleep(2500);
+  // (a slow runner places the townsfolk + the loops a few frames after the arrival: wait for them on each screen, in game frames)
+  for (const p of pages) await waitOn(p === A ? A.page : t.page, `ctx.town.debug.LIFE.people.length > 0 && ctx.openworld.debug.townLive().length > 0`, 30000);
   const T0 = await g(`Math.round(ctx.party.clock() + 2000)`);
   const lists = [];
   for (const p of pages) lists.push(JSON.stringify(await p.game(`ctx.openworld.debug.townCarsAt(${T0}).map(c => [c.key, c.kind, +c.x.toFixed(2), +c.z.toFixed(2)])`)));
