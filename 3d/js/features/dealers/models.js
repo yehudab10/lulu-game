@@ -83,18 +83,19 @@ function buildMazelati() {
 }
 
 // ── the marques' body kits (car.js KITS): small parts hung on the convertible's anchors ──
-const kitMats = {};
+const kitMats = {}, kitGeos = {};
 const km = (k, opts) => kitMats[k] || (kitMats[k] = new THREE.MeshStandardMaterial(opts));
+const kg = (k, make) => kitGeos[k] || (kitGeos[k] = make());
 KITS.mazelati = (model, anchors, sk) => {
     const chrome = km("chrome", { color: "#E8E8E8", metalness: 0.9, roughness: 0.2 });
-    const gold = km("gold", { color: sk.stripe || "#C9A227", metalness: 0.7, roughness: 0.3 });
+    const gold = km("gold" + (sk.stripe || ""), { color: sk.stripe || "#C9A227", metalness: 0.7, roughness: 0.3 });
     const g = new THREE.Group(); g.name = "Kit_mazelati";
     // a hood ornament (a little gold wing), a chrome grille bar, a long chrome strip down each side, a rear lip
-    const orn = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.26, 4), gold); orn.rotation.x = -0.5; orn.position.set(0, 0.88, 1.75);
-    const grille = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.16, 0.06), chrome); grille.position.set(0, 0.55, 2.12);
-    const lip = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 0.24), chrome); lip.position.set(0, 0.86, -1.95);
+    const orn = new THREE.Mesh(kg("orn", () => new THREE.ConeGeometry(0.09, 0.26, 4)), gold); orn.rotation.x = -0.5; orn.position.set(0, 0.88, 1.75);
+    const grille = new THREE.Mesh(kg("grille", () => new THREE.BoxGeometry(1.1, 0.16, 0.06)), chrome); grille.position.set(0, 0.55, 2.12);
+    const lip = new THREE.Mesh(kg("lip", () => new THREE.BoxGeometry(1.4, 0.06, 0.24)), chrome); lip.position.set(0, 0.86, -1.95);
     g.add(orn, grille, lip);
-    for (const sx of [-1, 1]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 3.2), chrome); st.position.set(sx * 0.93, 0.62, 0); g.add(st); }
+    for (const sx of [-1, 1]) { const st = new THREE.Mesh(kg("strip", () => new THREE.BoxGeometry(0.03, 0.05, 3.2)), chrome); st.position.set(sx * 0.93, 0.62, 0); g.add(st); }
     model.add(g);
 };
 
@@ -138,8 +139,8 @@ KITS.tushla = (model, anchors, sk) => {
     const black = km("evglass", { color: "#0B0B0B", metalness: 0.6, roughness: 0.1 });
     const bar = km("evbar", { color: "#FF5252", emissive: "#FF1744", emissiveIntensity: 0.6 });
     const g = new THREE.Group(); g.name = "Kit_tushla";
-    const lb = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.04), bar); lb.position.set(0, 0.78, -2.06);
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.1, 0.05), black); nose.position.set(0, 0.56, 2.12);
+    const lb = new THREE.Mesh(kg("evbar", () => new THREE.BoxGeometry(1.5, 0.05, 0.04)), bar); lb.position.set(0, 0.78, -2.06);
+    const nose = new THREE.Mesh(kg("evnose", () => new THREE.BoxGeometry(1.3, 0.1, 0.05)), black); nose.position.set(0, 0.56, 2.12);
     g.add(lb, nose);
     model.add(g);
 };

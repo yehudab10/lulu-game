@@ -322,7 +322,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
             else if (imp > 2.5) { A.sfxBump(); rumble(0.6, 0.4, 160, true); G.shake = Math.max(G.shake, 0.3); }
         }
         for (const coin of ch.coins) {
-            if (coin.taken) continue;
+            if (coin.taken || G.selfDriving) continue;      // (a self-driving car doesn't collect: no AFK coins — features/dealers)
             const dx = coin.x - car.pos.x, dz = coin.z - car.pos.z;
             if (dx * dx + dz * dz < (G.magnet ? 30 : 4.2)) {
                 coin.taken = true;

@@ -16,7 +16,7 @@ import { OPTIONS } from "./data.js";
 
 /** 3D save: options bought per car, the nonsense she fell for, deals done / walked out of. */
 export const DS = store("dealers", { opts: {}, fell: {}, deals: 0, walked: 0, saved: 0 });
-const R = { stopT: 0, launched: false, massage: false, fridge: false, conciergeT: 0 };
+const R = { stopT: 0, armed: false, launched: false, massage: false, fridge: false, conciergeT: 0 };
 
 export function perksOf(id) {
     const sk = SKINS[id];
@@ -47,9 +47,10 @@ hook("update", (dt, P, controlsOn) => {
     if (!controlsOn || ctx.state !== "playing" || !car) { R.stopT = 0; return; }
     const stopped = car.speed < 0.5;
     R.stopT = stopped ? R.stopT + dt : 0;
-    if (!stopped) R.launched = false;
-    if (hasPerk("launch") && stopped && !R.launched && R.stopT > 0.6 && input.throttle > 0.8) {
-        R.launched = true; R.stopT = 0;
+    if (R.stopT > 0.6) R.armed = true;                 // (armed by a real stop; the pedal can come in over a few frames)
+    if (car.speed > 4) { R.armed = false; R.launched = false; }
+    if (hasPerk("launch") && R.armed && !R.launched && input.throttle > 0.8) {
+        R.launched = true; R.armed = false; R.stopT = 0;
         const fx = Math.sin(car.h), fz = Math.cos(car.h);
         car.vx += fx * 5.5; car.vz += fz * 5.5;
         car.fx.burst(car.pos.x - fx * 2.1, 0.4, car.pos.z - fz * 2.1, 14, 3, [1, 0.6, 0.2], 0.35, 0.5);
