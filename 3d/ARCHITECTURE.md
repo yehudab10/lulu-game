@@ -501,6 +501,23 @@ shows the card for a line answering something she just did, never during an acti
 friends' requests / asks to join. Home screen: 👯 Friends · 🗺️ Map · 💼 Jobs · 💬 Messages · 📞 Contacts · 📻 Radio ·
 📸 Camera. An app with `home: false` is opened from another app (📍 Nearby from Friends, 🎨 Paint & Pray from a Jobs
 row while she's wanted).
+
+**Places on the map + 📍 ping (`features/pins`, `ci/hud`, 2026-11-27 — the owner: "an easier way for players to see
+where each store is … they should be able to ping it"):** a registry, `ctx.pins.add({ id, name, icon, cat: "shops" |
+"town" | "help" | "mine", town + spot (a town build's spot) | local: [lx, lz] | lap: m | "jfk", group?, sub? })` — the
+places that exist today are registered by `pins/data.js` from each feature's own name data; a NEW place registers itself
+(one line in its feature) and shows on the map with nothing else to do. Her homes come live from realestate's registry.
+The 📱 🗺️ Map (solo: phone/apps.js › lapmap; with friends: together/map.js) shows them: in a town its streets with every
+place an icon where it stands, on the highway the lap ring with each town's places beside its exit; a list grouped by
+where it is along the lap, in the order she'd reach them (`ctx.pins.groups()`); a filter row 🛍️ · 🏛️ · 🚑 · 🏠. Tap →
+📍 Ping = ONE destination: openworld's beacon at the place (`target()`: the spot nudged out to the first point
+`ctx.unstuck.normal` accepts — the town copy she's in, so every lap is right), one edge pointer (together/pointers.js ›
+`extra(fn)`: the friend pointers' pill, kept out of the clear window on a phone, hidden in an activity) and the
+objective line's lowest slot (`H.OBJ.info`). In another town it points at the way out, on the highway at the place's
+town's next exit; arriving clears it (a town place within 12 m, a rest area / JFK when she's in it), a new ping replaces
+it, ✕ Clear in the map. 🛍️ Where to shop (shops/guide.js) marks through it (`pingKind`). With friends: `d.x.pg` = my
+ping's id (the party packet — no relay change); a friend's ping = their beam in their colour + one quiet line for 8 s.
+Test `pins`.
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
