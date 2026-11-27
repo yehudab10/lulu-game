@@ -67,6 +67,7 @@ module.exports = {
       t.check("the showroom is built at lap metre 800 (on the right)", await t.until(`__lulu3d.ctx.dealers.debug.D.spots.some(s => Math.abs(s.s - 16800) < 1)`, "Mazelati built", 30000));
       t.check("four cars on the pedestals + Sal at the door", await t.until(`__lulu3d.ctx.dealers.debug.D.cars.length === 4 && !!__lulu3d.ctx.dealers.debug.D.sal`, "cars + Sal", 20000));
       t.check("the pull-off is paved, the trees kept off", await t.L(`import("./js/world.js").then(m => m.pavedAt(16800, 20) >= 2 && __lulu3d.ctx.world.reserved.some(r => r.s0 <= 16790 && r.s1 >= 16810 && r.side === 1))`));
+      t.check("both showrooms are on the 📱 Map (ctx.pins, the shops list)", await g(`!ctx.pins || (!!ctx.pins.get("hw:mazelati") && !!ctx.pins.get("hw:tushla") && ctx.pins.get("hw:mazelati").cat === "shops")`));
       await t.shot("road");
     });
 

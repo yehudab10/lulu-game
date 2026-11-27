@@ -3,20 +3,16 @@
 // friend finder use (a soft light column + one small HUD line, no pop-up): in the town that has it, over its door; on the
 // highway (or leaving home), over the next exit into a town that has it; at home, over her garage door. It clears when
 // she gets there. Kept across runs until she arrives or picks another.
-import { ctx, on, hook, css, setState } from "../../core/ctx.js";
+import { ctx, on, css, setState } from "../../core/ctx.js";
 import { store, saveSoon } from "../../core/save.js";
 import { startRun } from "../../core/driving.js";
 import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
-import { beacon, hideBeacon } from "../openworld/marks.js";
 import { shopTabs } from "../garage/shop.js";
 import { PLACES } from "./data.js";
-import { counterDebug } from "./counter.js";
 
 const GS = store("shops", { dest: null, marks: 0 });
-const MI = 1609;
-const G = { chip: null, text: "", arrivedAt: 0 };
 
 css("shops-guide", `
 .sg { text-align: left; }
@@ -65,65 +61,22 @@ export function openGuide(back = null) {
 }
 
 const nameOf = id => (PLACES.find(p => p.id === id) || {}).name || id;
-/** Mark a place (id from PLACES) — or null to clear. */
+/** Mark a place (id from PLACES) — or null to clear. (ci/hud, 2026-11-27: the mark IS features/pins' 📍 ping now — one
+ *  destination system: the beam, one edge pointer, the objective line's lowest slot; it picks this town's shop of that
+ *  kind, else the next town's along the road.) */
 export function setDest(id) {
+    const P = ctx.pins;
     GS.dest = id && PLACES.some(p => p.id === id) ? id : null;
-    if (GS.dest) GS.marks++;
+    if (GS.dest) { GS.marks++; if (!P || !P.pingKind(GS.dest, { from: "shops" })) GS.dest = null; }
+    else if (P && P.from === "shops") P.clear();
     saveSoon();
-    G.text = "";
-    if (!GS.dest) clear();
     return GS.dest;
 }
 export const dest = () => GS.dest;
-
-// ── following it ─────────────────────────────────────────────────────────
-function clear() { hideBeacon("shopsDest"); chip(""); }
-function chip(text) {
-    if (!text) { if (G.chip) { G.chip.remove(); G.chip = null; G.text = ""; } return; }
-    if (!G.chip) { G.chip = document.createElement("div"); G.chip.className = "day-chip shops-dest"; H.hudSlot("left").appendChild(G.chip); G.text = ""; H.objective(G.chip, { prio: H.OBJ.list, id: "shopsdest" }); }
-    if (text !== G.text) { G.text = text; G.chip.innerHTML = text; }
-}
-/** Where the marked place is from here: { x, z, label, here } | null. */
-export function target() {
-    const id = GS.dest, p = PLACES.find(x => x.id === id);
-    if (!p || !ctx.car) return null;
-    const me = (ctx.foot && ctx.foot.active && ctx.foot.pos) || ctx.car.pos;
-    if (p.home) {
-        const H0 = ctx.places && ctx.places.home && ctx.places.home.park;
-        if (!H0) return null;
-        const fx = Math.sin(H0.h), fz = Math.cos(H0.h), lx = Math.cos(H0.h), lz = -Math.sin(H0.h);
-        const x = H0.x - fx * 3.2 - lx * 1.7, z = H0.z - fz * 3.2 - lz * 1.7, d = Math.hypot(x - me.x, z - me.z);
-        return { x, z, d, label: `${p.icon} ${p.name}`, arrive: 4, show: d < 600 };
-    }
-    if (ctx.town && ctx.town.active) {
-        // (Shmerel's van isn't a building: it stands at the kerb near a town spot — counter.js knows where)
-        const sp = p.id === "black" ? counterDebug.vanSpot() : p.spot && ctx.town.spot(p.spot);
-        if (sp) { const d = Math.hypot(sp.x - me.x, sp.z - me.z); return { x: sp.x, z: sp.z, d, label: `${p.icon} ${p.name}`, arrive: 7, show: true }; }
-        return { x: null, label: `${p.icon} ${p.name} — head out of town to ${Object.keys(p.towns || {}).map(t => t === "lakewood" ? "Lakewood" : "Midwood").join(" or ")}` };
-    }
-    // the highway: the next exit into a town that has it
-    const ex = (ctx.town && ctx.town.exits || []).filter(e => p.towns && p.towns[e.town] && e.s > ctx.car.s - 40).sort((a, b) => a.s - b.s)[0];
-    if (!ex) return { x: null, label: `${p.icon} ${p.name} — in town (take an exit)` };
-    const pt = ctx.world.road.point(ex.s - 120, 7, {});
-    const far = ex.s - ctx.car.s;
-    return { x: pt.x, z: pt.z, d: far, label: `${p.icon} ${p.name} — take the ${ex.label || ex.name} exit${ex.no ? " " + ex.no : ""}`, arrive: -1, show: far < 900, far };
-}
-function tick() {
-    if (!GS.dest) { if (G.chip) clear(); return; }
-    const def = ctx.states[ctx.state];
-    if (!def || !def.hud || ctx.state === "title") { clear(); return; }
-    const t = target();
-    if (!t) { clear(); return; }
-    if (t.x != null && t.arrive > 0 && t.d < t.arrive) {
-        // (she's there: the mark's done its job)
-        GS.dest = null; saveSoon(); clear();
-        return;
-    }
-    if (t.x != null && t.show) beacon("shopsDest", t.x, t.z, "#7C4DFF", 2.6, 30); else hideBeacon("shopsDest");
-    const dist = t.d == null ? "" : t.d > 300 ? ` · ${(t.d / MI).toFixed(1)} mi` : t.d > 12 ? ` · ${Math.round(t.d)} m` : " · here!";
-    chip(`🛍️ Shopping<small>${t.label}${dist}</small>`);
-}
-hook("hud", () => { try { tick(); } catch (e) { console.error("[shops] guide", e); } });
-on("state", ({ to }) => { if (to === "title") clear(); });
+/** Where the marked place is from here (features/pins › target): { kind, x, z, d, label } | null. */
+export function target() { return GS.dest && ctx.pins ? ctx.pins.target() : null; }
+// (the mark lives as long as its ping: arrived, cleared or replaced by another ping → done)
+on("pins:clear", () => { if (GS.dest) { GS.dest = null; saveSoon(); } });
+on("pins:ping", e => { if (GS.dest && e && e.from !== "shops") { GS.dest = null; saveSoon(); } });
 
 export const guideDebug = { GS, target, places, setDest };
