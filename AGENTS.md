@@ -209,6 +209,12 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
     ```
     (Or GitHub → Actions → "3D full suite" → Run workflow.) Screenshots are
     uploaded as artifacts.
+  - **The CI machines are shared by every agent and are the bottleneck** (2026-11-27: jobs waited 15–50 min for a
+    machine). So: (1) ONE run per branch — a new dispatch on a branch CANCELS that branch's older run
+    (`concurrency` in the workflow), so put everything you need in one dispatch; (2) ask only for the test files
+    your change can affect + `core,platform` — not a long safety list; (3) `calm` alone takes ~60–85 min: run it once,
+    on your final head, not on every iteration; (4) pack small files into shared groups (`groups="a,b,c;d,e"`), one
+    machine per ~40 min of tests, instead of one machine per file; (5) a job is killed after 150 min.
 - Minimum before pushing a 3D change: `core,platform,skip,ux` + the test files of
   every feature you touched. Some tests are timing-sensitive on slow runners —
   if one fails, re-run it once before assuming you broke it, and check whether it
