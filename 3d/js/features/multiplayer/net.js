@@ -217,10 +217,11 @@ function handle(msg, src) {
             if (src.prefix) placePrune(); else MP.peers = {};
             MP.gotHello = true; MP.failRun = 0; WC.clearResting();
         }
-        for (const pp of msg.peers || []) { addPeer(pp.id, pp.name, pp.sk, src); if (pp.d) applyState(pp.id, pp.d, true, src); }
+        // (place mode: a player is only kept once her first state says who she is — her session tag — never as an empty entry)
+        for (const pp of msg.peers || []) { if (!src.prefix || pp.d) addPeer(pp.id, pp.name, pp.sk, src); if (pp.d) applyState(pp.id, pp.d, true, src); }
         if (src.main) emit("mp:status", { connected: true });
         if (Array.isArray(msg.r)) for (const e of msg.r.slice(-32)) relIn(e, true, src);    // 🌍 step 2: what happened just before I came
-    } else if (msg.t === "+") addPeer(msg.id, msg.name, msg.sk, src);
+    } else if (msg.t === "+") { if (!src.prefix) addPeer(msg.id, msg.name, msg.sk, src); }
     else if (msg.t === "s") { applyState(msg.id, msg.d, false, src); const p = MP.peers[key(msg.id)]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
     else if (msg.t === "r") relIn(msg, false, src);
     else if (msg.t === "ra") { if (src.main) MP.relOut.delete(msg.id); }

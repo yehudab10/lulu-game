@@ -66,7 +66,7 @@ async function body(t, pages) {
   const bId = await B.game(`${S}.myId`), aId = await A.game(`${S}.myId`);
 
   // ── tap a NAME over a car → that driver's page (➕) ──
-  t.check("before: B's ghost wears a stranger's label (a colour + a number)", /^[A-Z][a-z]+ \d\d$/.test(await A.game(`(${S}.peers[${JSON.stringify(bId)}] || {}).name || ""`)), await A.game(`(${S}.peers[${JSON.stringify(bId)}] || {}).name`));
+  t.check("before: B's ghost wears a stranger's label (a colour + a number)", /^[A-Z][a-z]+ \d\d$/.test(await A.game(`(ctx.mp.peerById(${JSON.stringify(bId)}) || {}).name || ""`)), await A.game(`(ctx.mp.peerById(${JSON.stringify(bId)}) || {}).name`));
   const ts = await A.game(`ctx.mp.tagOnScreen(${JSON.stringify(bId)})`);
   if (ts) {
     await A.page.mouse.click(ts.x, ts.y);
@@ -122,8 +122,8 @@ async function body(t, pages) {
   t.check("A's 👯 knock: B is playing, on the highway", !!pa && pa.on === true && /highway/.test(pa.w || ""), JSON.stringify(pa));
   t.check("…and the knock told B that A is on", await B.until(`(${F}.list[0].presence || {}).on === true`, "B: A on", 20000));
   // ── a friend recognised in EVERYONE (the knocks said which ghost each is — sealed) ──
-  t.check("A sees B's ghost as 👯 Latke Legend #NN", await A.until(`/^👯 Latke Legend #\\d\\d$/.test((${S}.peers[${JSON.stringify(bId)}] || {}).name || "")`, "A: B's ghost labelled as a friend", 20000));
-  t.check("B sees A's ghost as 👯 Kugel Kid #NN", await B.until(`/^👯 Kugel Kid #\\d\\d$/.test((${S}.peers[${JSON.stringify(aId)}] || {}).name || "")`, "B: A's ghost labelled as a friend", 20000));
+  t.check("A sees B's ghost as 👯 Latke Legend #NN", await A.until(`/^👯 Latke Legend #\\d\\d$/.test((ctx.mp.peerById(${JSON.stringify(bId)}) || {}).name || "")`, "A: B's ghost labelled as a friend", 20000));
+  t.check("B sees A's ghost as 👯 Kugel Kid #NN", await B.until(`/^👯 Kugel Kid #\\d\\d$/.test((ctx.mp.peerById(${JSON.stringify(aId)}) || {}).name || "")`, "B: A's ghost labelled as a friend", 20000));
   // a friend who isn't in my EVERYONE room at all
   await B.game(`(ctx.mp.setOnline(false), true)`);
   await B.until(`!${S}.want`, "B: Play online OFF");
