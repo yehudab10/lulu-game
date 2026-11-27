@@ -38,7 +38,7 @@ module.exports = {
     const room = expr => g(`(() => { const r = window.__interiors && window.__interiors.room; if (!r) return null; return ${expr}; })()`);
     const curtain = () => L(`(() => { const o = []; for (const id of ["softCut", "townFade", "intFade", "lawFade", "cameosFade"]) { const e = document.getElementById(id); if (e && e.offsetParent !== null && +getComputedStyle(e).opacity > 0.05) o.push(id); } return o.join(","); })()`);
     const camIn = () => room(`(() => { const cam = r.set.camera, B = r.bounds, Lp = r.lulu.obj.position, v = Lp.clone().setY(1).project(cam);
-        return { cam: [+cam.position.x.toFixed(1), +cam.position.y.toFixed(1), +cam.position.z.toFixed(1)], her: [+Lp.x.toFixed(1), +Lp.z.toFixed(1)], B: [B.x0, B.x1, B.z0, B.z1].map(v => +v.toFixed(1)), in: cam.position.x > B.x0 - 0.5 && cam.position.x < B.x1 + 0.5 && cam.position.z > B.z0 - 0.5 && cam.position.z < B.z1 + 0.5 && cam.position.y < 3.2,
+        return { cam: [+cam.position.x.toFixed(1), +cam.position.y.toFixed(1), +cam.position.z.toFixed(1)], her: [+Lp.x.toFixed(1), +Lp.z.toFixed(1)], B: [B.x0, B.x1, B.z0, B.z1].map(v => +v.toFixed(1)), in: cam.position.x > B.x0 - 0.7 && cam.position.x < B.x1 + 0.7 && cam.position.z > B.z0 - 0.7 && cam.position.z < B.z1 + 0.7 && cam.position.y < 3.2,
           seen: Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95 && v.z < 1, wall: r.debugBlocked ? r.debugBlocked() : "" }; })()`);
     const playing = async () => { if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); } if (await st() !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); } };
     const hwAt = async s => {
@@ -84,12 +84,14 @@ module.exports = {
           const bad = [];
           for (const [x, z] of corners || []) {
             await room(`(() => { const p = { x: ${x}, z: ${z} }; r.collide(p, 0.32); r.lulu.obj.position.set(p.x, 0, p.z); return true; })()`);
-            for (const [sx, sy] of [[0, -1], [1, 0], [0, 1]]) { await t.stick(sx, sy); await t.frames(14); }
+            // (a small sideways shuffle — pushing toward the door from a corner by it walks her out: that's the door working)
+            for (const sx of [1, -1]) { await t.stick(sx, 0); await t.frames(6); }
             await t.stick(0, 0); await t.frames(20);
             c = await camIn();
             if (!c) { bad.push("the room went away"); break; }
             if (!c.in || !c.seen || c.wall) bad.push(`${x.toFixed(1)},${z.toFixed(1)}: ${JSON.stringify(c)}`);
           }
+          // (0.7 m: the camera may stand just behind a wall it has faded — ci/doors' rule; past that it's outside the room)
           t.check(`${where} (${id}): in every corner the camera stays inside, she's seen, no wall`, !bad.length, bad.join(" · "));
           if (phoneIndoors == null) {
             await L(`document.getElementById("phoneBtn") && document.getElementById("phoneBtn").click()`); await t.frames(6);
@@ -100,7 +102,8 @@ module.exports = {
           }
           // …and out: 2.6 m in from the door, walk into it
           const out = await room(`(() => { const ds = r.spots.door; return ds && r.out ? { x: ds.x, z: ds.z, ox: r.out.x, oz: r.out.z } : null; })()`);
-          if (!out) { t.check(`${where}: the room knows its way out`, false); await g(`(__interiors.room.leave(), true)`); await t.until(`__lulu3d.state === "footRun"`, "out", 30000); continue; }
+          if (await st() !== "interior") { await W.reset(t); continue; }      // (she walked out during the corners — the door works)
+          if (!out) { t.check(`${where}: the room knows its way out`, false); await g(`(window.__interiors.room && __interiors.room.leave(), true)`); await t.until(`__lulu3d.state === "footRun"`, "out", 30000); continue; }
           await room(`(r.lulu.obj.position.set(${out.x} - ${out.ox} * 2.6, 0, ${out.z} - ${out.oz} * 2.6), r.lulu.obj.rotation.y = Math.atan2(${out.ox}, ${out.oz}), ctx.cam.free.yaw = Math.atan2(${out.ox}, ${out.oz}), true)`);
           await t.frames(8);
           await t.stick(0, -1);
