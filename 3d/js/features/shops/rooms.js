@@ -166,7 +166,7 @@ function doorPos(kind) {
     if (OUT.at && ctx.time < OUT.t && Math.hypot(p.x - OUT.at.x, p.z - OUT.at.z) < 4) return null;
     const d = Math.hypot(sp.x - p.x, sp.z - p.z);
     if (d < 24) { const I = ctx.interiors[DOORS[kind].def.id]; if (I && I.warm) I.warm(); }
-    return d < 30 ? { x: sp.x, z: sp.z } : null;
+    return d < 30 ? sp : null;      // (with its axes: the ✋ reaches across the shopfront — ci/doors)
 }
 export function enterShop(kind) {
     const D0 = DOORS[kind], sp = inTown() && ctx.town.spot(D0.spot);
@@ -183,8 +183,8 @@ export function enterShop(kind) {
 }
 on("boot", () => {
     if (!ctx.foot || !ctx.foot.addSpot) return;
-    ctx.foot.addSpot({ pos: () => doorPos("pizza"), r: 2.4, short: "PIZZA", label: () => `🍕 GO INTO ${((ROOMS.pizza[townId()] || ROOMS.pizza.lakewood).name).toUpperCase()}`, act: () => enterShop("pizza") });
-    ctx.foot.addSpot({ pos: () => doorPos("bakery"), r: 2.4, short: "BAKERY", label: () => `🥖 GO INTO ${((ROOMS.bakery[townId()] || {}).name || "THE BAKERY").toUpperCase()}`, act: () => enterShop("bakery") });
+    ctx.foot.addSpot({ pos: () => doorPos("pizza"), r: 2.4, door: true, walkIn: { id: DOORS.pizza.def.id }, short: "PIZZA", label: () => `🍕 GO INTO ${((ROOMS.pizza[townId()] || ROOMS.pizza.lakewood).name).toUpperCase()}`, act: () => enterShop("pizza") });
+    ctx.foot.addSpot({ pos: () => doorPos("bakery"), r: 2.4, door: true, walkIn: { id: DOORS.bakery.def.id }, short: "BAKERY", label: () => `🥖 GO INTO ${((ROOMS.bakery[townId()] || {}).name || "THE BAKERY").toUpperCase()}`, act: () => enterShop("bakery") });
 });
 on("run:start", () => { if (ctx.G) ctx.G.shopsSnack = false; });
 

@@ -43,7 +43,7 @@ function nearHome() {
     return (p.x - g.x) ** 2 + (p.z - g.z) ** 2 < 25 * 25;
 }
 const spot = {
-    r: 1.7, short: "MY CARS",
+    r: 2.4, short: "MY CARS",          // (ci/doors: was 1.7 — the whole garage side of the driveway)
     pos() { if (!nearHome()) return null; const g = garageAt(); return { x: g.x, z: g.z }; },
     label: () => { syncInv(); const n = inv.ownedSkins.length; return n > 1 ? `🔑 MY CARS (${n})` : "🔑 MY CARS"; },
     act: () => openGarage(),
