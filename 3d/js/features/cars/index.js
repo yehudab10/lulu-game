@@ -13,23 +13,32 @@
 // What decides "she left it": she was on foot by her own parked car, and then that car stopped being foot's —
 // she drove off in something else (a borrowed / stolen ride, a taxi), the run ended (title / a new day) or the
 // town was torn down round it. Anything that puts her back in her own car means the car is with her again.
-// The highway / a rest area: today it goes home (stage 3: Tuvia tows it).
+// Off a town (the highway, a rest area, JFK) the spot is in the highway's frame ({ hw: { ls, d, dh } } — its lap metre,
+// the offset off the centre line, the heading off the road's): the same on every lap.
+// TOWS (Tuvia's Towing → the nearest impound, TOW_FEE at the gate, one `need: true` text): the highway's lanes / shoulder
+// once she's been > TUNE.hwNear away for TUNE.hwAway s (or left the highway); a town's travel lane / no-parking stretch the
+// same, closer in (or she left the town); anywhere else after TUNE.days real days — never at Ima's, a house she owns, a lot.
+// Never in front of her. A wreck: Chaverim tows it home, free. 📞 Contacts › Tuvia's Towing brings a LEFT car home
+// (TUNE.deliver). Impounded = stays until paid / broken out (features/impound asks ctx.cars). No car at home at the start of a
+// day → Ima's family minivan in the driveway (a borrowed shell: slow, not hers to sell or mod) — nobody is ever stuck.
 //
-// ctx.cars { list(), where(key), atHome(key), leaveAt(key, rec), getIn(key), debug }
-// events cars:change { key, kind }
+// ctx.cars { list(), where(key), atHome(key), leaveAt(key, rec), getIn(key), held(town), impounded(town), fromImpound(key),
+//            deliver(key), tow(key, why), frameOf(x, z, h), debug }
+// events cars:change { key, kind } · cars:getin { key } · cars:tow { key, why, town }
 import { ctx, on, emit, hook } from "../../core/ctx.js";
-import { store, saveSoon } from "../../core/save.js";
+import { store, saveSoon, wallet } from "../../core/save.js";
 import { SKINS } from "../../car.js";
-import { findNodes } from "../../models.js";
+import { findNodes, models } from "../../models.js";
+import { LAP, lapS } from "../../world.js";
 import { registerKind, kindSpec } from "../../traffic.js";
 import { inv, syncInv } from "../garage/data.js";
 import { equipSkin } from "../garage/buy.js";
 import { MAP_EXTRAS } from "../phone/apps.js";
 import { lapPlaces, myLapM, ahead, miles } from "../world/lapmap.js";
-import { ID, TUNE, L } from "./data.js";
+import { ID, TUNE, L, TOW_FEE, MINIVAN } from "./data.js";
 
 export const SAVE = store(ID, { v: 1, cars: {}, pend: null, slots: null });
-const S = { t: 0, last: null, props: {}, swapping: false, migrated: false, log: [] };
+const S = { t: 0, last: null, props: {}, swapping: false, migrated: false, log: [], away: {}, minivan: false, tv: { arm: null, msg: "" } };
 const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const log = (ev, d = {}) => { S.log.push(Object.assign({ ev, t: +(ctx.time || 0).toFixed(2) }, d)); if (S.log.length > 60) S.log.shift(); };
@@ -62,9 +71,9 @@ function migrate() {
     for (const k of have) rec(k);
     // a walk that never finished (the page closed with her car parked out in a town): it's still there
     const p = SAVE.pend;
-    if (p && p.key && SAVE.cars[p.key] && SAVE.cars[p.key].kind === "with" && p.town) {
-        SAVE.cars[p.key] = { kind: "left", town: p.town, lx: p.lx, lz: p.lz, h: p.h, day: p.day || today() };
-        log("reload", { key: p.key, town: p.town });
+    if (p && p.key && SAVE.cars[p.key] && SAVE.cars[p.key].kind === "with" && p.at) {
+        SAVE.cars[p.key] = Object.assign({ kind: "left", legal: p.legal !== false, day: p.day || today() }, p.at);
+        log("reload", { key: p.key, town: p.at.town || null });
     }
     SAVE.pend = null;
     S.migrated = true;
@@ -75,14 +84,45 @@ function migrate() {
 function plan() { const Tn = ctx.town; return Tn && Tn.active ? Tn.plan : null; }
 function poseOf(c) {
     const P = plan();
-    if (!P) return { town: null, x: c.x, z: c.z };
+    if (!P) {
+        const hw = ctx.world && ctx.world.highway;
+        if (!hw) return { town: null, x: c.x, z: c.z };
+        const n = hw.nearest(c.x, c.z, ctx.car ? ctx.car.s : 0, {});
+        return { town: null, hw: { ls: +lapS(n.s).toFixed(1), d: +n.d.toFixed(2), dh: +(c.h - hw.at(n.s).h).toFixed(3) }, x: c.x, z: c.z };
+    }
     const dx = c.x - P.ORIGIN.x, dz = c.z - P.ORIGIN.z;
     return { town: ctx.town.id, lx: dx * P.COS - dz * P.SIN, lz: dx * P.SIN + dz * P.COS, h: c.h - P.ROT, x: c.x, z: c.z };
 }
 function worldOf(r) {
+    if (r.hw) return worldOfHw(r);
     const P = plan();
     if (!P || ctx.town.id !== r.town) return null;
     return { x: P.ORIGIN.x + r.lx * P.COS + r.lz * P.SIN, z: P.ORIGIN.z - r.lx * P.SIN + r.lz * P.COS, h: r.h + P.ROT };
+}
+/** A highway-frame spot on the copy of the road she's on (the nearest lap) — null in a town or kilometres off. */
+function worldOfHw(r) {
+    const hw = ctx.world && ctx.world.highway;
+    if (plan() || !hw || !ctx.car) return null;
+    const s0 = ctx.car.s, s = r.hw.ls + LAP * Math.round((s0 - r.hw.ls) / LAP);
+    if (Math.abs(s - s0) > 2000) return null;
+    const p = hw.point(s, r.hw.d, {});
+    return { x: p.x, z: p.z, h: hw.at(s).h + r.hw.dh, s };
+}
+/** The saved frame of a pose: { hw } or { town, lx, lz, h }. */
+function frame(p) { return p.hw ? { hw: Object.assign({}, p.hw) } : { town: p.town, lx: +p.lx.toFixed(2), lz: +p.lz.toFixed(2), h: +p.h.toFixed(3) }; }
+/** Legal parking? The highway: only off it (a lot — past TUNE.hwLot). A town: the parking lane or off the street; a travel lane is not. */
+function legalHere(p) {
+    if (p.hw) return Math.abs(p.hw.d) > TUNE.hwLot;
+    if (!p.town || !plan() || ctx.town.id !== p.town) return true;
+    try {
+        const n = ctx.world.road.nearest(p.x, p.z, null, {}), st = n.street;
+        if (!st || st.park == null) return true;
+        const ad = Math.abs(n.d);
+        if (ad > st.park + 2.5) return true;
+        // (a travel lane is not; the kerb is — even the POLICE / AMBULANCE ONLY stretch in front of a precinct / hospital:
+        //  that's where the game itself puts her car when she walks out)
+        return !(!st.parkLane || ad < st.park - 1.4);
+    } catch (e) { return true; }
 }
 /** On Ima's lot / in her driveway (that's "home", not "left"). */
 function atFamily(pose) {
@@ -105,9 +145,10 @@ function inOwnCar() {
 /** She left car k at `last` (foot's stub pose): parked there, or home if that IS home. */
 function leaveIt(k, last, why) {
     const p = last.pose;
-    if (last.wrecked || !p.town) setRec(k, { kind: "home" });                       // (stage 3: the highway / a wreck → Tuvia's tow)
-    else if (atFamily(p)) setRec(k, { kind: "home", town: p.town, lx: +p.lx.toFixed(2), lz: +p.lz.toFixed(2), h: +p.h.toFixed(3) });   // on Ima's lot: it stays where she put it
-    else setRec(k, { kind: "left", town: p.town, lx: +p.lx.toFixed(2), lz: +p.lz.toFixed(2), h: +p.h.toFixed(3), day: today() });
+    if (last.wrecked) { setRec(k, { kind: "home" }); post(fill(L.wreck, { name: nameOf(k) }), false, "Chaverim"); }   // (Chaverim tows a wreck home — free)
+    else if (p.town && atFamily(p)) setRec(k, Object.assign({ kind: "home" }, frame(p)));                             // on Ima's lot: it stays where she put it
+    else if (p.town || p.hw) setRec(k, Object.assign({ kind: "left", legal: last.legal !== false, day: today() }, frame(p)));
+    else setRec(k, { kind: "home" });
     log("left", { key: k, why, town: p.town || null });
     // foot let go of it (she's in a borrowed ride): our parked car takes its place
     const F = footF();
@@ -117,17 +158,19 @@ function leaveIt(k, last, why) {
 }
 
 function track() {
-    const k = sel(), r = rec(k);
+    const k = sel();
+    if (!owned().includes(k)) return;            // (a test drive off a dealer's lot: not one of hers — nothing to track)
+    const r = rec(k);
     const fc = ownStub();
     if (fc && T().cars.includes(fc.stub)) {
         // on foot, her own car parked where she got out: it's with her, whatever the record said
         if (r.kind !== "with") setRec(k, { kind: "with" });
         const pose = poseOf(fc.stub);
-        S.last = { obj: fc.stub, pose, wrecked: !fc.drivable, key: k };
+        S.last = { obj: fc.stub, pose, wrecked: !fc.drivable, key: k, legal: legalHere(pose) };
         const pd = SAVE.pend;
-        if (pose.town && !atFamily(pose) && fc.drivable) {
-            if (!pd || pd.key !== k || pd.town !== pose.town || Math.hypot(pd.lx - pose.lx, pd.lz - pose.lz) > TUNE.moved)
-                { SAVE.pend = { key: k, town: pose.town, lx: +pose.lx.toFixed(2), lz: +pose.lz.toFixed(2), h: +pose.h.toFixed(3), day: today() }; saveSoon(); }
+        if ((pose.town || pose.hw) && !atFamily(pose) && fc.drivable) {
+            if (!pd || pd.key !== k || !pd.at || Math.hypot(pd.x - pose.x, pd.z - pose.z) > TUNE.moved)
+                { SAVE.pend = { key: k, at: frame(pose), x: +pose.x.toFixed(1), z: +pose.z.toFixed(1), legal: S.last.legal, day: today() }; saveSoon(); }
         } else if (pd) { SAVE.pend = null; saveSoon(); }
         return;
     }
@@ -150,7 +193,7 @@ function resolve(why) {
     if (ctx.impound && ctx.impound.held) { S.last = null; return; }           // the law has it (features/impound)
     if (riding()) return leaveIt(k, last, "ride");                           // she drove off in something else
     if (footHas) return leaveIt(k, last, "cleared");                         // the town was torn down round it while she walks
-    if (F && !F.car) { S.last = null; return; }                              // a carless start (the ER, a jailbreak): stage 3
+    if (F && !F.car) { S.last = null; return; }                              // a carless start: the law has it / the ER (it's at the hospital's kerb when it's hers)
     if (why === "title" || why === "run" || ctx.state === "title") return leaveIt(k, last, why === "run" ? "run" : "title");
     // (anything else — a cutscene, an interior — waits for the picture to settle)
 }
@@ -235,16 +278,16 @@ function homeWants(me, want) {
 function syncProps() {
     const me = herPos();
     const want = {};
-    if (me && plan()) {
+    if (me && ctx.world) {
         for (const k of owned()) {
             const r = rec(k);
-            if (r.kind !== "left") continue;
+            if (r.kind !== "left" && r.kind !== "dealer") continue;
             const w = worldOf(r);
             if (!w) continue;
             const d = Math.hypot(w.x - me.x, w.z - me.z);
             if (d < (S.props[k] ? TUNE.far : TUNE.near)) want[k] = w;
         }
-        homeWants(me, want);
+        if (plan()) homeWants(me, want);
     }
     for (const k of Object.keys(S.props)) {
         const p = S.props[k], P = p.c.data.carsPose, w = want[k];
@@ -262,7 +305,7 @@ function getIn(k) {
     if (cur !== k) {
         const cr = rec(cur), fc = ownStub();
         if (cr.kind === "with") {
-            if (fc && T().cars.includes(fc.stub)) leaveIt(cur, { obj: null, pose: poseOf(fc.stub), wrecked: !fc.drivable, key: cur }, "swap");
+            if (fc && T().cars.includes(fc.stub)) { const pose = poseOf(fc.stub); leaveIt(cur, { obj: null, pose, legal: legalHere(pose), wrecked: !fc.drivable, key: cur }, "swap"); }
             else if (ctx.impound && ctx.impound.held) setRec(cur, { kind: "impound", town: ctx.impound.held.town });
             else setRec(cur, { kind: "home" });
         }
@@ -291,14 +334,161 @@ hook("hud", dt => {
     try {
         if (!S.migrated) migrate();
         track();
+        towTick(TUNE.tick);
         syncProps();
     } catch (e) { console.error("[cars]", e); }
 });
-// another car picked some other way (the 🔑 garage picker, a car just bought): the one she had stays — at home for now
+
+// ── Tuvia's Towing ──
+function post(msg, need, from = L.tuvia) {
+    try { if (ctx.phone && ctx.phone.inbox) ctx.phone.inbox.post({ from, emoji: from === L.tuvia ? L.tuviaEmoji : "🔧", color: from === L.tuvia ? "#F9A825" : "#1565C0", msg, thread: from, need: !!need }); } catch (e) { /* no phone */ }
+}
+const daysSince = d => { const m = /^(\d+)-(\d+)-(\d+)$/.exec(d || ""); if (!m) return 0; const t0 = new Date(+m[1], +m[2] - 1, +m[3]), n = new Date(); return Math.floor((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - t0) / 864e5); };
+/** Parked by a house she owns (its door id "town:lx:lz"). */
+function byOwnedHome(r) {
+    if (!r.town || !ctx.realestate || !ctx.realestate.owned) return false;
+    try {
+        return ctx.realestate.owned().some(h => { const m = typeof h.id === "string" && /^([a-z]+):(-?[\d.]+):(-?[\d.]+)$/.exec(h.id); return !!m && m[1] === r.town && Math.hypot(+m[2] - r.lx, +m[3] - r.lz) < TUNE.atHouse; });
+    } catch (e) { return false; }
+}
+/** The impound a tow goes to: the town's own; off a town, the town whose exit is nearest on the loop. */
+function impoundTown(r) {
+    if (r.town) return r.town;
+    let best = null, bd = 1e12;
+    for (const p of lapPlaces()) if (p.kind === "town") { const d = Math.min(ahead(p.m, r.hw.ls), ahead(r.hw.ls, p.m)); if (d < bd) { bd = d; best = p.addr.slice(8); } }
+    return best || "lakewood";
+}
+function tow(k, why) {
+    const r = rec(k);
+    if (r.kind !== "left") return false;
+    const town = impoundTown(r);
+    drop(k); delete S.away[k];
+    setRec(k, { kind: "impound", town, why: "tow", day: today() });
+    log("tow", { key: k, why, town });
+    emit("cars:tow", { key: k, why, town });
+    emit("stat", { id: "carsTowed", n: 1 });
+    const line = why === "days" ? L.towed.days : r.hw ? L.towed.highway : L.towed.zone;
+    post(fill(line, { name: nameOf(k), town: townName(town), fee: TOW_FEE, from: r.town ? townName(r.town) : "the highway", days: TUNE.days }), true);
+    return true;
+}
+/** Silly places get towed — never in front of her. */
+function towTick(dt) {
+    const me = herPos();
+    for (const k of owned()) {
+        const r = rec(k);
+        if (r.kind !== "left") continue;
+        if (daysSince(r.day) >= TUNE.days && !byOwnedHome(r)) { tow(k, "days"); continue; }
+        if (r.legal !== false) continue;
+        const here = r.hw ? !plan() : !!(plan() && ctx.town.id === r.town);
+        if (!here) { tow(k, "away"); continue; }                   // she left the highway / the town
+        const w = worldOf(r), near = r.hw ? TUNE.hwNear : TUNE.zoneNear, wait = r.hw ? TUNE.hwAway : TUNE.zoneAway;
+        if (!w || !me) continue;
+        if (Math.hypot(w.x - me.x, w.z - me.z) < near) { S.away[k] = 0; continue; }
+        S.away[k] = (S.away[k] || 0) + dt;
+        if (S.away[k] >= wait) tow(k, "away");
+    }
+}
+/** 📞 Tuvia brings a LEFT car home (to Ima's kerb) → "done" | "broke" | "none". */
+function deliver(k) {
+    const r = SKINS[k] ? rec(k) : null;
+    if (!r || r.kind !== "left") return "none";
+    if (wallet.coins < TUNE.deliver || !wallet.spend(TUNE.deliver)) { S.tv.msg = fill(L.rowBroke, { fee: TUNE.deliver, have: wallet.coins }); log("broke", { key: k }); return "broke"; }
+    drop(k); delete S.away[k];
+    setRec(k, { kind: "home" });
+    S.tv.msg = "";
+    post(fill(L.delivered, { name: nameOf(k) }), true);
+    emit("stat", { id: "carsDelivered", n: 1 });
+    log("delivered", { key: k });
+    return "done";
+}
+function tuviaRender(el) {
+    const fee = TUNE.deliver, out = owned().filter(k => rec(k).kind === "left"), imp = owned().filter(k => rec(k).kind === "impound");
+    let h = `<div class="lp-note">${L.tuviaEmoji} <b>${L.tuvia}</b> · ${fill(L.tuviaTag, { fee })}</div>`;
+    if (S.tv.msg) h += `<p class="lp-note cars-tv-msg">${S.tv.msg}</p>`;
+    h += out.length ? `<div class="lp-note">${L.rowHead}</div>` + out.map(k => `<button class="btn lp-row cars-tow" data-tow="${k}"><span class="lp-av">🚛</span><span class="lp-tx"><b>${S.tv.arm === k ? fill(L.rowArm, { fee }) : fill(L.rowBring, { name: nameOf(k), fee })}</b><small>${whereLine(k)}</small></span></button>`).join("")
+        : `<p class="lp-empty">${L.rowNone}</p>`;
+    h += imp.map(k => `<p class="lp-note">${fill(L.rowImp, { name: nameOf(k), town: townName(rec(k).town) })}</p>`).join("");
+    el.innerHTML = h;
+    el.querySelectorAll("[data-tow]").forEach(b => b.addEventListener("click", () => {
+        const k = b.dataset.tow;
+        if (S.tv.arm !== k) { S.tv.arm = k; S.tv.msg = ""; } else { S.tv.arm = null; deliver(k); }
+        tuviaRender(el);
+    }));
+}
+on("boot", () => {
+    if (!ctx.enabled(ID) || !ctx.community || !ctx.community.addContact) return;
+    ctx.community.addContact({ id: "towing", icon: L.tuviaEmoji, name: L.tuvia, tag: fill(L.tuviaTag, { fee: TUNE.deliver }), color: "#F9A825", render: el => { S.tv.arm = null; tuviaRender(el); } });
+});
+
+// ── Ima's minivan: no car of hers at home at the start of a day ──
+on("foot:start", e => {
+    if (!S.minivan || !e || e.reason !== "home" || !live()) return;
+    S.minivan = false;
+    try { minivan(); } catch (err) { console.error("[cars] minivan", err); }
+});
+function minivan() {
+    const F = footF();
+    if (!F || !F.car || !F.car.stub || !models[MINIVAN.key]) { log("minivanMissing"); return false; }
+    const old = F.car.stub, x = old.x, z = old.z, h = old.h, kind = "cars_minivan";
+    if (!kindSpec(kind)) registerKind(kind, { len: 5.0, halfW: 1.0, circles: [1.3, -1.3], r: 1.0, mass: 3.5, model: MINIVAN.key });
+    if (T().cars.includes(old)) T().remove(old);
+    const near = ctx.world.road.nearest(x, z, ctx.car.s, {});
+    const c = T().add(kind, near.s, near.d, 1, 0, { ai: hold, data: { footStub: true, carsMinivan: true, carsPose: { x, z, h } }, noNearMiss: true, immune: true, keep: true });
+    c.free = true; c.x = x; c.z = z; c.h = h;
+    T().place(c, 0);
+    F.car = { stub: c, drivable: true, wrecked: false, key: MINIVAN.key, colors: null, vtype: "car", handling: MINIVAN.handling };
+    log("minivanOut");
+    if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, pick(L.minivan), 3.0);
+    emit("cars:minivan", {});
+    return true;
+}
+
+// ── the impound (features/impound asks) ──
+/** The law walked her out of a precinct without her car: the car she was using is behind that town's fence. → its key. */
+function impounded(town) {
+    const k = sel(), r = rec(k);
+    if (r.kind !== "with" && r.kind !== "impound") return null;
+    drop(k); S.last = null;
+    setRec(k, { kind: "impound", town, why: "arrest", day: today() });
+    if (SAVE.pend) { SAVE.pend = null; saveSoon(); }
+    return k;
+}
+/** A car held at an impound: the first one in `town` (else anywhere) → { key, town, why } | null. */
+function held(town = null) {
+    const ks = owned().filter(k => rec(k).kind === "impound");
+    const k = (town && ks.find(x => rec(x).town === town)) || (town ? null : ks[0]);
+    return k ? { key: k, town: rec(k).town, why: rec(k).why || "arrest" } : null;
+}
+/** Released at the gate: that car becomes the one she uses (the one she came in stays parked where it is). */
+function fromImpound(k) {
+    if (!SKINS[k]) return false;
+    const cur = sel(), F = footF();
+    if (cur !== k) {
+        const cr = rec(cur), fc = ownStub();
+        if (cr.kind === "with") {
+            if (fc && T().cars.includes(fc.stub)) { const pose = poseOf(fc.stub); leaveIt(cur, { obj: null, pose, legal: legalHere(pose), wrecked: !fc.drivable, key: cur }, "impound"); }
+            else setRec(cur, { kind: "home" });
+        }
+        S.swapping = true;
+        try { equipSkin(k); } finally { S.swapping = false; }
+    }
+    if (F && F.car && F.car.key !== "lulu" && F.car.stub) { F.car.stub.keep = false; F.car = null; }
+    setRec(k, { kind: "with" });
+    S.last = null;
+    log("released", { key: k });
+    return true;
+}
+// another car picked some other way (a car just bought and driven off the lot): the one she had stays where it stands —
+// parked where she got out of it (at home if that's home)
 on("skin", ({ key }) => {
     if (S.swapping || !live() || !S.migrated) return;
     try { syncInv(); } catch (e) { /* keep the cache */ }
-    for (const k of Object.keys(SAVE.cars)) if (k !== key && SAVE.cars[k].kind === "with") setRec(k, { kind: "home" });
+    const fc = ownStub(), stub = fc && T().cars.includes(fc.stub) ? fc.stub : null;
+    for (const k of Object.keys(SAVE.cars)) {
+        if (k === key || SAVE.cars[k].kind !== "with") continue;
+        if (stub) { const pose = poseOf(stub); leaveIt(k, { obj: null, pose, legal: legalHere(pose), wrecked: !fc.drivable, key: k }, "skin"); }
+        else setRec(k, { kind: "home" });
+    }
     setRec(key, { kind: "with" });
     S.last = null;
 });
@@ -311,8 +501,7 @@ hook("runStart", (G, opts) => {
         if (!S.migrated) migrate();
         resolve("run");
         dropAll();
-        // (stage 1: the impound's own rule — a new run, the car's home again; stage 3 keeps it there)
-        for (const x of owned()) if (rec(x).kind === "impound") setRec(x, { kind: "home" });
+        S.minivan = false;
         const k = sel(), r = rec(k);
         if (r.kind === "with") return;
         // a day that starts at a house she owns (features/realestate): a car she left there
@@ -333,9 +522,9 @@ hook("runStart", (G, opts) => {
             log("pick", { key: alt, instead: k });
             return;
         }
-        // (stage 1: no other car at home — hers comes home with her, as before; stage 3: Ima's minivan)
-        setRec(k, { kind: "with" });
-        log("fallback", { key: k });
+        // none of her cars is at home: Ima's family minivan waits in the driveway (her own stay where they are)
+        S.minivan = true;
+        log("minivan", { key: k, kind: r.kind });
     } catch (e) { console.error("[cars] runStart", e); }
 }, 50);
 
@@ -350,14 +539,16 @@ function whereLine(k) {
     const r = rec(k);
     if (r.kind === "with") return ownStub() && sel() === k ? L.withFoot : L.with;
     if (r.kind === "home") return L.home;
-    if (r.kind === "impound") return fill(L.impound, { town: townName(r.town) });
-    if (r.kind === "left") return fill(L.left, { town: townName(r.town) });
+    if (r.kind === "impound") return r.why === "tow" ? fill(L.towedAt, { town: townName(r.town), fee: TOW_FEE }) : fill(L.impound, { town: townName(r.town) });
+    if (r.kind === "dealer") return fill(L.dealer, { name: r.name || "the dealer's lot" });
+    if (r.kind === "left") return r.hw ? (Math.abs(r.hw.d) > TUNE.hwLot ? L.hwLot : L.hwLeft) : fill(L.left, { town: townName(r.town) });
     return "";
 }
 function distLine(k) {
     const r = rec(k);
-    if (r.kind !== "left" && r.kind !== "impound") return "";
-    const w = r.kind === "left" ? worldOf(r) : null, me = herPos();
+    if (r.kind !== "left" && r.kind !== "impound" && r.kind !== "dealer") return "";
+    const w = r.kind !== "impound" ? worldOf(r) : null, me = herPos();
+    if (r.hw && !w) return miles(ahead(r.hw.ls, myLapM()));
     if (w && me) { const m = Math.hypot(w.x - me.x, w.z - me.z); return m < 1000 ? fill(L.here, { m: Math.round(m / 10) * 10 }) : `${(m / 1000).toFixed(1)} km`; }
     if (ctx.town && ctx.town.active && ctx.town.id === r.town) return "";
     const t = lapPlaces().find(p => p.addr === "hw:exit:" + r.town);
@@ -383,8 +574,20 @@ ctx.cars = {
     /** Ima's kerb spaces (local frame) — features/shops' old picker steps aside while cars stand there. */
     get slots() { return SAVE.slots ? SAVE.slots.list.slice() : []; },
     atHome(k) { const r = SKINS[k] ? rec(k) : null; return !!r && (r.kind === "home" || r.kind === "with"); },
-    /** Someone else decides where a car is (features/shops' dealer: the old car waits on the lot). rec { kind, town, lx, lz, h, … }. */
-    leaveAt(k, r) { if (!SKINS[k] || !r || !r.kind) return false; setRec(k, Object.assign({ day: today() }, r)); return true; },
-    getIn,
-    debug: { S, SAVE, rec, migrate, track, resolve, syncProps, worldOf, poseOf, kerbSlots, startHome },
+    /** Someone else decides where a car is (ci/dealers: the old car waits on the lot). rec { kind: "left" | "home" | "dealer" |
+     *  "impound", name?, … } + where: { x, z, h } in WORLD coords where it stands now (turned into the right frame here), or a
+     *  frame already ({ town, lx, lz, h } / { hw }). */
+    leaveAt(k, r) {
+        if (!SKINS[k] || !r || !r.kind) return false;
+        const o = Object.assign({ day: today() }, r);
+        if (o.x != null && o.lx == null && !o.hw) { Object.assign(o, frame(poseOf({ x: o.x, z: o.z, h: o.h || 0 }))); delete o.x; delete o.z; }
+        if (k === sel() && o.kind !== "with") S.last = null;
+        setRec(k, o);
+        return true;
+    },
+    /** The frame a world spot would be saved in ({ town, lx, lz, h } | { hw }). */
+    frameOf: (x, z, h = 0) => frame(poseOf({ x, z, h })),
+    getIn, held, impounded, fromImpound, deliver, tow,
+    get minivan() { return S.minivan; },
+    debug: { S, SAVE, rec, migrate, track, resolve, syncProps, towTick, worldOf, poseOf, kerbSlots, startHome, legalHere, daysSince },
 };

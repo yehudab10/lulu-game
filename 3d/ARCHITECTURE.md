@@ -1779,7 +1779,8 @@ City Hall's PERMITS window (`cityhall/lobby.js addWindowHook("permits", …)`, p
 City Hall (`cityhall/pay.js CONTACT_EXTRAS`: tap, tap; one `need: true` text). City Hall / the phone give a slip
 (`IM.released`); the gate with it (or paying there) → `release()`: the clone behind the fence goes, her car is placed at the
 kerb in front of the gate (`places/out.js kerbAt`) and foot restarts `droveOff` beside it (ownCar "parked" — ✋ in and away).
-Can't afford it → told, nothing taken, still held: a new run (home) resets it — today's fallback. THE BREAK-IN (`breakin.js`):
+Can't afford it → told, nothing taken, still held (without features/cars a new run resets it; with it, the car stays held
+— any number of cars, a tow's price `TOW_FEE` 60, see "Every car she owns is somewhere"). THE BREAK-IN (`breakin.js`):
 ✋ at the loose panel (the front fence, left of the gate) → `ctx.foot.script`: she sneaks inside the 12 × 12 lot (camera-relative
 stick, run = faster + a faster meter; the fence, her car and the two cruisers are solid); Bruno (heist's guard model) paces the
 back with a flashlight cone and a camera sweeps from the front-right post (both drawn as fans on the ground); in a cone the "?"
@@ -1803,9 +1804,11 @@ other owned car `home`. A look every `TUNE.tick` s (the `hud` hook, never per fr
 "lulu"`) → that car is `with` and its town pose is written to `SAVE.pend` (a page that closes mid-walk → `left` there on the next
 boot); driving her own car (not a borrowed shell) → `with`. When foot's stub stops being hers (`resolve`): she's in a borrowed /
 stolen ride or a taxi → LEFT at the stub's pose (foot's orphaned stub is swapped for ours); the town was torn down round it while
-she walks → left; the run ends (title, a new `runStart`) → left; the law has it (`ctx.impound.held`) or a carless start (the ER, a
-jailbreak) → not decided here (stage 3); a cutscene / an interior → waits. The family driveway / lot counts as `home`; the highway
-and rest areas send it home for now (stage 3: Tuvia's tow). A `left` car in the town she's in, inside `TUNE.near` (230 m; taken
+she walks → left; the run ends (title, a new `runStart`) → left; the law has it (`ctx.impound.held`) or a carless start (the ER
+walks her out to her own car at the hospital's kerb when it's hers; a car she wasn't using stays where it was) → nothing to do; a
+cutscene / an interior → waits. The family driveway / lot counts as `home`. Off a town (the highway, a rest area, JFK) the spot is
+in the highway's frame `{ hw: { ls, d, dh } }` (its lap metre, the offset off the centre line, the heading off the road's — drawn
+on the nearest lap's copy). A `left` car in the town she's in, inside `TUNE.near` (230 m; taken
 down past 260), is a real parked car: a traffic car of kind `cars_lulu` (the `lulu` model in its skin's paint, free + keep +
 immune, its AI holds the pose — solid to her car and to her on foot, standable like her own) + a foot spot ✋ "🔑 GET IN — your
 <name>" → `getIn(key)`: the car she was using is recorded `left` where its stub stands (impounded → `impound`; elsewhere → `home`),
@@ -1817,13 +1820,30 @@ before. Another pick (the 🔑 garage picker, a new car bought → `skin` event)
 (`phone/apps.js MAP_EXTRAS`, shown with 2+ cars or one away): each car, where, how far (metres in its town, else miles up the
 road from `lapmap`). Off in Dina's mode and in a party (friends: each player's cars are her own; no network traffic).
 `ctx.cars { list(), where(key), atHome(key), leaveAt(key, rec), getIn(key), debug }` — `leaveAt` is how another feature says
-where a car is (ci/dealers: the old car waits on the lot, `{ kind: "dealer", town, lx, lz, h, name }`); events `cars:change {key,
-kind}`, `cars:getin {key}`. HOME (stage 2): a car left on Ima's lot is `home` with its pose (drawn where she put it, unless the car she's using has the
+where a car is (ci/dealers: the old car waits on the lot, `{ kind: "dealer", name, x, z, h }` in world coords — turned into the
+right frame; a `dealer` car is drawn + ✋ like a left one, never towed); events `cars:change {key,
+kind}`, `cars:getin {key}`. TOWS (stage 3, Tuvia's Towing → `impound` `{ town, why: "tow" }`, `TOW_FEE` 60 at the gate — a tow is not an arrest; one
+`need: true` text): `legal` is decided where she got out (`legalHere`): the highway — only past `TUNE.hwLot` (12 m) off the
+centre line (a rest area, a roadside / dealer lot, JFK's parking); a town — the parking lane (even a `clearParking` stretch:
+the game itself parks her car in front of a precinct / hospital) or off the street; a travel lane is not. Not legal → towed once she's been more than `hwNear` 300 m
+(town: `zoneNear` 120 m) away for `hwAway` / `zoneAway` 120 s, or she left the highway / the town; never while she's near it.
+Anywhere: `TUNE.days` (3) real days → towed (never at Ima's, by a house she owns, on a dealer's lot). The tow goes to the town's own
+impound; off a town, the town whose exit is nearest on the loop. A WRECK she walked away from: Chaverim tows it home, free. 📞
+Contacts › 🚛 Tuvia's Towing (`community.addContact`, id `towing`): each LEFT car → tap, tap → `TUNE.deliver` (40) → `home`
+(never an impounded one — "that's the police lot"). THE IMPOUND (features/impound, when `cars` is on): `ctx.cars.held(town)`
+is what's held (any number of cars, across runs + reloads — NO auto-return); an arrest's walk-out (`places:out` {car: false})
+→ `ctx.cars.impounded(town)` (the car she was using; in a borrowed ride nothing of hers is held); the fee is the tow's 60 or the
+police one; a paid slip is saved per car (`SAVE.slip`); the gate's `release()` → `ctx.cars.fromImpound(key)` (that car becomes
+the one she uses; the one she came in is left parked where it stands) → the kerb as before; the break-in releases the same way.
+NEVER STUCK: a home start with none of her cars at home (`runStart` sets `S.minivan`) → at foot's `foot:start` "home" her stub in
+the driveway is swapped for Ima's family minivan (`MINIVAN`: `town_minivan`, slow handling, `F.car.key` ≠ "lulu" — foot's own
+✋ GET IN drives it as a borrowed shell: not hers to sell or mod; "bring it back with gas in it"). Plus borrow-a-car, rides and
+taxis, another car of hers, Tuvia. HOME (stage 2): a car left on Ima's lot is `home` with its pose (drawn where she put it, unless the car she's using has the
 driveway); the others stand on Ima's kerb spaces (`kerbSlots`: picked once with `ctx.town.curbSpot({ near: park, still: true })`,
 ≥ 6.5 m apart, saved in the local frame — `ctx.cars.slots`; the town's own parked cars are seeded, so a saved space stays free)
 — walk up + ✋ GET IN is the picker (the 🔑 MY CARS card in `shops/home.js` steps aside while `cars` is on). A day that starts at
-a house she owns (`ctx.home.startAt`, door id `town:lx:lz`) starts with a car left within `TUNE.atHouse` of it. Stage 3: tows, 📞
-Tuvia's delivery, no auto-return from the impound, Ima's minivan. Test `scripts/tests3d/cars.js`.
+a house she owns (`ctx.home.startAt`, door id `town:lx:lz`) starts with a car left within `TUNE.atHouse` of it. Tests
+`scripts/tests3d/cars.js` (stages 1–2) + `cars2.js` (tows, Tuvia, the impound, the minivan).
 
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;
