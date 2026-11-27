@@ -26,6 +26,7 @@ module.exports = {
     const bowl = await g(`ctx.storefronts.fronts().filter(f => f.st && f.st.bowling).map(f => (f.st.lines || []).join(" / ") + " · " + ctx.storefronts.debug.label(f))`);
     t.check(`the lanes' front: its own sign + ✋ (${bowl[0] || "none"})`, bowl.length > 0 && bowl.every(x => !/COMING SOON/.test(x)), bowl.slice(0, 2).join(" | "));
 
+    if (process.env.SWEEP_P3 === "fronts") return;
     // ── a cop on her tail: no door takes her in (the ✋ isn't a door; a shop says so) ──
     await S.onFoot();
     const doors = await S.findDoors();

@@ -224,6 +224,9 @@ function make(t) {
       const G = __lulu3d.ctx.G; return { hint: G && G.hint || "", bubbles: vis }; })()`);
     if (/borrow/.test(street.hint)) out.problems.push(`the street's hint at the bottom: ${street.hint.slice(0, 40)}`);
     if (street.bubbles.length) out.problems.push(`the street's bubbles over the room: ${street.bubbles.join(" | ").slice(0, 80)}`);
+    const ban = await t.L(`import("./js/hud.js").then(H => { const n = H.notifyState(); return { cur: n.banner, q: n.queued }; })`);
+    for (const b of [ban.cur, ...(ban.q || [])].filter(Boolean)) if (b.key !== "room" && (b.prio || 1) <= 1 && /WELCOME|Slice|Pizza|Bakery|Inn|Hall|Precinct|Court|General|Shloimy|Savings|Realty|J'adore|Classic|Lanes/i.test(b.text || b.html || ""))
+      out.problems.push(`the street's banner in the room: ${(b.text || b.html || "").replace(/<[^>]+>/g, "").slice(0, 50)}`);
     // people standing inside furniture / outside the room
     for (const p of f.people) {
       if (p.inCol && !p.sit) out.problems.push(`${p.id} stands inside ${p.inCol}`);
@@ -251,6 +254,7 @@ function make(t) {
         continue;
       }
       const d = await drive(`${where} ${h.id}`, { pick });
+      await t.frames(2);
       // the room's speech bubbles (interiors/fx.js Bubbles): shown = it did something; none wider than the screen
       const bub = await room(`(() => { const cam = r.set.camera; return r.bubbles.list.map(b => { const d = cam.position.distanceTo(b.sp.position), vw = 2 * d * Math.tan(cam.fov * Math.PI / 360) * cam.aspect;
         return { text: b.text || "?", frac: +(b.sp.scale.x * (b.fill || 1) / vw).toFixed(2) }; }); })()`) || [];
@@ -330,7 +334,8 @@ function make(t) {
   const carPos = () => g(`(() => { const c = ctx.foot.debug.F && ctx.foot.debug.F.car && ctx.foot.debug.F.car.stub; return c ? [+c.x.toFixed(1), +c.z.toFixed(1)] : null; })()`);
 
   /** Visit every door-like room in a town (filter by name): in, audit, out. */
-  const sweepTown = async (id, { only = null, skipNames = [], skipHots = {}, prefix = "" } = {}) => {
+  // (the impound gate only opens on a car of hers that's in there — features/impound's own test plays it)
+  const sweepTown = async (id, { only = null, skipNames = ["impound"], skipHots = {}, prefix = "" } = {}) => {
     if (!await town(id)) return [];
     await onFoot();
     await t.frames(20);
@@ -377,7 +382,8 @@ function make(t) {
       log(`  closed ${f.name}: ✋ «${pr}»`);
     }
     const pickOpen = by("open").filter((f, k, a) => k % Math.max(1, Math.floor(a.length / open)) === 0).slice(0, open);
-    for (const f of [...by("claimed"), ...pickOpen]) {
+    // (claimed fronts: the lanes walk in; carcare's wash / body shop / tyres play on the street — features/carcare's own test)
+    for (const f of [...by("claimed").filter(f => /LANES/.test(f.label)).slice(0, 1), ...pickOpen]) {
       const where = `${id}-front-${f.name}`;
       await onFoot();
       await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(f.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); return true; })()`);
@@ -400,7 +406,7 @@ function make(t) {
     if (!oneOffs.length) return;
     await t.frames(60);
     await t.L(`import("./js/core/save.js").then(m => { try { m.flushShared && m.flushShared(); } catch (e) {} return true; })`);
-    const has = () => t.L(`(() => { const s = Object.keys(localStorage).map(k => localStorage.getItem(k)).join(" "); return ${JSON.stringify(oneOffs.map(b => b.id))}.map(id => s.includes(JSON.stringify(id))); })()`);
+    const has = () => t.L(`(() => { const s = Object.keys(localStorage).map(k => localStorage.getItem(k)).join(" "); return ${JSON.stringify(oneOffs.map(b => String(b.id).replace(/^\w+:/, "")))}.map(id => s.includes(JSON.stringify(id))); })()`);
     const a = await has();
     await t.page.reload();
     await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots again after the reload", 120000);

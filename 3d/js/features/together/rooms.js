@@ -151,10 +151,12 @@ class Mate {
         // the nametag: over her head, readable from the room's camera, out of the way when the camera's close
         if (this.tag) {
             const cam = rt.set.camera.position, dist = Math.hypot(o.position.x - cam.x, o.position.z - cam.z);
-            const k = Math.max(0.55, Math.min(1.2, dist / 9));
+            // (∝ distance: the same size on screen at any range — with a floor, a friend standing by the lens put her
+            //  name across a phone in giant letters; right on top of the camera it's hidden)
+            const k = Math.min(1.2, dist / 9);
             this.tag.sp.position.set(o.position.x, o.position.y + 2.25 * o.scale.y, o.position.z);
             this.tag.sp.scale.set(this.tag.base * k * 0.62, this.tag.base * this.tag.aspect * k * 0.62, 1);
-            this.tag.sp.visible = !(rt.bubbles && rt.bubbles.list && rt.bubbles.list.some(b => b.at === o));
+            this.tag.sp.visible = dist > 1.6 && !(rt.bubbles && rt.bubbles.list && rt.bubbles.list.some(b => b.at === o));
         }
     }
     dispose() { this.person.obj.removeFromParent(); if (this.tag) this.tag.dispose(); }

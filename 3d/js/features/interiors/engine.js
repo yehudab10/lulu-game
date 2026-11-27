@@ -316,6 +316,8 @@ export class Room {
         slot.appendChild(this.chip);
         this.extraEl = this.chip.querySelector(".int-extra");
 
+        // (the street's flavour banners stay outside — the town's WELCOME, a shop's title — this room's own are next)
+        if (H.dropBanners) H.dropBanners(b => b.prio <= 1);
         def.build(this);
         // a door hotspot for every interior
         if (this.spots.door && !this.hots.some(h => h.id === "door")) {
@@ -333,7 +335,7 @@ export class Room {
             this.outArmed = false;
         }
         this.updateCamera(0, true);
-        H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200);
+        H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200, { key: "room" });
     }
 
     hintHtml() {
@@ -509,6 +511,7 @@ export class Room {
         if (this.chip) this.chip.remove();
         H.prompt("");
         if (dialogIsOpen()) closeDialog();   // never strand a half-read line on the next screen
+        if (H.dropBanners) H.dropBanners(b => b.key === "room");      // (…nor its title banner in the next place)
         if (this.bubbles) this.bubbles.clear();
         if (this.faded) { for (const [o, f] of this.faded) { o.material = f.m0; for (const m of f.ms) m.dispose(); } this.faded.clear(); }
         if (this.orbiting && ctx.cam && ctx.cam.free) ctx.cam.free.release();      // (outside, the street's rig starts fresh)
