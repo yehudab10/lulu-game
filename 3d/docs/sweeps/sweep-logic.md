@@ -27,6 +27,8 @@ Every `run:start` reset re-arms whatever was capped "per run". So any COIN rewar
 | 10 | Midwood's street sign "← LAKEWOOD 64 MI" while the highway's own green boards (real lap distances) say ~2.5 mi. | `town/towns/midwood-lines.js` | **fixed** — "LAKEWOOD: NEXT EXIT" |
 | 11 | Inside Midwood's "70½th Precinct" the desk cop answers the phone "Precinct 18½" (Lakewood's). One room serves both towns; `places` renames it. | `interiors/police.js` | **fixed** — a line without a name |
 | 12 | `addCoins(NaN)` turned the HUD's run coins into NaN for the rest of the run. | `core/driving.js` | **fixed** — ignored |
+| 13 | Mid-chase, pulling into Chez Fabio's pink lot and stopping started the makeover — and any state change that isn't driving ends the chase (`law/index.js`: "a car chase never follows her into…"), so the salon was a free way out. New cameos don't spawn mid-chase (`ctx.engaged`), but one spawned just before could still be used. | `cameos/salon.js` | **fixed** — no makeover while chased ("Not with the SIRENS, sweetie!"); fugitive (no chase) still can |
+| 14 | The family & places card said home is "Lakewood · the cul-de-sac" — her house is on Midwood's E 34th St now. | `world/map.js` | **fixed** |
 | 5 | `wallet.spend(-n)` PAID her n coins; `wallet.spend(NaN)` / `wallet.add(Infinity)` could write a non-number. No caller does it today, but a bad sum anywhere would. | `core/save.js` | **fixed** — spend refuses negative / non-finite (0 is free), add ignores non-finite |
 
 ## Judgment calls — owner may want to tune
