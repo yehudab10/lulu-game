@@ -292,8 +292,10 @@ async function freeRoam(t, guests) {
     tn += live.length; tbad += live.filter(x => !x).length;
   }
   t.check("town traffic (openworld's minivans) still on their loops alongside the orgs", tn >= 12 && tbad === 0, `${tn} live, ${tbad} off`);
-  const strays = await g(`ctx.traffic.cars.filter(c => !(c.data && (c.data.party || c.data.partyLocal || (c.data.town && c.data.town.hazard)))).map(c => c.kind + ":" + Object.keys(c.data || {}).join("/") + ":" + Math.round(c.s || 0))`);
-  t.check("no random town drivers / no strays in a party town", strays.length === 0, strays.slice(0, 6).join(" "));
+  // (friends = the same game: each screen's own passing cars — a road event's sedan… — are allowed now (owner, 2026-11-27);
+  //  what mustn't be there is the town's own random drivers, which would differ from the shared loops)
+  const strays = await g(`ctx.traffic.cars.filter(c => c.data && c.data.town && !c.data.town.hazard && !c.data.party && !c.data.partyLocal).map(c => c.kind + ":" + Object.keys(c.data || {}).join("/") + ":" + Math.round(c.s || 0))`);
+  t.check("no random town drivers in a party town (the loops are shared)", strays.length === 0, strays.slice(0, 6).join(" "));
   // the org cruisers never share a spot with a minivan (a quarter loop apart at least)
   t.check("org cruisers keep clear of the minivans on their loop", await g(`(() => { const a = ctx.community.debug.party.cruisersAt(ctx.party.clock()), b = ctx.openworld.debug.townCarsAt(ctx.party.clock()); return a.every(c => b.every(v => Math.hypot(v.x - c.x, v.z - c.z) > 2.6)); })()`));
   const sc = [];

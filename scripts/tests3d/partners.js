@@ -170,6 +170,10 @@ async function body(t, guests) {
   const okCells = await Promise.all([talk(Hp, CELL, "host: arrest → precinct → the cell"), talk(A, CELL, "guest: booked → the cell")]);
   if (!okCells.every(Boolean)) return;
   t.check("both caught together (the host's crew record)", await g(`(() => { const c = ${CR}.current(); return !!c && c.caught.length === 2; })()`), JSON.stringify(await g(`${CR}.debug.crews()`)));
+  // what each courtroom will say + show (recorded from the cell on: the clock runs on real time, court can come quickly)
+  await all(p => p.L(`(window.__said = [], window.__coMate = false, setInterval(() => { const d = document.querySelector("#dialog.open .text"), L3 = window.__lulu3d;
+      if (d && d.textContent && window.__said[window.__said.length - 1] !== d.textContent) window.__said.push(d.textContent);
+      if (L3 && L3.ctx.state === "lawCourt" && L3.ctx.law.crew.debug.court().length) window.__coMate = true; }, 30), true)`));
   t.check("the same precinct: both still in Lakewood", await g(`ctx.town.active && ctx.town.id === "lakewood"`) && await A.game(`ctx.town.active && ctx.town.id === "lakewood"`));
   for (const [p, other] of [[Hp, guestUid], [A, hostUid]]) {
     if (await p.until(`${CR}.debug.cell().includes(${JSON.stringify(other)})`, `${p.label}: sees the partner in the cell`, 60000)) t.check(`${p.label}: the partner is drawn in HER cell`, true);
@@ -182,13 +186,15 @@ async function body(t, guests) {
   await A.L(`document.querySelector(".law-em").click()`);
   if (await Hp.until(`window.__em.some(e => e.uid === ${GU} && e.cell)`, "host: the guest's wave in the cell", 30000)) t.check("a cell emote shows on the partner's screen", true);
   // one court clock: within a couple of seconds of each other
-  const cts = await Promise.all(both.map(p => p.game(`ctx.law._dbg.jail().courtT`)));
-  t.check(`one court clock (${cts.map(x => x.toFixed(1)).join(" / ")} s)`, Math.abs(cts[0] - cts[1]) < 6, JSON.stringify(cts));
-  // court for both (the clock runs out), then out of the courthouse door side by side — what each courtroom says + shows
-  await all(p => p.L(`(window.__said = [], window.__coMate = false, setInterval(() => { const d = document.querySelector("#dialog.open .text"), L3 = window.__lulu3d;
-      if (d && d.textContent && window.__said[window.__said.length - 1] !== d.textContent) window.__said.push(d.textContent);
-      if (L3 && L3.ctx.state === "lawCourt" && L3.ctx.law.crew.debug.court().length) window.__coMate = true; }, 30), true)`));
-  await all(p => p.game(`(ctx.law._dbg.jail().courtT = 1, true)`));
+  // (the clock runs on real time with a cellmate: on a slow runner it can already have called both to court by now)
+  const cts = await Promise.all(both.map(p => p.game(`(() => { const j = ctx.law._dbg.jail(); return j && ctx.state !== "lawCourt" ? j.courtT : null; })()`)));
+  if (cts.every(x => typeof x === "number")) t.check(`one court clock (${cts.map(x => x.toFixed(1)).join(" / ")} s)`, Math.abs(cts[0] - cts[1]) < 6, JSON.stringify(cts));
+  else {
+    const inCourt = [];
+    for (const p of both) inCourt.push(await p.until(`ctx.state === "lawCourt"`, `${p.label}: called to court`, 30000));
+    t.check("one court clock (both already called to court)", inCourt.every(Boolean), JSON.stringify(cts));
+  }
+  await all(p => p.game(`(() => { const j = ctx.law._dbg.jail(); if (j && ctx.state !== "lawCourt") j.courtT = 1; return true; })()`));
   for (const p of both) if (!await p.until(`ctx.state === "lawCourt"`, `${p.label}: the court clock runs out → court`, 30000)) return;
   const outs = await Promise.all([talk(Hp, `ctx.state === "footRun"`, "host: court → out"), talk(A, `ctx.state === "footRun"`, "guest: court → out")]);
   if (!outs.every(Boolean)) return;
