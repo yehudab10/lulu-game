@@ -124,7 +124,7 @@ export function startDelivery(home, job) {
 }
 export const delivery = () => V.cur;
 export function deliveryFor(home) { return V.cur && V.cur.to === home.key ? V.cur : null; }
-export function deliveryLabel(d) { return d.type === "mail" ? `📬 Hand over the ${plural(d.toName)}' mail` : d.type === "manos" ? `🎁 Mishloach manos — from the ${plural(d.fromName)}!` : `🥘 Return the kugel dish (from the ${plural(d.fromName)})`; }
+export function deliveryLabel(d) { if (d.label) return d.label; return d.type === "mail" ? `📬 Hand over the ${plural(d.toName)}' mail` : d.type === "manos" ? `🎁 Mishloach manos — from the ${plural(d.fromName)}!` : `🥘 Return the kugel dish (from the ${plural(d.fromName)})`; }
 /** At the target door: the thank-you, the pay, both families remember. → coins paid */
 export function finishDelivery(home) {
     const d = V.cur;
