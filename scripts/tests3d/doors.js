@@ -134,6 +134,16 @@ module.exports = {
       for (const m of f.moved) offenders.set(`${m} (${f.rooms})`, (offenders.get(`${m} (${f.rooms})`) || 0) + 1);
       t.check(`house ${f.rooms} [${cast.join(",")}] seed ${seed}: every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
     }
+    // Fayge's basement (features/family: the homes builder with a fixed layout) + a neighbour family's house
+    for (const [label, extra] of [["Fayge's basement", "fayge"], ["the neighbours", "neighbour"]]) for (let seed = 1; seed <= 3; seed++) {
+      const setup = extra === "fayge"
+        ? `import("./js/features/family/data.js").then(d => import("./js/features/homes/house.js").then(m => m.prepare({ home: { name: d.FAYGE.name, key: "test:fayge" + ${seed}, cast: d.FAYGE.cast.slice(), seed: ${seed * 131}, rooms: d.FAYGE.rooms, palette: d.FAYGE.palette, basement: true, names: Object.assign({}, d.FAYGE.names) }, mode: "guest", via: "door", cast: d.FAYGE.cast.slice(), noCatch: true })))`
+        : `import("./js/features/homes/house.js").then(m => m.prepare(${JSON.stringify({ home: { name: "Neighbour", key: "test:nb" + seed, cast: ["dad", "mom", "girl", "boy"], seed: seed * 313, neighbour: true, traits: ["hosts", "bakers"] }, mode: "guest", via: "door", cast: ["dad", "mom", "girl", "boy"], noCatch: true })}))`;
+      const f = await houseRun(`${label} #${seed}`, setup, "home");
+      if (!f) continue;
+      for (const m of f.moved) offenders.set(`${m} (${label}: ${f.rooms})`, (offenders.get(`${m} (${label}: ${f.rooms})`) || 0) + 1);
+      t.check(`${label} [${f.rooms}] seed ${seed}: every room + ✋ reachable from the front door`, !f.bad.length, f.bad.join(", "));
+    }
     for (const n of [2, 3]) for (const mode of ["viewing", "owner"]) {
       const rec = { id: `test:re${n}`, rooms: n, address: "1 Test St" };
       const f = await houseRun(`her home ${n} rooms (${mode})`, `import("./js/features/realestate/house.js").then(m => m.nameHouse(${JSON.stringify(rec)}, ${JSON.stringify(mode)}))`, "realestateHouse");
