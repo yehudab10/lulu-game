@@ -39,7 +39,8 @@ module.exports = {
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 15000)) return;
     await g(`(ctx.law.hold(99999), ctx.traffic.clear(), true)`);
-    await t.hold(7, 0.6); await t.frames(40);
+    // (a short roll with the pad's trigger, then let go — a held pad keeps the game on "controller" and the touch buttons hide)
+    await t.hold(7, 0.6); await t.frames(40); await t.hold(7, 0);
 
     // 1 · none bought
     const b0 = await btn("garage_missile");
@@ -113,8 +114,21 @@ module.exports = {
     const p0 = (await items()).p;
     await tap("garage_pepper"); await t.frames(10);
     t.check("pepper at nothing: a whiff, nothing spent", (await items()).p === p0, `${p0} → ${(await items()).p}`);
+    // pepper at a person walking out ahead (roadevents' pedestrian)
+    await g(`(ctx.roadevents && ctx.roadevents.spawn ? ctx.roadevents.spawn("pedestrian", { kind: "adult" }) : 0, true)`);
+    const ped = await t.until(`(() => { const C = __lulu3d.ctx, c = C.car; return C.actors.some(a => { const p = a.obj && a.obj.position || a.pos; if (!p || p.x == null) return false; const dx = p.x - c.pos.x, dz = p.z - c.pos.z, lon = dx * Math.sin(c.h) + dz * Math.cos(c.h); return lon > 2 && lon < 26 && /ped|walker|person|npc/i.test(String(a.kind || a.type || a.name || "")); }); })()`, "a pedestrian ahead", 10000);
+    if (ped) {
+      const pp = (await items()).p, sp0 = await g(`ctx.garage.debug.sprays`);
+      await tap("garage_pepper"); await t.frames(8);
+      const pr = { left: (await items()).p, sprays: (await g(`ctx.garage.debug.sprays`)) - sp0, toasts: await toasts() };
+      console.log("   pepper at a pedestrian:", JSON.stringify(pr));
+      t.check("pepper at a person ahead: sprayed, one spent, a line on screen", pr.sprays === 1 && pr.left === pp - 1, JSON.stringify(pr));
+    } else console.log("   (no pedestrian came out ahead)");
 
     // 7 · the bubble shield eats a hit
+    // (a fresh shield, full hearts: an earlier bump may already have used the first one — as it should)
+    await g(`(ctx.garage.items().shields < 1 ? ctx.garage.give("shield", 1) : 0, ctx.G.hearts = ctx.G.maxHearts, ctx.G.shieldReady = true, true)`);
+    await t.frames(4);
     const hb = await g(`ctx.G.hearts`);
     await g(`(ctx.G.invT = 0, L3.damage(1, "qa", "qa"), true)`);
     await t.frames(10);
@@ -139,12 +153,12 @@ module.exports = {
     await t.tap(12); await t.frames(6);
     t.check("a controller: D-pad ↑ fires one (1 → 0)", m1 === 1 && (await items()).m === 0, `${m1} → ${(await items()).m}`);
 
+    const r = await W.report(t); W.log(r);
     // 10 · a reload keeps what's left
     const before = await items();
     await t.frames(40);
     await t.page.reload();
     await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "reboots", 120000);
     t.check("a reload keeps the counts", JSON.stringify(await items()) === JSON.stringify(before), JSON.stringify([before, await items()]));
-    const r = await W.report(t); W.log(r);
   },
 };
