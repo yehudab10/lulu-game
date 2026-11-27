@@ -414,7 +414,7 @@ function tickStops(dt) {
     if (a && a.stop !== stop && a.dist < 3 && Math.abs(car.d) < st.outer) {
         // she just crossed a.stop's line
         if (a.minV > 3.2 && car.speed > 4.5) ranStop(a.stop);
-        else if (a.minV <= 1.0) { ctx.G.score += 50; }
+        else if (a.minV <= 1.0 && !ctx.G.selfDriving) { ctx.G.score += 50; }      // (a self-driving car's full stop earns nothing)
     }
     if (!stop || dist > 22) { LIFE.appr = null; return; }
     if (!a || a.stop !== stop) LIFE.appr = { stop, minV: car.speed, dist };

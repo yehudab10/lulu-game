@@ -225,6 +225,10 @@ module.exports = {
       await g(`(() => { const sp = ctx.town.spot("bank"), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 4 + sp.ux * 16, 0.05, sp.z + sp.nz * 4 + sp.uz * 16); F.phase = "walk"; return true; })()`);
       await t.frames(3);
       t.check("walking: a third robbery in a run is never started (capped)", await g(`(() => { const R = ${HD}.R; R.footN = ctx.heist.tune.robbery.footMax; const r = ${HD}.schedRobbery(); R.footN = 0; return r === false && !ctx.heist.robbery; })()`));
+      // …and a REAL day: a new run (↺ Restart) zeroes footN, so the day's count (saved) caps it too (ci/sweep-logic)
+      t.check("walking: past today's cap (a new run) no robbery is started either", await t.L(`import("./js/core/save.js").then(m => { const ctx = __lulu3d.ctx, f = m.save3d.f.heistFoot, R = ${HD}.R, d = new Date(), o = { d: f.d, n: f.n };
+        f.d = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); f.n = ctx.heist.tune.robbery.footDay; R.footN = 0;
+        const r = ${HD}.schedRobbery(); f.d = o.d; f.n = o.n; return r === false && !ctx.heist.robbery; })`));
       t.check("walking near the bank, the scheduler stages a robbery there", await g(`${HD}.schedRobbery() === true && ctx.heist.robbery.where === "town" && ${HD}.R.footN === 1`));
       if (!await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "run"`, "a robber runs out (on foot)", 20000)) return;
       t.check("…staged for her on foot at the bank", await g(`ctx.heist.robbery.foot === true && ctx.heist.robbery.spotName === "bank"`));

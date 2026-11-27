@@ -19,6 +19,7 @@ export const PAY = {
     foilClean: 20,           // …without losing a heart doing it
     tackle: 35,              // …on foot: a flying tackle before he reaches the car (on top of foil)
     snatchBonus: 15,         // caught the moped snatcher: the coins back + this
+    snatchBonusDay: 3,       // …that bonus at most this many times a REAL day
     carBonus: 20,            // yanked the car thief out of her car: + this
 };
 export const HEIST = {
@@ -48,6 +49,7 @@ export const TUNE = {
         footR: [8, 30],      // …walking: the door has to be this close (she runs 7.6 m/s)
         footFumble: 4,       // s the robber fights his money bag in the doorway when she's on foot (her window)
         footMax: 2,          // robberies started while she's WALKING, a run (the tackle is the easy foil: capped)
+        footDay: 4,          // …and a REAL day (saved: ↺ Restart / a reload start a new run)
         footRunV: 3.8,       // m/s he lugs it to the car then (4.6 when she's driving: no tackle to be had)
         storeAhead: 720,     // m: the highway's mini-mart goes up this far ahead (before its chunk is built)
         trigger: 95,         // m from the store / bank when the robber bursts out

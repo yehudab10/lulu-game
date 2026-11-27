@@ -22,7 +22,7 @@ import { DS } from "./perks.js";
 
 for (const [id, c] of Object.entries(EV_CARS)) {
     SKINS[id] = { name: c.name, body: c.body, light: c.light, dark: c.dark, top: c.top, acc: c.acc, grip: c.grip, brake: c.brake,
-        nitro: c.nitro, perks: c.perks, kit: "tushla", marque: "tushla" };
+        nitro: c.nitro, perks: c.perks, kit: "tushla", marque: "tushla", ev: true };
     SKIN_SHOP[id] = { price: c.price, flavor: c.flavor, stripe: c.stripe, where: "Tushla Motors, across the highway from Mazelati (half a mile past the lap line)" };
     if (!SKIN_KEYS.includes(id)) SKIN_KEYS.push(id);
 }
@@ -113,7 +113,7 @@ function headHtml(id) {
     if (id === "schlep") {
         return `<div class="dl-ev"><b>⚡ Full Schlep Driving</b> — <i>it drives. You schlep.</i><br>${subLine()}<br>`
             + Object.values(SUB.modes).map(m => `<b>${m.name}</b>: ${m.desc}`).join("<br>")
-            + `<div class="dl-post">In a Tushla on the highway: ❚❚ › ⚡ Let the car drive. It keeps to the limit, earns no bonuses, and hands you the wheel for police, work zones, jobs and town.</div></div>`;
+            + `<div class="dl-post">In a Tushla on the highway: ❚❚ › ⚡ Let the car drive. 📍 Ping a place and it takes the exit and drives the town's streets to the door. Bubbe + Normal keep to the limit; it earns no bonuses, and hands you the wheel for police, work zones and jobs.<br><b>Tushla is not responsible for Meshuga.</b></div></div>`;
     }
     const sk = SKINS[id], c = EV_CARS[id];
     const rows = STAT_ROWS.map(([lab, key]) => `<div><span class="sp-stat">${lab}</span><span class="sp-bar"><i style="width:${Math.round(evBar(sk[key]) * 100)}%;background:#111"></i></span></div>`).join("");

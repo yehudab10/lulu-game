@@ -24,6 +24,7 @@
 import { createHomes, sqlStore } from "./homes.mjs";   // 🏘️ the world-wide property registry (ci/realestate, owner-approved 2026-11-20)
 import { createAccounts, doSql } from "./accounts.mjs";
 import * as W from "./world.mjs";                      // 🌍 one shared world: the clock, reliable events, the free-plan budget (ci/oneserver, owner-approved 2026-11-27) // 🪪 accounts + usernames + friends (ci/accounts, owner-approved 2026-11-26)
+import { createShops } from "./shops.mjs";             // 🏪 player-owned shops (ci/playershops, owner-approved 2026-11-27 — golden rule 3, fifth exception)
 import { createWear } from "./wear.mjs";               // 👜 limited luxury pieces: a world-wide stock counter (ci/clothes, owner-approved 2026-11-27)
 
 const MAX_MEMBERS = 24;
@@ -400,10 +401,16 @@ export class Board {
       const q = doSql(this.sql);
       this.acct = createAccounts(q, {
         homeSech: (pid) => { try { const r = q("SELECT sech FROM homes WHERE owner = ? LIMIT 1", pid)[0]; return r ? r.sech : null; } catch (e) { return null; } },
-        onDelete: (pid) => this.wearReg().releaseAll(pid),
+        onDelete: (pid) => { this.wearReg().releaseAll(pid); this.shopsReg().releaseAll(pid); },
       });
     }
     return this.acct;
+  }
+
+  shopsReg() {
+    if (!this.shops) this.shops = createShops(doSql(this.sql), { sechOf: (pid) => this.accounts().sechOf(pid), nameOf: (pid) => this.accounts().nameOf(pid),
+      madeOf: (pid) => this.accounts().madeOf(pid), on: () => !!W.WORLD.shops });
+    return this.shops;
   }
 
   wearReg() {
@@ -491,6 +498,12 @@ export class Board {
     }
 
     // 👜 /wear/* — limited luxury pieces (wear.mjs): one more table in this same global object
+    // 🏪 /shops/* — player-owned shops (shops.mjs): three more tables in this same global object
+    if (path.startsWith("/shops/")) {
+      const body = method === "GET" ? {} : await this.readBody(request, 8 * 1024);
+      const r = await this.shopsReg().handle(path, method, body, this.clientIp(request), Object.fromEntries(url.searchParams));
+      return corsJson(r.body, r.status);
+    }
     if (path.startsWith("/wear/")) {
       const body = method === "GET" ? {} : await this.readBody(request, 4 * 1024);
       const r = await this.wearReg().handle(path, method, body, this.clientIp(request));
@@ -634,7 +647,7 @@ export default {
       }
     }
 
-    if (parts[0] === "board" || parts[0] === "homes" || parts[0] === "acct" || parts[0] === "wear") {
+    if (parts[0] === "board" || parts[0] === "homes" || parts[0] === "acct" || parts[0] === "wear" || parts[0] === "shops") {
       const id = env.BOARD.idFromName("global");
       const stub = env.BOARD.get(id);
       return stub.fetch(request);

@@ -10,7 +10,6 @@ import * as THREE from "three";
 import { ctx, addActor } from "../../core/ctx.js";
 import { instanced } from "../../models.js";
 import { rumble } from "../../input.js";
-import * as H from "../../hud.js";
 import { LANES_OURS, LANES_ONCOMING } from "../../world.js";
 import { defineEvent, R, count } from "./state.js";
 import { K, need, pt, place, rnd, rint, pick, clamp, funnels, sfx, burst, models, cloneWithColors, carTouches, solid, stat } from "./common.js";
@@ -156,7 +155,8 @@ export async function spawnPuddle(opts = {}) {
                 car.bump = (car.bump || 0) + 0.25;
                 sfx.thud();
                 burst(obj.position.x, 0.3, obj.position.z, 10, 2.5, [0.4, 0.4, 0.42], 0.35, 0.6);
-                H.toast("🕳️ POTHOLE!", "");
+                // (no "🕳️ POTHOLE!" toast: the jolt, the thud, the dust and Lulu's line say it — the toast landed on top of
+                //  her line, two pop-ups for one bump; calm's solo highway minute went over budget on it)
                 stat("potholes", 1);
             } else if (car.speed > 3) {
                 wet.t = Math.max(wet.t, 0.7);

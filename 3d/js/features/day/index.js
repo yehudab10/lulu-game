@@ -66,12 +66,22 @@ function today() {
 }
 function hash(n, k) { let h = (n * 2654435761 + k * 40503) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return h >>> 0; }
 /** Today's list (the same all day, seeded by the date). */
+/** Errands that can't be done in the one world: Bubbe's driveway is the Story Trip's road, not on the Cruise lap
+ *  (world/places.js familyStops → none), so "drop the challah at Bubbe's" never ticked off and the list never finished. */
+const OFF_MAP = new Set(["bubbe"]);
+const errands = () => ITEMS.errand.filter(x => !OFF_MAP.has(x.id));          // (live: features/shops adds errands with addItem)
 function listFor(d) {
-    return [ITEMS.errand[hash(d, 1) % ITEMS.errand.length].id, ITEMS.job[hash(d, 2) % ITEMS.job.length].id, ITEMS.silly[hash(d, 3) % ITEMS.silly.length].id];
+    const E = errands();
+    return [E[hash(d, 1) % E.length].id, ITEMS.job[hash(d, 2) % ITEMS.job.length].id, ITEMS.silly[hash(d, 3) % ITEMS.silly.length].id];
 }
 function ensureToday() {
     const d = today();
-    if (DAY.day === d && DAY.list.length) return;
+    if (DAY.day === d && DAY.list.length) {
+        // (a list handed out before this fix: swap an impossible errand for today's doable one — the rest stays as it was)
+        const i = DAY.list.findIndex(id => OFF_MAP.has(id) && !isDone(id));
+        if (i >= 0) { DAY.list[i] = listFor(d)[0]; saveSoon(); }
+        return;
+    }
     DAY.day = d; DAY.list = listFor(d); DAY.prog = {}; DAY.paid = []; DAY.home = false;
     saveSoon();
 }
