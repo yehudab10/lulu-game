@@ -213,10 +213,11 @@ module.exports = {
     if (await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "into Midwood", 8000)) {
       await t.frames(30);
       const sf = await g(`!!(ctx.storefronts && ctx.storefronts.reservedFor)`);
-      if (sf) t.check("storefronts: the Avenue M run is claimed for the lanes (≥ 1 front)", await g(`(ctx.lanes.debug.claimed() || []).length >= 1`));
+      if (sf) { await t.frames(5); t.check("storefronts: the Avenue M run is claimed for the lanes (6 fronts)", await g(`(ctx.lanes.debug.claimed() || []).length === 6 && ctx.lanes.debug.claimed().every(f => ctx.storefronts.stateOf(f.id) === "claimed")`), await g(`JSON.stringify((ctx.lanes.debug.claimed() || []).map(f => f.id))`)); }
       await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
-      await g(`(() => { const sp = ctx.lanes.debug.doorWorld(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 0.3, 0.05, sp.z + sp.nz * 0.3); F.phase = "walk"; return true; })()`);
+      // (with storefronts: one of the claimed fronts' doors; without: the fallback ✋ at the run's middle)
+      await g(`(() => { const c = ctx.lanes.debug.claimed(), f = c && c.length ? c[Math.floor(c.length / 2)] : null; const sp = f ? { x: f.x, z: f.z, nx: 0, nz: 0 } : ctx.lanes.debug.doorWorld(); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 0.3, 0.05, sp.z + sp.nz * 0.3); F.phase = "walk"; return true; })()`);
       await t.frames(10);
       const l = await g(`(ctx.foot.debug.interactables() || {}).label || ""`);
       t.check(`✋ at the door: GO INTO EAST MIDWOOD LANES (${l})`, /EAST MIDWOOD LANES/.test(l));
@@ -237,8 +238,10 @@ async function twoPages(t, guests) {
   relay = await startRelay(PORT);
   setWallCap(8 * 60000);
   const g = t.game, Hp = hostPage(t);
-  await t.click(/Friends/);
-  await t.L(`document.getElementById("pt_roam").click()`);
+  await g(`(ctx.town && ctx.town.active && ctx.town.leave("reset"), true)`); await t.frames(10);
+  await g(`L3.startRun({ mode: "cruise", quick: true })`);     // (▶ PLAY, then a group — as features/together's test)
+  await t.until(`["playing", "footRun"].includes(__lulu3d.ctx.state)`, "▶ PLAY", 120000);
+  await g(`(ctx.party.hostRoam(), true)`);
   if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return t.check("host: a group", false);
   const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`);
   const A = await guestPage(t, "guest", { totalCoins: 100, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${module.exports.query}&party=${code}&with=${hostUid}`);

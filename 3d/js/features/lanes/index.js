@@ -270,13 +270,14 @@ export function doorWorld() {
     return { x: w.x, z: w.z, nx: s.x - w.x, nz: s.z - w.z };
 }
 function doorPos() {
+    if (inTown()) claimed();                       // (claim the run as soon as she's in Midwood: storefronts' ✋ then says so)
     if (!canWalkIn()) return null;
     const p = herPos(), sp = doorWorld();
     if (!sp || !p) return null;
     const d = Math.hypot(sp.x - p.x, sp.z - p.z);
     if (d < 24 && ctx.interiors.lanes && ctx.interiors.lanes.warm) ctx.interiors.lanes.warm();
     const c = claimed();
-    if (c && c.length) return null;                 // (storefronts' own ✋ on each claimed front walks in)
+    if (c && c.length) return null;                 // (storefronts' own ✋ on each claimed front walks in)                 // (storefronts' own ✋ on each claimed front walks in)
     if (OUT.at && ctx.time < OUT.t && Math.hypot(p.x - OUT.at.x, p.z - OUT.at.z) < 4) return null;
     return d < 30 ? sp : null;
 }
