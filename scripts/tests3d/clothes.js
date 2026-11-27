@@ -76,7 +76,7 @@ module.exports = {
     await t.until(`__lulu3d.state === "footRun" && !!__lulu3d.ctx.foot.obj`, "out on foot", 15000);
     t.check("…on foot she's her old self (sky-blue top, no extra shapes)", await topOf(`ctx.foot.obj`) === "#4fc3f7" && await shapes(`ctx.foot.obj`) === 0, String(await topOf(`ctx.foot.obj`)));
     t.check("every piece has a price, a slot, a shop and one line; the shop prices sit in 40–900",
-      await g(`ctx.clothes.pieces.every(p => (p.price > 0 || p.shop === "own") && p.slot && p.shop && p.line && p.brand) && ctx.clothes.pieces.filter(p => p.shop === "midwood" || p.shop === "lakewood").every(p => p.price >= 40 && p.price <= 900)`));
+      await g(`ctx.clothes.pieces.every(p => (p.price > 0 || p.shop === "own" || p.prize) && p.slot && p.shop && p.line && p.brand) && ctx.clothes.pieces.filter(p => p.shop === "midwood" || p.shop === "lakewood").every(p => p.price >= 40 && p.price <= 900)`));
     t.check("her own clothes are real pieces she owns from the start (top · skirt · tights · shoes, free)", await g(`["lulu_top", "lulu_skirt", "lulu_tights", "lulu_shoes"].every(id => ctx.clothes.owns(id) && ctx.clothes.pieces.find(p => p.id === id).price === 0)`));
     t.check("🛍️ Where to shop lists the clothing shops", await g(`ctx.shops.places().some(r => r.id === "clothes" && /Simcha/.test(r.where) && /Avenue J/.test(r.where))`));
 
