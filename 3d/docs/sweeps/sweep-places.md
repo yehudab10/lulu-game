@@ -31,6 +31,12 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    realtor, the counters) is shut while she's chased, but a shopfront walked her in. Now it says "Not with the police
    right behind her!" (and the doorway doesn't take her in). — fixed
 
+7. **East Midwood Lanes' front said COMING SOON** — the alley is open (walk in, bowl), but its Avenue M front still
+   had the "COMING SOON: EAST MIDWOOD LANES" sign and brown paper taped over the windows. Now its own sign, no paper
+   (`storefronts/assign.js` + `index.js` buildLook, when features/lanes is here). — fixed
+8. **Midwood's precinct answered the phone as "Precinct 18½"** (the highway precinct's name) — the line is generic now
+   (`interiors/police.js`). — fixed
+
 ## Left (owner's call / not a fix)
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
