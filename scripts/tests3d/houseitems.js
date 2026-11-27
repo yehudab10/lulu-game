@@ -46,7 +46,9 @@ module.exports = {
       await t.frames(4);
       await g(`(() => { const p = ctx.foot.pos; return ctx.foot.startChase({ x: p.x + 2, z: p.z + 1.5 }); })()`);
       await t.until(`!!__lulu3d.ctx.foot.debug.F.chase`, "a cop chasing her", 10000);
-      const r = await g(`(() => { const F = ctx.foot.debug.F; F.chase.p.obj.position.set(ctx.foot.pos.x + 2, 0, ctx.foot.pos.z + 1); return ${I}.use(); })()`);
+      const dbg = await g(`(() => { const F = ctx.foot.debug.F; F.chase.p.obj.position.set(ctx.foot.pos.x + 2, 0, ctx.foot.pos.z + 1); const o = F.chase.p.obj.position; return { me: [ctx.foot.pos.x, ctx.foot.pos.z], F: [F.pos.x, F.pos.z], cop: [o.x, o.z], same: ctx.foot.pos === F.pos, phase: ctx.foot.phase, st: ctx.state }; })()`);
+      console.log("   DBG bonk", JSON.stringify(dbg));
+      const r = await g(`${I}.use()`);
       t.check("BONK: the chasing cop stops (his hat spins)", r && r.verb === "BONK" && r.target === "cop" && await g(`ctx.foot.debug.F.chase.stunT > 0`), JSON.stringify(r));
       t.check("…the pan isn't used up", (await g(`${I}.hand`)) === "pan");
       await g(`(() => { const F = ctx.foot.debug.F; if (F.chase) { ctx.scene.remove(F.chase.p.obj); F.chase = null; } return true; })()`);
@@ -85,6 +87,7 @@ module.exports = {
       const h = await g(`ctx.homes.household(${K})`);
       await stand(h.ap.x + h.nx * 3, h.ap.z + h.nz * 3); await t.frames(4);
       const k0 = await g(`(ctx.homes.family(${K}) || {}).kept | 0`);
+      console.log("   DBG owner", JSON.stringify(await g(`(() => { const h = ctx.homes.household(${K}); return { h: h && [h.ap.x, h.ap.z, h.status], me: [ctx.foot.pos.x, ctx.foot.pos.z], bag: ${I}.bag, hand: ${I}.hand }; })()`)));
       const r = await g(`${I}.use()`);
       t.check("the pan in front of its own family's door → they notice (WEAR, and homes remembers)", r && r.verb === "WEAR" && (await g(`${I}.debug.R.log.some(e => e.ev === "owner")`)) && ((await g(`(ctx.homes.family(${K}) || {}).kept | 0`)) === k0 + 1), JSON.stringify(r));
       t.check("…on her head now", (await g(`${I}.debug.worn()`)) === "pan");
