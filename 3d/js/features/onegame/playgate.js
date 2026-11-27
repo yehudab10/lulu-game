@@ -8,11 +8,12 @@
 //
 //   ctx.playGate(start)    core/screens.js' ▶ PLAY calls it: start() now, or once the home start is ready
 import { ctx, on } from "../../core/ctx.js";
+import { addPlaySub } from "../../core/screens.js";
 import { models } from "../../models.js";
 import { home } from "../world/home.js";
 
 const NOGATE = typeof location !== "undefined" && new URLSearchParams(location.search).has("nogate");      // (perfstart.js A / B: main's old ▶ PLAY)
-const PG = { waiting: false, start: null, failed: false, pct: 0, lastPct: -1, lastMove: 0, raf: 0 };
+const PG = { msg: "", waiting: false, start: null, failed: false, pct: 0, lastPct: -1, lastMove: 0, raf: 0 };
 const STALL_MS = 60000;            // no progress for this long while waiting → treat it as failed (offline, a stuck fetch)
 
 /** The home town's id (where her house is), or null when home isn't in a town. */
@@ -36,17 +37,21 @@ function progress() {
     const m = needs.length ? got / needs.length : 1;
     return homeStartReady() ? 100 : Math.min(99, Math.round(m * 90 + (m >= 1 ? 5 : 0)));
 }
-function failed() { const S = ctx.town && ctx.town.debug && ctx.town.debug.S; return !!(S && S.failed); }
+/** The home town's models gave up (and nothing is trying again right now). */
+function failed() { const S = ctx.town && ctx.town.debug && ctx.town.debug.S, id = homeTown(); return !!(S && S.failed && id && !S.loads[id]); }
 
-function line(html) {
+/** The tile's sub-line: kept in PG.msg (the title redraws itself; addPlaySub puts it back) and written now. */
+function line(text) {
+    PG.msg = text;
     const sub = document.querySelector("#screenCard #play .t-s");
-    if (sub) sub.innerHTML = html;
+    if (sub) sub.textContent = text;
 }
+addPlaySub(() => (PG.msg && ctx.state === "title" ? PG.msg : ""), 1000);
 function stop(msg = null) {
     PG.waiting = false; PG.start = null;
     cancelAnimationFrame(PG.raf);
     document.body.classList.remove("play-wait");
-    if (msg != null) line(msg);
+    if (msg != null) line(msg); else PG.msg = "";
 }
 function tick() {
     if (!PG.waiting) return;
@@ -65,6 +70,7 @@ function tick() {
 }
 
 ctx.playGate = start => {
+    PG.msg = "";
     if (PG.waiting) { stop("Stopped. Tap ▶ PLAY when you're ready."); return; }          // (a second tap: stop waiting)
     if (NOGATE || !gateApplies() || homeStartReady()) { start(); return; }
     // (a retry after a failed download: ask the town again — its last load gave up)
