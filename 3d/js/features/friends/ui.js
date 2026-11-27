@@ -86,8 +86,10 @@ function home(el, api) {
     for (const f of off) html += row("frF_" + f.f, "💤", dot(f.sk) + esc(ST.labelOf(f)), "not playing right now", "", ` data-fv="${f.f}"`).replace("lp-row", "lp-row fr-off");
     // (the title has no 👯 tile any more — owner 2026-11-27: friends are an in-game thing; these were the title hub's)
     html += `<div class="ow-sec">Play together</div>`;
-    html += row("frHost", "📤", "Play with a friend", "Send a link. They'll show up next to you.", "", "", !live);
-    html += row("frPcode", "🔑", "Join with a code", "A friend's 4-letter code", "", "", !live);
+    // (playing together needs the party relay, not the friends list's crypto / the EVERYONE layer)
+    const canPlay = !!(ctx.party && ctx.party.allowed);
+    html += row("frHost", "📤", "Play with a friend", "Send a link. They'll show up next to you.", "", "", !canPlay);
+    html += row("frPcode", "🔑", "Join with a code", "A friend's 4-letter code", "", "", !canPlay);
     html += `<div class="ow-sec">Add a friend</div>`;
     const myName = ctx.player && ctx.player.name ? ctx.player.name() : null;
     if (SV.serverOn()) html += myName ? row("frAdd", "➕", "Add a friend by name", `Your name is ${esc(myName)}. Tell your friends!`)

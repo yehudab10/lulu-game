@@ -113,6 +113,8 @@ ctx.party = {
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
     get activity() { return N.A; },
+    /** Playing with a friend is possible here (online, the relay set) — the 📱 👯 rows' on/off. */
+    get allowed() { return NET.allowed(); },
     hostParty, hostRoam, joinParty, leave,
     /** Join by code; opts.with = the uid to land next to (features/friends' one-tap JOIN). */
     join: (code, opts) => { if (opts && typeof opts.with === "string" && /^[A-Za-z0-9_-]{1,24}$/.test(opts.with)) P.with = opts.with; return joinParty(code); }, openHub, openJoin: code => openJoin(code || ""),
