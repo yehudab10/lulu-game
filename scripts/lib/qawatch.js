@@ -192,7 +192,8 @@ const SRC = String.raw`
       const look = ctx.camera.getWorldDirection(Q._dir || (Q._dir = camP.clone()));
       if (f % Q.opts.flatEvery === 0 && !cov.length && !soft && look.y > -0.55) {      // (looking straight down at a lot / a lawn is flat on purpose)
         const fl = flatFrame();
-        if (fl && fl.sd < Q.opts.flatStd) flag("flat", "the picture is one flat colour (mean " + fl.m + ", sd " + fl.sd + ") cam " + JSON.stringify(P(camP)), "flat");
+        if (fl && fl.sd < Q.opts.flatStd) flag("flat", "the picture is one flat colour (mean " + fl.m + ", sd " + fl.sd + ") cam " + JSON.stringify(P(camP)) + " look " + JSON.stringify([+look.x.toFixed(2), +look.y.toFixed(2), +look.z.toFixed(2)]) +
+          " (paused " + !!ctx.paused + ", body." + [...document.body.classList].filter(c => /open|paused|view|card/.test(c)).join(".") + ", screen " + !!(L3.H && L3.H.screenOpen && L3.H.screenOpen()) + ", foot " + (F ? F.phase : "-") + ", cam mode " + (ctx.cam && ctx.cam.mode) + (foot ? ", Lulu " + JSON.stringify(P(foot)) : "") + ")", "flat");
       }
     }
     // Lulu / the car hidden while she has control
