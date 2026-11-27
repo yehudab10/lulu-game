@@ -19,21 +19,26 @@ addApp({
     visible: () => ONEGAME.story && !!(ctx.journey && ctx.journey.openMap) && !partyOn(),
     open: () => ctx.journey.openMap({ from: "phone" }),
 });
+/** Other features' cards on the 🗺️ Map, under the ring (add a card, not an app): { id, html() → string, bind(el, api) }
+ *  — features/realestate's 🔑 her homes (tap one → 🏠 Go there). */
+export const MAP_EXTRAS = [];
 // 🗺️ 🌍 ONE WORLD (ci/onemap stage 3): the one map of the whole world — the 16 km loop with every place once, you are
 // here, and how far on each place is (the road only goes one way)
 addApp({
     id: "lapmap", icon: "🗺️", name: "Map", order: 10, color: "#26A69A", color2: "#00695C",
     visible: () => lapWorld() && !partyOn() && !ONEGAME.story,
-    render(el) {
+    render(el, api) {
         const me = myLapM(), list = lapPlaces().filter(p => p.kind !== "gas" && p.kind !== "lookout").map(p => ({ p, d: ahead(p.m, me) })).sort((a, b) => a.d - b.d);
         const inTown = ctx.town && ctx.town.active ? ctx.town.def && ctx.town.def.name : "";
         el.innerHTML = `<div class="lp-card" style="padding:0;overflow:hidden;border-radius:16px"><canvas class="lp-lapmap" width="600" height="420" style="display:block;width:100%;height:auto"></canvas></div>
             ${inTown ? `<p class="lp-note">📍 You're in ${esc(inTown)}.</p>` : ""}
+            ${MAP_EXTRAS.map(x => { try { return x.html() || ""; } catch (e) { console.error("[phone] map extra", x.id, e); return ""; } }).join("")}
             ${list.map(({ p, d }) => `<div class="lp-row"><span class="lp-av">${p.emoji}</span><span class="lp-tx"><b>${esc(p.name)}</b><small>${d < 160 ? "right here" : "up the road"}</small></span><span class="lp-meta">${d < 160 ? "NOW" : lapMiles(d)}</span></div>`).join("")}
             <p class="lp-fine">One loop, every place once — keep driving and you're back where you started.</p>`;
         const cv = el.querySelector("canvas"), w = Math.max(200, cv.clientWidth || 300), dpr = Math.min(2.5, Math.max(1.5, window.devicePixelRatio || 1));
         cv.width = Math.round(w * dpr); cv.height = Math.round(w * 0.82 * dpr); cv.__u = dpr;
         drawLap(cv, { me: { m: me } });
+        for (const x of MAP_EXTRAS) { try { if (x.bind) x.bind(el, api); } catch (e) { console.error("[phone] map extra", x.id, e); } }
     },
 });
 

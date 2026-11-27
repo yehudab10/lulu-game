@@ -3,12 +3,11 @@
 // 2D: stray cones every 2.5–5 s (a hit costs a heart), puddles every 4–8 s
 // (a splash slows you for 0.7 s), and the construction zone: a cone gauntlet,
 // hard-hatted road workers (who catcall now and then), and steamrollers.
-// 3D: cones are instanced and go flying (they only cost a heart above ~30 mph),
+// 3D: cones are instanced and go flying (a bonk + a little speed lost — they never cost a heart),
 // puddles splash, potholes jolt, and a work zone closes a lane with a cone taper,
 // a flashing arrow board, barricades and workers — switching sides so you weave.
 import * as THREE from "three";
 import { ctx, addActor } from "../../core/ctx.js";
-import { damage } from "../../core/driving.js";
 import { instanced } from "../../models.js";
 import { rumble } from "../../input.js";
 import * as H from "../../hud.js";
@@ -83,14 +82,11 @@ function hitCone(c) {
     count("cones");
     stat("cones", 1);
     if (ctx.roadevents && ctx.roadevents.vehicle === "steamroller") { sfx.thud(); return; }
+    // (the owner, 2026-11-27: "Cones shouldn't be taking lives" — a cone is a bonk at any speed: it flies, she loses a
+    //  little speed, and that's all. No heart, no pop-up.)
     rumble(0.4, 0.4, 120, true);
-    if (car.speed > 14 && ctx.G.invT <= 0 && ctx.state === "playing") {
-        damage(0.45, pick(["CONED! 🚧", "That cone came outta NOWHERE!", "Orange is NOT your color, Lulu"]), "cone");
-    } else {
-        sfx.thud();
-        car.vx *= 0.94; car.vz *= 0.94;
-        if (Math.random() < 0.3) H.toast("🚧 Bonk!", "");
-    }
+    sfx.thud();
+    car.vx *= 0.94; car.vz *= 0.94;
 }
 export function clearCones() { cones.length = 0; if (pool) for (const im of pool.group.children) im.count = 0; }
 
