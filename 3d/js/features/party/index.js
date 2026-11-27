@@ -1033,7 +1033,7 @@ function bonks(dt) {
             car.applyImpulse(nx * 2.6, nz * 2.6, side * 0.35);
             rc.bonkCd = 0.7;
             P.bonks++;
-            H.toast("BONK!", "gold");
+            // (no toast: the bounce, the sparks and the sound are the feedback — a pop-up per bump flooded calm's budget)
             const cx = car.pos.x - nx * 1.0, cz = car.pos.z - nz * 1.0;
             car.fx.burst(cx, 1.0, cz, 16, 4.5, [1, 0.94, 0.46], 0.38, 0.5);
             tone(150, 0.12, "square", 0.22, 90);

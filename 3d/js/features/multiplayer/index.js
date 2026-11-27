@@ -175,7 +175,7 @@ hook("update", (dt, P, controlsOn) => {
             const dir = dd <= 0 ? 1 : -1;            // shove AWAY from the ghost (sideways)
             car.applyImpulse(rx * dir * 4.2, rz * dir * 4.2, dir * 0.35);
             p.bonkCd = 0.6;
-            H.toast("BONK!", "gold");
+            // (no toast: the bounce, the sparks and the sound are the feedback — a pop-up per bump flooded calm's budget)
             const cx = car.pos.x - rx * dir * 1.1, cz = car.pos.z - rz * dir * 1.1;
             car.fx.burst(cx, 1.0, cz, 14, 4, [1, 0.94, 0.46], 0.35, 0.45);
             tone(150, 0.12, "square", 0.22, 90);
