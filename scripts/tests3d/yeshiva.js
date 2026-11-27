@@ -71,6 +71,7 @@ module.exports = {
     const kinds = { weekday: `ctx.seasons.debug.season("none")`, friday: `ctx.seasons.debug.season("friday")`, shabbos: `ctx.seasons.debug.season("shabbos")`, fast: `ctx.seasons.debug.season("tzomGedaliah")`, purim: `ctx.seasons.debug.season("purim")`, simchas: `ctx.seasons.debug.season("simchasTorah")` };
 
     const P = this.part || 1;
+    const ONLY = (process.env.YESHIVA_ONLY || "").split(",").filter(Boolean), want = n => !ONLY.length || ONLY.includes(n);      // (a quicker loop while working on one step)
     // ════ 0. data, wiring, the words ════
     if (P === 1) {
     t.check("ctx.yeshiva + the interior exist", await g(`!!(ctx.yeshiva && ctx.yeshiva.enter && ctx.interiors.yeshiva)`));
@@ -179,6 +180,7 @@ module.exports = {
 
     // ════ 3. the people, every ✋ line, the parody shiur on its hours ════
     for (const kind of P === 1 ? ["weekday", "shiur", "friday"] : ["shabbos", "fast", "purim"]) {
+      if (!want(kind)) continue;
       await step(`kind ${kind}`, async () => {
         if (!await town("lakewood")) return;
         const seasons = kind === "shiur" ? "weekday" : kind;
@@ -231,7 +233,7 @@ module.exports = {
     }
 
     // ════ 4. the shiur's hours (the clock) ════
-    if (P === 2) await step("hours", async () => {
+    if (P === 2 && want("hours")) await step("hours", async () => {
       const is = async (h, season) => { await g(`(${kinds[season]}, ctx.yeshiva.debug.force.kind = null, ctx.yeshiva.debug.force.hour = ${h}, true)`); return g(`ctx.yeshiva.plan().shiur`); };
       t.check("a weekday 10:30 → the shiur is on", await is(10.5, "weekday"));
       t.check("a weekday 3:30 pm → the shiur is on", await is(15.5, "weekday"));
@@ -242,7 +244,7 @@ module.exports = {
     });
 
     // ════ 5. the errand (a forgotten lunch), the black hat ════
-    if (P === 2) await step("errand + hat", async () => {
+    if (P === 2 && want("errand")) await step("errand + hat", async () => {
       if (!await town("lakewood")) return;
       await g(`(${kinds.weekday}, ctx.yeshiva.debug.force.hour = 13, ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.05, ctx.yeshiva.debug.SAVE.lunch = "", ctx.yeshiva.debug.SAVE.lunchDay = "", true)`);
       await onFootAt(1.2);
@@ -251,7 +253,7 @@ module.exports = {
       const c0 = await coins();
       await g(`(() => { const n = ctx.yeshiva.debug.ST.npcs.find(n => n.id === "weiss"); ctx.foot.debug.F.pos.set(n.x + 1.2, 0.05, n.z); return true; })()`);
       await t.frames(4);
-      await g(`ctx.yeshiva.debug.talk(ctx.yeshiva.debug.ST.npcs.find(n => n.id === "weiss"))`);
+      await g(`(ctx.yeshiva.debug.talk(ctx.yeshiva.debug.ST.npcs.find(n => n.id === "weiss")), true)`);
       await tapThrough(10); await t.frames(10);
       t.check("she takes the lunch (row nine)", await g(`!!ctx.yeshiva.debug.SAVE.lunch`));
       t.check("…and Mrs. Weiss is gone for the day", await g(`!ctx.yeshiva.debug.ST.npcs.some(n => n.id === "weiss")`));
@@ -273,7 +275,7 @@ module.exports = {
     });
 
     // ════ 6. L.S.D.: the staring, the contest, the badge ════
-    if (P === 2) await step("L.S.D.", async () => {
+    if (P === 2 && want("LSD")) await step("L.S.D.", async () => {
       if (!await town("lakewood")) return;
       await onFootAt(3);
       const n0 = await g(`ctx.town.people().length`);
@@ -296,7 +298,7 @@ module.exports = {
     });
 
     // ════ 7. the OTD guys (dusk / night, some evenings) ════
-    if (P === 2) await step("OTD", async () => {
+    if (P === 2 && want("OTD")) await step("OTD", async () => {
       if (!await town("lakewood")) return;
       await onFootAt(3);
       await g(`(ctx.yeshiva.debug.force.always = true, ctx.yeshiva.debug.force.night = 0.9, ctx.yeshiva.debug.ST.npcs.length = 0, true)`);
@@ -306,7 +308,7 @@ module.exports = {
       for (const id of ["sammy", "yitzy", "mo"]) {
         await g(`(() => { const n = ctx.yeshiva.debug.ST.npcs.find(n => n.id === ${JSON.stringify(id)}); ctx.foot.debug.F.pos.set(n.x + 1.1, 0.05, n.z); return true; })()`);
         await t.frames(4);
-        for (let i = 0; i < 2; i++) { await g(`ctx.yeshiva.debug.talk(ctx.yeshiva.debug.ST.npcs.find(n => n.id === ${JSON.stringify(id)}))`); await tapThrough(8); await t.frames(6); }
+        for (let i = 0; i < 2; i++) { await g(`(ctx.yeshiva.debug.talk(ctx.yeshiva.debug.ST.npcs.find(n => n.id === ${JSON.stringify(id)})), true)`); await tapThrough(8); await t.frames(6); }
       }
       t.check(`they just talk — nothing pays (coins ${c0} → ${await coins()})`, await coins() === c0);
       const lines = await g(`Object.values((await import("./js/features/yeshiva/data.js")).OTD).flatMap(o => o.lines)`);
@@ -318,7 +320,7 @@ module.exports = {
     });
 
     // ════ 8. phone portrait / landscape + TV ════
-    if (P === 2) await step("layouts", async () => {
+    if (P === 2 && want("layouts")) await step("layouts", async () => {
       if (!await town("lakewood")) return;
       await g(`(${kinds.weekday}, ctx.yeshiva.debug.force.hour = 13, true)`);
       if (!await walkIn()) return;
