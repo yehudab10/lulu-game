@@ -56,7 +56,8 @@ module.exports = {
       };
       tick();
       // cards / toasts / texts that turn up while an activity is on
-      new MutationObserver(ms => { if (!S.on || !(ctx.engaged && ctx.engaged())) return; for (const m of ms) for (const n of m.addedNodes) {
+      // (only while she has control: a WRECKED! / an arrest card is the result of the activity, not a pop-up over it)
+      new MutationObserver(ms => { if (!S.on || !(ctx.engaged && ctx.engaged()) || !ctl()) return; for (const m of ms) for (const n of m.addedNodes) {
         if (n.nodeType !== 1 || n.matches(SKIP)) continue; const cls = (n.className && typeof n.className === "string") ? n.className : "";
         if (!/toast|jtext|card|banner|bubble|chip/i.test(cls + " " + (n.id || ""))) continue;
         // (shown 10 frames on, not folded into the objective line's badges — a chip the line folds isn't a pop-up)
