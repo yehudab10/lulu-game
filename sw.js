@@ -3,19 +3,25 @@
 //   • pages, code, styles, data (html / js / css / json / webmanifest): NETWORK FIRST — the newest version whenever
 //     the network answers; the kept copy only when offline. Nobody can be stuck on an old version of the game.
 //   • big files that don't change between versions (.glb models, three.js under vendor/, audio, images): CACHE FIRST,
-//     kept as they're fetched (never a big download up front). A kept copy older than a day is checked again in the
-//     background (a cheap "not modified" usually), so a regenerated model arrives on the NEXT start.
+//     kept as they're fetched (never a big download up front: the first start's own downloads are kept afterwards,
+//     mostly straight from the browser's cache). A kept copy older than a day is checked again in the background.
+//   • the models' version key, /sw.json "assets" (scripts/sw-version.js): read at every start, beside the page
+//     itself; when it changed, the kept big files are dropped before the game asks for them — a regenerated model is
+//     picked up on the next start.
 //   • a size cap (MAX_BYTES): the oldest big files go first.
 //   • other sites (fonts, the multiplayer relay) and anything that isn't a GET: untouched.
 // A new sw.js waits for the next start (no skipWaiting: never a swap mid-play).
-// KILL SWITCH (no app release needed): set "off": true in /sw.json — the game unregisters the worker and drops its
-// caches at its next start; or ship a sw.js whose body is just `self.registration.unregister()`. Players: ?sw=off.
+// KILL SWITCH (no app release needed): set "off": true in /sw.json — at the next start the worker removes itself and
+// its caches (and the game unregisters it too); or ship a sw.js whose body is just `self.registration.unregister()`.
+// Players: ?sw=off.
 const VERSION = "lulu-sw-1";
-const PAGES = `${VERSION}-pages`, BIG = `${VERSION}-big`;
+const PAGES = `${VERSION}-pages`, BIG = `${VERSION}-big`, META = `${VERSION}-meta`;
 const MAX_BYTES = 300 * 1024 * 1024;
 const RECHECK_MS = 24 * 3600 * 1000;
+const FLAGS_WAIT_MS = 2500;            // the start waits at most this long for /sw.json (offline: no wait at all)
 const BIG_RE = /\.(glb|mp3|ogg|wav|m4a|png|jpg|jpeg|webp|gif)$|\/vendor\//i;
 const PAGE_RE = /(\/|\.html|\.js|\.mjs|\.css|\.json|\.webmanifest)$/i;
+const ROOT = new URL("./", self.location).pathname;
 
 self.addEventListener("install", () => { /* nothing up front: files are kept as the game fetches them */ });
 self.addEventListener("activate", e => {
@@ -34,8 +40,45 @@ self.addEventListener("fetch", e => {
     if (url.searchParams.has("sw") || url.pathname.endsWith("/sw.json") || url.pathname.endsWith("/sw.js")) return;
     if (req.headers.get("range")) return;                       // (audio seeking: let the browser do it)
     if (BIG_RE.test(url.pathname)) e.respondWith(bigFile(e, req));
-    else if (req.mode === "navigate" || PAGE_RE.test(url.pathname)) e.respondWith(networkFirst(req));
+    else if (req.mode === "navigate") e.respondWith(start(e, req));
+    else if (PAGE_RE.test(url.pathname)) e.respondWith(networkFirst(req));
 });
+
+/** A start (a page load): the page, network first — and, beside it, the flags. */
+async function start(e, req) {
+    const flags = readFlags();
+    const res = await networkFirst(req);
+    const f = await Promise.race([flags, new Promise(r => setTimeout(r, FLAGS_WAIT_MS, null))]);
+    if (f && f.off) e.waitUntil(removeSelf());
+    return res;
+}
+let flagsAt = 0, flagsP = null;
+function readFlags() {
+    if (flagsP && Date.now() - flagsAt < 30000) return flagsP;
+    flagsAt = Date.now();
+    return flagsP = (async () => {
+        try {
+            const r = await fetch(ROOT + "sw.json", { cache: "no-store" });
+            if (!r.ok) return null;
+            const f = await r.json();
+            if (f && f.assets) await applyAssets(String(f.assets));
+            return f;
+        } catch (err) { return null; }                          // offline: keep everything
+    })();
+}
+/** The models' version key changed → drop the kept big files (they come again as the game asks for them). */
+async function applyAssets(v) {
+    const meta = await caches.open(META), key = new Request(ROOT + "__lulu-assets-version");
+    const had = await meta.match(key), was = had ? await had.text() : null;
+    if (was === v) return false;
+    if (was != null) await caches.delete(BIG);
+    await meta.put(key, new Response(v));
+    return was != null;
+}
+async function removeSelf() {
+    for (const k of await caches.keys()) if (k.startsWith("lulu-sw-")) await caches.delete(k);
+    await self.registration.unregister();
+}
 
 async function networkFirst(req) {
     const cache = await caches.open(PAGES);
@@ -51,6 +94,7 @@ async function networkFirst(req) {
 }
 
 const stamp = res => +(res.headers.get("x-lulu-kept") || 0);
+let puts = 0;
 async function keep(cache, req, res) {
     if (!res.ok || res.type !== "basic") return res;
     const body = await res.clone().blob();
@@ -61,8 +105,8 @@ async function keep(cache, req, res) {
     if (++puts % 25 === 0) trim().catch(() => { });
     return res;
 }
-let puts = 0;
 async function bigFile(e, req) {
+    if (flagsP) await Promise.race([flagsP, new Promise(r => setTimeout(r, FLAGS_WAIT_MS))]);     // (a start's version check first)
     const cache = await caches.open(BIG);
     const hit = await cache.match(req, { ignoreSearch: true });
     if (hit) {
@@ -83,18 +127,21 @@ async function trim() {
     list.sort((a, b) => a[0] - b[0]);
     for (const [, n, k] of list) { if (total <= MAX_BYTES * 0.9) break; await cache.delete(k); total -= n; }
 }
-// the models' version key (sw.json "assets", passed in by the game at each start): when it changes, the kept big
-// files are dropped (they come again as the game asks for them) — a regenerated model is never kept past a new version
+// the game, right after the worker first starts: "keep these" — the big files this start already downloaded before
+// the worker was there (mostly straight from the browser's own cache: no second download)
 self.addEventListener("message", e => {
     const d = e.data || {};
-    if (d === "trim") { trim().catch(() => { }); return; }
-    if (d.assets != null) e.waitUntil((async () => {
-        const meta = await caches.open(`${VERSION}-meta`), key = new Request("/__lulu-assets-version");
-        const had = await meta.match(key), was = had ? await had.text() : null;
-        if (was !== String(d.assets)) {
-            if (was != null) await caches.delete(BIG);
-            await meta.put(key, new Response(String(d.assets)));
+    if (Array.isArray(d.keep)) e.waitUntil((async () => {
+        await readFlags();
+        const cache = await caches.open(BIG);
+        let kept = 0;
+        for (const u of d.keep.slice(0, 400)) {
+            const url = new URL(u, self.location);
+            if (url.origin !== self.location.origin || !BIG_RE.test(url.pathname)) continue;
+            if (await cache.match(url.href, { ignoreSearch: true })) continue;
+            try { const r = await fetch(url.href); if (r.ok) { await keep(cache, new Request(url.href), r); kept++; } } catch (err) { /* offline */ }
         }
-        if (e.source) e.source.postMessage({ assetsApplied: String(d.assets), dropped: was != null && was !== String(d.assets) });
+        if (e.source) e.source.postMessage({ kept });
     })());
+    else if (d === "trim") trim().catch(() => { });
 });

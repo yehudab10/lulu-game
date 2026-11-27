@@ -8,7 +8,8 @@
 //     `beforeinstallprompt`), hidden once installed (display-mode standalone), in the iOS app and on browsers that
 //     can't. No pop-up, no nag, no title tile — the browser's own little install bar is held back too.
 //   • installed on a computer: ⚙️ › "⛶ Go full screen" / "Leave full screen".
-//   ctx.install.info() → { sw, registered, canInstall, installed, native } (tests)
+// performance's resource list is capped (250 by default): raised here so the first start's models are all in it.
+//   ctx.install.info() → { sw, registered, killed, kept, canInstall, installed, native } (tests)
 import { ctx, on, addMenuItem } from "../../core/ctx.js";
 
 const QS = new URLSearchParams(location.search);
@@ -16,7 +17,9 @@ const NATIVE = location.protocol === "capacitor:" || !!(window.Capacitor && type
 const SECURE = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
 const SW_OK = !NATIVE && SECURE && "serviceWorker" in navigator;
 const COARSE = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-const I = { prompt: null, installed: false, registered: false, killed: false, started: false };
+const I = { prompt: null, installed: false, registered: false, killed: false, started: false, kept: null };
+
+try { if (SW_OK && performance.setResourceTimingBufferSize) performance.setResourceTimingBufferSize(2000); } catch (e) { /* fine */ }
 
 const standalone = () => typeof matchMedia === "function" && (matchMedia("(display-mode: standalone)").matches
     || matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: minimal-ui)").matches) || navigator.standalone === true;
@@ -37,21 +40,22 @@ async function startWorker() {
     I.started = true;
     if (QS.get("sw") === "off") { await removeWorker(); return; }
     // the kill switch: a tiny flag file, always asked of the network
-    let flags = null;
     try {
         const r = await fetch("../sw.json?sw=check", { cache: "no-store" });
-        if (r.ok) flags = await r.json();
-        if (flags && flags.off) { await removeWorker(); return; }
+        if (r.ok && (await r.json()).off) { await removeWorker(); return; }
     } catch (e) { /* offline: keep whatever is there */ }
     try {
-        const reg = await navigator.serviceWorker.register("../sw.js", { scope: "../" });
+        const first = !navigator.serviceWorker.controller;
+        await navigator.serviceWorker.register("../sw.js", { scope: "../" });
         I.registered = true;
-        // the models' version key: a changed one makes the worker drop its kept models (they come again, new)
-        if (flags && flags.assets) {
-            const w = reg.active || reg.waiting || reg.installing;
-            const send = sw => { try { sw.postMessage({ assets: flags.assets }); } catch (e) { /* gone */ } };
-            if (reg.active) send(reg.active);
-            else if (w) w.addEventListener("statechange", () => { if (w.state === "activated") send(w); });
+        // the worker's very first start: hand it the big files this start already downloaded (it keeps them, mostly
+        // from the browser's own cache — so the NEXT start is the fast one)
+        if (first) {
+            const reg = await navigator.serviceWorker.ready;
+            const keep = performance.getEntriesByType("resource").map(r => r.name)
+                .filter(u => u.startsWith(location.origin) && /\.(glb|mp3|ogg|png|jpg|webp)$|\/vendor\//i.test(new URL(u).pathname));
+            navigator.serviceWorker.addEventListener("message", m => { if (m.data && m.data.kept != null) I.kept = m.data.kept; });
+            if (reg.active && keep.length) reg.active.postMessage({ keep });
         }
     } catch (e) { console.warn("[install] service worker", e); }
 }
@@ -84,4 +88,4 @@ addMenuItem("settings", {
     },
 });
 
-ctx.install = { info: () => ({ sw: SW_OK, registered: I.registered, killed: I.killed, canInstall: !!I.prompt && !I.installed && !standalone(), installed: I.installed || standalone(), native: NATIVE }) };
+ctx.install = { info: () => ({ sw: SW_OK, registered: I.registered, killed: I.killed, kept: I.kept, canInstall: !!I.prompt && !I.installed && !standalone(), installed: I.installed || standalone(), native: NATIVE }) };
