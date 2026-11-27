@@ -28,9 +28,9 @@ import { spawnPerson } from "../../core/people.js";
 import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { CAP, PITCH, PATTER, OFFICE, SIGNING, SOLD, MINE, PASS_SIGN, VIEWING, BASE } from "./data.js";
-import { registry, S } from "./registry.js";
+import { registry, S, NAMES, plateName } from "./registry.js";
 import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT, isStarter, starters } from "./market.js";
-import { layout, counts, clear as clearSigns } from "./signs.js";
+import { layout, counts, clear as clearSigns, G as SIGNS, plateTexNow } from "./signs.js";
 import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
 import { bindHouse, nameHouse, CUR, HOUSE_DEF } from "./house.js";
 import { finalize, log } from "./deal.js";
@@ -567,6 +567,12 @@ ctx.realestate = {
     goTo: id => GOTO.goHome(id),
     /** Why she can't go to home `id` right now ("" = she can). */
     goBlock: (id, o) => GOTO.goBlock(id, o),
+    /** d3 (ci/accounts): usernames from the server's names endpoint — { mine() → name|null, of(houseId, label) → name|null }. */
+    useNames(fns) {
+        Object.assign(NAMES, fns || {});
+        const P = SIGNS.tex.plate; if (P) { delete SIGNS.tex.plate; if (SIGNS.mats.plate) { SIGNS.mats.plate.map = plateTexNow(); SIGNS.mats.plate.needsUpdate = true; } P.dispose(); }
+        refresh();
+    },
     ownerOf: id => registry.ownerOf(id),
     count: () => registry.count(),
     cap: CAP,
@@ -596,7 +602,7 @@ ctx.realestate = {
     rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, RN, PP, friendDecor, yardCount, SV: SVR.SV, SVR, CLOCK, starters, moveOutStep, VISIT, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
+    debug: { W, S, MG, RN, PP, friendDecor, yardCount, plateName, SV: SVR.SV, SVR, CLOCK, starters, moveOutStep, VISIT, GO: GOTO.GO, startAtFor: GOTO.startAtFor, partyTick, refundLost, verdict, openCases,
         /** Buy a listed home for cash right now, no dialogue (tests). */
         buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; },
         /** The same through the world-wide registry first (tests). → a promise of { ok, why } */

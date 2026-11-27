@@ -20,7 +20,7 @@
 import { ctx, on, emit } from "../../core/ctx.js";
 import { saveSoon } from "../../core/save.js";
 import { MP_URL } from "../multiplayer/net.js";
-import { registry, S } from "./registry.js";
+import { registry, S, ownerName } from "./registry.js";
 
 const QS = new URLSearchParams(location.search);
 export const SV = { on: false, base: "", cfg: null, town: null, list: new Map(), label: null, probeAt: -1e9, pollAt: -1e9, helloAt: -1e9, busy: false, q: [], qAt: 0, log: [] };
@@ -176,9 +176,9 @@ registry.addSource({
         const x = SV.on && SV.list.get(id);
         if (!x || x.mine || registry.mine(id)) return null;
         const show = !(ctx.mp && ctx.mp.online === false) && !(ctx.accounts && ctx.accounts.hideNames);   // (⚙️ other players' names off → "a neighbour")
-        return { name: x.z ? "the Town Council" : show && x.l ? x.l : "a neighbour", server: true, seized: !!x.z };
+        return { name: x.z ? "the Town Council" : show && x.l ? ownerName(id, x.l) : "a neighbour", server: true, seized: !!x.z };
     },
-    list() { return SV.on ? [...SV.list.entries()].filter(([id, x]) => !x.mine && !registry.mine(id)).map(([id, x]) => ({ id, name: x.z ? "the Town Council" : x.l, seized: !!x.z, hex: x.z ? "#455A64" : "#90A4AE" })) : []; },
+    list() { return SV.on ? [...SV.list.entries()].filter(([id, x]) => !x.mine && !registry.mine(id)).map(([id, x]) => ({ id, name: x.z ? "the Town Council" : ownerName(id, x.l), seized: !!x.z, hex: x.z ? "#455A64" : "#90A4AE" })) : []; },
 });
 // her side: a home she got → claim it if it isn't yet; a home she let go → release it
 registry.onChange(ev => {

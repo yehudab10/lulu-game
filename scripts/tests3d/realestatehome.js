@@ -39,5 +39,8 @@ module.exports = {
     const sold = await g(`(() => { const r = ctx.realestate.sell(${JSON.stringify(rec.id)}); return !!(r && (r.ok || r.net)); })()`);
     t.check("she sells the house…", sold && !(await g(`ctx.realestate.owns(${JSON.stringify(rec.id)})`)));
     t.check("…and her days start at Ima's again", !(await g(`ctx.home.startAt`)));
+    // d3's hook (ci/accounts fills it): her username on the mailbox plate, an owner's username on "taken" lines; LULU ♥ by default
+    const nm = await g(`(() => { const T = ctx.realestate.debug && ctx.realestate.debug.plateName; const before = T ? T() : null; ctx.realestate.useNames({ mine: () => "shaindy22", of: (id, l) => "user:" + l }); const after = T ? T() : null; ctx.realestate.useNames({ mine: () => null, of: () => null }); return { before, after, back: T ? T() : null }; })()`);
+    t.check("d3 hook: the mailbox says LULU ♥ until a username comes, then the username", nm.before === "LULU ♥" && nm.after === "shaindy22" && nm.back === "LULU ♥", JSON.stringify(nm));
   },
 };
