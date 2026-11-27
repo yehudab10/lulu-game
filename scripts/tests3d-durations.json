@@ -1,0 +1,309 @@
+{
+ "about": "Seconds per 3D test file on one GitHub machine: slow = the old clock, fast = the fast test clock. Read by scripts/affected.js + the full-suite workflow's packing; refreshed with `node scripts/durations.js <run id>`.",
+ "updated": "2026-11-27",
+ "files": {
+  "accounts": {
+   "slow": 295
+  },
+  "accountsfriends": {
+   "slow": 337
+  },
+  "airport": {
+   "slow": 2703
+  },
+  "airport-stage3": {
+   "slow": 554
+  },
+  "airport-terminal": {
+   "slow": 2396
+  },
+  "bankfriends": {
+   "slow": 436
+  },
+  "banter": {
+   "slow": 181
+  },
+  "calls": {
+   "slow": 1826
+  },
+  "calm": {
+   "slow": 3135
+  },
+  "cameos": {
+   "slow": 1327
+  },
+  "cameras": {
+   "slow": 122
+  },
+  "cityhall": {
+   "slow": 656
+  },
+  "cityhall2": {
+   "slow": 59
+  },
+  "cityhall3": {
+   "slow": 357
+  },
+  "cityhall4": {
+   "slow": 56
+  },
+  "clothes": {
+   "slow": 243
+  },
+  "clothesjfk": {
+   "slow": 85
+  },
+  "community": {
+   "slow": 2992
+  },
+  "crime": {
+   "slow": 451
+  },
+  "crime2": {
+   "slow": 252
+  },
+  "day": {
+   "slow": 112
+  },
+  "dealers": {
+   "slow": 675
+  },
+  "decor": {
+   "slow": 102
+  },
+  "dina": {
+   "slow": 271
+  },
+  "exits": {
+   "slow": 2777
+  },
+  "family": {
+   "slow": 771
+  },
+  "foot": {
+   "slow": 535
+  },
+  "footbounds": {
+   "slow": 507
+  },
+  "friendsjobs": {
+   "slow": 246
+  },
+  "garage": {
+   "slow": 70
+  },
+  "heist": {
+   "slow": 1621
+  },
+  "home": {
+   "slow": 369
+  },
+  "homelife": {
+   "slow": 964
+  },
+  "homelife2": {
+   "slow": 281
+  },
+  "homes": {
+   "slow": 445
+  },
+  "hudfit": {
+   "slow": 404
+  },
+  "hudworst": {
+   "slow": 127
+  },
+  "hustle": {
+   "slow": 529
+  },
+  "impound": {
+   "slow": 378
+  },
+  "interiors": {
+   "slow": 570
+  },
+  "law": {
+   "slow": 1032
+  },
+  "lawstruck": {
+   "slow": 40
+  },
+  "memory": {
+   "slow": 394
+  },
+  "meta": {
+   "slow": 236
+  },
+  "midwood": {
+   "slow": 1949
+  },
+  "moveout": {
+   "slow": 152
+  },
+  "moves": {
+   "slow": 192
+  },
+  "mpworld": {
+   "slow": 630
+  },
+  "multiplayer": {
+   "slow": 126
+  },
+  "music": {
+   "slow": 33
+  },
+  "netping": {
+   "slow": 24
+  },
+  "nocalls": {
+   "slow": 630
+  },
+  "oneact": {
+   "slow": 63
+  },
+  "openworld": {
+   "slow": 469
+  },
+  "parking": {
+   "slow": 689
+  },
+  "partners": {
+   "slow": 1007
+  },
+  "partners2": {
+   "slow": 698
+  },
+  "partners3": {
+   "slow": 1112
+  },
+  "party": {
+   "slow": 376
+  },
+  "partyfoot": {
+   "slow": 468
+  },
+  "partyhang": {
+   "slow": 458
+  },
+  "partyheist": {
+   "slow": 242
+  },
+  "partyplus": {
+   "slow": 355
+  },
+  "partyworld": {
+   "slow": 385
+  },
+  "perf": {
+   "slow": 973
+  },
+  "phone": {
+   "slow": 349
+  },
+  "pins": {
+   "slow": 43
+  },
+  "places": {
+   "slow": 2033
+  },
+  "play": {
+   "slow": 201
+  },
+  "qa15": {
+   "slow": 1022
+  },
+  "qa16": {
+   "slow": 85
+  },
+  "qa17": {
+   "slow": 656
+  },
+  "qa20": {
+   "slow": 190
+  },
+  "qa21": {
+   "slow": 4
+  },
+  "qa22": {
+   "slow": 132
+  },
+  "qa23": {
+   "slow": 400
+  },
+  "qa24": {
+   "slow": 28
+  },
+  "qafoot": {
+   "slow": 53
+  },
+  "qafriends": {
+   "slow": 782
+  },
+  "qafriends2": {
+   "slow": 437
+  },
+  "qalaw": {
+   "slow": 157
+  },
+  "qaplaces": {
+   "slow": 338
+  },
+  "qaweekend": {
+   "slow": 715
+  },
+  "realestate": {
+   "slow": 642
+  },
+  "realestatefriends": {
+   "slow": 288
+  },
+  "realestateworld": {
+   "slow": 245
+  },
+  "realestateyard": {
+   "slow": 82
+  },
+  "rides": {
+   "slow": 167
+  },
+  "roadevents": {
+   "slow": 330
+  },
+  "roadside": {
+   "slow": 396
+  },
+  "seasons": {
+   "slow": 540
+  },
+  "shops": {
+   "slow": 864
+  },
+  "shul": {
+   "slow": 577
+  },
+  "skip": {
+   "slow": 79
+  },
+  "streets": {
+   "slow": 354
+  },
+  "together": {
+   "slow": 876
+  },
+  "town": {
+   "slow": 2102
+  },
+  "underworld": {
+   "slow": 625
+  },
+  "unstuck": {
+   "slow": 3590
+  },
+  "unstuck2": {
+   "slow": 160
+  },
+  "world": {
+   "slow": 492
+  }
+ }
+}

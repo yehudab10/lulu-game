@@ -24,8 +24,21 @@ catch (e) {
 }
 
 const ROOT = path.resolve(__dirname, "..");
+const { installVirtualClock } = require("./lib/vclock.js");
+const FW = require("./lib/fastwait.js");
 const TESTS = path.join(__dirname, "tests3d");
 const SHOTS = process.argv.includes("--shots");
+const PROF = !!process.env.SMOKE3D_PROF;
+// THE FAST TEST CLOCK (3d/js/core/testclock.js): the picture is drawn every 6th frame on a small canvas, the game runs
+// a step every browser frame while a test waits (and the old pace between its commands), t.frames / t.until hold
+// the game exactly where they stop, and the page's timers follow game time (scripts/lib/vclock.js). Same game time,
+// same checks — far fewer draws.
+//   SMOKE3D_FAST unset → each file's own `fast` (true = on; the default while it rolls out is off)
+//   SMOKE3D_FAST=1 → every file on (except a file that says `fast: false`: it measures draws / pictures)
+//   SMOKE3D_FAST=0 → every file off (the old clock: one render per 1/30 s step)
+const FAST_ENV = process.env.SMOKE3D_FAST;
+const FAST_CFG = { every: +process.env.SMOKE3D_FAST_EVERY || 6, scale: +process.env.SMOKE3D_FAST_SCALE || 0.25 };
+const fastFor = mod => mod.fast === false ? false : FAST_ENV === "1" ? true : FAST_ENV === "0" ? false : !!mod.fast;
 const ONLY = process.env.SMOKE3D_ONLY ? new RegExp("^(" + process.env.SMOKE3D_ONLY.split(",").join("|") + ")$") : null;
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
   ".png": "image/png", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".glb": "model/gltf-binary", ".json": "application/json" };
@@ -44,10 +57,27 @@ function serve() {
 
 const results = [];
 
+/** Every page a test file opens (its own + any friend's page via browser.newPage) gets the fast clock when it's on,
+ *  and its screenshots draw one full-size frame first. */
+function fastPage(page, on) {
+  if (!on) return page;
+  page.addInitScript(installVirtualClock, FAST_CFG);     // (sets window.__luluFast + the page's game-time clock)
+  FW.track(page);
+  const shot = page.screenshot.bind(page);
+  page.screenshot = async (...a) => {
+    await page.evaluate(() => window.__lulu3d && window.__lulu3d.realFrame && window.__lulu3d.realFrame()).catch(() => { });
+    try { return await shot(...a); } finally { await page.evaluate(() => window.__lulu3d && window.__lulu3d.afterShot && window.__lulu3d.afterShot()).catch(() => { }); }
+  };
+  return page;
+}
+
 async function runFile(browser, base, file) {
   const mod = require(path.join(TESTS, file));
   const name = mod.name || file.replace(/\.js$/, "");
-  const page = await browser.newPage({ viewport: mod.viewport || { width: 960, height: 540 }, userAgent: mod.userAgent || undefined, hasTouch: !!mod.hasTouch });
+  const FAST = fastFor(mod);
+  const page = fastPage(await browser.newPage({ viewport: mod.viewport || { width: 960, height: 540 }, userAgent: mod.userAgent || undefined, hasTouch: !!mod.hasTouch }), FAST);
+  const newPage0 = browser.newPage;
+  browser.newPage = async (...a) => fastPage(await newPage0.apply(browser, a), FAST);
   const errors = [];
   page.on("pageerror", e => errors.push(String(e && e.stack || e)));
   page.on("console", m => {
@@ -55,6 +85,20 @@ async function runFile(browser, base, file) {
     if (m.type() === "error" && !/fonts\.g|ERR_|Failed to load resource|net::/.test(txt)) errors.push(txt);
   });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  if (PROF) await page.addInitScript(() => {
+    // SMOKE3D_PROF: where a test's wall time goes — each rAF callback's JS time, the renderer.render share of it
+    // (wrapped once ctx.renderer exists), and the gap between callbacks (the browser presenting / the GPU process)
+    const P = window.__prof = { n: 0, cb: 0, render: 0, gap: 0, last: 0, rn: 0 };
+    const pnow = () => (window.__luluRealNow || performance.now.bind(performance))();
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = fn => raf(ts => {
+      const a = pnow();
+      if (P.last) P.gap += a - P.last;
+      const L3 = window.__lulu3d, r = L3 && L3.ctx && L3.ctx.renderer;
+      if (r && !r.__profWrapped) { const orig = r.render; r.render = function (...x) { const b = pnow(); try { return orig.apply(this, x); } finally { P.render += pnow() - b; P.rn++; } }; r.__profWrapped = true; }
+      try { fn(ts); } finally { const e = pnow(); P.cb += e - a; P.n++; P.last = e; }
+    });
+  });
   await page.addInitScript(({ padId, save2d, save3d }) => {
     if (save2d && !sessionStorage.getItem("__seeded")) localStorage.setItem("luluSaveV2", JSON.stringify(save2d));
     if (save3d && !sessionStorage.getItem("__seeded")) localStorage.setItem("lulu3dSave", JSON.stringify(save3d));
@@ -74,7 +118,10 @@ async function runFile(browser, base, file) {
   }, { padId: mod.padId || "Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)", save2d: mod.save2d || null, save3d: mod.save3d || null });
 
   const fails = [];
+  let bootS = 0;
   const L = code => page.evaluate(code);
+  /** Fast clock (scripts/lib/fastwait.js): a gate in the game — true (hit) · false (gave up) · null (poll instead). */
+  const gate = (spec, maxFrames, wallCap) => FW.gateWait(page, spec, maxFrames, wallCap);
   const t = {
     page, L, errors,
     check(label, ok, detail = "") {
@@ -83,6 +130,8 @@ async function runFile(browser, base, file) {
       return ok;
     },
     async frames(n) {
+      if (FAST && (n | 0) <= 0) return;
+      if (FAST && await gate(`{ frames: ${n | 0} }`)) return;
       const f0 = await L(`__lulu3d.frames`);
       await page.waitForFunction(f => window.__lulu3d.frames >= f, f0 + n, { polling: 16, timeout: 30 * 60000 });
     },
@@ -94,6 +143,8 @@ async function runFile(browser, base, file) {
       const f0 = await frames();
       const maxFrames = Math.ceil(timeout / 1000 * 30);
       const wallCap = Date.now() + (f0 < 0 ? timeout * 3 : Math.max(timeout * 3, 30 * 60000));
+      // (fast clock: the game itself checks the condition after every step and holds at the first true one)
+      if (FAST && f0 >= 0) { const r = await gate(`{ code: ${JSON.stringify(code)}, scope: false }`, maxFrames, wallCap); if (r === true) return true; }
       for (;;) {
         const ok = await L(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`).catch(() => false);
         if (ok) return true;
@@ -141,11 +192,14 @@ async function runFile(browser, base, file) {
       // Random incoming calls are PAUSED in the game (ctx.phone.randomCalls, off by default); the tests that wait for one
       // run with them on — a test that checks the paused behaviour (nocalls, calls) says &randomCalls=0 itself.
       if (!/[?&]randomCalls=/.test(query)) query += "&randomCalls=1";
+      const b0 = Date.now();
       await page.goto(`${base}/3d/?test${query}`);
-      return t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title screen", 120000);
+      const ok = await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title screen", 120000);
+      bootS += (Date.now() - b0) / 1000;
+      return ok;
     },
   };
-  console.log(`▶ ${name}`);
+  console.log(`▶ ${name}${FAST ? "  (fast clock)" : ""}`);
   const t0 = Date.now();
   try {
     if (await t.boot()) await mod.run(t);
@@ -154,7 +208,18 @@ async function runFile(browser, base, file) {
   }
   t.check("no page errors", errors.length === 0, errors.slice(0, 3).map(s => s.slice(0, 400)).join(" | "));
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
-  results.push({ name, fails });
+  if (PROF) {
+    const P = await page.evaluate(() => window.__prof).catch(() => null);
+    if (P) {
+      const wall = (Date.now() - t0) / 1000, s = ms => (ms / 1000).toFixed(1);
+      const gf = await page.evaluate(() => window.__lulu3d ? window.__lulu3d.frames : 0).catch(() => 0);
+      const line = { name, wall: +wall.toFixed(1), boot: +bootS.toFixed(1), gameFrames: gf, msPerGameFrame: +(gf ? (wall - bootS) * 1000 / gf : 0).toFixed(1), rafs: P.n, renders: P.rn, cbS: +s(P.cb), renderS: +s(P.render), gapS: +s(P.gap),
+        msPerFrame: +(P.n ? (P.cb + P.gap) / P.n : 0).toFixed(1), jsPerFrame: +(P.n ? P.cb / P.n : 0).toFixed(1), renderPerFrame: +(P.rn ? P.render / P.rn : 0).toFixed(1) };
+      console.log("  PROF " + JSON.stringify(line));
+    }
+  }
+  results.push({ name, fails, s: Math.round((Date.now() - t0) / 1000), fast: FAST });
+  browser.newPage = newPage0;
   await page.close();
 }
 
@@ -168,6 +233,11 @@ async function runFile(browser, base, file) {
   for (const f of files) await runFile(browser, base, f);
   await browser.close();
   server.close();
+  // (SMOKE3D_TIMES=<file>: each file's wall time + clock + pass, for scripts/durations.js — CI uploads it)
+  if (process.env.SMOKE3D_TIMES) {
+    fs.mkdirSync(path.dirname(path.resolve(process.env.SMOKE3D_TIMES)), { recursive: true });
+    fs.writeFileSync(process.env.SMOKE3D_TIMES, JSON.stringify(results.map(r => ({ name: r.name, s: r.s, clock: r.fast ? "fast" : "slow", pass: !r.fails.length, fails: r.fails })), null, 1));
+  }
   const bad = results.filter(r => r.fails.length);
   if (bad.length) {
     console.log(`\nsmoke3d: FAILED — ${bad.map(r => `${r.name} (${r.fails.join(", ")})`).join("; ")}`);
