@@ -29,7 +29,7 @@ import * as PTR from "../together/pointers.js";
 import { lapPlaces, ahead } from "../world/lapmap.js";
 import { seed } from "./data.js";
 
-const PS = store("pins", { ping: null, from: "", kind: "", n: 0, arrived: 0, pointer: true });
+const PS = store("pins", { ping: null, from: "", kind: "", n: 0, arrived: 0, pointer: true, found: {}, fresh: {} });
 const REG = new Map();
 const HEX = "#7C4DFF";
 const P = { t: null, tT: 0, chip: null, text: "", fchip: null, ftext: "", fT: 0, seen: {}, fl: [] };
@@ -67,6 +67,44 @@ function myHomes() {
         });
     } catch (e) { return []; }
 }
+// ── discover by walking (ci/storefronts, owner 2026-11-27: "this could clutter the map and any guides so this would have
+//    to be done smartly"): the essentials always show; every other place shows on her Map only once she's walked or driven
+//    past it (≤ 28 m) or into it — with a small "new" dot until she's seen it there. (Tests opt in: &enable=discover.)
+const discoverOn = () => ctx.enabled("discover");
+/** Always on the Map: help (precinct / court / hospital / the impound), her own homes, the highway's + JFK's places,
+ *  City Hall, Ima's house, and anything a feature marks `essential`. */
+export function essential(p) {
+    return !!p && (p.essential || p.cat === "help" || p.cat === "mine" || p.group === "highway" || p.group === "jfk"
+        || /:(cityhall|luluHome|home|imaHome)$/.test(p.id));
+}
+/** Is place p on her Map? (found, essential, pinned, or discovery off) */
+export function shown(p) { return !discoverOn() || essential(p) || !!(PS.found || {})[p.id] || p.id === PS.ping; }
+export const isFresh = id => !!(PS.fresh || {})[id];
+/** She's seen the new ones on the Map (the dots go). */
+export function seenFresh() { if (PS.fresh && Object.keys(PS.fresh).length) { PS.fresh = {}; saveSoon(); } }
+/** Mark a place found (walking past it — or a feature: walking into it). → true the first time. */
+export function discover(id) {
+    if (!id) return false;
+    PS.found = PS.found || {};
+    if (PS.found[id]) return false;
+    PS.found[id] = 1; PS.fresh = PS.fresh || {}; PS.fresh[id] = 1; saveSoon();
+    emit("pins:found", { id });
+    return true;
+}
+const DISC = { t: 0 };
+function discoverTick(dt) {
+    if (!discoverOn() || (DISC.t += dt) < 0.5) return;
+    DISC.t = 0;
+    const T = ctx.town;
+    if (!T || !T.active) return;
+    const me = myPos();
+    for (const p of REG.values()) {
+        if (p.town !== T.id || shown(p)) continue;
+        const t = target(p.id);
+        if (t && t.kind === "at" && Math.hypot(t.x - me.x, t.z - me.z) <= 28) discover(p.id);
+    }
+}
+hook("hud", dt => { try { discoverTick(dt || 1 / 60); } catch (e) { console.error("[pins] discover", e); } });
 export function list() { ensureSeed(); return [...REG.values()].filter(p => !p.hidden || !p.hidden()).concat(myHomes()); }
 export function get(id) { ensureSeed(); return REG.get(id) || myHomes().find(p => p.id === id) || null; }
 
@@ -279,6 +317,8 @@ addMenuItem("settings", {
 
 ctx.pins = {
     add, remove, list, get, ping, pingKind, clear, target, groups, lapM, pointerOn, setPointer,
+    /** Discover by walking: shown(p) (on her Map now?) · essential(p) · discover(id) (a feature: she walked in) · isFresh(id) */
+    shown, essential, discover, isFresh, seenFresh,
     get current() { return PS.ping; },
     get from() { return PS.from; },
     debug: { PS, P, tick: dt => tick(dt || 0.2) },

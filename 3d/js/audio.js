@@ -182,6 +182,24 @@ export function sfxCrash(power = 1) {
     for (let i = 0; i < 4; i++) blip(2400 + Math.random() * 2400, 0.08, "triangle", 0.05, 0.05 + i * 0.05);
 }
 
+/** A LOUD muffler backfiring as she lifts off (features/carcare): a short low crack + a thump (vol 0..1). */
+export function sfxPop(vol = 1) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const src = noiseSource();
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(900 + Math.random() * 500, t);
+    bp.frequency.exponentialRampToValueAtTime(160, t + 0.08);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.32 * vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+    src.connect(bp).connect(g).connect(sfxBus);
+    src.start(t); src.stop(t + 0.13);
+    blip(70 + Math.random() * 20, 0.09, "sine", 0.22 * vol, 0, 38);
+}
+
 export function sfxBump() {
     blip(70, 0.18, "sine", 0.3, 0, 40);
 }
