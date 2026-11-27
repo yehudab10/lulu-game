@@ -46,8 +46,7 @@ module.exports = {
       await t.frames(4);
       await g(`(() => { const p = ctx.foot.pos; return ctx.foot.startChase({ x: p.x + 2, z: p.z + 1.5 }); })()`);
       await t.until(`!!__lulu3d.ctx.foot.debug.F.chase`, "a cop chasing her", 10000);
-      const dbg = await g(`(() => { const F = ctx.foot.debug.F; F.chase.p.obj.position.set(ctx.foot.pos.x + 2, 0, ctx.foot.pos.z + 1); const o = F.chase.p.obj.position; return { me: [ctx.foot.pos.x, ctx.foot.pos.z], F: [F.pos.x, F.pos.z], cop: [o.x, o.z], same: ctx.foot.pos === F.pos, phase: ctx.foot.phase, st: ctx.state }; })()`);
-      console.log("   DBG bonk", JSON.stringify(dbg));
+      await g(`(() => { const F = ctx.foot.debug.F; F.chase.p.obj.position.set(ctx.foot.pos.x + 2, 0, ctx.foot.pos.z + 1); return true; })()`);
       const r = await g(`${I}.use()`);
       t.check("BONK: the chasing cop stops (his hat spins)", r && r.verb === "BONK" && r.target === "cop" && await g(`ctx.foot.debug.F.chase.stunT > 0`), JSON.stringify(r));
       t.check("…the pan isn't used up", (await g(`${I}.hand`)) === "pan");
@@ -87,7 +86,6 @@ module.exports = {
       const h = await g(`ctx.homes.household(${K})`);
       { const dx = h.ap.x - h.door.x, dz = h.ap.z - h.door.z, d = Math.hypot(dx, dz) || 1; await stand(h.ap.x + dx / d * 3, h.ap.z + dz / d * 3); } await t.frames(4);
       const k0 = await g(`(ctx.homes.family(${K}) || {}).kept | 0`);
-      console.log("   DBG owner", JSON.stringify(await g(`(() => { const h = ctx.homes.household(${K}); return { h: h && [h.ap.x, h.ap.z, h.status], me: [ctx.foot.pos.x, ctx.foot.pos.z], bag: ${I}.bag, hand: ${I}.hand }; })()`)));
       const r = await g(`${I}.use()`);
       t.check("the pan in front of its own family's door → they notice (WEAR, and homes remembers)", r && r.verb === "WEAR" && (await g(`${I}.debug.R.log.some(e => e.ev === "owner")`)) && ((await g(`(ctx.homes.family(${K}) || {}).kept | 0`)) === k0 + 1), JSON.stringify(r));
       t.check("…on her head now", (await g(`${I}.debug.worn()`)) === "pan");
@@ -101,7 +99,6 @@ module.exports = {
       t.check("two things: the newest in hand", (await g(`${I}.hand`)) === "chicken");
       await g(`${I}.swap()`);
       t.check("swap → the pan", (await g(`${I}.hand`)) === "pan");
-      const pep0 = await g(`ctx.save2d ? 0 : 0`);
       const p0 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2") || "{}").pepperSpray`);
       const n0 = await g(`${I}.debug.R.log.filter(e => e.ev === "use").length`);
       await t.key("KeyG"); await t.frames(40);
