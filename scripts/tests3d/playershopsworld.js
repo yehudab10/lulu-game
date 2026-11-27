@@ -63,7 +63,9 @@ async function body(t, guests) {
   const FJ = JSON.stringify(F.id);
   const ok = await A.L(`(async () => { const P = __lulu3d.ctx.playershops, f = P.debug.frontById(${FJ}); const c = await P.debug.SVR.claim(f.id, "kugel"); if (!c.ok) return c; P.debug.open(f, "kugel", { how: "lease", deposit: 300 }); const sh = P.debug.S.shops[f.id]; sh.stock.push({ g: "kugel", n: 4, stars: 2, day: P.debug.today() }); P.debug.shelve(f.id, 0, 0, 15); return { ok: true }; })()`);
   t.check("A leases a kugel shop (claimed on the relay first) and shelves 4 at 15", ok && ok.ok === true, JSON.stringify(ok));
-  const onRelay = await A.until(`fetch(${JSON.stringify(RELAY)} + "/shops/view?id=" + ${JSON.stringify(F.id.replace(/^shop:/, ""))}).then(r => r.json()).then(j => j.ok && j.shelf.length === 1 && j.shelf[0].n === 4)`, "her shelf on the relay", 30000);
+  // (poll the relay itself — an until() on a Promise would pass at once)
+  let onRelay = false;
+  for (let k = 0; k < 40 && !onRelay; k++) { onRelay = await A.L(`fetch(${JSON.stringify(RELAY)} + "/shops/view?id=" + ${JSON.stringify(F.id.replace(/^shop:/, ""))}, { cache: "no-store" }).then(r => r.json()).then(j => !!(j.ok && j.shelf.length === 1 && j.shelf[0].n === 4))`); if (!onRelay) await sleep(1000); }
   t.check("…her shelf reaches the relay a few seconds later", onRelay);
   // B: sees A's shop on the street
   await B.game(`(ctx.playershops.debug.SVR.SV.listAt = -1e9, true)`);

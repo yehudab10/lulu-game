@@ -63,7 +63,8 @@ const wire = id => String(id).replace(/^shop:/, "");
 export async function claim(id, kind, edictStruck) {
     if (!SV.on) return { ok: true, local: true };
     try {
-        const r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck });
+        let r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck });
+        if (r.st === 429) { await new Promise(res => setTimeout(res, 900)); r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck }); }   // (too quick: once more)
         if (r.st === 200 && r.j) return r.j.ok || r.j.why === "mine" ? { ok: true } : { ok: false, why: r.j.why, o: r.j.o };
         return r.st === 429 ? { ok: false, why: "rate" } : { ok: true, local: true };
     } catch (e) { return { ok: true, local: true }; }
