@@ -88,8 +88,9 @@ function frame() {
 function tick(dt) {
     const party = !!(ctx.party && ctx.party.active);
     if (party) { ROOMS.tick(dt); OUT.tick(dt); }
-    if (!party || !roam() || !ctx.camera || !ctx.car) { if (T.dest) setDest(""); PTR.hideAll(); return; }
     const st = ctx.state, live = (st === "playing" || st === "footRun") && !ctx.paused && !ctx.view && !H.screenOpen() && !ctx.dialogOpen;
+    // (no friends to find: the pointers still carry features/pins' 📍 ping)
+    if (!party || !roam() || !ctx.camera || !ctx.car) { if (T.dest) setDest(""); if (ctx.camera && ctx.car) PTR.tick(dt, [], "", live); else PTR.hideAll(); return; }
     // where everyone is: 10× a second is plenty (their cars are interpolated, the pointers glide)
     T.listT -= dt;
     if (T.listT <= 0) { T.listT = 0.1; T.list = locateAll(); }

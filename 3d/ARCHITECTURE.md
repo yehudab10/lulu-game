@@ -501,6 +501,28 @@ shows the card for a line answering something she just did, never during an acti
 friends' requests / asks to join. Home screen: 👯 Friends · 🗺️ Map · 💼 Jobs · 💬 Messages · 📞 Contacts · 📻 Radio ·
 📸 Camera. An app with `home: false` is opened from another app (📍 Nearby from Friends, 🎨 Paint & Pray from a Jobs
 row while she's wanted).
+
+**Places on the map + 📍 ping (`features/pins`, `ci/hud`, 2026-11-27 — the owner: "an easier way for players to see
+where each store is … they should be able to ping it"):** a registry, `ctx.pins.add({ id, name, icon, cat: "shops" |
+"town" | "help" | "mine", town + spot (a town build's spot) | local: [lx, lz] | lap: m | "jfk", group?, sub? })` — the
+places that exist today are registered by `pins/data.js` from each feature's own name data; a NEW place registers itself
+(one line in its feature) and shows on the map with nothing else to do. Her homes come live from realestate's registry.
+The 📱 🗺️ Map (solo: phone/apps.js › lapmap; with friends: together/map.js) shows them: in a town its streets with every
+place an icon where it stands, on the highway the lap ring with each town's places beside its exit; a list grouped by
+where it is along the lap, in the order she'd reach them (`ctx.pins.groups()`); a filter row 🛍️ · 🏛️ · 🚑 · 🏠. Tap →
+📍 Ping = ONE destination: openworld's beacon at the place (`target()`: the spot nudged out to the first point
+`ctx.unstuck.normal` accepts — the town copy she's in, so every lap is right), one edge pointer (together/pointers.js ›
+`extra(fn)`: the friend pointers' pill, kept out of the clear window on a phone, hidden in an activity) and the
+objective line's lowest slot (`H.OBJ.info`). In another town it points at the way out, on the highway at the place's
+town's next exit; arriving clears it (a town place within 12 m, a rest area / JFK when she's in it), a new ping replaces
+it, ✕ Clear in the map. 🛍️ Where to shop (shops/guide.js) marks through it (`pingKind`). With friends: `d.x.pg` = my
+ping's id (the party packet — no relay change); a friend's ping = their beam in their colour + one quiet line for 8 s.
+⚙️ 📍 Destination pointer (off = no beam, no edge pointer; the map + the line stay). Test `pins`.
+
+**📶 Show connection (`features/netping`, ⚙️, OFF by default):** a small "📶 48 ms" pill in the top band by the coins;
+it times the relay heartbeat the game already sends (`multiplayer/net.js › pingRelay()`: "pi" → the relay's "po" →
+`MP.rtt`) every 10 s while it's on and online, never while ⚙️ Play online is off ("📶 offline"); amber ≥ 250 ms, red
+≥ 500 ms; hidden in Dina's mode. No server change. Test `netping`.
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
@@ -1789,6 +1811,29 @@ every handler ignores a repeat); small additions in others' files: `streets:carj
 door menu + `ctx.homes.distract`. Tune `PAY` / `TUNE` in `features/partners/index.js`. Events `partners:job` {kind, with,
 coins}, `partners:ring`, `partners:rung`, `partners:peel`, `partners:peeled`; stats `partnerJobs`, `partnerPeels`,
 `crewPeelHits`. Test `scripts/tests3d/partners3.js`.
+
+**Getting an impounded car back (impound, `features/impound` — ci/impound, roadmap 30):** 🚗 when the law walks her out of a
+precinct on foot, her car stays behind that town's impound fence (features/places `walkOut(impound)` → `places:out` {car: false} →
+`IM.held = {town}`; `ctx.foot.ownCar === "gone"`). THE LEGAL WAY: one fee (`FEE` in `data.js`: 120, the very first time ever 60 —
+a sink, never below 0) at ONE of: the lot's own window (✋ at its gate — places' gate spot asks `ctx.impound.gate()` first) ·
+City Hall's PERMITS window (`cityhall/lobby.js addWindowHook("permits", …)`, prio 30: "Form VR-7, in triplicate") · 📞 Contacts ›
+City Hall (`cityhall/pay.js CONTACT_EXTRAS`: tap, tap; one `need: true` text). City Hall / the phone give a slip
+(`IM.released`); the gate with it (or paying there) → `release()`: the clone behind the fence goes, her car is placed at the
+kerb in front of the gate (`places/out.js kerbAt`) and foot restarts `droveOff` beside it (ownCar "parked" — ✋ in and away).
+Can't afford it → told, nothing taken, still held: a new run (home) resets it — today's fallback. THE BREAK-IN (`breakin.js`):
+✋ at the loose panel (the front fence, left of the gate) → `ctx.foot.script`: she sneaks inside the 12 × 12 lot (camera-relative
+stick, run = faster + a faster meter; the fence, her car and the two cruisers are solid); Bruno (heist's guard model) paces the
+back with a flashlight cone and a camera sweeps from the front-right post (both drawn as fans on the ground); in a cone the "?"
+meter fills — full = spotted: first his ⚠️ look (`TUNE.lookLife` 25 s), again while that's live → she's put outside the gate and
+`ctx.foot.startChase(gate, { charges: ["GRAND THEFT AUTO (HER OWN CAR)"] })` (its arrest + court lines via `law.addCharge` —
+the victim is the defendant); caught → the usual arrest → out of the precinct on foot, the car back behind the fence, the fee
+still owed. ✋ at her car unseen for `TUNE.hotwire` s → `release("breakin")` (no fee). One try a REAL day (`SAVE.breakDay`):
+after it Bruno is "extra awake" (a wider, longer light that sweeps, no sandwich breaks). Shown on the objective line's LOWEST slot
+(`H.OBJ.info`, `.impound-chip`) and on the 📱 Map via `ctx.pins` when that exists. Gated by `ctx.enabled("impound")` (off → the
+gate says its old line). Friends: each her own car + fee (all local). `ctx.impound { held, released, fee(), pay(where), gate(),
+gateLabel(), release(how), panel(), breakIn(), debug }`; events `impound:<held | paid | broke | release | breakin>`; stats
+`impoundPaid`, `impoundReleases`, `impoundBreakIns`, `impoundBreakOuts`, `impoundBreakClean`, `impoundBreakBusts`. Test
+`scripts/tests3d/impound.js`.
 
 **Town crimes (crime, `features/crime` — ci/crime, roadmap 18):** 🦹 the owner (2026-11-20): "More crime. More corruption.
 More immersion… more to do in cities". Small, complete loops the law already understands, SOLO, in a town (Cruise / Story run;

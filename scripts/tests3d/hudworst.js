@@ -92,6 +92,8 @@ async function worstCase(t) {
   if (!await g(`!!ctx.hustle.job`)) await g(`(ctx.hustle.start("delivery", { via: "test", food: "kugel", intro: false, force: true }), true)`);
   // 🚨 a chase with stars, the cops searching (LOSING THEM…)
   if (!await g(`ctx.law.chasing`)) await g(`(ctx.law._dbg.L.grace = 0, ctx.law._dbg.L.hold = 0, ctx.law.startChase("SPEEDING", { heat: 1 }), true)`);
+  // 📍 a ping (features/pins: the objective line's lowest slot — the longest name, in the other town)
+  await g(`(ctx.pins && ctx.pins.ping("lakewood:clothes"), true)`);
   // 📱 a badge on the phone
   await g(`(() => { const d = document.querySelector("#phoneBtn .lp-dot"); if (d) { d.textContent = "9"; d.classList.add("on"); } return true; })()`);
 }

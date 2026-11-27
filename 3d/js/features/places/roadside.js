@@ -295,6 +295,12 @@ export function mapEntries() {
     return ROADSIDE.map(R => ({ addr: R.addr, name: R.id === "trooper" ? "Trooper Post 7 + Traffic Court" : R.id === "weigh" ? "Weigh Station + Doc-in-a-Box" : R.name,
         emoji: R.emoji, m: R.m, kind: "roadside", group: "highway" }));
 }
+// 📍 on the 📱 🗺️ Map's places + Ping (features/pins) — where they're built (the world gate, as the rule)
+const PIN_SUB = { trooper: "jail · traffic court · first aid · impound", hatzalah: "first aid · the ambulance base", weigh: "jail · video court · Doc-in-a-Box · impound" };
+on("boot", () => {
+    if (!ctx.pins || !ctx.pins.add || !ctx.enabled("world")) return;
+    for (const e of mapEntries()) ctx.pins.add({ id: e.addr, name: e.name, icon: e.emoji, cat: "help", lap: e.m, group: "highway", sub: PIN_SUB[e.addr.slice(3)] || "" });
+});
 /** Names for the interiors / the lobby (the roadside place's, by door). */
 export function hwNames(id) { const R = BY_ID[id]; return R ? R.names : null; }
 export { KIND_OF };

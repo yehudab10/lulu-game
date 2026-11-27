@@ -76,7 +76,7 @@ export function ready() {
 
 // ── her impounded car, behind the lot's fence ────────────────────────────
 const IMP = { obj: null, town: null };
-function showImpounded(on) {
+export function showImpounded(on) {
     if (IMP.obj) { if (IMP.obj.parent) IMP.obj.parent.remove(IMP.obj); IMP.obj = null; IMP.town = null; }
     if (!on || !models.lulu) return;
     const sp = ctx.civic.spot("impound");

@@ -16,7 +16,7 @@ import police from "../interiors/police.js";
 import hospital from "../interiors/hospital.js";
 import { lobbyDef, nameLobby } from "./lobby.js";
 import { NAMES, PASS, IMPOUND_GATE, IMPOUND_MINE } from "./data.js";
-import { STAY, claim, clear, tick, ready, walkOut, arrive, impoundedCar } from "./out.js";
+import { STAY, claim, clear, tick, ready, walkOut, arrive, impoundedCar, showImpounded } from "./out.js";
 import { dissolving } from "../../core/transition.js";
 import { counsel, courtsDebug, hearingToday, caseDone, addCase, caseById, caseIn, progress } from "./courts.js";
 import { ROADSIDE, BY_ID, hwSpot, hwNames, nearest as nearestPlace } from "./roadside.js";
@@ -123,6 +123,8 @@ function gatePos() {
     return sp ? { x: sp.x, z: sp.z } : null;
 }
 async function gate() {
+    // (features/impound: pay the release / show the slip → the car rolls out)
+    if (ctx.impound && ctx.impound.gate) { try { if (await ctx.impound.gate()) return true; } catch (e) { console.error("[places] impound gate", e); } }
     const o = ctx.foot && ctx.foot.obj;
     if (o && ctx.foot.say) ctx.foot.say(o, impounded() ? pick(IMPOUND_MINE) : pick(IMPOUND_GATE), 3.2);
     return true;
@@ -157,7 +159,7 @@ on("boot", () => {
             const D = DOORS[kind];
             ctx.foot.addSpot({ pos: () => doorPos(kind), r: 2.6, label: D.label, short: D.short, act: () => enter(kind) });
         }
-        ctx.foot.addSpot({ pos: gatePos, r: 2.4, label: () => impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT", short: "IMPOUND", act: gate });
+        ctx.foot.addSpot({ pos: gatePos, r: 2.4, label: () => (ctx.impound && ctx.impound.gateLabel && ctx.impound.gateLabel()) || (impounded() ? "🚗 YOUR CAR (IMPOUNDED)" : "🚧 THE IMPOUND LOT"), short: "IMPOUND", act: gate });
     }
 });
 on("town:enter", () => { C.said.clear(); nameInteriors(); });
@@ -195,5 +197,7 @@ ctx.civic = {
     roadside: ROADSIDE, nearest: (kind, m) => nearestPlace(kind, m),
     /** Judge Kessler's opener in the Highway Traffic Court (law/court.js), else null. */
     judgeLine: () => (STAY.place && STAY.place.hw === "trooper" ? pick(JUDGE_HW) : STAY.place && STAY.place.hw === "weigh" ? pick(JUDGE_VIDEO) : null),
+    /** Her impounded car behind the lot's fence (features/impound): show(on) puts it there in the town she's in · car() the Object3D or null. */
+    impound: { show: showImpounded, car: impoundedCar },
     debug: { C, DOORS, lobbyDef, STAY, impoundedCar },
 };

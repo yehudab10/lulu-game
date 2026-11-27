@@ -71,6 +71,8 @@ module.exports = {
     await g(`(ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
     const map = await t.L(`import("./js/features/world/lapmap.js").then(m => m.lapPlaces().filter(p => p.kind === "roadside").map(p => p.addr + "@" + p.m).join(","))`);
     t.check("📱 🗺️ the lap map lists them", map === "hw:trooper@6800,hw:hatzalah@10700,hw:weigh@15700", map);
+    const pins = await g(`ctx.pins && ctx.pins.list ? ["hw:trooper", "hw:hatzalah", "hw:weigh"].map(id => { const p = ctx.pins.get(id); return p ? p.lap + ":" + p.group + ":" + p.cat : "none"; }).join(",") : "no pins"`);
+    t.check("📍 the Map's places (ctx.pins) have them, pingable", pins === "6800:highway:help,10700:highway:help,15700:highway:help", pins);
 
     // ════ 1. the buildings stand at their lap metre on lap 2, with a sign before each ════
     await step("buildings", async () => {
