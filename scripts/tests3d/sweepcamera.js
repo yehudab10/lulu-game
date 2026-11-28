@@ -47,10 +47,10 @@ module.exports = {
     const g = t.game;
     const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport,rest").split(",");
     await W.install(t);
-    // (SWEEPCAM_LAND=1: the same walk on a 1280 × 720 screen)
     // (a clear noon, whatever the clock says when it runs: an evening run's night frames are dark on purpose, and the
     //  watchdog's "one flat colour" read a night street as junk — CI 46169174266 at 17:20 UTC)
     await g(`(ctx.atmos && ctx.atmos.debug && (ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true)), true)`);
+    // (SWEEPCAM_LAND=1: the same walk on a 1280 × 720 screen)
     if (process.env.SWEEPCAM_LAND) { await t.page.setViewportSize({ width: 1280, height: 720 }); await t.frames(6); }
     // ── 0. ▶ PLAY from the title: the picture glides from the title's street shot to her on her lot — never through the
     //       neighbours' house (qaweekend "home → highway": the camera inside block@128,195 for 8 frames) ──
