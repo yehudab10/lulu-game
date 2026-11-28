@@ -4,6 +4,20 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 04:30 UTC — 🚗 On the road, part 1. A police car that rear-ends Lulu is now the police car's fault — on
+  her last heart it used to get HER arrested for "destroying a police cruiser". Cars she has just passed no longer plough
+  into her when she slows down or stops (they brake and go round her), and a car pulling out to pass doesn't swerve into
+  her lane. Cops chasing her down an exit ramp or into a rest area now drive the ramp instead of cutting across the grass
+  and the barriers; a cruiser that's given up stops where it is; the "you're not hidden" tip goes away once she IS hidden;
+  and a cruiser sent after a phoned-in report in town has to look for her instead of driving straight to her. A car
+  impounded at Trooper Post 7 or the Weigh Station can now actually be collected there (its gate never opened before —
+  the car was stuck for good), and it rolls out into the yard, not onto the highway. Her other cars can't be "brought
+  round" any more from Uncle Refael's lot, a dealership or the title's Car button while they're impounded or parked
+  across the map (that let an impounded car out for free). Driving a borrowed car, a ride or Ima's minivan no longer uses
+  up her own car's gas. The trip bar and the exit chip now count down to the JFK exit too; the "½ mile" and "1 mile"
+  boards before an exit or a rest area stand about that far away (some were much closer); a long ride like the box truck
+  is solid along its whole length. Small text fixes: the impound window names her car (not always "pink convertible"),
+  the impound line names the highway yard, and a Lakewood speed-camera ticket comes from Lakewood, not Midwood.
 - 2026-11-28 03:30 UTC — 🏬 Places, part 2: walking into a house on a phone (a neighbour's, Ima's, a home for sale)
   no longer shows one flat grey screen — the camera was stuck inside the front door; now the door goes see-through and
   you see the room. The camera inside the newer buildings (houses, shops, City Hall, the bowling alley) also stops at
