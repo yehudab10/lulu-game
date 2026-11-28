@@ -179,7 +179,11 @@ function placeNpc(b, W, Hh) {
     const x = (_v.x + 1) / 2 * W, y = (1 - _v.y) / 2 * Hh;
     if (phoneHud() && inClearWindow(x, y)) { b.el.style.opacity = "0"; return; }      // (a phone: nobody's line over the car / the road ahead — ci/hud)
     const sc = clamp(24 / dist, 0.72, 1);
-    b.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%) scale(${sc.toFixed(2)})`;
+    // (someone near a side of the screen: the bubble slides in so its words aren't cut off — on an upright phone a
+    //  pedestrian's "Shalom!" ran 58 px off the right edge; sweepphone "no text off the sides", sweep-health2)
+    const hw = (b.el.offsetWidth || 0) * sc / 2;
+    const xs = hw > 0 && hw * 2 < W - 8 ? clamp(x, hw + 4, W - hw - 4) : x;
+    b.el.style.transform = `translate(${xs.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%) scale(${sc.toFixed(2)})`;
 }
 
 // ── per frame ───────────────────────────────────────────────────────────────

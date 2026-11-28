@@ -62,7 +62,7 @@ export class Particles {
     }
 }
 const AX = new THREE.Vector3(0.3, 1, 0.2).normalize();
-const TMP = new THREE.Vector3(), SC = new THREE.Vector3();
+const TMP = new THREE.Vector3(), SC = new THREE.Vector3(), FWD = new THREE.Vector3();
 
 // ── canvas-painted planes (signs, TV screens, posters, chalkboards) ──────
 /**
@@ -159,9 +159,14 @@ export class Bubbles {
         if (!cam || !cam.isPerspectiveCamera) return;
         cam.updateMatrixWorld();      // (this frame's camera — the last render's can be frames old)
         const tn = Math.tan(cam.fov * Math.PI / 360), P = b.sp.position;
+        const FW = FWD.setFromMatrixColumn(cam.matrixWorld, 2).negate();
         let k = 1, vh = 1;
         const size = () => {
-            const d = Math.max(0.3, cam.position.distanceTo(P));
+            // (its DEPTH in front of the lens, not the straight-line distance: off to a side the distance is longer than
+            //  the depth, so "90 % of the view" came out wider than the screen there and no slide could fit it — sweepphone2
+            //  "Who put a SPOON down here?" −0.67..1.13; sweep-health2)
+            const dz = (P.x - cam.position.x) * FW.x + (P.y - cam.position.y) * FW.y + (P.z - cam.position.z) * FW.z;
+            const d = Math.max(0.3, dz > 0.3 ? dz : cam.position.distanceTo(P));
             vh = 2 * d * tn;
             k = Math.min(1, (vh * cam.aspect * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
             b.sp.scale.set(b.w * k, b.h * k, 1);
@@ -175,15 +180,17 @@ export class Bubbles {
         // (…nor off a side: someone at the edge of a phone held upright had the start of their line cut — it slides in
         //  along the camera's right until both ends are on screen; ci/sweep-phone)
         SC.setFromMatrixColumn(cam.matrixWorld, 0);
-        TMP.setFromMatrixColumn(cam.matrixWorld, 2).negate();
-        const rx = P.x - cam.position.x, ry = P.y - cam.position.y, rz = P.z - cam.position.z;
-        const z = rx * TMP.x + ry * TMP.y + rz * TMP.z;
-        if (z > 0.3) {
+        const side = () => {
+            const rx = P.x - cam.position.x, ry = P.y - cam.position.y, rz = P.z - cam.position.z;
+            const z = rx * FW.x + ry * FW.y + rz * FW.z;
+            if (z <= 0.3) return false;
             const hw = z * tn * cam.aspect, cx = (rx * SC.x + ry * SC.y + rz * SC.z) / hw, half = (b.w * b.fill * k / 2) / hw;
             const over = cx - half < -0.96 ? -0.96 - (cx - half) : cx + half > 0.96 ? 0.96 - (cx + half) : 0;
-            if (over) { P.addScaledVector(SC, over * hw); moved = true; }
-        }
-        if (moved) size();      // (moved toward the middle = nearer the lens: sized again for where it is now)
+            if (over) P.addScaledVector(SC, over * hw);
+            return !!over;
+        };
+        if (side()) moved = true;
+        if (moved) { size(); side(); }      // (moved = a new depth: sized again, and its ends checked again at that size)
     }
     update(dt) {
         for (let i = this.list.length - 1; i >= 0; i--) {

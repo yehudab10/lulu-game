@@ -15,7 +15,7 @@ const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.
 let relay = null;
 const PORT = 27000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone,streets&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone,streets,houseitems&mpurl=${encodeURIComponent(url)}`;
 const S = `ctx.mp._debug`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -124,6 +124,22 @@ async function body(t, pages, riders) {
   const dc = Math.abs(skyA.c - skyB.c), dcw = Math.min(dc, 1 - dc);
   t.check("world sky: the same time of day on two strangers' screens", dcw < 0.01, JSON.stringify({ skyA, skyB }));
   t.check("world sky: the same weather (from the world clock)", skyA.w === skyB.w && skyA.w === skyA.want, JSON.stringify({ skyA, skyB }));
+
+  // what you see is what others see: B on foot with a rolling pin in hand → A's B holds it too (d.hi)
+  if (await B.game(`!!(ctx.houseitems && ctx.foot && ctx.foot.start)`)) {
+    await B.game(`(ctx.houseitems.debug.clear(), ctx.houseitems.add("rollingpin", null, false), ctx.foot.start("parked"), true)`);
+    await B.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "B walks", 60000);
+    const held = await A.until(`ctx.mp.ghostStats().hands >= 1`, "A sees B holding something", 30000);
+    t.check("B's hand item shows on A's screen (the rolling pin in her hand)", held, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), B: await B.game(`({ shown: ctx.houseitems.shown, hi: ctx.mp._debug.me.hi })`) }));
+    await B.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+    await B.until(`ctx.state === "playing"`, "B back in her car", 30000);
+    await B.game(HOLD); await B.game(PLACE(425, -1.75));
+  }
+
+  // her car as she sees it: B switches to her pink car mid-session → A draws B's car pink (d.sk: the hello only knew gold)
+  await B.game(`(ctx.car.setSkin("pink"), ctx.mp._debug.me.carAt = 0, true)`);
+  t.check("B's car switch reaches A (she's drawn in the car she's in now)", await A.until(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return !!p && p.sk === "pink"; })()`, "A: B's car is pink now", 30000));
+  await B.game(`(ctx.car.setSkin("gold"), ctx.mp._debug.me.carAt = 0, true)`);
 
   // 🌍 an emote is a reliable one-time event (the relay's r): A gets B's 😱 once, as an event — not only from B's state
   await g(`(window.__emr = [], L3.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); }), true)`);
