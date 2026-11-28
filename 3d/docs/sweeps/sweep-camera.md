@@ -74,6 +74,13 @@ both areas are this sweep's now.
 13. JFK: the on-foot camera only knew the terminal's collision circles; it now also uses the airport's terminal + tower
     boxes the chase cam had (`foot/index.js` clipCam). sweepcamera › airport: 15 views along the front, 0 bad.
 
+14. **✋ at a door or beside a parked car with a passer-by near: 💬 SAY HI won** (the homes crowd's talk spot: a walker
+    0.8 m away beat every door — makolet, hospital, Bling Bay, shul, pizza — and HOTWIRE at a parked car; the flaky life3 /
+    sweepplaces "bling" checks). The crowd's spot is `ambient` now (`homes/crowd.js`): foot's interactables rank it after
+    anything of hers in reach and it no longer triggers the "right next to her" rule (`foot/index.js` AMBIENT); with
+    nothing else in reach a passer-by still gets SAY HI. sweepcamera › hand: before the fix 10 of 10 doors + both cars said
+    SAY HI, after 0.
+
 ## Landed
 - batch 1 → main 66409a8c (14:10 UTC; items 1–11, 13) + 1dbfa38a (item 12). CI on the branch before landing: 46148271061
   (core, platform, hudfit, foot, footbounds, interiors, qa7, doors, town, gfx, qaweekend, sweepplaces 1–4, sweepphone
@@ -92,7 +99,7 @@ Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbo
 stands between the lens and her chest / head; knows the see-through cut).
 
 ## For other branches
-- **✋ "💬 SAY HI" (a homes crowd pedestrian, `homes/crowd.js`) wins over a door / a parked car's HOTWIRE** when a
+- (fixed by this sweep after all, item 14) **✋ "💬 SAY HI" (a homes crowd pedestrian, `homes/crowd.js`) won over a door / a parked car's HOTWIRE** when a
   townsperson happens to stand near: life3 "next to a parked car: ✋ HOTWIRE (got SAY HI)", sweepplaces
   "lakewood-bling: at its door the ✋ is the door", sweepcamera's own door entries (shul, hospital) now and then. Random
   (where the crowd stands); foot's NEXT_TO rule / the homes crowd — `ci/doors` / homes owners.
