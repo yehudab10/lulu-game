@@ -123,6 +123,9 @@ function crossWith(p) {
 }
 /** The driver's car isn't drawn this frame (its track refilling — a town line, a respawn): her seat rolls on at its speed
  *  rather than standing still (a frozen picture, then a jump to where the driver got to — qafriends). */
+/** Tests: what the ride did lately (frame, event, detail) — qafriends prints it when a jump shows up. */
+export const RLOG = [];
+function rlog(ev, x = "") { RLOG.push([ctx.frames, ev, x, Math.round(ctx.car.pos.x * 10) / 10, Math.round(ctx.car.pos.z * 10) / 10]); if (RLOG.length > 24) RLOG.shift(); }
 function roll(dt) {
     const car = ctx.car, L = RIDE.last;
     // (from where she was last drawn — the car's own physics step may or may not have moved it this frame)
@@ -145,16 +148,19 @@ hook("update", (dt, P) => {
     H.prompt(`${glyph("interact")} 🚪 Hop out`);
     hideCar(true);
     if (p && E.zoneOfPeer(p) !== E.zone()) {             // they took the exit: come along
-        if (crossWith(p)) { RIDE.lost = 0; roll(dt); return; }
+        if (crossWith(p)) { rlog("cross"); RIDE.lost = 0; roll(dt); return; }
         roll(dt);
         RIDE.lost += dt;
-        if (RIDE.lost > 0.8) { RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); RIDE.last = null; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; }   // (a warp is a cut: no glide back)
+        // (the town on this screen is still building at its interchange: keep rolling with the driver a while longer — a
+        //  warp is a visible jump; only a town that isn't there at all warps after 0.8 s)
+        const z = E.zoneOfPeer(p), building = !!z && (ctx.town && ctx.town.standing || []).some(b => b.town === z && !b.ready);
+        if (RIDE.lost > (building ? 3 : 0.8)) { rlog("warp", building ? "building" : ""); RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); RIDE.last = null; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; }   // (a warp is a cut: no glide back)
         return;
     }
     if (!rc || !rc.shown) { roll(dt); return; }
     RIDE.lost = 0;
     // (back from a gap: her seat glides onto the driver's car — never snaps — like a friend's car does, party/remote.js)
-    if (RIDE.gap) { RIDE.gap = false; RIDE.ox = car.pos.x - rc.x; RIDE.oz = car.pos.z - rc.z; if (Math.hypot(RIDE.ox, RIDE.oz) > 40) RIDE.ox = RIDE.oz = 0; }
+    if (RIDE.gap) { RIDE.gap = false; RIDE.ox = car.pos.x - rc.x; RIDE.oz = car.pos.z - rc.z; rlog("back", Math.hypot(RIDE.ox, RIDE.oz).toFixed(1)); if (Math.hypot(RIDE.ox, RIDE.oz) > 40) RIDE.ox = RIDE.oz = 0; }
     const om = Math.hypot(RIDE.ox, RIDE.oz);
     if (om > 0.01) { const cut = Math.min(om * (1 - Math.exp(-dt / 0.12)), (8 + 2 * om) * dt), f = (om - cut) / om; RIDE.ox *= f; RIDE.oz *= f; } else RIDE.ox = RIDE.oz = 0;
     car.pos.set(rc.x + RIDE.ox, 0, rc.z + RIDE.oz); car.h = rc.h;
