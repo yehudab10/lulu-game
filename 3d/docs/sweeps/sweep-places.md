@@ -59,6 +59,22 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    ctx.car; a teleport needs the watchdog's moved(); street counters (makolet, Bling Bay) open a card on the street;
    the impound gate only opens on an impounded car; carcare's fronts play on the street; a fake house / listing.
 
+## Landed
+- batch 1 → main d1e1ea71 (items 1–7, 9–12) · batch 2 → fc833998 (13, 15) · batch 3 → 4fd9e37b (16 + Lakewood's shul door).
+- CI: 46070200525, 46075301278, 46084222813 (incl. calm + hudfit green), 46091087093; later batches on the local fast
+  clock (core, platform, doors, qa, qa2, qa3, qa7, qacar, qafoot, qaseam, qatown, foot, movement, moves, unstuck,
+  interiors, shops, clothes, decor, realestate, lanes, homes, family, shul, cityhall, heist, qaplaces, sweepplaces 1–4).
+
+## Next (not started — for whoever picks this up)
+- Two ✋ too close in strangers' houses: e.g. "Grab the leaf blower" vs "Grab the broom", "Talk to Mom" vs "Grab the
+  seltzer" — standing at one, facing it, the prompt is the other (houseitems pickups placed by `homes/house.js`).
+  Logged by sweepplaces3 ("standing at it, the prompt is …"); a spacing rule when the pickups are placed would fix it.
+- The one-joke shopfront room on a phone: the camera sits right behind her and her head hides the shopkeeper (a small
+  room: the camera is pulled in). A higher / further-to-the-side camera for `storefronts/room.js` would help.
+- The clothes shop's "💳 Pay at the counter" ✋ only shows the clerk's hello (buying happens at the racks) — the label
+  promises more than it does.
+- Party: Borough Hall / the realtor are shared rooms already (friends see each other) — fine.
+
 ## Left (owner's call / not a fix)
 - (Lakewood's shul door — the camera inside the yeshiva building: fixed with item 16, batch 3.)
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
