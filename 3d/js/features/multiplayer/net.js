@@ -222,7 +222,7 @@ function handle(msg, src) {
         if (src.main) emit("mp:status", { connected: true });
         if (Array.isArray(msg.r)) for (const e of msg.r.slice(-32)) relIn(e, true, src);    // 🌍 step 2: what happened just before I came
     } else if (msg.t === "+") { if (!src.prefix) addPeer(msg.id, msg.name, msg.sk, src); else pendSet(src.prefix + msg.id, msg.name, msg.sk); }
-    else if (msg.t === "s") { applyState(msg.id, msg.d, false, src); const p = MP.peers[key(msg.id)]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
+    else if (msg.t === "s") { MP.inSt = typeof msg.st === "number" ? msg.st : null; applyState(msg.id, msg.d, false, src); MP.inSt = null; const p = MP.peers[key(msg.id)]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
     else if (msg.t === "r") relIn(msg, false, src);
     else if (msg.t === "ra") { if (src.main) MP.relOut.delete(msg.id); }
     else if (msg.t === "e") peerEvent(key(msg.id), msg.e);
@@ -291,7 +291,7 @@ function applyState(id, d, snap, src = LEGACY) {
         if (!p.seen) { p.di = di; p.x = p.tx; p.seen = true; }
         else { const err = di - p.di; if (Math.abs(err) > 250) p.di = di; else p.di += err * 0.4; }
     }
-    applyWorld(p, d.w);
+    applyWorld(p, d.w, MP.inSt);
     p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
     p.hc = typeof d.hc === "string" && CO_RE.test(d.hc) ? d.hc : null;                       // (her hair colour)
     p.ot = typeof d.ot === "string" && d.ot.length <= 160 && /^[a-z0-9_,-]*$/i.test(d.ot) ? d.ot : null;   // (her outfit: ids only)
@@ -365,7 +365,7 @@ export function peersIn(id, inst, zone) {
     }
     return out;
 }
-function applyWorld(p, w) {
+function applyWorld(p, w, st = null) {
     if (!Array.isArray(w) || w.length < 3 || typeof w[0] !== "string" || !ZONE_RE.test(w[0])) return;
     const a = fin(w[1], -1e7, 1e7), b = fin(w[2], -1e7, 1e7), h = fin(w[3], -10, 10);
     if (a === null || b === null) return;
@@ -373,7 +373,30 @@ function applyWorld(p, w) {
     const dt = MP.clock - W.at;
     if (W.z !== w[0] || dt > 2 || Math.hypot(a - W.a, b - W.b) > 60) { W.va = W.vb = 0; W.ca = a; W.cb = b; }
     else if (dt > 0.05) { W.va = (a - W.a) / dt; W.vb = (b - W.b) / dt; }
+    if (W.z !== w[0] || Math.hypot(a - W.a, b - W.b) > 60) W.buf = null;      // (a new frame / a warp: start the track over)
     W.z = w[0]; W.a = a; W.b = b; W.h = h || 0; W.at = MP.clock;
+    // 🌍 the relay's timestamp (step 2): kept so she's drawn ~150 ms in the past, between two real updates (smooth, no guessing)
+    if (typeof st === "number" && isFinite(st)) {
+        const B = W.buf || (W.buf = []);
+        if (!B.length || st > B[B.length - 1].t) { B.push({ t: st, a, b }); if (B.length > 10) B.shift(); }
+    }
+}
+/** Where peer track W is at world time T (ms) from its timestamped updates → writes W.ca / W.cb, true; or false (too few / too old). */
+const DELAY = 150;
+function trackAt(W, T) {
+    const B = W.buf;
+    if (!B || B.length < 2 || T - B[B.length - 1].t > 1500) return false;
+    let i = B.length - 1;
+    while (i > 0 && B[i].t > T) i--;
+    const s0 = B[i], s1 = B[Math.min(B.length - 1, i + 1)];
+    if (s1 === s0) {                                  // past the newest: extrapolate ≤ 0.3 s on the last step's speed, then hold
+        const p = B[B.length - 2], dtm = Math.max(1, s0.t - p.t), k = Math.min(300, T - s0.t) / dtm;
+        W.ca = s0.a + (s0.a - p.a) * k; W.cb = s0.b + (s0.b - p.b) * k;
+        return true;
+    }
+    const u = Math.max(0, Math.min(1, (T - s0.t) / Math.max(1, s1.t - s0.t)));
+    W.ca = s0.a + (s1.a - s0.a) * u; W.cb = s0.b + (s1.b - s0.b) * u;
+    return true;
 }
 
 function peerEvent(id, e) {
@@ -717,7 +740,13 @@ export function tick(dt, me) {
         const p = MP.peers[id];
         p.di += (p.sp || 0) * dt;
         p.x += (p.tx - p.x) * Math.min(1, dt * 8);
-        if (p.w) { const W = p.w, age = Math.min(1, MP.clock - W.at), k = Math.min(1, dt * 6); W.ca += (W.a + W.va * age - W.ca) * k; W.cb += (W.b + W.vb * age - W.cb) * k; }
+        if (p.w) {
+            const W = p.w;
+            const pa = W.ca, pb = W.cb;
+            if (!(WC.flag("clock") && ctx.worldClock && ctx.worldClock.synced && trackAt(W, WC.now() - DELAY))) {
+                const age = Math.min(1, MP.clock - W.at), k = Math.min(1, dt * 6); W.ca = pa + (W.a + W.va * age - pa) * k; W.cb = pb + (W.b + W.vb * age - pb) * k;
+            }
+        }
         if (p.honkT > 0) p.honkT -= dt;
         if (p.waveT > 0) p.waveT -= dt;
         if (p.emT > 0) p.emT -= dt;

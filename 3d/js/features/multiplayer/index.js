@@ -286,7 +286,22 @@ export function setOnline(on) {
     emit("mp:online", { on: !!on });
 }
 ctx.mp.setOnline = setOnline;
-ctx.mp.peersIn = N.peersIn;              // (features/together: other players inside the same public room)
+ctx.mp.peersIn = N.peersIn;
+// 🌍 One sky for everyone online (ci/friends, the world clock's client half): the Cruise day + weather from the relay's
+// clock and one world seed — every player on the road sees the same time of day and the same rain, in a group or not.
+// Only while she's really online (connected, the clock measured, the relay's "clock" switch on); else her own day runs.
+const WSKY = { DAY_S: 540, BLOCK: 100, SEED: 0x5EA7 };
+const wh01 = (a, b) => { let h = Math.imul(a ^ 0x2545F491, 0x9E3779B1) ^ Math.imul(b + 0x6C8E9CF5, 0x85EBCA77); h ^= h >>> 15; h = Math.imul(h, 0xC2B2AE3D); h ^= h >>> 13; return (h >>> 0) / 4294967296; };
+ctx.mp.worldSky = {
+    on: () => !!(MP.connected && WC.flag("clock") && ctx.worldClock && ctx.worldClock.synced && onlineOn()),
+    clock: () => ((0.3 + WC.now() / 1000 / WSKY.DAY_S) % 1 + 1) % 1,
+    weather: () => {
+        const b = Math.floor(WC.now() / 1000 / WSKY.BLOCK), r = wh01(WSKY.SEED + 7, b), r2 = wh01(WSKY.SEED + 8, b);
+        if (r < 0.62) return { kind: "clear", strength: 1 };
+        if (r < 0.86) return { kind: "rain", strength: 0.5 + r2 * 0.5 };
+        return { kind: "fog", strength: 0.7 + r2 * 0.3 };
+    },
+};              // (features/together: other players inside the same public room)
 ctx.mp.setFr = N.setFr;                 // (features/friends: ➕ a friend from 📍 Nearby)
 ctx.mp.relabel = N.relabel;             // (features/friends: a friend recognised in EVERYONE → 👯 + her name over her ghost)
 // Tap a NAME over a car (a ghost in EVERYONE) → 📍 Nearby's page for that driver (➕ ask to be friends — features/friends).

@@ -116,6 +116,15 @@ async function body(t, pages, riders) {
   t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && !!bLook.hc && !!bLook.ot && look.hc === bLook.hc && look.ot === bLook.ot, JSON.stringify({ look, bLook }));
   await t.shot("dropin");
 
+  // 🌍 one sky for everyone online (the world clock): A and B, not friends, see the same time of day + the same weather
+  await A.until(`ctx.mp.worldSky && ctx.mp.worldSky.on()`, "A: the world sky is on (clock measured)", 60000);
+  await B.until(`ctx.mp.worldSky && ctx.mp.worldSky.on()`, "B: the world sky is on", 60000);
+  await A.frames(10); await B.frames(10);
+  const skyA = await g(`({ c: ctx.atmos.clock, w: ctx.atmos.weather, want: ctx.mp.worldSky.weather().kind })`), skyB = await B.game(`({ c: ctx.atmos.clock, w: ctx.atmos.weather })`);
+  const dc = Math.abs(skyA.c - skyB.c), dcw = Math.min(dc, 1 - dc);
+  t.check("world sky: the same time of day on two strangers' screens", dcw < 0.01, JSON.stringify({ skyA, skyB }));
+  t.check("world sky: the same weather (from the world clock)", skyA.w === skyB.w && skyA.w === skyA.want, JSON.stringify({ skyA, skyB }));
+
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
   // draws the other in the hall, in her own look; out again, both are back on the road
   for (const P of [{ g, until: (c, w, ms) => A.until(c, w, ms) }, { g: c => B.game(c), until: (c, w, ms) => B.until(c, w, ms) }]) {
@@ -154,6 +163,22 @@ async function body(t, pages, riders) {
   t.check("a stranger driving into me: at most one small bounce, never a shove-fest (same rule as friends)", safe.bumps <= 1 && safe.bonks === 0 && safe.v < v0 + 4, JSON.stringify({ v0, v: safe.v, bumps: safe.bumps }));
   t.check("emote / honk / record floods are dropped on my side", safe.recv >= 10 && !/BAD WORDS/.test(safe.banner), `recv ${safe.recv}`);
   bad.close(); riders.splice(riders.indexOf(bad), 1);
+
+  // 🌍 drawn ~150 ms in the past between the relay's timestamped updates: a rider driving past at 12 m/s (5 updates a
+  // second) glides forward on my screen — no jumps, no going backwards
+  {
+    const mv = new Rider("Kugel Kid", "blue");
+    riders.push(mv);
+    await mv.open();
+    const s0 = me.s + 20, t0 = Date.now();
+    mv.keep(() => { const s = s0 + 12 * (Date.now() - t0) / 1000; return { di: Math.round(s * 56000 / 4800), x: 240, sp: Math.round(12 * 56000 / 4800), w: ["", Math.round(s * 10) / 10, -1.75, 0] }; }, 200);
+    await A.until(`Object.values(${S}.peers).some(p => p.raw === "Kugel Kid" && p.w && p.w.buf && p.w.buf.length >= 3)`, "A: the mover's timestamped updates", 30000);
+    const xs = [];
+    for (let i = 0; i < 24; i++) { xs.push(await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? +p.w.ca.toFixed(2) : null; })()`)); await A.frames(3); }
+    const steps = xs.slice(1).map((x, i) => x - xs[i]).filter(d => d !== 0);
+    t.check("drawn between real updates: the mover glides forward (never back, no jumps)", xs.every(x => x != null) && steps.length >= 6 && steps.every(d => d > -0.05 && d < 6), JSON.stringify(xs));
+    mv.close(); riders.splice(riders.indexOf(mv), 1);
+  }
 
   // ── CAP: 12 more riders around me → only the nearest 6 are drawn ──
   const calls1 = await g(`L3.renderer.info.render.calls`);
