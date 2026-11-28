@@ -110,6 +110,9 @@ module.exports = {
     await t.frames(150);
     const back = await g(`ctx.world.signs.filter(x => x.back).map(x => ({ s: Math.round(x.s), lines: x.lines.join(" / ") }))`);
     console.log("   BACK SIGNS", JSON.stringify(back));
+    // the trip bar reads her way too (ci/twoway round 2: it used to say "Lakewood exit in 2.9 mi" going the other way)
+    const trip = await t.L(`(document.getElementById("tripLabel") || {}).textContent || ""`);
+    t.check(`going down the lap, the trip bar names the next place HER way + "exit on the other side" (${trip})`, /exit on the other side/.test(trip) && !/Lakewood/.test(trip), trip);
     t.check(`going down the lap: a green distance board facing her (the next places her way, in miles)`, back.some(b => / MI/.test(b.lines)), JSON.stringify(back));
     t.check(`…and a board saying a place's exit is on the other side`, back.some(b => /EXIT ON THE OTHER SIDE/.test(b.lines)), JSON.stringify(back));
     const xs = back.find(b => /EXIT ON THE OTHER SIDE/.test(b.lines)), ds = back.find(b => / MI/.test(b.lines));
