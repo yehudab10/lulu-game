@@ -45,7 +45,7 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
     const g = t.game;
-    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport").split(",");
+    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport,rest").split(",");
     await W.install(t);
     // ── 0. ▶ PLAY from the title: the picture glides from the title's street shot to her on her lot — never through the
     //       neighbours' house (qaweekend "home → highway": the camera inside block@128,195 for 8 frames) ──
@@ -329,6 +329,33 @@ module.exports = {
             W.check(t, "JFK kerb", await W.report(t), ["nan", "flat", "underground", "inwall"]);
           }
         }
+      }
+    }
+
+    // ── 8. a rest area's lot: the car backed up to its buildings (the chase cam had no walls there — one flat white), then
+    //       on foot round them ──
+    if (only.includes("rest")) {
+      await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" && L3.setState("playing"), true)`);
+      await t.frames(6);
+      await W.moved(t);
+      await g(`(() => { const r = ctx.world.road, s = ctx.car.s + 1800, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+      const RS = await g(`ctx.exits && ctx.exits.debug.restAhead(500)`);
+      if (typeof RS === "number" && await t.until(`__lulu3d.ctx.exits.debug.modelsReady()`, "rest-area models", 60000)) {
+        await W.moved(t);
+        await g(`(() => { const r = ctx.world.road, s = ${RS} + 150, p = r.point(s, 28, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 28; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+        await t.frames(20);
+        // every big collider in the lot (its buildings): the car parked 3 m out from it, nose away, so the chase cam is on the building's side
+        const sol = await g(`(() => { const out = []; for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders) if (!c.off && c.r >= 2 && c.kind === "prop" && Math.hypot(c.x - ctx.car.pos.x, c.z - ctx.car.pos.z) < 140) out.push({ x: c.x, z: c.z, r: c.r }); return out.slice(0, 8); })()`);
+        const bad = [];
+        for (const c of sol) for (const a of [0, 2.1, 4.2]) {
+          await W.moved(t);
+          await g(`(() => { const x = ${c.x} + Math.sin(${a}) * (${c.r} + 3), z = ${c.z} + Math.cos(${a}) * (${c.r} + 3), n = ctx.world.road.nearest(x, z, ctx.car.s, {}); ctx.car.place(x, z, ${a}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.cam.snap(); return true; })()`);
+          await t.frames(16);
+          if (!await g(`!!ctx.exits.inside`)) continue;
+          const p = await CJ.probe(t), inS = await t.L(`(() => { const c = __lulu3d.ctx.camera.position; return window.__qa.solidAt(c.x, c.z, c.y, 0.05, 0.8); })()`);
+          if (inS || p.near > 0.5) { bad.push({ c, a, inS, ...p }); if (bad.length <= 2) await t.shot(`rest-${bad.length}`); }
+        }
+        t.check(`a rest area: the chase cam backed up to its buildings stays out of them (${sol.length} buildings × 3)`, sol.length > 0 && bad.length === 0, JSON.stringify(bad.slice(0, 3)));
       }
     }
   },
