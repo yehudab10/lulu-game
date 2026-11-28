@@ -4,6 +4,9 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 13:45 UTC — 🩺 Tests + small fixes, part 3. On a phone held upright, speech bubbles no longer run off
+  the side of the screen: inside a house (someone standing off to the side, a long line like "Who put a SPOON down
+  here?") and out on the street (a passer-by's "Shalom!" at the edge) — they slide in so every word shows.
 - 2026-11-28 13:30 UTC — 🚗 On the road, part 4. Velvel, the no-questions mechanic by the highway, no longer offers to buy
   Ima's family minivan (the car Lulu borrows when none of hers is at home), and he won't buy any car while Lulu's own car
   is in the impound — his "we'll bring your car round" used to get it out of the impound for free.
