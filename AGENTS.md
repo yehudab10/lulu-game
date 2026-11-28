@@ -395,6 +395,7 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 
 ## 7. Backlog / known rough edges (good next tasks)
 
+- **From `ci/fasttests` (2026-11-28) — the ON-FOOT camera goes inside Lulu's OWN house's wall** (for `ci/sweep-health` / the camera agent): `qa7`'s "no flat glitch" on her lot (Midwood, E 34th St) fails ~3 runs in 4 on the fast test clock (the old clock samples other frames). At f468 the camera [-495.6, 3.1, 2787.9] looking [0.95, -0.23, -0.21] (6 m behind Lulu, 3 m up) is 0.4–1.2 m inside `WorldHome_body_1` (HomeWalls; a ray hits its BACK side) → one flat dark picture. Her lot is an open lot, exempt from the town's block occluders, so the camera clip doesn't know the house (`features/world/home.js` › buildTownHome). Routed to the doors/camera agent; `qa7` keeps `fast: false` until it's fixed. (The same-commit fast/slow pair also showed calm 19 vs 18 pop-ups a minute, exits 242k vs 86k + 80k triangles at the Lakewood T, qol's parking hint, qa4's ✋ — all already in `3d/docs/sweeps/sweep-health.md`.)
 - **Friends (`ci/friends`, roadmap 19) — stage 1 (a lasting list, presence, one-tap join) is `features/friends`; known
   limits (no server memory):** no "last seen", nothing waits while you're offline (no stored request or invitation); adding
   needs both online at once (together, or a live code / link); after a remove / block a remaining friend who hasn't been
