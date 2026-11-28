@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 07:20 UTC — 📱 Phones, part 2: on a small phone the Scrapbook's longer badge names ("Neighbourhood Hero")
+  stay inside their spot instead of running into the next one.
 - 2026-11-28 07:20 UTC — 🚗 On the road, part 1. A police car that rear-ends Lulu is now the police car's fault — on
   her last heart it used to get HER arrested for "destroying a police cruiser". Cars she has just passed no longer plough
   into her when she slows down or stops (they brake and go round her), and a car pulling out to pass doesn't swerve into

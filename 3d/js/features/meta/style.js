@@ -50,7 +50,8 @@ body.title-mode .card.meta-book, body.title-mode .card.meta-quests { width: min(
 
 .mb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 6px; margin: 6px 0; }
 .mb-badge { border: none; background: transparent; border-radius: 14px; padding: 7px 4px 6px; display: flex; flex-direction: column;
-  align-items: center; gap: 4px; cursor: pointer; font: 700 12px/1.15 var(--font); color: rgba(62,39,35,.62); text-align: center; }
+  align-items: center; gap: 4px; cursor: pointer; font: 700 12px/1.15 var(--font); color: rgba(62,39,35,.62); text-align: center;
+  min-width: 0; overflow-wrap: anywhere; }   /* (a long one-word name — "Neighbourhood Hero" — ran out of its cell on a small phone) */
 .mb-badge .medal { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 29px;
   background: rgba(78,52,46,.16); border: 2px dashed rgba(78,52,46,.5); position: relative; }
 .mb-badge .medal span { opacity: .33; filter: grayscale(1); }
