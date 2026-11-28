@@ -4,6 +4,11 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 14:10 UTC — 🔍 Game logic, part 2b: paused in the middle of a question and then ⌂ Title / ↺ Restart, the
+  question no longer follows her onto the title screen (it swallowed every button press there). Turning herself in by
+  📞 phone in a town — or being held by the Shomrim until the police come — now ends in that town's own precinct, not
+  on the highway out of nowhere; and riding in a friend's passenger seat, the Shomrim don't chase her for the friend's
+  speeding.
 - 2026-11-28 13:50 UTC — 🚗 On the road, part 5. Police chases now work when Lulu drives the highway the other way (on the
   far side, down the lap): the police cars come from behind her and follow her way — before, they started in front of her
   facing the wrong way and simply fell behind — and if she's pulled over there she stops on her own side of the road
