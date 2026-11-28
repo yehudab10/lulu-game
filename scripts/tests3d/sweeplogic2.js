@@ -72,5 +72,20 @@ module.exports = {
       const sup = await t.L(`import("./js/core/dialog.js").then(async m => { let a = null; m.choose("A", "Pay the meter maid?", ["Yes", "No"]).then(i => { a = i; }); const b = m.say("B", "Hey, Lulu!"); await null; await null; const r = { a, open: m.isOpen() }; m.closeDialog(); await b; return r; })`);
       t.check("two lines at once: the question that got covered answers -1 (closed), never hangs", sup.a === -1 && sup.open === true, JSON.stringify(sup));
     });
+
+    // ════ 3. one activity at a time: the timed things that weren't on the list ════
+    // (ctx.engaged() — robberies, snatchers, cameos, the Fixer, job offers, street scenes wait while it says she's busy)
+    await step("one activity", async () => {
+      const r = await t.L(`import("./js/features/rides/ambulance.js").then(m => { const C = __lulu3d.ctx, R = m.ambDebug.RUN, was = R.phase, out = { free: C.engaged() };
+        for (const p of ["pickup", "load", "rush"]) { R.phase = p; out[p] = C.engaged(); }
+        R.phase = was;
+        const TD = C.shops.debug.dealer.TD, on0 = TD.on; TD.on = true; out.test = C.engaged(); TD.on = on0;
+        const CM = C.community.debug.CM, ch0 = CM.chase; CM.chase = { units: [] }; out.shomrim = C.engaged(); CM.chase = ch0;
+        out.after = C.engaged();
+        return out; })`);
+      t.check("one activity: a 🚑 patient run (to the patient, loading, the ER clock) counts — nothing new starts on top", r.free === "" && r.pickup === "ride" && r.load === "ride" && r.rush === "ride", JSON.stringify(r));
+      t.check("one activity: Uncle Refael's 60 s test drive counts", r.test === "testdrive", JSON.stringify(r));
+      t.check("one activity: the 🔦 Shomrim on her tail (about to call the cops) count", r.shomrim === "shomrim" && r.after === "", JSON.stringify(r));
+    });
   },
 };
