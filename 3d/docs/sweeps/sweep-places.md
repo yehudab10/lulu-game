@@ -49,7 +49,23 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    `together/rooms.js`: the tag keeps one size on screen and hides when it's on top of the lens. — fixed
 12. **Rooms' long speech bubbles were squeezed into one thin unreadable strip** — they wrap now (`interiors/fx.js`). — fixed
 
+13. **Walking into a house on a phone: one flat grey screen** — strangers' houses, Ima's house, a home for sale: the
+   camera starts behind her, right inside the front door model, and the room's camera only ever looked at a room's
+   MODEL — the houses, the clothes shop, the lanes, the shops are built in code, so their walls never stopped the lens
+   and their furniture / front door never faded. `interiors/engine.js` rayRoots(): the camera's clip, the fading and
+   the test probe see the code-built pieces too (the door fades, the room shows). — fixed
+14. Test artefacts found + fixed in the sweep test itself (not game bugs): the parked car is the foot stub, not
+   ctx.car; a teleport needs the watchdog's moved(); street counters (makolet, Bling Bay) open a card on the street;
+   the impound gate only opens on an impounded car; carcare's fronts play on the street; a fake house / listing.
+
 ## Left (owner's call / not a fix)
+- **Lakewood's shul door (the yeshiva building on Carpool Ln): the free camera can end up INSIDE the building** — one
+  flat dark screen when she stands at the door with the camera on the building side, and right after walking OUT of
+  the shul (the camera starts behind her = in the building) until she walks off. The town camera clip
+  (`foot/jump.js` camClip) uses the blocks' outlines (`town/plan.js` OCCLUDERS = block inset FRONT + 1.2), but the
+  yeshiva model protrudes past the front line (`town/build.js` town_yeshiva `prot: 1.2`; Bais Yaakov `prot: 3.1`), so
+  its front few metres aren't covered. Town-engine work (an occluder per protruding landmark) — left for the town
+  owner; the sweep test allows it at that one door.
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
 
