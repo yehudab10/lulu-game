@@ -94,7 +94,9 @@ module.exports = {
             for (const sx of [1, -1]) { await t.stick(sx, 0); await t.frames(6); }
             await t.stick(0, 0); await t.frames(20);
             c = await camIn();
-            if (!c) { bad.push("the room went away"); break; }
+            // (the shuffle in a corner by the door can walk her out of it — the door working, as above: not the camera's
+            //  fault; any other way the room went is)
+            if (!c) { if (await st() !== "footRun") bad.push("the room went away (" + await st() + ")"); else console.log(`   (${where}: the corner shuffle walked her out of the door)`); break; }
             if (!c.in || !c.seen || c.wall) bad.push(`${x.toFixed(1)},${z.toFixed(1)}: ${JSON.stringify(c)}`);
           }
           // (0.7 m: the camera may stand just behind a wall it has faded — ci/doors' rule; past that it's outside the room)

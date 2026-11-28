@@ -17,6 +17,7 @@ import * as THREE from "three";
 import { ctx, wrapAngle, runHooks, claimHooks } from "./ctx.js";
 import { save3d, saveSoon } from "./save.js";
 import { input } from "../input.js";
+import { SEE } from "./seethrough.js";
 
 export const CAMS = [
     { name: "Chase cam", dist: 7.4, height: 2.7, look: 1.2, fov: 60 },
@@ -52,6 +53,8 @@ function lookInput(dt) {
 // the free camera's state (on foot)
 const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2, clipD: 99 };
 const _t = new THREE.Vector3();
+/** The frame the free / chase rig last placed the camera + what it framed (her pivot / the car): the see-through line. */
+const SEEF = { f: -9, who: new THREE.Vector3(), piv: new THREE.Vector3(), clip: null };
 
 export const cam = {
     get mode() { return st.mode; },
@@ -82,6 +85,17 @@ export const cam = {
         st.pos.lerp(from, Math.min(1, dt * rate));
         st.look.lerp(look, Math.min(1, dt * rate * 1.5));
         camera.position.copy(st.pos);
+        // (a scene's shot is placed off her / the car — in a town it could stand inside the houses behind the kerb: the same
+        //  walls as the chase cam (cam.carClip, set by foot in a town / her home street) bring it in to this side; ci/sweep-camera)
+        const fn = cam.carClip;
+        if (fn) {
+            _v.subVectors(camera.position, st.look);
+            const D = _v.length();
+            let r = null;
+            if (D > 1) try { r = fn(st.look, _v.x / D, _v.y / D, _v.z / D, D); } catch (e) { r = null; }
+            const lim = r == null ? D : typeof r === "number" ? r : r.d;
+            if (lim < D) camera.position.copy(st.look).addScaledVector(_v, Math.max(0.9, lim) / D);
+        }
         camera.lookAt(st.look);
         camera.fov += (fov - camera.fov) * Math.min(1, dt * 2);
         camera.updateProjectionMatrix();
@@ -169,6 +183,8 @@ export const cam = {
         if (own) return;
         st.pos.copy(camera.position);
         st.yaw = FREE.yaw;
+        // (her leaves-see-through line this frame: core/seethrough.js; + the walls a glide must not pass through)
+        SEEF.f = ctx.frames; SEEF.who.copy(FREE.tgt); SEEF.piv.copy(FREE.tgt); SEEF.clip = clip;
     },
     /** The free camera's state: yaw / pitch (rad), idle (s since the player last looked), looks (how many frames they did). */
     free: {
@@ -193,11 +209,18 @@ export const cam = {
         recentre(yaw) { FREE.reYaw = yaw; FREE.reT = 0.45; },
         reset(yaw = 0, pitch = LOOK.pitch) { FREE.yaw = wrapAngle(yaw); FREE.pitch = pitch; FREE.idle = 9; FREE.reT = 0; },
     },
-    update(dt) { updateCamera(dt); applyBlend(dt); },
+    update(dt) {
+        updateCamera(dt); applyBlend(dt);
+        // a tree's leaves between the lens and her (on foot) / the car (the chase cam) thin out — core/seethrough.js;
+        // off for every other shot (cutscenes, the title, Lulu's eyes)
+        if (SEEF.f === ctx.frames && ctx.camera) SEE.set(ctx.camera.position, SEEF.who); else SEE.off();
+    },
     /** (tgt, dx, dy, dz, D) → how far the CHASE cam may sit from the car (walls) | null — foot sets it in a town. */
     carClip: null,
     /** How far the walls let the chase cam sit right now (m; 99 = nothing in the way) — tests. */
     get carClipD() { return CAR.clipD; },
+    /** The last frame the camera cut on its own (a glide that would have gone through a wall) — tests. */
+    get cutFrame() { return CUT.f; },
     state: st,
 };
 ctx.cam = cam;
@@ -222,13 +245,28 @@ function applyBlend(dt) {
     const k = bl.t / bl.dur;
     if (k >= 1) { bl.on = false; return; }
     const e = ease(k);
+    _rig.copy(camera.position);
     camera.position.lerpVectors(bl.pos, camera.position, e);
+    // (a glide that would pass through a wall — the title's street shot to her on her lot, through the neighbours' house:
+    //  one flat colour for 8 frames — ends there: a cut to the rig's own pose, which is clear of the walls; ci/sweep-camera)
+    if (SEEF.f === ctx.frames && SEEF.clip) {
+        _v.subVectors(camera.position, SEEF.piv);
+        const D = _v.length();
+        if (D > 0.6) {
+            let r = null;
+            try { r = SEEF.clip(SEEF.piv, _v.x / D, _v.y / D, _v.z / D, D); } catch (err) { r = null; }
+            const lim = r == null ? D : typeof r === "number" ? r : r.d;
+            if (lim < D - 0.3) { bl.on = false; camera.position.copy(_rig); st.pos.copy(_rig); CUT.f = ctx.frames; return; }
+        }
+    }
     _q.copy(camera.quaternion);
     camera.quaternion.slerpQuaternions(bl.quat, _q, e);
     camera.fov = bl.fov + (camera.fov - bl.fov) * e;
     camera.updateProjectionMatrix();
 }
-const _q = new THREE.Quaternion();
+const _q = new THREE.Quaternion(), _rig = new THREE.Vector3();
+/** The last frame the camera CUT on its own (a glide stopped at a wall) — tests: a declared cut, not a glitch. */
+const CUT = { f: -9 };
 
 // ── the chase cam's walls (cam.carClip — set by foot while she's in a TOWN; null on the highway: no cost there) ──
 // Like the free camera on foot: a house / a block / the circle's statue / a tree's leaves between the car and the camera
@@ -332,6 +370,7 @@ function updateCamera(dt) {
     camera.position.y += car.bump * 0.6;
     _w.set(car.pos.x + Math.sin(yaw) * 4, cfg.look, car.pos.z + Math.cos(yaw) * 4);
     camera.lookAt(_w);
+    SEEF.f = ctx.frames; SEEF.who.set(car.pos.x, (car.pos.y || 0) + 1.0, car.pos.z); SEEF.piv.set(car.pos.x, 1.4, car.pos.z); SEEF.clip = cam.carClip;
     const fov = cfg.fov + Math.min(sp, 50) * 0.3 + (G.boosting ? 10 : 0) + (portrait ? 16 : 0);
     camera.fov += (fov - camera.fov) * Math.min(1, dt * 3);
     camera.updateProjectionMatrix();

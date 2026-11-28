@@ -83,6 +83,10 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## Landed
 
+- batch 3 → main (2026-11-28 14:35 UTC): findings 14–15. CI 46151538172 (cameras, sweeplogic2, core, platform, interiors,
+  qalaw, cityhall ✓) + 46153891714 (heist, oneact, sweeplogic2, core, platform, skip, ux, qa18, partyheist, underworld,
+  streets, roadevents, cameos, crime, crime2 ✓).
+
 - batch 2 → main 071f9fd3 (2026-11-28 13:45 UTC): findings 11–13. CI 46146651901 (core, platform, skip, ux, sweeplogic2, oneact, law,
   qalaw, courts, partners, interiors, qa28, onegame, home, shabbos, journey, cameos, dina ✓) + 46149488863 (community,
   sweeplogic2, core, platform — green on the re-run; places, qalaw, partners3, underworld ✓); community locally ✓ ×2.

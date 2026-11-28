@@ -46,6 +46,9 @@ const SRC = String.raw`
     if (Q.issues.length < 400) Q.issues.push(it);
   };
   Q.flag = flag;
+  // (the game cuts a tree's leaves away around the lens + along the line to her — core/seethrough.js: with that on, a
+  //  camera passing through a canopy shows her, not a green screen)
+  import("./js/core/seethrough.js").then(m => { Q.SEE = m.SEE; }).catch(() => { });
   // declared cuts: a town swap (the real ramp hides it behind a soft cut; a test's ctx.town.enter() doesn't)
   for (const ev of ["town:enter", "town:leave"]) L3.on(ev, () => { Q.cutF = ctx.frames + 1; });
   const fin = v => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
@@ -146,6 +149,7 @@ const SRC = String.raw`
     const cd = ctx.cam && ctx.cam.free ? ctx.cam.free.clipD : 99, ccd = ctx.cam && ctx.cam.carClipD != null ? ctx.cam.carClipD : 99;
     if ((Q.clipD != null && cd < Q.clipD - 2) || (Q.carClipD != null && ccd < Q.carClipD - 2)) Q.cutF = f;
     Q.clipD = cd; Q.carClipD = ccd;
+    if (ctx.cam && ctx.cam.cutFrame >= f - 1) Q.cutF = f;     // (a glide that would have gone through a wall cut instead: core/camera.js)
     if (ctx.cam && ctx.cam.mode !== Q.camMode) { if (Q.camMode != null) Q.cutF = f; Q.camMode = ctx.cam.mode; }     // (△ / Y: another camera view is a cut)
     const cutNear = f - Q.cutF <= 2 || f - Q.stateChangeF <= 2 || ctx.skipping;
     // NaN
@@ -177,7 +181,7 @@ const SRC = String.raw`
       // (on foot anywhere; in the car only in a town — the driving camera's walls are a town thing)
       const who = foot || (st === "playing" && ctx.town && ctx.town.active ? ctx.car.pos : null);
       let leaf = null;
-      if (who) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
+      if (who && !(Q.SEE && Q.SEE.on)) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
         if (c.kind !== "tree" || c.off || camP.y < 2.0 || camP.y > 7.5) continue;
         const R = Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4)) - 0.3;     // (as foot/jump.js canopyR, a touch inside)
         if ((who.x - c.x) ** 2 + (who.z - c.z) ** 2 < (R + 0.6) ** 2) continue;     // (she's under it herself: the camera behind her may pass its edge)

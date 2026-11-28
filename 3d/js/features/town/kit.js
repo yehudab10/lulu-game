@@ -10,6 +10,7 @@
 //           cell in ONE canvas texture, and all the sign faces are ONE mesh.
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { seeThrough, seeFlag } from "../../core/seethrough.js";
 
 const _m = new THREE.Matrix4(), _n = new THREE.Matrix3(), _v = new THREE.Vector3(), _c = new THREE.Color();
 
@@ -37,8 +38,9 @@ export function lookOf(mat) {
     return "solid";
 }
 
-/** A copy of geometry g (position + normal + colour only), transformed by matrix m, one colour. */
-function bakeGeometry(g, m, color) {
+/** A copy of geometry g (position + normal + colour only), transformed by matrix m, one colour (+ `flag` on red: a tree's
+ *  leaves / trunk — cut away along the camera's line of sight, core/seethrough.js). */
+function bakeGeometry(g, m, color, flag = 0) {
     const pos = g.attributes.position, nor = g.attributes.normal, n = pos.count;
     const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 3);
     _n.getNormalMatrix(m);
@@ -46,7 +48,7 @@ function bakeGeometry(g, m, color) {
         _v.fromBufferAttribute(pos, i).applyMatrix4(m);
         P[i * 3] = _v.x; P[i * 3 + 1] = _v.y; P[i * 3 + 2] = _v.z;
         if (nor) { _v.fromBufferAttribute(nor, i).applyMatrix3(_n).normalize(); N[i * 3] = _v.x; N[i * 3 + 1] = _v.y; N[i * 3 + 2] = _v.z; }
-        C[i * 3] = color.r; C[i * 3 + 1] = color.g; C[i * 3 + 2] = color.b;
+        C[i * 3] = color.r + flag; C[i * 3 + 1] = color.g; C[i * 3 + 2] = color.b;
     }
     const out = new THREE.BufferGeometry();
     out.setAttribute("position", new THREE.BufferAttribute(P, 3));
@@ -113,7 +115,7 @@ export class Merger {
             const t = tints && tints[p.name];
             if (t) _c.set(t); else _c.copy(p.mat.color);
             _m.multiplyMatrices(m, p.local);
-            const bg = bakeGeometry(p.g, _m, _c);
+            const bg = bakeGeometry(p.g, _m, _c, look === "solid" || look === "flat" ? seeFlag(p.name) : 0);
             if (opts.tag) bg.userData.tag = opts.tag;
             this.list(bx, bz, look).push(bg);
             this.tris += (p.g.index ? p.g.index.count : p.g.attributes.position.count) / 3;
@@ -175,7 +177,8 @@ export function hideTagged(tag, hide = true) {
 /** The shared materials of the merged looks (one set per town build). */
 export function lookMaterials() {
     return {
-        solid: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 }),
+        // (solid: its leaves — flagged by bakeGeometry — thin out between the camera and her: core/seethrough.js)
+        solid: seeThrough(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 })),
         glass: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.38, depthWrite: false }),
         glow: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.2, emissive: new THREE.Color("#ffc46b"), emissiveIntensity: 0 }),
         lit: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, emissive: new THREE.Color("#ffe2a8"), emissiveIntensity: 0.15 }),

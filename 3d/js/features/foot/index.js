@@ -1052,7 +1052,13 @@ function footCamera(dt) {
     return true;
 }
 // (the free camera stays on her side of a wall: jump.js camClip — the colliders she walks into, a town's blocks)
-const clipCam = (tgt, dx, dy, dz, D) => F ? camClip(F, tgt, dx, dy, dz, D) : D;
+// (ci/sweep-camera: + the airport's terminal + tower boxes, as the chase cam has — on foot at the kerb the free camera only
+//  knew the terminal's collision circles)
+const clipCam = (tgt, dx, dy, dz, D) => {
+    if (!F) return D;
+    const r = camClip(F, tgt, dx, dy, dz, D), air = ctx.airport && ctx.airport.camClip ? ctx.airport.camClip(tgt, dx, dy, dz, D) : null;
+    return air != null && air < (typeof r === "number" ? r : r.d) ? (typeof r === "number" ? air : { d: air, noLift: r.noLift }) : r;
+};
 /** Gentle auto-follow: only while she walks roughly "up" (away from the camera) and the camera is already within ~40°
  *  of the road / street's direction — then it eases onto it, so walking along a bend keeps the road ahead. Pointing the
  *  camera across the road, strafing, walking back toward it or standing still: it stays exactly where it is. */
@@ -2147,7 +2153,8 @@ const homeStreet = () => ctx.state === "playing" && !ctx.world.district && ctx.w
 const carClipFn = (tgt, dx, dy, dz, D) => {
     // (ci/airport-polish: and the airport's buildings — ctx.airport.camClip: the terminal + the tower; null away from it)
     const air = ctx.airport && ctx.airport.camClip ? ctx.airport.camClip(tgt, dx, dy, dz, D) : null;
-    if (!(ctx.town && ctx.town.active) && !homeStreet()) return air;
+    // (ci/sweep-camera: and a rest area's lot — its buildings are solid; backed into one, the chase cam showed one flat white)
+    if (!(ctx.town && ctx.town.active) && !homeStreet() && !(ctx.exits && ctx.exits.inside)) return air;
     carProbe.s = ctx.car.s; const r = camClip(carProbe, tgt, dx, dy, dz, D);
     return air != null && (r == null || air < (typeof r === "number" ? r : r.d)) ? air : r;
 };

@@ -38,6 +38,9 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 22 | Driving straight on past an exit, the chip still said "EXIT 9 BROOKLYN · NOW ↗" for 120 m after it. | `exits/index.js` `nextAhead` | **fixed** — gone 25 m past (kept while she's down its ramp); the lap survey checks it |
 | 23 | 🔋 An EV pulled into a rest area's pump bay: it starts charging (the bay has a charger) AND Yanky's "Electric? Try a charger" joke pops up — two messages that disagree (and it isn't Yanky's station). | `fuel/index.js` `fill` | **fixed** — no joke at a rest area's bay (still at Yanky's Gas 'n' Go) |
 | 24 | Velvel's no-questions garage buys the "borrowed" car she's in — including IMA'S FAMILY MINIVAN (the never-stuck ride when none of her cars is home), and while her own car was impounded "your car's brought round" released it for free. | `underworld/mechanic.js` `rideNow` | **fixed** — he won't buy Ima's minivan, nor anything while her own car is impounded |
+| 25 | A chase while she drives DOWN the lap (ci/twoway's far carriageway, landed): the cruisers spawned ahead of her facing up the lap, aimed up the lap and fell behind for good (never a real chase); the pull-over aimed her up the lap at the RIGHT shoulder (across both carriageways). | `law/cops.js` steerUnit, spawnChaser, pullDAt, scriptedCruiser · `law/bust.js` | **fixed** — `travelDir()` (±1): chasers spawn behind HER and drive her way, the gaps / look-ahead / the pull-over's stop + shoulder / the camera mirror with it |
+| 26 | Still DOWN the lap: a hidden speed trap and a WANTED poster were placed ahead of her (ci/twoway mirrored that) but their "keep me" test still read +s — both were thrown away the frame they spawned (no speed traps at all on the far carriageway); a K9 / a missile was loosed BEHIND her running away; the BOLO cruiser came from ahead facing the wrong way. | `law/cops.js` traps, poster, K9, missile, BOLO | **fixed** — all read `travelDir()`; checks in `sweeproad` › downlap |
+| 27 | Driving DOWN the lap with the traffic on the far carriageway: every car catching up behind her in her lane flashed its brights and honked at her (it took her for a car coming at it), and a HONK never moved the slow car in front (honk-to-pass only looked up the lap). Found with sweeproad3's new down-the-lap drive (`SWEEPROAD3_DOWN=1`). | `traffic.js` update | **fixed** — no flash / honk when she's going its way; the honk works her way (`traffic.dir`) |
 | 20 | Shmuel's chop shop: "his guy brings Lulu's own car round" after a drop-off — even when her car was IMPOUNDED (a free release). | `streets/chop.js` | **fixed** — no chop-shop call while her own car is impounded (a car parked away is still "brought round": his guy's service) |
 
 - (from ci/sweep-health) `schlepnav` "…still self-driving in town": NOT a game bug — on the fast test clock the harness stops on
@@ -51,15 +54,23 @@ Not touched (still moving on another branch when this started): `features/fuel` 
   push-outs squeeze it through. Not a real way to drive; car-sized shells keep her car's circles (#11). Left.
 
 - (ci/twoway handled the trip bar going DOWN the lap itself — `nextPlace` › `down`.)
-- ci/twoway: a chase / a pull-over while she drives DOWN the lap (the far carriageway) — law's chase + pull-over still
+- (fixed here as #25 once ci/twoway had landed and moved on:) a chase / a pull-over while she drives DOWN the lap (the far carriageway) — law's chase + pull-over still
   assume +s: `spawnChaser` puts cruisers at `car.s − back`, the pull-over's `pullDAt` is the RIGHT shoulder (7.9) and
   `stopS = car.s − 7.2`, and bust.js `autoLulu` aims at `car.s + 12` — busted going down the lap she'd be steered across both
   carriageways. (Traps + patrols already mirror with `downLap()`.) Not touched: it's that branch's model.
 
 ## For other branches
 
+- **ci/twoway's owner (the town-engine agent)**: going DOWN the lap, roadevents' set pieces (toll, train crossing, school
+  bus stop, work zones, the steamroller…) still place themselves up the lap (`roadevents/common.js` `claimSlot`:
+  `carS() + 420` / `builtEnd()`), i.e. behind her, where she never meets them; their "keep me" tests (`car.s < s + 250`)
+  stay true for as long as she drives on, so each one stays `busy` and no other of its kind spawns. Nothing breaks — the
+  far carriageway just has no set pieces. Mirroring them is a per-piece job (each is built for one direction); not done here.
+
 - **ci/sweep-health**: `partyworld` "paused in a party (the 📱 phone): the car stops and never rolls backwards" is flaky on
-  plain main (a shared, clock-driven party car rams her stopped car — they can't stop for her); `feel` "rain on foot" sits
+  plain main (a shared, clock-driven party car rams her stopped car — they can't stop for her; seen again in CI
+  46150503359 as `{"min":-7.71,"ds":9}`: placed at 16 m/s in lane 1.75 she eases into a shared car ahead of her and bounces
+  back — the test's placement, not a reverse); `feel` "rain on foot" sits
   right at its 0.02 drum threshold on the fast clock.
 
 - **ci/sweep-health / ci/fasttests**: on the fast test clock a test's `t.shot()` comes out as flat sky blue (the HUD drawn
@@ -67,6 +78,12 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 13:50 UTC — part 5 on main: findings 25–27 (down the lap: chases, the pull-over, traps, posters, K9 / missiles,
+  the call-in cruiser, traffic flashing + the honk) + sweeproad3's down-the-lap drive. CI 46149112139 (core, platform, sweeproad,
+  law, qalaw, lawstruck, town, qacar, heist, crime ✓), 46150503359 (core, platform, sweeproad, qacar, atmos, moves, pinroute,
+  foot, law ✓; partyworld ✗ — the known flake, see For other branches) + local law, lawstruck, sweeproad downlap after the last tweak.
+- 2026-11-28 12:58 UTC — part 4 on main (8f76b59f): finding 24 + sweeproad3's bump / ragers fixes. CI 46146705028
+  (underworld, core, platform ✓; sweeproad3 still running at landing).
 - 2026-11-28 12:25 UTC — part 3 on main: findings 21–23 + the schlepnav test wait. CI 46124201678 (core, platform,
   sweeproad, law, town, roadside, qaplaces, qalaw, lawstruck, airport, exits ✓) + local after the merge (core, sweeproad, qalaw ✓).
 - 2026-11-28 08:05 UTC — part 2 on main: findings 19–20. CI 46121235380 (core, platform, sweeproad, law, places, roadside,

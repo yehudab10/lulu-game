@@ -13,7 +13,7 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, setRig, endChase, driveUnit, spatialSirens, pullDAt } from "./cops.js";
+import { L, setRig, endChase, driveUnit, spatialSirens, pullDAt, travelDir } from "./cops.js";
 import { COP_SCENES, BUST_TACTICS, COP_LINE_DUR, COP_STOP_SCENES } from "./data.js";
 import { pick, rand, S } from "./rules.js";
 import { runFlow, check, line, ask, person, walkTo, quietRoad, restoreRoad, V } from "./scene.js";
@@ -37,7 +37,7 @@ function autoLulu(dt, d, stop) {
     const car = ctx.car, road = ctx.world.road, spot = pullOverSpot(car);
     let want;
     if (spot) want = spot.h;
-    else { road.point(car.s + 12, d, tmp); want = Math.atan2(tmp.x - car.pos.x, tmp.z - car.pos.z); }
+    else { road.point(car.s + travelDir() * 12, d, tmp); want = Math.atan2(tmp.x - car.pos.x, tmp.z - car.pos.z); }
     const diff = wrapAngle(want - car.h);
     // (holding the brake at a standstill would REVERSE — ease off once she's stopped)
     const ctl = { steer: Math.max(-1, Math.min(1, -diff * 3)), throttle: 0, brake: stop ? (car.vF > 0.6 ? 0.9 : 0.25) : 0.35, handbrake: false, analog: true };
@@ -64,8 +64,9 @@ export function roadsideShot(dt, rate = 1.6) {
         tmp.x = car.pos.x + fx * 10.5 - rx * 6.5; tmp.z = car.pos.z + fz * 10.5 - rz * 6.5;
         tmpB.x = car.pos.x - fx * 2.5 - rx * 0.4; tmpB.z = car.pos.z - fz * 2.5 - rz * 0.4;
     } else {
-        road.point(car.s + 10.5, car.d - 6.5, tmp);
-        road.point(car.s - 2.5, car.d - 0.4, tmpB);
+        const D = travelDir();
+        road.point(car.s + D * 10.5, car.d - D * 6.5, tmp);
+        road.point(car.s - D * 2.5, car.d - D * 0.4, tmpB);
     }
     ctx.cam.cinematic(_a.set(tmp.x, 2.3, tmp.z), _b.set(tmpB.x, 1.15, tmpB.z), dt, rate, 46);
 }
@@ -93,7 +94,7 @@ registerState("lawBust", {
         rumble(0.4, 0.6, 300, true);
         A.duckMusic(0.15);
         if (u && u.car) {
-            u.mode = "pull"; u.siren = true; u.pullD = pullDAt(ctx.car.s); u.stopS = ctx.car.s - 7.2;
+            u.mode = "pull"; u.siren = true; u.pullD = pullDAt(ctx.car.s); u.stopS = ctx.car.s - travelDir() * 7.2;
             if (!u.car.ai) { u.car.free = true; u.car.ai = (dt, c) => driveUnit(dt, c, u); }
         }
         flow = runFlow(f => script(f, data));
@@ -116,7 +117,7 @@ registerState("lawBust", {
         st.t += dt;
         const u = st.u, car = ctx.car;
         autoLulu(dt, pullDAt(car.s), st.t > 0.6);
-        if (u && u.car) { u.stopS = car.s - 7.2; setRig(u.rig, true, ctx.time); }
+        if (u && u.car) { u.stopS = car.s - travelDir() * 7.2; setRig(u.rig, true, ctx.time); }
         const cop = cast.cop;
         if (cop) {
             if (st.walking) { if (walkTo(cop, st.wx, st.wz, 2.2, dt)) st.walking = false; }

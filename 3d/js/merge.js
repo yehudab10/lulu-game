@@ -11,11 +11,13 @@
 // material SHARES the source window's emissive (atmos lights the windows at night).
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { seeThrough, seeFlag } from "./core/seethrough.js";
 
 const _m = new THREE.Matrix4(), _n = new THREE.Matrix3(), _v = new THREE.Vector3(), _c = new THREE.Color();
 const LIVE = /^(Headlight|Taillight|LightRed|LightBlue|Neon|Siren|Beacon|Glass|Lamp|Water)/;
 const LEAF = /Leaves|^Brush$|^Bush/i;
 const WINDOW = /^(Window|ShopWindow)$/;
+const win = m => WINDOW.test(m.name || "");
 
 /** Each mesh of a template with its transform relative to the template root (cached). */
 export function templateParts(template) {
@@ -42,7 +44,7 @@ export function plainMaterial(m) {
 }
 
 /** A copy of geometry g transformed by m, one colour (+ optional per-vertex sway weight: its height). */
-export function bakeGeometry(g, m, color, sway = false) {
+export function bakeGeometry(g, m, color, sway = false, flag = 0) {
     const pos = g.attributes.position, nor = g.attributes.normal, n = pos.count;
     const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 3);
     _n.getNormalMatrix(m);
@@ -51,7 +53,7 @@ export function bakeGeometry(g, m, color, sway = false) {
         P[i * 3] = _v.x; P[i * 3 + 1] = _v.y; P[i * 3 + 2] = _v.z;
         if (nor) { _v.fromBufferAttribute(nor, i).applyMatrix3(_n).normalize(); N[i * 3] = _v.x; N[i * 3 + 1] = _v.y; N[i * 3 + 2] = _v.z; }
         else N[i * 3 + 1] = 1;
-        C[i * 3] = color.r; C[i * 3 + 1] = color.g; C[i * 3 + 2] = color.b;
+        C[i * 3] = color.r + flag; C[i * 3 + 1] = color.g; C[i * 3 + 2] = color.b;     // (flag: core/seethrough.js)
     }
     const out = new THREE.BufferGeometry();
     out.setAttribute("position", new THREE.BufferAttribute(P, 3));
@@ -84,7 +86,8 @@ function lookMaterial(src, leaf) {
         m.emissive = src.emissive;
         Object.defineProperty(m, "emissiveIntensity", { get: () => src.emissiveIntensity, set: () => { }, configurable: true });
     }
-    if (leaf) { m.userData.leaf = true; if (lookHooks.leaf) lookHooks.leaf(m); }
+    if (leaf) { m.userData.leaf = true; if (lookHooks.leaf) lookHooks.leaf(m); seeThrough(m, { all: true }); }     // (between the camera and her they thin out: core/seethrough.js)
+    else if (!win) seeThrough(m);       // (a trunk's vertices are flagged: cut along the line of sight too)
     LOOKS.set(key, m);
     return m;
 }
@@ -109,7 +112,8 @@ export class ChunkMerger {
             if (!L) this.looks.set(key, L = { mat, cast: c, list: [] });
             const t = tints && tints[p.name];
             if (t) _c.set(t); else _c.copy(p.material.color);
-            L.list.push(bakeGeometry(p.geometry, _m.multiplyMatrices(matrix, p.local), _c, leaf));
+            // (a trunk in a solid look: flagged, cut along the line of sight — core/seethrough.js; the leaves' look is cut whole)
+            L.list.push(bakeGeometry(p.geometry, _m.multiplyMatrices(matrix, p.local), _c, leaf, leaf || win(mat) ? 0 : seeFlag(p.name)));
             this.tris += (p.geometry.index ? p.geometry.index.count : p.geometry.attributes.position.count) / 3;
         }
         if (hasRest) {

@@ -4,11 +4,32 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 14:35 UTC — 🔍 Game logic, part 2c: casing the bank for a heist no longer makes the rest of the world go
+  quiet until she robs it (no robberies to foil, cameos, job offers or street scenes used to start while the plan waited);
+  and paying off speed-camera tickets at the precinct's fines window closes the tickets too (they stayed owed).
+- 2026-11-28 14:10 UTC — 🎥 The camera, part 1: a tree no longer fills the phone with leaves. When a tree, a tree trunk or a
+  lamp post stands between the camera and Lulu (or her car), it now thins out in a soft see-through patch so you always see
+  her — before, walking along a street with a tree behind her could turn the whole screen olive green. Walking into the
+  pizza shop, the bakery, the clothes shop and the little roadside buildings on the highway (the trooper post, the traffic
+  court, Hatzalah), Lulu now faces INTO the room (she used to walk in facing the door, so pushing forward walked her right
+  back out). When the camera is very close to her in a small room she turns see-through as before, but now cleanly (her face
+  no longer showed through the back of her head). Smaller fixes: the camera no longer slides through the neighbours' house
+  when PLAY starts the day, scene shots (arrests, crashes…) stay out of the houses, the driving camera keeps out of the rest
+  areas' buildings and the on-foot camera out of the airport terminal, and the room camera no longer sits behind a big table
+  or a pizza oven.
 - 2026-11-28 13:45 UTC — 🔍 Game logic, part 2b: paused in the middle of a question and then ⌂ Title / ↺ Restart, the
   question no longer follows her onto the title screen (it swallowed every button press there). Turning herself in by
   📞 phone in a town — or being held by the Shomrim until the police come — now ends in that town's own precinct, not
   on the highway out of nowhere; and riding in a friend's passenger seat, the Shomrim don't chase her for the friend's
   speeding.
+- 2026-11-28 13:50 UTC — 🚗 On the road, part 5. Police chases now work when Lulu drives the highway the other way (on the
+  far side, down the lap): the police cars come from behind her and follow her way — before, they started in front of her
+  facing the wrong way and simply fell behind — and if she's pulled over there she stops on her own side of the road
+  instead of being steered across both carriageways. On that side, hidden speed traps and WANTED posters used to vanish
+  the moment they appeared (so there were none), police dogs and missiles were let loose behind her, and a police car
+  out looking for her drove on the wrong side of the highway — all fixed. Also on that side: cars catching up behind her
+  no longer flash their lights and honk at her as if she were coming at them, and her horn now makes the slow car in
+  front move over, as it does on the other side.
 - 2026-11-28 13:45 UTC — 🩺 Tests + small fixes, part 3. On a phone held upright, speech bubbles no longer run off
   the side of the screen: inside a house (someone standing off to the side, a long line like "Who put a SPOON down
   here?") and out on the street (a passer-by's "Shalom!" at the edge) — they slide in so every word shows.
