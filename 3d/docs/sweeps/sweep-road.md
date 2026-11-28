@@ -52,6 +52,12 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Left (not fixed yet)
 
+- sweeproad3's down-the-lap drive (`SWEEPROAD3_DOWN=1`, 16 km, ~22 min locally): she left the road a few times and hit a
+  pole / trees — explained: Ima's call rings, "let it ring to pick up" answers it, and the call FLIPS the steering (by
+  design); the test driver now flips back. A few "their fault" hits from drunk / texting cars weaving into her (by
+  design, both carriageways) remain in that run's log; not a down-the-lap bug. The full down-the-lap drive wasn't re-run
+  after the driver fix (the local browser was busy, and CI can't pass the env switch).
+
 - A long ride's (truck / bus) own hit circles: driven nose-first across a town street into a parked car's side, the truck
   ends up overlapping it — but a 7.5 m truck turned across a ~9 m street also touches the parked car BEHIND it, and the two
   push-outs squeeze it through. Not a real way to drive; car-sized shells keep her car's circles (#11). Left.

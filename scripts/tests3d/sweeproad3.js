@@ -48,7 +48,8 @@ async function drive(t) {
       D.dbg = { ns: Math.round(n.s), nd: +n.d.toFixed(1), cs: Math.round(car.s), tg: Math.round(Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z)) };
       const want = Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z); let a = want - car.h; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
       const v = block && Math.abs(n.d - D.lane) < 1.5 ? Math.min(D.v, block.v + Math.max(0, block.gap - 12) * 0.7) : D.v;      // (eases down to its speed, 12 m behind)
-      ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)); D.st = ctl.steer; ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 1.5 ? Math.min(1, (car.speed - v) / 6) : 0; ctl.handbrake = false; ctl.analog = true;
+      // (Ima's call picked up — let it ring and it answers itself — flips the steering on purpose: the driver flips back)
+      ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)) * (C.phone && C.phone.flipped ? -1 : 1); D.st = ctl.steer; ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 1.5 ? Math.min(1, (car.speed - v) / 6) : 0; ctl.handbrake = false; ctl.analog = true;
     }, 1000);
     m.hook("controls", ctl => { D.fin = ctl.steer; }, -100000);
     m.hook("hud", () => {
