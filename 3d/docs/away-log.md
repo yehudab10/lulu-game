@@ -4,6 +4,9 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 13:30 UTC — 🚗 On the road, part 4. Velvel, the no-questions mechanic by the highway, no longer offers to buy
+  Ima's family minivan (the car Lulu borrows when none of hers is at home), and he won't buy any car while Lulu's own car
+  is in the impound — his "we'll bring your car round" used to get it out of the impound for free.
 - 2026-11-28 12:20 UTC — 🚗 On the road, part 3. Pulled over by the police on an exit ramp, in a rest area's car park, at
   Trooper Post 7 or a dealership's lot, Lulu now stops right where she is and the police car pulls up behind her — before,
   the game steered her back across the grass to the side of the highway. Driving straight on past an exit, the green

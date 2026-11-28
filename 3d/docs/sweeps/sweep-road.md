@@ -46,6 +46,10 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Left (not fixed yet)
 
+- A long ride's (truck / bus) own hit circles: driven nose-first across a town street into a parked car's side, the truck
+  ends up overlapping it — but a 7.5 m truck turned across a ~9 m street also touches the parked car BEHIND it, and the two
+  push-outs squeeze it through. Not a real way to drive; car-sized shells keep her car's circles (#11). Left.
+
 - (ci/twoway handled the trip bar going DOWN the lap itself — `nextPlace` › `down`.)
 - ci/twoway: a chase / a pull-over while she drives DOWN the lap (the far carriageway) — law's chase + pull-over still
   assume +s: `spawnChaser` puts cruisers at `car.s − back`, the pull-over's `pullDAt` is the RIGHT shoulder (7.9) and
