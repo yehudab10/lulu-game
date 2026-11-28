@@ -23,6 +23,13 @@ const KINDS = {
  */
 export function registerKind(name, spec) { KINDS[name] = Object.assign({ circles: [0], r: 1, mass: 1.2, paint: false }, spec); }
 export function kindSpec(name) { return KINDS[name]; }
+/** The kind whose body is model `key` (a ride's shell is named by its model: "foot_bus" → the city bus) — or a kind named so. */
+export function specOfModel(key) {
+    if (!key) return null;
+    if (KINDS[key]) return KINDS[key];
+    for (const k in KINDS) if (KINDS[k].model === key) return KINDS[k];
+    return null;
+}
 
 export class Traffic {
     constructor(scene, world) {
@@ -291,16 +298,19 @@ export class Traffic {
         const cfx = Math.sin(c.h), cfz = Math.cos(c.h);
         // quick reject
         const dx0 = c.x - player.pos.x, dz0 = c.z - player.pos.z;
-        if (dx0 * dx0 + dz0 * dz0 > 100) return null;
+        if (dx0 * dx0 + dz0 * dz0 > (player.circles ? 225 : 100)) return null;
         const cvx = c.hit ? c.vx : cfx * c.speed;
         const cvz = c.hit ? c.vz : cfz * c.speed;
         let best = null;
-        for (const po of CAR_CIRCLES) {
+        // (her body: her car's two circles — or a longer ride's own, features/rides: a bus no longer passes through traffic
+        //  with its back half)
+        const pc = player.circles || CAR_CIRCLES, pr = player.radius || CAR_RADIUS;
+        for (const po of pc) {
             const px = player.pos.x + pfx * po, pz = player.pos.z + pfz * po;
             for (const co of c.spec.circles) {
                 const qx = c.x + cfx * co, qz = c.z + cfz * co;
                 const dx = px - qx, dz = pz - qz;
-                const rr = CAR_RADIUS + c.spec.r;
+                const rr = pr + c.spec.r;
                 const d2 = dx * dx + dz * dz;
                 if (d2 < rr * rr && d2 > 1e-6) {
                     const d = Math.sqrt(d2);

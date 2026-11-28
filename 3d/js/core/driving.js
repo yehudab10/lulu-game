@@ -314,7 +314,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
         if (Math.abs(ch.s0 + 100 - car.s) > 220) continue;
         for (const c of ch.colliders) {
             const dx = c.x - car.pos.x, dz = c.z - car.pos.z;
-            if (dx * dx + dz * dz > 64 || c.off) continue;
+            if (dx * dx + dz * dz > (car.circles ? 144 : 64) || c.off) continue;
             const imp = car.collideStatic(c.x, c.z, c.r);
             if (!imp) continue;
             emit("crash", { impact: imp, kind: c.kind, collider: c });

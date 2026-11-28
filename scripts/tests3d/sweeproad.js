@@ -3,6 +3,8 @@
 //   crash   who was moving into whom: a cruiser in traffic that rear-ends HER on her last heart is not her
 //           "DESTROYING A POLICE CRUISER" (law's wreck hook, the cameos' crash scene); her ramming a stopped cruiser
 //           still is; a car she just passed brakes for her when she stops instead of ploughing into her
+//   body    her collision body is what she drives: in a 7.5 m box truck a car touching its back end is a crash (it used to
+//           pass through: the hit circles were always her own 4.6 m car's)
 //   ramp    a chase down Lakewood's off-ramp: the cruiser on her tail drives the ramp (decel lane → ramp → its branch),
 //           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
 //   yard    a car impounded at a ROADSIDE yard (Trooper Post 7): its gate takes the fee and gives it back (it was keyed
@@ -13,8 +15,8 @@ const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "ramp", "yard", "lot"],
-  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone",
+  parts: ["crash", "body", "ramp", "yard", "lot"],
+  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
@@ -22,6 +24,7 @@ module.exports = {
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 400)); } };
     try {
       if (PART.includes("crash")) await step("crash", () => crash(t));
+      if (PART.includes("body")) await step("body", () => body(t));
       if (PART.includes("ramp")) await step("ramp", () => ramp(t));
       if (PART.includes("yard")) await step("yard", () => yard(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
@@ -243,4 +246,31 @@ async function yard(t) {
   await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
+}
+
+/** Driving a long ride (the box truck): its whole length is solid. */
+async function body(t) {
+  const g = t.game;
+  if (await g(`L3.state !== "playing"`)) {
+    await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "body: a cruise starts", 120000);
+  }
+  await standstill(t);
+  // a parked car 5.2 m behind her centre, in her lane: clear of her own car (its front circle 3.9 m back, her rear one 1.15 m: 2.75 > 0.93 + 0.95) — inside the truck (its rear circle 2.6 m back: 1.3 < 1.25 + 0.95)
+  const probe = () => g(`(() => { const r = ctx.world.road, p = r.point(ctx.car.s - 5.2, ctx.car.d, {});
+    const c = ctx.traffic.add("sedan", ctx.car.s - 5.2, ctx.car.d, 1, 0, { ai: () => {} }); c.x = p.x; c.z = p.z; c.h = ctx.car.h;
+    const x0 = ctx.car.pos.x, z0 = ctx.car.pos.z, vx = ctx.car.vx, vz = ctx.car.vz; ctx.car.vx = -Math.sin(ctx.car.h) * 3; ctx.car.vz = -Math.cos(ctx.car.h) * 3;
+    const hit = !!ctx.traffic.collide(c, ctx.car); ctx.car.pos.x = x0; ctx.car.pos.z = z0; ctx.car.vx = vx; ctx.car.vz = vz; ctx.traffic.remove(c); return hit; })()`);
+  t.check("body: her own car — a car 5.2 m behind her centre isn't touching", !(await probe()));
+  if (!await g(`!!(ctx.rides && ctx.rides.debug)`)) { t.check("body: rides on", false); return; }
+  await g(`(ctx.rides.debug.board("truck"), true)`);
+  if (!await t.until(`__lulu3d.ctx.rides.id === "truck" && __lulu3d.state === "playing"`, "body: boards the box truck", 30000)) return;
+  await t.frames(3);
+  const c = await g(`({ circles: ctx.car.circles, r: ctx.car.radius })`);
+  t.check("body: in the box truck her hit circles are the truck's (3 along 7.5 m)", !!c.circles && c.circles.length === 3, JSON.stringify(c));
+  t.check("body: …so a car at the truck's back end is a crash (it used to pass through)", await probe());
+  await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
+  await t.frames(6);
+  t.check("body: back in her own car (a new run): her own body again", !(await g(`ctx.car.circles`)));
 }

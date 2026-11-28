@@ -32,7 +32,7 @@ import { input, glyphSet, addTouchButton, rumble } from "../../input.js";
 import { setControlRow } from "../../core/screens.js";
 import { saveSoon } from "../../core/save.js";
 import { SKINS } from "../../car.js";
-import { kindSpec } from "../../traffic.js";
+import { kindSpec, specOfModel } from "../../traffic.js";
 import * as H from "../../hud.js";
 import { setSiren, sirenTick, releaseAll, yieldingCount, R_stats, nudgeAhead } from "./siren.js";
 import { live, partyOn, need, toast, trickGlyph } from "./common.js";
@@ -54,6 +54,9 @@ function poll() {
     if (so === curObj) return;
     if (R) exitRide("swap");
     curObj = so;
+    // her collision body follows what she drives: a ride's shell its kind's own (a bus is 10 m long, not her car's 4.6)
+    const sp = so && ctx.foot.vehicle ? specOfModel(ctx.foot.vehicle.kind) : null;
+    if (ctx.car) { ctx.car.circles = sp && sp.circles && sp.circles.length ? sp.circles.slice() : null; ctx.car.radius = sp && sp.circles ? Math.max(0.85, sp.r || 1) : null; }
     if (!so) return;                                   // (in a 🎉 party too: handling, horns, tricks are per player)
     const v = ctx.foot.vehicle;
     const def = v && BY_KEY.get(v.kind);
