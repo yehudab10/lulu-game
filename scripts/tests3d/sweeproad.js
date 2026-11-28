@@ -57,8 +57,8 @@ async function crash(t) {
   await standstill(t);
   await g(`(window.__crashes = [], L3.on("crash", e => window.__crashes.push({ kind: e.kind, fault: e.fault, imp: +e.impact.toFixed(1) })), window.__sedan = ctx.traffic.add("sedan", ctx.car.s - 60, 1.75, 1, 24), true)`);
   const h0 = await g(`ctx.G.hearts`);
-  for (let i = 0; i < 10; i++) { await t.hold(6, 1); await t.frames(10); }      // she holds the brake, stopped
-  await t.hold(6, 0);
+  // she sits still (no pedals: holding the brake at a stop would REVERSE her into it)
+  for (let i = 0; i < 10; i++) { await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, true)`); await t.frames(10); }
   const after = await g(`({ hearts: ctx.G.hearts, crashes: window.__crashes.slice(), gap: +(ctx.car.s - __sedan.s).toFixed(1), sp: +__sedan.speed.toFixed(1), d: +__sedan.d.toFixed(2) })`);
   t.check("traffic: a car coming up behind her stopped car brakes (or goes round) — no crash", after.crashes.length === 0 && after.hearts === h0, JSON.stringify(after));
 
@@ -74,16 +74,20 @@ async function crash(t) {
   t.check("crash: …so her last heart going doesn't get her arrested for DESTROYING A POLICE CRUISER", !states.has("lawArrest") && !/DESTROYING/.test(charges), [...states].join(","));
   t.check("crash: …the wreck remembers whose fault it was", hit.info && hit.info.fault === "them" || (await g(`ctx.G.wreckInfo && ctx.G.wreckInfo.fault`)) === "them");
   // the law hook alone, both ways (no physics)
+  await W.pause(t, false);
   await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.state !== "title" ? L3.setState("title") : 0, true)`);
   await t.frames(4);
   await standstill(t);
+  await W.pause(t, true);
   await g(`(ctx.G.invT = 0, ctx.G.hearts = 1, L3.damage(1, "Rammed a cruiser", "cop"))`);
   t.check("crash: ramming a cruiser yourself on the last heart → arrested (unchanged)", await t.until(`__lulu3d.state === "lawArrest"`, "her fault → arrest", 60000));
+  await W.pause(t, false);
   await g(`(L3.setState("title"), true)`);
   await t.frames(6);
 
   // ── 3. she rams a STOPPED cruiser: her fault ──
   await standstill(t);
+  await W.pause(t, true);
   await g(`(window.__crashes = [], ctx.G.hearts = 3, window.__cop = ctx.traffic.add("cop", ctx.car.s + 25, 1.75, 1, 0, { ai: (dt, c) => { c.speed = 0; } }), true)`);
   await g(`(() => { const p = ctx.world.road.point(ctx.car.s, 1.75, {}); ctx.car.vx = Math.sin(p.h) * 22; ctx.car.vz = Math.cos(p.h) * 22; return true; })()`);
   await t.hold(7, 1);
@@ -91,17 +95,28 @@ async function crash(t) {
   await t.hold(7, 0);
   const mine = await g(`window.__crashes.slice()`);
   t.check("crash: driving into a stopped cruiser is HER fault", mine.length > 0 && mine[0].fault === "lulu", JSON.stringify(mine));
+  await W.pause(t, false);
   await g(`(ctx.traffic.clear(), L3.setState("title"), true)`);
   await t.frames(4);
   W.check(t, "crash part", await W.report(t));
 }
 
+
+/** From the title: pink is the car she uses, purple waits at home (a run can start in whichever car is at home). */
+async function pinkInHand(t) {
+  const g = t.game;
+  await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), ctx.town && ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" ? L3.setState("title") : 0, true)`);
+  await t.frames(4);
+  await t.L(`import("./js/features/garage/buy.js").then(m => (m.equipSkin("pink"), true))`);
+  await g(`(ctx.cars && ctx.cars.leaveAt("purple", { kind: "home" }), true)`);
+  await t.frames(2);
+}
 /** Uncle Refael's lot and a car she owns that isn't at home. */
 async function lot(t) {
   const g = t.game;
   if (!await g(`!!(ctx.cars && ctx.shops && ctx.town)`)) { t.check("lot: cars + shops + town are on", false); return; }
   await W.pause(t, false);
-  if (await g(`ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  await pinkInHand(t);
   if (await g(`L3.state !== "playing"`)) {
     await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
@@ -119,6 +134,7 @@ async function lot(t) {
   // her purple car is IMPOUNDED in Midwood (an arrest there)
   await g(`(ctx.cars.leaveAt("purple", { kind: "impound", town: "midwood" }), true)`);
   const buttons = () => t.L(`[...document.querySelectorAll("#screenCard button")].filter(b => b.offsetParent).map(b => b.textContent.trim())`);
+  t.check("lot: (she came in her pink car)", (await g(`ctx.car.skinKey`)) === "pink");
   await g(`ctx.shops.debug.dealer.openLot("purple")`);
   await t.until(`!!document.querySelector("#screenCard .sp")`, "lot: the car card opens", 10000);
   await t.frames(6);
@@ -142,8 +158,8 @@ async function lot(t) {
     await t.tap(1); await t.frames(10);
   }
   // the title's 🚗 Car switch: the same rule (it cycled every car she owns, wherever it was)
-  await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.setState("title"), true)`);
-  await t.frames(10);
+  await pinkInHand(t);
+  await t.frames(6);
   await g(`(ctx.cars.leaveAt("purple", { kind: "impound", town: "midwood" }), true)`);
   const k0 = await g(`ctx.car.skinKey`);
   await t.click(/Car:/);
@@ -244,8 +260,7 @@ async function ramp(t) {
 async function yard(t) {
   const g = t.game;
   await W.pause(t, false);
-  if (await g(`ctx.foot && ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
-  if (await g(`ctx.town && ctx.town.active`)) await g(`(ctx.town.leave("reset"), true)`);
+  await pinkInHand(t);
   if (await g(`L3.state !== "playing"`)) {
     await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
@@ -262,6 +277,7 @@ async function yard(t) {
   await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${sp.x} + ${sp.nx} * 0.8, 0.05, ${sp.z} + ${sp.nz} * 0.8); F.phase = "walk"; return true; })()`);
   await g(`(ctx.cars.leaveAt("purple", { kind: "impound", town: "hw:trooper", why: "arrest" }), true)`);
   await t.frames(20);
+  t.check("yard: (she came in her pink car; purple is the impounded one)", (await g(`ctx.car.skinKey`)) === "pink");
   const st = await g(`({ held: ctx.impound.held, label: ctx.impound.gateLabel(), where: (ctx.cars.list().find(c => c.key === "purple") || {}).where })`);
   t.check("yard: the car held at the trooper yard is held HERE (its gate's ✋ offers it)", !!st.held && st.held.town === "hw:trooper" && !!st.label, JSON.stringify(st));
   t.check("yard: …the 📱 says where it is (not 'impounded in null')", /Trooper Post 7/.test(st.where || ""), st.where);
