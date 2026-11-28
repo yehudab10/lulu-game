@@ -188,6 +188,15 @@ module.exports = {
           return pr ? pr.label : "nothing"; })()`);
         t.check(`${id} ${d.name}: someone right beside her beats the door's ✋ (${r})`, /SOMEONE HERE/.test(r));
       }
+      // her family house (Midwood): the free camera stops at its walls (her lot is an open lot with no block outline — the
+      // camera went INSIDE the house: ci/fasttests, qa7)
+      if (id === "midwood") {
+        const cw = await g(`import("./js/features/foot/jump.js").then(m => { const T = ctx.town.debug.S.T, c = (T.colliders || []).find(c => c.camWall); if (!c) return null;
+          const F = ctx.foot.debug.F, tgt = { x: c.x + c.r + 1.5, y: 1.2, z: c.z };
+          F.pos.set(tgt.x, 0.05, tgt.z); F.s = ctx.world.road.nearest(tgt.x, tgt.z, F.s, {}).s;      // (she stands there: the clip looks round HER)
+          const r = m.camClip(F, tgt, -1, 0.25, 0, 6); return +(typeof r === "number" ? r : r.d).toFixed(2); })`);
+        t.check(`midwood: the camera stops at her family house's wall, not inside it (${cw} m)`, cw != null && cw <= 1.5, String(cw));
+      }
       // strangers' front doors: a sample (a duplex has two doors side by side → narrower: ±0.6 along the street)
       const hi = await g(`ctx.foot.spots().findIndex(s => s.short === "HOUSE")`);
       // (the houses whose door is the homes ✋ — not her own / one for sale: those are real estate's)

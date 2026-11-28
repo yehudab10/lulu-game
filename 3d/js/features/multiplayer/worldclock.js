@@ -36,7 +36,7 @@ export function setBase(httpBase) { WC.base = httpBase || ""; }
 const allowed = () => !!WC.base && (!ctx.TEST || !!QS.get("mpurl"));
 /** GET /world/config: the kill switches + a coarse clock sample. */
 export async function config(force = false) {
-    if (!allowed() || (!force && Date.now() - WC.cfgAt < 600000)) return WC.flags;
+    if (!allowed() || (!force && Date.now() - WC.cfgAt < (WC.flags ? 600000 : 15000))) return WC.flags;   // (no flags yet — offline at boot: try again soon)
     WC.cfgAt = Date.now();
     try {
         const t0 = performance.now(), at0 = Date.now();

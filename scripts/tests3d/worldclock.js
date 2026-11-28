@@ -37,7 +37,7 @@ async function drive(P) {
   await P.game(`L3.startRun({ mode: "cruise", quick: true })`);
   await P.until(`__lulu3d.state === "playing"`, "drives");
   await P.game(`(ctx.law && ctx.law.hold && ctx.law.hold(900), ctx.G.invT = 999, ctx.traffic.config.enabled = false, ctx.traffic.clear(), window.__ev = [], L3.on("mp:event", e => window.__ev.push(e)), true)`);
-  await P.until(`ctx.mp._debug.connected && ctx.mp._debug.room === "lobby"`, "online");
+  await P.until(`ctx.mp._debug.connected && ctx.mp.room === "lobby"`, "online");   // (the everyone world — a place room since step 3)
 }
 
 module.exports = {
@@ -72,12 +72,12 @@ module.exports = {
       await A.game(`(ctx.mp._debug.sock.send(JSON.stringify({ t: "r", id: ${JSON.stringify(id)}, k: "ping", d: { x: 12, z: 34 } })), true)`);   // a retry with the same id
       await framesOn(B.page, 30);
       t.check("…exactly once (a repeat with the same id is dropped)", await B.game(`window.__ev.filter(e => e.k === "ping").length`) === 1);
-      t.check("…marked as from A, with the relay's time", await B.game(`(() => { const e = window.__ev.find(e => e.k === "ping"); return e.from === ${JSON.stringify(await A.game(`ctx.mp._debug.myId`))} && typeof e.st === "number" && !e.late; })()`));
+      const aId = await A.game(`ctx.mp._debug.myId`);
+      t.check("…marked as from A, with the relay's time", await B.game(`(() => { const e = window.__ev.find(e => e.k === "ping"); return (e.peer ? e.peer.id === ${JSON.stringify(aId)} : e.from.endsWith(${JSON.stringify(aId)})) && typeof e.st === "number" && !e.late; })()`));
       t.check("A's send was acknowledged", await A.until(`ctx.mp._debug.relOut.size === 0`, "acked", 20000));
       const C = await page(t, "C (arrives later)", Q(URL)); pages.push(C);
       await drive(C);
-      const fromA = await A.game(`ctx.mp._debug.myId`);
-      t.check("C, who came later, still gets it (late)", await C.until(`ctx.mp._debug.relSeen.has(${JSON.stringify(fromA + ":" + id)})`, "C's late event", 60000));
+      t.check("C, who came later, still gets it (late)", await C.until(`[...ctx.mp._debug.relSeen].some(k => k.endsWith(":" + ${JSON.stringify(id)}))`, "C's late event", 60000));
 
       // ── resting: the relay is over its free daily allowance ──
       process.env.WORLD_RESTING = "1";

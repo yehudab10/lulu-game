@@ -149,7 +149,7 @@ const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, 
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;
-    let best = D, under = false;
+    let best = D, under = false, outOf = 0, hard = D;      // (hard: the nearest house / wall / block — never gone through)
     const T = ctx.town, pl = T && T.active && T.plan;
     // (in a town the BLOCK outlines below are the houses' real front line — the ring of circles round a block stands
     //  ~1 m out in front of it, and hugging a wall the camera behind her kept catching those)
@@ -164,6 +164,9 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 if (c.r >= 0.8) {
                     const ox = tgt.x - c.x, oz = tgt.z - c.z, R = c.r + 0.15, cc = ox * ox + oz * oz - R * R, b = ox * dx + oz * dz;
                     if (cc > 0 && b < 0) { const disc = b * b - h2 * cc; if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2); }
+                    // (the pivot INSIDE the trunk — shouldn't happen, she's pushed out every frame; if it does, the camera goes
+                    //  out along its line to where it leaves the trunk, never sits in it — ci/qa's "camera in a tree")
+                    else if (cc <= 0) outOf = Math.max(outOf, (-b + Math.sqrt(Math.max(0, b * b - h2 * cc))) / h2 + 0.1);
                 }
                 // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
                 // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
@@ -176,7 +179,7 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2);
                 continue;
             }
-            if (c.r < 0.8 || topOf(c) != null || (blocks && c.kind === "house")) continue;
+            if (c.r < 0.8 || topOf(c) != null || (blocks && c.kind === "house" && !c.camWall)) continue;
             const ox = tgt.x - c.x, oz = tgt.z - c.z;
             // (the traffic circle's island is a 6 m lawn — only its statue in the middle stands tall)
             const cr = c.kind === "island" ? Math.min(c.r, 2.8) : c.r;
@@ -188,7 +191,7 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             const disc = b * b - h2 * cc;
             if (disc <= 0) continue;
             const t = (-b - Math.sqrt(disc)) / h2;
-            if (t < best && tgt.y + dy * t < (c.kind === "house" ? 7.5 : 4.5)) best = t;
+            if (t < best && tgt.y + dy * t < (c.kind === "house" ? 7.5 : 4.5)) { best = t; hard = Math.min(hard, t); }
         }
     }
     if (blocks) {
@@ -204,7 +207,7 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 //  where the lot ends and the block goes on — the backyards behind it)
                 if (openLot(tgt.x, tgt.z)) for (let t = 0.3; t < best; t += 0.3) {
                     const px = tgt.x + wx * t, pz = tgt.z + wz * t, Lp = pl.local(px, pz, _cl2);
-                    if (Lp.x > r.x0 && Lp.x < r.x1 && Lp.z > r.z0 && Lp.z < r.z1 && !openLot(px, pz)) { best = Math.max(CAM_MIN, t - 0.3); break; }
+                    if (Lp.x > r.x0 && Lp.x < r.x1 && Lp.z > r.z0 && Lp.z < r.z1 && !openLot(px, pz)) { best = Math.max(CAM_MIN, t - 0.3); hard = Math.min(hard, best); break; }
                 }
                 continue;
             }
@@ -213,9 +216,10 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             else { let ta = (x0 - ax) / dx, tb = (x1 - ax) / dx; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
             if (Math.abs(dz) < 1e-9) { if (az < z0 || az > z1) continue; }
             else { let ta = (z0 - az) / dz, tb = (z1 - az) / dz; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
-            if (tgt.y + dy * t0 < 8) best = t0;
+            if (tgt.y + dy * t0 < 8) { best = t0; hard = Math.min(hard, t0); }
         }
     }
+    if (outOf > 0 && best < outOf) best = Math.min(D, outOf, hard);      // (out of the trunk she's inside — never through a house / wall)
     const d = best >= D ? D : Math.max(CAM_MIN, best);
     // (under a tree, a camera pulled in close must not rise over her head — that's up into the leaves)
     return under ? { d, noLift: true } : d;

@@ -252,7 +252,7 @@ function claimed() {
     const SF = ctx.storefronts;
     if (!SF || !SF.reservedFor || !SF.claim) return null;
     const r = SF.reservedFor("lanes") || [], key = r.map(f => f.id).join(",");
-    if (key !== LG.claims) { LG.claims = key; for (const f of r) SF.claim(f.id, { label: `🎳 GO INTO ${NAME.toUpperCase()}`, enter: () => enterLanes() }); }
+    if (key !== LG.claims) { LG.claims = key; for (const f of r) SF.claim(f.id, { label: `🎳 GO INTO ${NAME.toUpperCase()}`, enter: fr => enterLanes({ front: fr }) }); }
     return r;
 }
 /** The world spot of the door (the middle of the run, on the sidewalk): {x, z, nx, nz} | null. */
@@ -276,7 +276,9 @@ function doorPos() {
 export function enterLanes(opts = {}) {
     if (!ctx.interiors.lanes) return false;
     if (opts.exit) return ctx.interiors.lanes.enter(Object.assign({ from: "foot" }, opts));
-    const sp = doorWorld();
+    // (in through one of the claimed fronts: back out of THAT one — the run is ~70 m long, the middle was up to 35 m off)
+    const fd = opts.front && opts.front.door;
+    const sp = fd ? { x: fd.x, z: fd.z } : doorWorld();
     if (!sp || !inTown()) return false;
     const n = ctx.world.road.nearest(sp.x, sp.z, ctx.car.s, {});
     const dr = { id: "lanes", s: n.s, d: n.d, side: Math.sign(n.d) || 1 };

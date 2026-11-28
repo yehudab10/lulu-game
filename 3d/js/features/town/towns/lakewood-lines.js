@@ -48,6 +48,8 @@ export const SIGNS = {
     realty: ["GOLD STANDARD REALTY", "Shprintzy Gold · we sell COZY · se habla Yiddish"],   // features/realestate (uses.realty)
     bank: ["FIRST MINIVAN BANK OF LAKEWOOD", "drive-thru · 9 lanes · still a line"],   // features/heist's bank (uses.bank)
     makolet: ["ZISSY'S MAKOLET & PHARMACY", "milk · kugel pans · pepper spray · bubble wrap"],   // features/shops (uses.makolet)
+    // features/yeshiva (roadmap 45): the parody campus — never the real institution's name
+    campus: ["BEIS MEDRASH GADOL HAMINIVAN"], campusDorm: ["DORMITORY", "quiet hours: never"], campusLot: ["VISITOR PARKING", "(there is none)"],
     dealer: ["UNCLE REFAEL'S PRE-LOVED CARS", "every car checked twice · no haggling"],   // features/shops' dealership (uses.dealer)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · PRECINCT 18½", "we bend the rules so you don't have to"],

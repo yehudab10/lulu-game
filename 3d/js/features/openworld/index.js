@@ -152,6 +152,8 @@ function roamLabel(icon) {
         return `${G.emoji} ${G.name.toUpperCase()}${g.k !== "kugel" && left ? ` · ${HUD.fmtT(left)} left` : ""}`;
     }
     if (icon && icon.textContent !== "🌍") icon.textContent = "🌍";
+    // (heading down the lap — ci/twoway: the planned exits are all up the lap; the trip bar says which place is next her way)
+    if (ctx.world && ctx.world.dir === -1) return "🌍 FREE ROAM";
     const e = nextExit();
     return e ? `🌍 FREE ROAM · ${e.emoji || "🏙️"} ${e.name} exit in ${(Math.max(0, e.s - ctx.car.s) / 1609).toFixed(1)} mi` : "🌍 FREE ROAM";
 }
