@@ -145,6 +145,11 @@ export function toast(text, cls = "", opts = {}) {
     NT.waiting.push({ text, cls, key, n: 1, age: 0, summed: false, prio });
     pumpToasts();
 }
+/** Take a toast down early (its words stopped being true — e.g. the cops' "you're not hidden" once she IS hidden). */
+export function dropToast(key) {
+    for (let i = NT.waiting.length - 1; i >= 0; i--) if (NT.waiting[i].key === key) NT.waiting.splice(i, 1);
+    for (const t of NT.toasts) if (t.key === key && !t.out) t.t = Math.max(t.t, t.life || TOAST_LIFE);
+}
 function pumpToasts() {
     if (popupsBlocked()) return;
     const max = toastMax();

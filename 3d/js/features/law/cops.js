@@ -920,6 +920,9 @@ function updateChase(dt, controlsOn) {
     const why = ch.searching && !hide ? notHiddenHint() : "";
     ch.exposedT = why ? (ch.exposedT || 0) + dt : 0;
     if (why && ch.exposedT > 1.5 && L.hint2 < 1) { L.hint2 = (L.hint2 || 0) + 1; H.toast(why, "red", { key: "law:hint" }); }
+    // …and once she IS tucked away, the "not hidden" / "pull off" advice goes (it used to linger, saying she wasn't)
+    if (ch.hiding && !ch.hidSaid) { ch.hidSaid = true; if (H.dropToast) H.dropToast("law:hint"); }
+    else if (!ch.hiding) ch.hidSaid = false;
     const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
     if (ch.searching) ch.evade = clamp(ch.evade + dt / need * (hide ? TUNE.hideMul : 1), 0, 1);
     else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));
