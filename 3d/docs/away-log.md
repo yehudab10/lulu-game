@@ -71,6 +71,9 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 09:00 UTC (fixes) — Walking up a driveway to a parked minivan in town (to borrow it) no longer lets the
+  camera slide into the house next to it. In the shul on a Friday, the kid running round the kiddush table no longer runs
+  through the end of the table. Three automatic checks that were tripping over their own timing were fixed.
 - 2026-11-28 07:20 UTC (fixes) — The shop and street signs in Lakewood and Midwood are a little sharper: their pictures are
   packed together more tightly, so each one gets more pixels (the new yeshiva's signs had made Lakewood's slightly
   blurrier). Test screenshots inside buildings no longer come out as a plain blue picture.
