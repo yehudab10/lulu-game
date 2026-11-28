@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 08:30 UTC — 📱 Phones, part 5: on a phone, the ✋ button by her car says DRIVE (it said "OWN"), and a few
+  lines that told touch players to "press Tap" / "mash Tap (or tap)" say it in plain words.
 - 2026-11-28 08:15 UTC — 📱 Phones, part 4: on a small phone held sideways, the first-drive lesson's card no longer
   covers the NITRO button it's telling you to press.
 - 2026-11-28 08:10 UTC — 📱 Phones, part 3: the on-screen stick no longer creeps Lulu (or the car) along when a thumb
@@ -69,6 +71,9 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 09:00 UTC (fixes) — Walking up a driveway to a parked minivan in town (to borrow it) no longer lets the
+  camera slide into the house next to it. In the shul on a Friday, the kid running round the kiddush table no longer runs
+  through the end of the table. Three automatic checks that were tripping over their own timing were fixed.
 - 2026-11-28 07:20 UTC (fixes) — The shop and street signs in Lakewood and Midwood are a little sharper: their pictures are
   packed together more tightly, so each one gets more pixels (the new yeshiva's signs had made Lakewood's slightly
   blurrier). Test screenshots inside buildings no longer come out as a plain blue picture.

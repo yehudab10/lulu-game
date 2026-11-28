@@ -136,6 +136,8 @@ wash.id = "footWash";
 document.body.appendChild(wash);
 
 let handBtn = null, exitBtn = null;
+// the ✋ touch button's word for what's in reach (the kinds' own names read "OWN" at her car, "RIP" at a wreck; ci/sweep-phone)
+const HAND_WORD = { own: "DRIVE", rip: "LOOK", avigail: "CHAT" };
 
 // ── session ──────────────────────────────────────────────────────────────
 let F = null;               // the on-foot session (null when Lulu's in a car)
@@ -1744,7 +1746,7 @@ function interact(P, dt = 1 / 60) {
     H.prompt(pr ? `${glyph("interact")} ${pr.label}` : coach || (F.t > 4 && F.t < 16 && !homeQuiet() ? `${glyph("interact")} 💃 dance for the crowd` : ""));
     if (handBtn) {
         // (refreshed whenever what's in reach CHANGES — from her car straight to a door it kept saying "OWN")
-        const has = !!pr, html = has ? `👉<small>${(pr.kind === "spot" && pr.ent.short) || pr.kind.toUpperCase()}</small>` : `✋<small>HAND</small>`;
+        const has = !!pr, html = has ? `👉<small>${(pr.kind === "spot" && pr.ent.short) || HAND_WORD[pr.kind] || pr.kind.toUpperCase()}</small>` : `✋<small>HAND</small>`;
         if (handBtn.dataset.html !== html) {
             handBtn.dataset.html = html;
             handBtn.classList.toggle("has", has);

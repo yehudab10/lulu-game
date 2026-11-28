@@ -61,6 +61,7 @@ module.exports = {
     await S.shot(tag + "04-at-car");
     const hand = await S.dump("at the car");
     t.check("at her car the HAND button / prompt says how to get in", hand.some(x => /GET IN|hop in|DRIVE/i.test(x.tx)), hand.filter(x => /tx_foot_hand|prompt/.test(x.id + x.cls)).map(x => x.tx).join(" | "));
+    t.check("at her car the ✋ touch button says DRIVE (it said OWN)", /DRIVE/.test(await t.L(`document.getElementById("tx_foot_hand").textContent`)));
     await S.tapEl("tx_foot_hand");
     await t.until(`!__lulu3d.ctx.foot.active`, "in the car", 20000);
     let gasHint = false, streak = false;

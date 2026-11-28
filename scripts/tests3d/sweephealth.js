@@ -45,5 +45,16 @@ module.exports = {
       t.check("🗺️ Map: a tap on the place she's at keeps the phone open, pings nothing, the row says 'you're here'", clicked && after.open && !after.ping && /you're here/.test(row), JSON.stringify({ clicked, after, row: row.slice(0, 80) }));
       await g(`(ctx.phone.closePhone(), true)`);
     }
+    // ── a house's driveway is open ground (its minivan stands on it): not "inside the block" for the camera / unstuck / the watchdog
+    //    (Lakewood: life3's hotwire on a driveway minivan had her + the camera "inside block@38,38") ──
+    await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" && L3.setState("playing"), ctx.town.load("lakewood"), true)`);
+    await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "lakewood's models", 120000);
+    await g(`(ctx.town.enter({ town: "lakewood", speed: 0 }), true)`);
+    await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "lakewood"`, "in lakewood", 120000);
+    await t.frames(6);
+    const dv = await g(`(() => { const D = ctx.town.drives, H = ctx.town.homes; if (!D.length) return null;
+      return { n: D.length, on: D.filter(d => ctx.town.onDrive(d.x, d.z) && ctx.unstuck.debug.onLot(d.x, d.z)).length,
+        houses: H.filter(h => ctx.town.onDrive(h.x, h.z)).length, nh: H.length }; })()`);
+    t.check("driveways: every driveway minivan's spot is open ground, no house is", dv && dv.on === dv.n && dv.houses === 0, JSON.stringify(dv));
   },
 };
