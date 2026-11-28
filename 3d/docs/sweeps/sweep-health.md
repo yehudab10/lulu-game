@@ -88,7 +88,7 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | cityhall — the ribbon cutting: no jump glitch (camera 5.3 m in a frame, on foot) | likely the same camera change (`ci/sweep-phone`'s shoulder camera for people) — left for them |
 | qaweekend — home → highway: no inwall (camera inside block@128,195 at f27 ×8, her lot) | `ci/sweep-phone`'s "the home start looks at the car" (05:01) — left for them |
 | qa14 — one full 16 km lap: knocked out at 8.1 km | one run; two-way highway traffic — re-run later |
-| (verification 46125898854) life3, doors, shul, memory, sweeplogic, sweephealth, qa7, foot, carcare, yeshiva, seasons green; unstuck: a flat white picture at the REST AREA (highway — not the driveway change: green on main in #3) — `ci/doors`' 7fdec714 family, intermittent | landed 09:00 |
+| (verification 46125898854) life3, doors, shul, memory, sweeplogic, sweephealth, qa7, foot, carcare, yeshiva, seasons green; unstuck: a flat white picture at the REST AREA (highway — not the driveway change: green on main in #3) — `ci/doors`' 7fdec714 family, intermittent | landed 09:00 (13c600a) — **my mistake:** that landing's merge had an AGENTS.md §6 conflict (my row vs `ci/sweep-road`'s new row) and went to main WITH the conflict markers; fixed one minute later (5d48330, both rows kept). Nothing else conflicted |
 | accounts, qafriends, sweepplaces, sweepphone2 | left (`ci/oneserver-place`, `ci/friends`, `ci/sweep-places`, `ci/sweep-phone`) |
 
 ## Findings + status
