@@ -141,6 +141,18 @@ module.exports = {
       t.check("Ima's list: walking into one of the town's shops counts for \"Pop into a shop on foot\"", r.ok && n >= 1, JSON.stringify(r) + " stats " + n);
       await g(`(window.__interiors && window.__interiors.room && window.__interiors.room.leave(), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "back out", 30000);
+
+      // 📞 Phone › Police › turn myself in, in Midwood: arrested HERE (Midwood's precinct, out of its door) — the call used
+      // to leave the town first, so she was cuffed on the highway out of nowhere
+      await t.L(`import("./js/features/law/rules.js").then(m => (m.addWanted(["JAYWALKING"]), true))`);
+      t.check("(setup) a warrant on file", await g(`ctx.law.wanted > 0`));
+      await g(`(ctx.community.call("police", "surrender"), true)`);
+      for (let k = 0; k < 20 && await g(`__lulu3d.state !== "lawArrest"`); k++) { await t.frames(20); if (await g(`ctx.dialogOpen`)) await t.tap(0); }
+      if (await t.until(`__lulu3d.state === "lawArrest"`, "the surrender arrest", 30000)) {
+        const at = await g(`({ town: ctx.town.active && ctx.town.id, place: ctx.civic && ctx.civic.names ? ctx.civic.names().police || null : null })`);
+        t.check("📞 turning herself in in Midwood: the arrest plays in Midwood (its own precinct), not on the highway", at.town === "midwood", JSON.stringify(at));
+        await g(`(L3.setState("title"), true)`); await t.frames(10);
+      }
       await setDate(null);
       await g(`(ctx.atmos.debug.freeze(false), true)`);
     });

@@ -18,6 +18,7 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 | 9 | 📝 Ima's list "🚪 Pop into a shop on foot" never ticked in the town's shops — the one-joke walk-ins (most shopfronts in Midwood + Lakewood) entered without the stat the list counts; only the pizza shop / bakery / clothes / the lanes / the highway's rooms counted. | `storefronts/index.js` `enter` | **fixed** — a walk-in counts |
 | 10 | An arrest froze mid-cuffs (seen in qa18's random play, a page error "[law flow] … reading 'x'"): the perp walk read the cruiser's position after the cruiser had been taken out of the traffic (recycled / a town swap) — the scene stopped there, only ⏭ got her out. `copDoor()` already allowed for it; the walk didn't. | `law/arrest.js` | **fixed** — the walk goes to where the cruiser stood |
 | 11 | Paused with a line / a question still open (☰, ❚❚, another app) → ⌂ Title screen or ↺ Restart: the question came along — on the title (or at the porch of the new run) it took every ✕ / Enter / A press itself, and the menu got nothing; a controller player was stuck. Nothing closed a dialog on a state / run change. | `core/dialog.js` | **fixed** — the title and a new run close it (answers -1). Batch 2 |
+| 12 | 📞 Phone › Police › "Turn myself in" in a town (and the 🔦 Shomrim's hold ending with the cops) dropped the TOWN first: she was cuffed on the highway out of nowhere, instead of in the town's own precinct (features/places — the arrest flow already leaves a town that can't host it). And on foot it ended foot's walk from a timer ticking inside foot's own frame → a page error ("reading 'car'") mid-frame. | `community/calls.js`, `community/shomrim.js` | **fixed** — no town drop; law's own on-foot arrest where she stands, after the frame. `community` test: the hold's arrest stays in town |
 | 4 | Two features' lines at once: a second `say` / `choose` opening over one still waiting replaced it without answering it — the first feature's `await` hung forever (its "busy" flag stuck for the run). | `core/dialog.js` | **fixed (defensive)** — the covered line / question answers -1 ("closed", like `closeDialog`); `script()` stops at a -1 (a closed / covered line), so an old conversation doesn't keep talking over the new one |
 
 ## Checked and fine
@@ -51,6 +52,11 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   day), or lengthen the sky's day, or make the events' hours sky-hours with longer spans.
 
 ## For other branches
+
+- for `ci/sweep-camera` (`foot/index.js` is yours now): `footUpdate` returns when `F` went null after `trafficStep` but not
+  after `updateActors(dt, true)` — an actor (community's timers, …) that ends the walk / changes the state mid-update
+  makes `updateStub` read `F.car` of null ("Lulu3D frame error … reading 'car'"). Community's arrests now run after the
+  frame, but one more `if (!F) return;` after `updateActors` would close it for everyone.
 
 - for `ci/sweep-health` (red on plain main, 2026-11-28 09:15 — checked locally with main's `3d/js`): `fuel` › "an exit is
   planned" (`ctx.town.debug.X.exits` stays empty after 15 s; town pump / charge / dry then throw) and `movement` › "a coach

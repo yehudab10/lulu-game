@@ -250,12 +250,12 @@ function arrestNow(ch, foot) {
     endShomrim("handed");
     const law = ctx.law;
     if (!law || !law.arrest) { H.toast("🚓 …nobody came. The Shomrim shrug and go home.", ""); return; }
-    later(0.05, () => {
+    later(0.05, () => setTimeout(() => {      // (after the frame: community's timers tick inside foot's actor update — ci/sweep-logic2)
         try {
-            if (foot && ctx.foot && ctx.foot.active && ctx.foot.end) ctx.foot.end("arrest");
-            if (ctx.town && ctx.town.active) ctx.town.leave("quiet");
-            law.arrest(charges, foot ? { onFoot: true } : {});
+            // (no town.leave first: law's arrest plays in the town's own precinct — features/places — ci/sweep-logic2)
+            const f = ctx.foot;      // (on foot: law's own on-foot arrest where she stands — not foot.end() mid-frame: ci/sweep-logic2)
+            law.arrest(charges, foot && f && f.active && f.pos ? { onFoot: true, x: f.pos.x, z: f.pos.z, h: ctx.car ? ctx.car.h : 0 } : {});
         } catch (e) { console.error("[community] arrest", e); }
-    });
+    }, 0));
 }
 export { hold };
