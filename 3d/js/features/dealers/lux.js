@@ -11,7 +11,7 @@ import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { SKINS } from "../../car.js";
 import { inv, syncInv, STAT_ROWS } from "../garage/data.js";
-import { owns, equipSkin } from "../garage/buy.js";
+import { owns, equipSkin, carAway } from "../garage/buy.js";
 import { LUX_CARS, LUX_IDS, OPTIONS, BUILT_IN, LUX } from "./data.js";
 import { perksOf } from "./perks.js";
 
@@ -22,7 +22,7 @@ const NAMES = { top: "Top speed", acc: "Acceleration", grip: "Handling", brake: 
 export const V = { open: false, i: 0, ids: LUX_IDS, talk: null, sx: null, log: [] };
 
 css("dealers-lux", `
-#screenCard.card.lux-card { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; padding: 18px 22px 14px;
+#screenCard.card.lux-card { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px 22px 14px;
   background: radial-gradient(120% 90% at 50% 0%, #2A2418 0%, #14110C 60%, #0B0907 100%); color: #F3E9D2; border: 1px solid #6B5A2E;
   box-shadow: 0 18px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(201,162,39,.25); }
 .lux { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
@@ -99,7 +99,8 @@ function paint(focus = null) {
     const card = H.showScreen(html(id), [
         { label: "◀", cls: "lux-arrow", id: "luxPrev", action: () => flip(-1) },
         { label: "▶", cls: "lux-arrow", id: "luxNext", action: () => flip(1) },
-        own ? { label: inv.selectedSkin === id ? "✓ Driving it" : "🔑 Drive this one", cls: "lux-go", id: "luxAct", action: () => { if (equipSkin(id)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); paint(); } } }
+        own ? (inv.selectedSkin !== id && carAway(id) ? { label: `📍 It's ${carAway(id)}`, cls: "lux-go", id: "luxAct", action: () => paint() }      // (an impounded / parked-away car isn't here to drive)
+            : { label: inv.selectedSkin === id ? "✓ Driving it" : "🔑 Drive this one", cls: "lux-go", id: "luxAct", action: () => { if (equipSkin(id)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); paint(); } } })
             : { label: "🤵 Talk to Sal — make an offer", cls: "lux-go", id: "luxAct", action: () => talk(id) },
         { label: `Close ${glyph("back")}`, cls: "secondary", id: "luxClose", action: () => close() },
     ], { onBack: () => close(), onTab: d => flip(d), focus: keep, cls: "lux-card" });

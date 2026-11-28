@@ -8,7 +8,7 @@
 //   OFF       ⚙️ Settings › Play online OFF disconnects (and stays off); ON again reconnects out in the world;
 //             Dina's mode takes you offline, back in the world you're online again
 //   FRIENDS   the 👯 Friends hub (📤 Play with a friend · 🔑 Join with a code?); A invites → straight
-//             into 🌍 Free Roam, STILL online (a stranger still shows as a ghost); B joins with the code → lands next to
+//             into 🌍 Free Roam, STILL online (a stranger still shows, solid since stage 3); B joins with the code → lands next to
 //             A as a FRIEND: a real car with B's name, and no second ghost of B; the phone's 👯 app → Go solo
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
@@ -89,7 +89,7 @@ async function body(t, pages, riders) {
   if (!await A.until(`${S}.connected && ctx.mp.room === "lobby"`, "A: online by default (EVERYONE)")) return;
   t.check("A: online by default — EVERYONE, no code, no lobby screen", await g(`ctx.state === "playing" && !document.querySelector("#screenCard.open, .screen.open")`));
 
-  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend" }, Q(URL));
+  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend", luluHair: "#8E24AA" }, Q(URL));
   pages.push(B);
   await B.until(`__lulu3d && __lulu3d.state === "title"`, "B boots", 120000);
   await B.game(`(ctx.car.setSkin ? ctx.car.setSkin("gold") : 0, L3.startRun({ mode: "cruise", quick: true }))`);
@@ -103,7 +103,37 @@ async function body(t, pages, riders) {
   t.check("A sees B at B's spot on the road (s 425, d −1.75)", Math.abs(seen.ca - 425) < 4 && Math.abs(seen.cb + 1.75) < 0.6, JSON.stringify(seen));
   t.check("a stranger is a generated label (colour + number), not their name", /^[A-Z][a-z]+ \d\d$/.test(seen.name) && seen.name !== "Latke Legend", JSON.stringify(seen));
   t.check("one ghost built for one rider", await g(`ctx.mp.ghostStats().built === 1 && ctx.mp.ghostStats().shown === 1`));
+  // stage 3 ("no ghosts", owner 2026-11-27): another player is drawn SOLID, her own car the way friends' are
+  const gs1 = await g(`ctx.mp.ghostStats()`);
+  t.check("stage 3: the other player is a solid car (no see-through body)", gs1.kinds[0] === "car" && gs1.seeThrough === 0, JSON.stringify(gs1));
+  // …and her look travels: B's hair colour + outfit reach A (d.hc / d.ot)
+  // (give B a hair colour + something to wear first, so the check compares real values)
+  await B.game(`(() => { try { const P = ctx.clothes; P.give("mw_headband"); P.wear(Object.assign({}, P.current(), { acc: "mw_headband" })); } catch (e) { } return true; })()`);
+  await B.game(`(ctx.mp._debug.me.lookAt = 0, true)`);
+  await B.frames(150);
+  const look = await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return p ? { hc: p.hc, ot: p.ot } : null; })()`);
+  const bLook = await B.game(`({ hc: ctx.mp._debug.me ? ctx.mp._debug.me.hc : null, ot: ctx.mp._debug.me ? ctx.mp._debug.me.ot : null })`);
+  t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && !!bLook.hc && !!bLook.ot && look.hc === bLook.hc && look.ot === bLook.ot, JSON.stringify({ look, bLook }));
   await t.shot("dropin");
+
+  // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
+  // draws the other in the hall, in her own look; out again, both are back on the road
+  for (const P of [{ g, until: (c, w, ms) => A.until(c, w, ms) }, { g: c => B.game(c), until: (c, w, ms) => B.until(c, w, ms) }]) {
+    await P.g(`(window.__e = ctx.airport && ctx.airport.debug && ctx.airport.debug.enterTerminal ? ctx.airport.debug.enterTerminal() : null, true)`);
+    await P.until(`ctx.state === "interior" && window.__interiors && window.__interiors.room && window.__interiors.room.ready && window.__interiors.room.def.id === "terminal"`, "inside the terminal", 90000);
+  }
+  const bId = await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).id`);
+  const seeB = await A.until(`ctx.together.debug.room().mates.some(m => m.uid === "mp:" + ${JSON.stringify(bId || "")})`, "A sees B inside the terminal", 60000);
+  t.check("stage 3: A sees B (a stranger, not a friend) inside the terminal", seeB, JSON.stringify(await g(`ctx.together.debug.room()`)).slice(0, 300));
+  t.check("stage 3: …and B sees A in there too", await B.until(`ctx.together.debug.room().mates.some(m => /^mp:/.test(m.uid))`, "B sees A inside the terminal", 60000));
+  t.check("stage 3: inside, she isn't drawn out on the street (d.in)", await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return !!p && !!p.in && !p.onScreen; })()`));
+  for (const P of [g, c => B.game(c)]) await P(`(window.__interiors.room && window.__interiors.room.leave(), true)`);
+  await A.until(`["playing", "footRun"].includes(ctx.state)`, "A: out of the terminal", 60000);
+  await B.until(`["playing", "footRun"].includes(ctx.state)`, "B: out of the terminal", 60000);
+  for (const [P, s0, d0] of [[g, 400, 1.75], [c => B.game(c), 425, -1.75]]) await P(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+  await A.until(`ctx.state === "playing"`, "A: driving again", 30000); await B.until(`ctx.state === "playing"`, "B: driving again", 30000);
+  await g(HOLD); await g(PLACE(400, 1.75)); await B.game(HOLD); await B.game(PLACE(425, -1.75));
+  await A.until(`Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`, "A sees B on the road again", 60000);
 
   // ── SAFE: a stranger with a hacked client ──
   const bad = new Rider("BAD WORDS HERE", "red");
@@ -116,10 +146,12 @@ async function body(t, pages, riders) {
   for (let i = 0; i < 20; i++) { bad.event("honk"); await sleep(40); }
   await A.frames(120);
   bad.stop();
-  const safe = await g(`(() => { const p = Object.values(${S}.peers).find(q => q.raw === "BAD WORDS HERE"); return { found: !!p, name: p && p.name, race: !!${S}.race, tag: !!${S}.tag, bonks: ${S}.bonks || 0, recv: ${S}.recv, v: Math.hypot(ctx.car.vx, ctx.car.vz), banner: (document.getElementById("mpOverlay") || {}).textContent || "" }; })()`);
+  const safe = await g(`(() => { const p = Object.values(${S}.peers).find(q => q.raw === "BAD WORDS HERE"); return { found: !!p, name: p && p.name, race: !!${S}.race, tag: !!${S}.tag, bonks: ${S}.bonks || 0, bumps: ${S}.bumps || 0, recv: ${S}.recv, v: Math.hypot(ctx.car.vx, ctx.car.vz), banner: (document.getElementById("mpOverlay") || {}).textContent || "" }; })()`);
   t.check("stranger's typed name never shows (they're \"Red NN\")", safe.found && /^Red \d\d$/.test(safe.name), JSON.stringify(safe));
   t.check("a stranger can't start a race or tag on my screen", !safe.race && !safe.tag && !/RACE|TAG|IT/.test(safe.banner), JSON.stringify(safe));
-  t.check("a stranger driving into me doesn't shove my car (no BONK in EVERYONE)", safe.bonks === 0 && safe.v < v0 + 0.5, JSON.stringify({ v0, v: safe.v }));
+  // stage 3: everyone has the same bump rule — ONE harmless bounce, then she drives through for a moment (nobody can pin,
+  // drag or keep shoving her: a stranger sitting on top of her at 8 Hz for ~2 s gets at most one small bounce)
+  t.check("a stranger driving into me: at most one small bounce, never a shove-fest (same rule as friends)", safe.bumps <= 1 && safe.bonks === 0 && safe.v < v0 + 4, JSON.stringify({ v0, v: safe.v, bumps: safe.bumps }));
   t.check("emote / honk / record floods are dropped on my side", safe.recv >= 10 && !/BAD WORDS/.test(safe.banner), `recv ${safe.recv}`);
   bad.close(); riders.splice(riders.indexOf(bad), 1);
 

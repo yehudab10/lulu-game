@@ -16,7 +16,7 @@
 //  ctx.pins = {
 //    add({ id, name, icon, cat: "shops"|"town"|"help"|"mine", town?, spot?, local?: [lx, lz], lap?: m | "jfk", d?: metres off the road (+ = her side), group?, sub?,
 //          arrive?: "rest"|"jfk" }) → the place          (new places register themselves — e.g. ci/roadside's)
-//    list() · get(id) · ping(id, { from }) · pingKind(key) · clear() · current · target(id?) · groups() · debug
+//    list() · get(id) · ping(id, { from }) · pingKind(key) · clear() · current · target(id?) · arrivedAt(id) · groups() · debug
 //  }
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, emit, hook, css, addMenuItem } from "../../core/ctx.js";
@@ -219,6 +219,11 @@ export function target(id = PS.ping) {
 
 /** The pinged place's id (or null). */
 export const ctxCurrent = () => PS.ping;
+/** Is she already AT this place (a ping of it would be "arrived" at once)? (t: its target, if known) */
+export function arrivedAt(id, t = target(id)) {
+    const p = get(id);
+    return !!(p && t && (t.arrived || (t.kind === "at" && t.d < (p.home ? 9 : 12))));
+}
 
 // ── the ping ─────────────────────────────────────────────────────────────
 export function ping(id, opts = {}) {
@@ -289,7 +294,7 @@ function tick(dt) {
     if (P.tT <= 0) {
         P.tT = 0.1;
         P.t = PS.ping ? target(PS.ping) : null;
-        if (PS.ping && P.t && (P.t.arrived || (P.t.kind === "at" && P.t.d < (get(PS.ping).home ? 9 : 12)))) {
+        if (PS.ping && arrivedAt(PS.ping, P.t)) {
             PS.arrived++; clear("arrived");
         }
         friendsTick();
@@ -343,7 +348,7 @@ addMenuItem("settings", {
 });
 
 ctx.pins = {
-    add, remove, list, get, ping, pingKind, clear, target, groups, lapM, pointerOn, setPointer,
+    add, remove, list, get, ping, pingKind, clear, target, arrivedAt, groups, lapM, pointerOn, setPointer,
     /** Discover by walking: shown(p) (on her Map now?) · essential(p) · discover(id) (a feature: she walked in) · isFresh(id) */
     shown, essential, discover, isFresh, seenFresh,
     get current() { return PS.ping; },

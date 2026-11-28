@@ -16,7 +16,7 @@ import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { SKINS } from "../../car.js";
 import { inv, syncInv, STAT_ROWS } from "../garage/data.js";
-import { owns, equipSkin, buyCar, buyExtra } from "../garage/buy.js";
+import { owns, equipSkin, buyCar, buyExtra, carAway } from "../garage/buy.js";
 import { EV_CARS, EV_IDS, EV_CONFIG, SUB, ZEV, EV } from "./data.js";
 import { DS } from "./perks.js";
 import { schlep } from "./schlep.js";
@@ -71,7 +71,7 @@ export const total = (id, cfg) => lines(id, cfg).reduce((a, l) => a + l.price, 0
 
 // ── the screen ──
 css("dealers-config", `
-#screenCard.card.tsl-card { width: min(900px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; padding: 18px 22px 14px;
+#screenCard.card.tsl-card { width: min(900px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px 22px 14px;
   background: #FFFFFF; color: #171A20; border-radius: 14px; border: 1px solid #E4E6EA; box-shadow: 0 18px 50px rgba(0,0,0,.25); font-family: Helvetica, Arial, sans-serif; }
 .tsl-brand { letter-spacing: .5em; font-size: 12px; font-weight: 700; color: #171A20; text-align: center; }
 .tsl-model { font-size: 32px; font-weight: 500; text-align: center; margin: 4px 0 2px; }
@@ -190,6 +190,7 @@ function homeCharger() {
 // ── order → delivery ──
 export function order() {
     const id = CF.id, own = owns("car", id), L = lines(), tot = L.reduce((a, l) => a + l.price, 0);
+    if (own && !tot && inv.selectedSkin !== id && carAway(id)) { CF.msg = `Yours — but it's ${carAway(id)}. Go get it.`; paint("tslOrder"); return { ok: false, why: "away" }; }
     if (own && !tot) { if (inv.selectedSkin !== id && equipSkin(id)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); CF.msg = "It's out front. It unlocked when it sensed you. Probably."; } paint("tslOrder"); return { ok: true, price: 0 }; }
     if (wallet.coins < tot) { CF.msg = `Insufficient funds — ${fmt(tot - wallet.coins)} 💰 short. The screen says it very calmly.`; CF.armed = false; paint("tslOrder"); return { ok: false, why: "poor" }; }
     if (!CF.armed) { CF.armed = true; CF.msg = "One more tap. (That's the whole sales process.)"; paint("tslOrder"); return { ok: false, why: "armed" }; }

@@ -134,7 +134,8 @@ hook("wreck", info => {
     const src = String(info.source || "");
     const ch = L.chase;
     let charges = null;
-    if (src === "cop") charges = ["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"];
+    // (a cruiser that drove into HER — rear-ended her in traffic, rammed her in a chase — isn't her wrecking it: info.fault, traffic.js)
+    if (src === "cop" && info.fault !== "them") charges = ["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"];
     else if (src.startsWith("law:")) charges = L.fug ? ["ESCAPE FROM CUSTODY", "RESISTING ARREST"] : [ch ? ch.reason : "EVADING ARREST", "RESISTING ARREST"];
     else if (ch) {
         // wrecked mid-pursuit with a cruiser right on her tail: they've got her

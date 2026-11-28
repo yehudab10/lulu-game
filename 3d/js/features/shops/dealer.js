@@ -15,7 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS } from "../../car.js";
 import * as H from "../../hud.js";
 import { SKIN_SHOP, STAT_ROWS, statFill, skinClass, inv, syncInv } from "../garage/data.js";
-import { buyCar, owns, equipSkin } from "../garage/buy.js";
+import { buyCar, owns, equipSkin, carAway } from "../garage/buy.js";
 import { hideTagged } from "../town/kit.js";
 import { kerbAt } from "../places/out.js";
 import { LOT, LOT_GAP } from "./lot.js";
@@ -159,13 +159,18 @@ function statsHtml(k) {
 function canTest() {
     return !party() && !!ctx.foot && (ctx.foot.ownCar === "parked" || ctx.foot.ownCar === "ok") && !TD.on;
 }
+/** features/cars: a car she owns that ISN'T at home (impounded, parked in a town, on a dealer's lot) can't be "brought round"
+ *  from here — it used to be: 🔑 Drive it off the lot set it "with" her, so an impounded car came out free (no release fee)
+ *  and a car parked across the map jumped here. → where it is ("impounded in Lakewood") or "". */
+const away = k => carAway(k);
+const awayLine = k => `Yours — but your <b>${SKINS[k].name}</b> isn't here: it's ${away(k)}. Go get it! <small>(📱 🗺️ Map)</small>`;
 function tiles() {
     return LOT.map(k => ({
         id: k, name: SKINS[k].name, dot: SKINS[k].body, price: SKIN_SHOP[k].price,
         state: () => (owns("car", k) ? (inv.selectedSkin === k ? "placed" : "owned") : "buy"),
         tag: () => (owns("car", k) ? (inv.selectedSkin === k ? "✓ Driving it" : "Yours") : ""),
         desc: () => owns("car", k) ? pick(REFAEL.owned) : "",
-        act: () => { if (owns("car", k) && inv.selectedSkin !== k) cardSay(`Yours! ✋ <b>🔑 Drive it off the lot</b> — or swap any time in your garage at home.`); },
+        act: () => { if (owns("car", k) && inv.selectedSkin !== k) cardSay(away(k) ? awayLine(k) : `Yours! ✋ <b>🔑 Drive it off the lot</b> — or swap any time in your garage at home.`); },
         buy: () => buyHere(k),
     }));
 }
@@ -210,7 +215,7 @@ export function openLot(k) {
         onFocus: id => { lift(id); D.cam.k = id; },
         buttons: [
             { id: "test", label: id => `🔑 Test drive the ${SKINS[id].name}`, visible: id => !owns("car", id) && canTest(), action: id => { closeCard(true); endScript(); startTest(id); } },
-            { id: "drive", label: id => `🔑 Drive it off the lot`, visible: id => owns("car", id) && inv.selectedSkin !== id && !party(), action: id => { closeCard(true); endScript(); driveOff(id, "owned"); } },
+            { id: "drive", label: id => `🔑 Drive it off the lot`, visible: id => owns("car", id) && inv.selectedSkin !== id && !party() && !away(id), action: id => { closeCard(true); endScript(); driveOff(id, "owned"); } },
         ],
         onClose: () => { drop(); },
     });

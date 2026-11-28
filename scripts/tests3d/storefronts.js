@@ -54,6 +54,8 @@ module.exports = {
         if (id === "midwood") t.check("midwood: Brooklyn Kollege's registrar has a door too (a landmark)", fr.some(f => f.landmark === "college" && f.s === "open"));
         if (id === "midwood") t.check("midwood: the long Avenue M front is kept for the bowling alley (COMING SOON: EAST MIDWOOD LANES)", fr.filter(f => f.bowl).length >= 4, String(fr.filter(f => f.bowl).length));
         const sc = await g(`ctx.town.debug.S.T.signs.scale`);
+        // (11-28: the yeshiva's signs took Lakewood to 0.578 with next-shelf packing; the atlas packs first-fit now — 0.589,
+        //  Midwood 0.549 — sweep-health. The floors stay where they were: room comes from the packing, not a lower bar)
         t.check(`${id}: the town's signs stay sharp (atlas scale ${sc && sc.toFixed(3)} — before: midwood 0.531, lakewood 0.590)`, sc >= (id === "midwood" ? 0.52 : 0.58));
         // FOR LEASE fronts for ci/playershops: enough, spread out (not all on one street / bunched)
         const lease = await g(`ctx.storefronts.leasable()`);

@@ -32,7 +32,7 @@ import { input, glyphSet, addTouchButton, rumble } from "../../input.js";
 import { setControlRow } from "../../core/screens.js";
 import { saveSoon } from "../../core/save.js";
 import { SKINS } from "../../car.js";
-import { kindSpec } from "../../traffic.js";
+import { kindSpec, specOfModel } from "../../traffic.js";
 import * as H from "../../hud.js";
 import { setSiren, sirenTick, releaseAll, yieldingCount, R_stats, nudgeAhead } from "./siren.js";
 import { live, partyOn, need, toast, trickGlyph } from "./common.js";
@@ -54,6 +54,10 @@ function poll() {
     if (so === curObj) return;
     if (R) exitRide("swap");
     curObj = so;
+    // her collision body follows what she drives: a ride's shell its kind's own (a bus is 10 m long, not her car's 4.6)
+    // (only the LONG ones — a box truck, a bus, the ambulance: a car-sized shell keeps her own car's circles)
+    const sp0 = so && ctx.foot.vehicle ? specOfModel(ctx.foot.vehicle.kind) : null, sp = sp0 && (sp0.len || 0) > 5.6 ? sp0 : null;
+    if (ctx.car) { ctx.car.circles = sp && sp.circles && sp.circles.length ? sp.circles.slice() : null; ctx.car.radius = sp && sp.circles ? Math.max(0.85, sp.r || 1) : null; }
     if (!so) return;                                   // (in a 🎉 party too: handling, horns, tricks are per player)
     const v = ctx.foot.vehicle;
     const def = v && BY_KEY.get(v.kind);
@@ -177,8 +181,9 @@ hook("update", (dt, P, controlsOn) => {
 }, -2);
 on("state", ({ to }) => { if (to === "title" || to === "gameover" || to === "footRun") poll(); if (R && to !== "playing") R.horn.down = false; });
 on("foot:start", () => poll());
-on("title", () => { if (R) exitRide("title"); curObj = null; });
-hook("runStart", () => { if (R) exitRide("run"); curObj = null; R_stats.yielded = 0; }, 50);
+const ownBody = () => { if (ctx.car) { ctx.car.circles = null; ctx.car.radius = null; } };      // (her own car's hit circles)
+on("title", () => { if (R) exitRide("title"); curObj = null; ownBody(); });
+hook("runStart", () => { if (R) exitRide("run"); curObj = null; ownBody(); R_stats.yielded = 0; }, 50);
 
 // heavy rides: a light bump with a lighter car costs no heart (they bounce off)
 hook("damage", info => {

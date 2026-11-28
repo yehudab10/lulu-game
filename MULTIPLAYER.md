@@ -349,6 +349,10 @@ Owner-approved server change (2026-11-26). The relay gains `/acct/*` HTTP endpoi
 (`server/accounts.mjs`; table + endpoint list in `server/README.md`). **Nothing in the room protocol changed**; two new
 OPTIONAL state fields ride in existing messages, and every old client ignores them:
 
+- `d.hc` / `d.ot` (Shared Road state, 3D only; stage 3 "no ghosts", `ci/friends`): her **look**, so everyone draws her solid
+  the way friends do — `hc` her hair colour (`#rrggbb`), `ot` her outfit's compact form (`ctx.clothes.encode`: piece ids
+  and commas only, ≤ 160 chars; checked on receipt). Sent only when set; 2D and older 3D clients ignore them (a 3D
+  receiver without them draws a top in her car's colour).
 - `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
   the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
   `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual

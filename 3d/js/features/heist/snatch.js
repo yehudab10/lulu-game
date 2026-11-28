@@ -88,7 +88,7 @@ function snatchTick(dt) {
             H.banner(warnHtml(ev), Math.round(TS.warn * 1000) + 300, { key: "heist:snatch", prio: 3 });
             npcSays(ev.rider.obj, pick(SNATCH.creep), TS.warn);
             if (ctx.foot && ctx.foot.addSpot) ev.spotRm = ctx.foot.addSpot({ pos: () => (SN.ev === ev && ev.phase === "warn" ? { x: ev.x, z: ev.z } : null), r: 6, first: true,
-                label: "🫷 CLUTCH YOUR PURSE!", short: "PURSE", act: () => dodge(ev, "purse") });
+                label: "✋ CLUTCH YOUR PURSE!", short: "PURSE", act: () => dodge(ev, "purse") });
         }
     } else if (ev.phase === "warn") {
         ev.v = 0;

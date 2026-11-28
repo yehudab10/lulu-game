@@ -101,7 +101,9 @@ module.exports = {
       await t.frames(30);
       const mf = await A(`A.musicMuffleInfo()`);
       t.check("on foot: the music is routed through the lowpass (MediaElementSource) and muffled", mf.muffle > 0.6 && mf.routed && mf.target < 2000, JSON.stringify(mf));
-      const rainFoot = await t.L(`import("/3d/js/features/atmos/sfx.js").then(m => m.rainInfo())`);
+      // (the mix fades on the AUDIO clock — real time, ~0.3 s: on the fast test clock 30 frames can be less than that; poll it)
+      let rainFoot = null;
+      for (let i = 0; i < 40; i++) { rainFoot = await t.L(`import("/3d/js/features/atmos/sfx.js").then(m => m.rainInfo())`); if (rainFoot && rainFoot.drum < 0.02) break; await t.frames(3); await new Promise(r => setTimeout(r, 100)); }
       t.check("rain on foot: open-air hiss, no drum", rainFoot && rainFoot.where === "foot" && rainFoot.drum < 0.02 && rainFoot.hiss > rainCar.hiss, JSON.stringify(rainFoot));
       await t.shot("onfoot-rain");
     }
