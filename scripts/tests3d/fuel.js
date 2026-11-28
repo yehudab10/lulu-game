@@ -109,6 +109,9 @@ module.exports = {
 
     await step("town pump", async () => {
       await t.frames(130);
+      // (towns are off in a test that didn't opt in, so the run doesn't plan its exits; the lap map used to plan them
+      //  the first time anything asked it mid-run — now it's asked (and cached) at boot. exitOf plans the route itself)
+      await g(`(ctx.town.exitOf("midwood", 0), true)`);
       await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 0`, "an exit is planned", 15000);
       await g(`(() => { const P = ctx.fuel.debug.pads(-1.85)[0]; ctx.world.prebuild(P.s + 180); ctx.car.place(P.x, P.z, P.h); ctx.car.s = P.hs; ctx.car.d = P.hd; ctx.car.vx = ctx.car.vz = 0; ctx.car.vF = 0; return true; })()`);
       await g(`(ctx.fuel.set("pink", 0.3), true)`);

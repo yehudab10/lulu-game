@@ -49,6 +49,14 @@ css("meta-tut", `
 body.touch #metaTutBox { bottom: auto; top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
 @media (max-aspect-ratio: 1/1) { body.touch #metaTutBox { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
 body.tv #metaTutBox { bottom: calc(3vh + 64px); }
+/* a phone on its side: the card sat over the NITRO button it was pointing at — narrower, between the stick and the
+   right-hand buttons (ci/sweep-phone) */
+@media (min-aspect-ratio: 1/1) {
+  body.touch:not(.tv) .meta-tut { width: min(460px, calc(100vw - 380px)); padding: 8px 10px 16px 8px; gap: 8px; }
+  body.touch:not(.tv) .meta-tut .ic { width: 42px; height: 42px; font-size: 24px; }
+  body.touch:not(.tv) .meta-tut .pips { left: 58px; }
+  body.touch:not(.tv) .meta-tut .tt { font-size: 13px; } body.touch:not(.tv) .meta-tut .ln { font-size: 12.5px; }
+}
 #metaTutBox .skip { pointer-events: auto; }
 body.dialog-open #metaTutBox { visibility: hidden; }
 .meta-tut { position: relative; display: flex; gap: 12px; align-items: center; width: min(460px, 92vw); padding: 10px 14px 18px 10px;

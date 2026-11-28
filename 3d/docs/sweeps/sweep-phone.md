@@ -71,6 +71,28 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 
 20. **📒 Scrapbook on a small phone: "Neighbourhood Hero" ran out of its badge cell** — badge names break inside their
    cell (`meta/style.js`). — batch 2
+21. **The touch stick had no dead zone** — a thumb resting on its middle steered the car / walked her a little (the
+   controllers have one). 8 % of its reach now, rescaled so a full push is still 1 (`input.js`). — batch 3
+22. **A room's speech bubble cut off at a side** — the realtor's "Welcome, welcome! Sit, sit!…" started past the left
+   edge of a phone held upright. It slides in along the camera's right until both ends are on screen
+   (`interiors/fx.js` fit). — batch 3
+23. Right behind her at a room's door she's fainter now (12 %, was 30 → 20 %): the ghost of her head still covered the
+   middle of the screen. — batch 3
+24. **The shoulder camera in a cramped kitchen** — turned 0.45 rad toward a wall, it was squeezed in and rose over her
+   head (a huge bubble, half the room upside down). It takes the side with room, straight on when neither has
+   (`interiors/engine.js` shoulderOff). A bubble slid in from a side / down from the top is sized again where it ends
+   up (nearer the lens it came out wider than the phone), against this frame's camera. — batch 3
+25. **"📜 WEEKLY QUESTS UNLOCKED! Check the title menu."** — they're under 📒 Scrapbook on the title / 📜 Quests in the
+   pause menu: "Find 📜 Quests in the pause menu." Distracted Mode's "also on the title menu" → "in the title's 🚗
+   Garage". — batch 3
+26. **A phone on its side: the first-drive tutorial's card sat over the NITRO button it was pointing at** (667 × 375) —
+   narrower between the stick and the right-hand buttons (`meta/tutorial.js`); `sweepphone5` plays the first five
+   minutes on a small phone on its side. — batch 4
+27. **Controller words on a phone, in text**: serving a sentence said "mash [Tap] (or tap) to do your time", the
+   garage "Press [Tap] again to buy", the empty photo album "press [Tap] to snap one" — touch has its own words now
+   (`law/jail.js`, `garage/shop.js`, `play/photo.js`). — batch 5
+28. **The ✋ touch button said "OWN" at her own car** (and "RIP" at a wrecked one, "AVIGAIL" by Avigail) — the kinds'
+   internal names. DRIVE / LOOK / CHAT now (`foot/index.js` HAND_WORD). — batch 5
 
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
@@ -80,6 +102,13 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 
 - batch 2 → main (item 20 + the tests: the garage / scrapbook cards, every 📱 app on a small phone, a room on its
   side). CI 46112736627 → fixes → run on the merged head (sweepphone2, sweepphone3, meta, core, platform: green).
+- batch 3 → main (items 21–25). CI: 46123381505 (sweepphone2, sweepplaces 1–4, interiors, clothes, realestate, homes,
+  houseitems, doors, qa28, storefronts, lanes, family: green) + 46122900830 (sweepphone, movetouch, qatouch, core,
+  platform, meta, garage, shops: green).
+- batch 4 → main (item 26 + `sweepphone5`). CI: the run after 46123381505 (sweepphone, sweepphone5, meta, hudfit: green).
+- batch 5 → main (items 27–28). CI 46125282272 (sweepphone, sweepphone5, home, qafoot, qa4, garage, shops, law, qalaw,
+  core, platform, skip, ux, music, foot, footbounds: green). The pop-up budget test `calm` on the batch-4 head
+  (46124733994): green.
 
 ## For other sweeps
 - for `ci/sweep-health`: on main a5c02a2a (run 46112384329 on a copy of main): `cityhall` › "the ribbon cutting: no jump
@@ -92,3 +121,12 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 - No browser-back handling: an Android back gesture / an iOS Safari edge swipe leaves the page (the root page uses
   location.replace, so it doesn't loop). A history trap would be a new behaviour — owner's call.
 - `ci/install` (the install prompt) is the other account's and still moving: not looked at / not edited.
+- Not testable headless (needs a real iPhone): the on-screen keyboard over the 🪪 name / friend-code / save-code inputs,
+  the notch / home-bar insets (the CSS now pads for them; headless Chromium reports 0), iOS Safari's dynamic toolbar
+  (the 📱 handset now uses 100dvh).
+- Rooms: right at a room's door the camera sits ~1.4 m behind her (the walls) — she's see-through there now, but a
+  higher / further camera for small rooms would read better; a camera-rig change, left for a sweep with time to tune it.
+- The username ask on the title (accounts) was only checked by its own test (`accounts`, 360 × 800): the local relay
+  isn't in this sweep's tests.
+- Next for whoever picks this up: the first exit / first shop / the ER on a phone with REAL screenshots (the fast test
+  clock draws those states as one flat colour — run those parts with `fast: false` as `sweepphone2` does).

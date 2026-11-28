@@ -124,7 +124,9 @@ module.exports = {
     await t.tap(0);
     await t.until(`__lulu3d.state === "playing"`, "back to driving", 20000);
     const sent0 = await g(`${D}.TX.sent`);
-    await g(`(${D}.TX.cool = 0, ${D}.M.texts.forEach(x => { x.run = ctx.memory.runs; x.after = 0; }), true)`);
+    // (a random incoming call — the tests run with them on — holds texts back while it rings: no call now, and the run's
+    //  text budget fresh; sweep-health, 46120021170 timed out here)
+    await g(`(ctx.phone.randomCalls = false, ctx.phone.hangUp && ctx.phone.hangUp(), ${D}.TX.perRun = 0, ${D}.TX.cool = 0, ${D}.M.texts.forEach(x => { x.run = ctx.memory.runs; x.after = 0; }), true)`);
     // (ci/hud landing 3: a fare's follow-up doesn't need her — it goes out quietly: no card on the road, nothing in Messages)
     await g(`(window.__pt = [], L3.on("phone:text", e => window.__pt.push(e)), true)`);
     await t.until(`window.__pt.length > 0`, "a fare texts Lulu (ctx.phone.text)", 20000);

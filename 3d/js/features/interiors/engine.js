@@ -208,7 +208,7 @@ const V = new THREE.Vector3(), V2 = new THREE.Vector3();
  */
 const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.6, fadeTo: 0.18 };
 // her own see-through when the lens is close: [solid from (m), faded from (m)] per screen shape, and how faded (ci/sweep-phone)
-const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.2 };
+const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.12 };
 // …and in a chat / at someone's ✋ the camera sits this far (rad) off straight-behind, so she doesn't hide them
 const SHOULDER = 0.45;
 const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();
@@ -841,9 +841,12 @@ export class Room {
         const nw = !at && this.near && this.near.who && this.byId[this.near.who];
         const at2 = at || (nw ? nw.p.obj.position : null);
         if (at2 && Math.hypot(at2.x - L.x, at2.z - L.z) > 0.3) {
-            const to = Math.atan2(at2.x - L.x, at2.z - L.z), side = Math.sign(wrapAngle(F.yaw - to)) || 1;
-            // (a person: over the shoulder; a thing — a rack, a focus point — straight on, as before)
-            auto = { yaw: to + (who && !this.focusAt || nw ? side * SHOULDER : 0), k: 3 };
+            const to = Math.atan2(at2.x - L.x, at2.z - L.z);
+            // (a person: over the shoulder — on the side with room for the camera; straight on when neither side has
+            //  room (a cramped kitchen: squeezed into a corner the camera rose over her head); a thing — a rack, a focus
+            //  point — straight on, as before)
+            const off = (who && !this.focusAt) || nw ? this.shoulderOff(to, dist) : 0;
+            auto = { yaw: to + off, k: 3 };
             if (at) dist *= 0.85;
         }
         ctx.cam.orbit(this.lulu.obj, { camera: cam, dist, look: ORBIT.look, fov: this.def.fov || ORBIT.fov, auto,
@@ -880,6 +883,20 @@ export class Room {
         });
     }
 
+    /** Which over-the-shoulder offset (rad) has room for the camera behind her, looking along `to` (re-checked every
+     *  ~10 frames; the side it's on is kept unless the other has clearly more room). */
+    shoulderOff(to, dist) {
+        const S = this.sh || (this.sh = { t: 0, off: 0, to: 0 });
+        if (S.t-- > 0 && Math.abs(wrapAngle(S.to - to)) < 0.2) return S.off;
+        S.t = 10; S.to = to;
+        const L = this.lulu.obj.position, tgt = { x: L.x, y: L.y + ORBIT.look, z: L.z }, p = ctx.cam.free.pitch, cp = Math.cos(p), sp = Math.sin(p);
+        const room = a => { const r = this.camClip(tgt, -Math.sin(a) * cp, sp, -Math.cos(a) * cp, dist * 1.3); return r.d; };
+        const side = Math.sign(wrapAngle(ctx.cam.free.yaw - to)) || 1;
+        const here = room(to + side * SHOULDER), there = room(to - side * SHOULDER);
+        const best = there > here + 0.4 ? -side : side, d = Math.max(here, there);
+        S.off = d >= 2.4 ? best * SHOULDER : 0;
+        return S.off;
+    }
     updateCamera(dt, snap) {
         if (this.orbitOn()) return this.orbitCamera(dt, snap);
         if (this.selfFaded) { this.selfA = 1; this.fadeSelf(1); }      // (a mini-game's / a fixed camera's shot: she's solid)

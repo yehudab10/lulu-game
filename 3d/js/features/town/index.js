@@ -496,6 +496,19 @@ function hazards(c) {
     c.obj.add(grp);
     S.haz.push({ c, grp, m, g });
 }
+const _dl = {};
+/** (see ctx.town.onDrive) the strip build.js paves for a "van" lot: 3.2 m wide, from 1.75 m street-side of the lot line to
+ *  6.15 m into the block (the van stands 3.2 m in, nose to the street); a little pad either way. */
+function onDrive(x, z) {
+    if (!S.active || !S.T || !S.T.drives || !S.T.drives.length) return false;
+    const q = toLocal(x, z, _dl);
+    for (const d of S.T.drives) {
+        const nx = Math.sin(d.rot), nz = Math.cos(d.rot), dx = q.x - d.x, dz = q.z - d.z;
+        const n = dx * nx + dz * nz, u = dx * nz - dz * nx;          // (n toward the street from the van, u along the lot line)
+        if (Math.abs(u) < 2.0 && n > -3.2 && n < 5.2) return true;
+    }
+    return false;
+}
 function leaveTown(why = "highway", opts = {}) {
     if (!S.active) return false;
     const def = S.def, car = ctx.car, G = ctx.G, world = ctx.world, tr = ctx.traffic;
@@ -982,6 +995,10 @@ ctx.town = {
      *  uz, nx (toward the street), nz, lotX, lotZ, w, face }] — WORLD coords, in build order (stable per town). */
     get fronts() { return S.active && S.T && S.T.fronts ? S.T.fronts.map(f => spotWorld(f)) : []; },
     get drives() { return S.active && S.T && S.T.drives ? S.T.drives.map(d => { const w = toWorld(d.x, d.z, {}); return { x: w.x, z: w.z, rot: wH(d.rot) }; }) : []; },
+    /** Is world (x, z) on a house's DRIVEWAY (the paved strip its minivan stands on — open ground inside the block's rectangle,
+     *  like her own lot and Refael's car lot)? For the camera's clip, unstuck and the QA watchdog. (sweep-health: hotwiring a
+     *  driveway minivan put her "inside" the block and let the camera wander into the houses) */
+    onDrive(x, z) { return onDrive(x, z); },
     /** The townsfolk you can talk to: [{id, name, x, z}] (world). */
     people: () => S.active ? LIFE.people.filter(r => r.lines).map(r => ({ id: r.id, name: r.name, x: r.p.obj.position.x, z: r.p.obj.position.z })) : [],
     /** Go into town now (no ramp; tests / debug). opts: { town: "lakewood" | "midwood", exitS, speed }. Its models must be

@@ -16,7 +16,9 @@ module.exports = {
   async run(t) {
     const g = c => t.game(c);
     const st = () => g(`ctx.state`);
-    const coins = () => t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
+    // (the shared wallet as both games see it: pending coins are written ~0.8 s after they're earned (save.js
+    //  scheduleFlush) — on the fast test clock 20 frames can be less than that, so the read flushes first)
+    const coins = () => t.L(`import("./js/core/save.js").then(m => (m.flushShared(), JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins))`);
     await t.frames(10);
     t.check("no Parking Challenge on the title", !(await t.titleItems()).some(l => /Parking Challenge/.test(l)));
     t.check("no separate parking scene: the 'parking' state is a driving state in the world (and parkingEnd is gone)",

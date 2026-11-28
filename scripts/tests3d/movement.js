@@ -47,7 +47,10 @@ module.exports = {
     t.check("glyphs: keyboard Space jump · C roll · mouse drag look", gl.keyboard[0] === "Space" && gl.keyboard[1] === "C" && /Mouse/.test(gl.keyboard[3]), JSON.stringify(gl.keyboard));
     t.check("glyphs: touch JUMP · ROLL", gl.touch[0] === "JUMP" && gl.touch[1] === "ROLL", JSON.stringify(gl.touch));
     t.check("the button guide lists Jump + Look around", await G(`import("./js/core/screens.js").then(S => { const h = S.controlsHtml(); return /Jump/.test(h) && /Look around/.test(h); })`));
-    t.check("a coach line names the jump the first walks", /JUMP/.test(await t.L(`(document.querySelector(".prompt") || {}).textContent || ""`)), await t.L(`(document.querySelector(".prompt") || {}).textContent || ""`));
+    // (one hint at a time since ci/sweep-phone 55881dd9: the coach waits while the "you're on foot" walk hint is up — 6 s)
+    const coachUp = `/JUMP/.test((document.querySelector(".prompt") || {}).textContent || "")`;
+    if (await t.until(coachUp, "a coach line names the jump the first walks (once the walk hint is gone)", 12000))
+      t.check("a coach line names the jump the first walks", true, await t.L(`(document.querySelector(".prompt") || {}).textContent || ""`));
 
     // ── the JUMP: held = high, a tap = a hop ──
     const y0 = await G(`${FF}.y`);

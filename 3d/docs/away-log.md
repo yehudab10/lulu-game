@@ -4,10 +4,19 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
-- 2026-11-28 09:00 UTC — 🚗 On the road, part 3. Pulled over by the police on an exit ramp, in a rest area's car park, at
+- 2026-11-28 12:20 UTC — 🚗 On the road, part 3. Pulled over by the police on an exit ramp, in a rest area's car park, at
   Trooper Post 7 or a dealership's lot, Lulu now stops right where she is and the police car pulls up behind her — before,
   the game steered her back across the grass to the side of the highway. Driving straight on past an exit, the green
-  "EXIT … NOW" line no longer hangs on for a while after the exit has gone by.
+  "EXIT … NOW" line no longer hangs on for a while after the exit has gone by, and an electric car charging at a rest
+  area's pumps is no longer also told "electric? try a charger".
+- 2026-11-28 08:30 UTC — 📱 Phones, part 5: on a phone, the ✋ button by her car says DRIVE (it said "OWN"), and a few
+  lines that told touch players to "press Tap" / "mash Tap (or tap)" say it in plain words.
+- 2026-11-28 08:15 UTC — 📱 Phones, part 4: on a small phone held sideways, the first-drive lesson's card no longer
+  covers the NITRO button it's telling you to press.
+- 2026-11-28 08:10 UTC — 📱 Phones, part 3: the on-screen stick no longer creeps Lulu (or the car) along when a thumb
+  just rests on it. Inside rooms a speech bubble at the edge of an upright phone slides in so its first words aren't cut
+  off, the over-the-shoulder camera picks the side of her with room (in a small kitchen it got squeezed up over her
+  head), and the "weekly quests unlocked" note now says where the quests really are.
 - 2026-11-28 08:05 UTC — 🚗 On the road, part 2. Being arrested on the highway near Midwood or at Trooper Post 7, the
   ride to the station and the booking now name the station she's actually taken to (they always said Lakewood's
   "Precinct 18½"). Shmuel's chop shop no longer calls while Lulu's own car is in the impound — "his guy brings your car
@@ -67,6 +76,9 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 09:00 UTC (fixes) — Walking up a driveway to a parked minivan in town (to borrow it) no longer lets the
+  camera slide into the house next to it. In the shul on a Friday, the kid running round the kiddush table no longer runs
+  through the end of the table. Three automatic checks that were tripping over their own timing were fixed.
 - 2026-11-28 07:20 UTC (fixes) — The shop and street signs in Lakewood and Midwood are a little sharper: their pictures are
   packed together more tightly, so each one gets more pixels (the new yeshiva's signs had made Lakewood's slightly
   blurrier). Test screenshots inside buildings no longer come out as a plain blue picture.

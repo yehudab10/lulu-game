@@ -2410,11 +2410,14 @@ friends who open the link land beside you — from mid-drive the solo run is ban
 (the lobby: races, road trip, dreidel dash, cop tag — what can't be a spot invitation yet) · 🌐 Play online on/off · 🕹️ Classic 2D
 friends (the Shared Road screen: a 2D-compatible code room + your rider name) + a line saying who's around. The phone's 👯 app is
 there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs friends on screen (stage 3 of roadmap 25, "no ghosts", owner
-2026-11-27 — in progress on `ci/friends`):** everyone is drawn SOLID — her car in her paint + hair colour, or walking in her own
-outfit (`d.hc` / `d.ot` in the EVERYONE state; an old client without them: a top in her car's colour). Still different for
-now: a stranger's label is "Gold 72" (or her username from a signed ticket, names on), a friend's is her name with the 👑 /
-presence chips, emotes with phrases, rides, games. Next: the same bump rules + name tags for everyone, then other players in
-public rooms. Test: `scripts/tests3d/mpworld.js` (offline
+2026-11-27 — landed 2026-11-28):** everyone is drawn SOLID — her car in her paint + hair colour (baked into one mesh), or
+walking in her own outfit (`d.hc` / `d.ot` in the EVERYONE state; an old client without them: a top in her car's colour); one
+bump rule (one harmless bounce, then she drives through for a moment — `index.js` › `strangerBump`); the friends' name tag
+(the label: "Gold 72" or her signed username; a friend's is her name with the 👑 / presence chips); other players inside
+PUBLIC rooms (`d.in`, `together/rooms.js` › `publicRoom` — houses friends-only, Ima's private). **The world clock's client
+half** (MULTIPLAYER.md › What the game does with the world clock): one sky for everyone online, other players drawn ~150 ms
+in the past between the relay's timestamped updates, emotes + town-loop claims as reliable `r` events, and a town's loop
+minivans the same on every screen (`ctx.openworld.worldTowns()`; each screen keeps its own extra drivers). Test: `scripts/tests3d/mpworld.js` (offline
 boot · two pages with no code see each other · a hostile stranger · the cap with 14 riders · a rider in town · ⚙️ Play online ·
 Dina · the 👯 hub · a party still sees strangers · a friend drawn once, as a friend · the phone's go solo).
 

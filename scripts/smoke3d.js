@@ -83,12 +83,14 @@ function fastPage(page, on) {
   page.on("request", r => { if (counts(r)) inflight++; });
   page.on("requestfinished", r => { if (counts(r)) inflight = Math.max(0, inflight - 1); });
   page.on("requestfailed", r => { if (counts(r)) inflight = Math.max(0, inflight - 1); });
-  const goto0 = page.goto.bind(page);
-  page.goto = async (...a) => {
+  const settle = async () => {
     if (/\/3d\//.test(page.url())) for (const cap = Date.now() + 20000; inflight > 0 && Date.now() < cap;) await new Promise(r => setTimeout(r, 50));
     inflight = 0;
-    return goto0(...a);
   };
+  const goto0 = page.goto.bind(page), reload0 = page.reload.bind(page);
+  page.goto = async (...a) => { await settle(); return goto0(...a); };
+  // (a reload cancels the same in-flight downloads — sweeplogic's old-save reload: "[cameos] model load TypeError: Failed to fetch")
+  page.reload = async (...a) => { await settle(); return reload0(...a); };
   const shot = page.screenshot.bind(page);
   page.screenshot = async (...a) => {
     await page.evaluate(() => window.__lulu3d && window.__lulu3d.realFrame && window.__lulu3d.realFrame()).catch(() => { });
