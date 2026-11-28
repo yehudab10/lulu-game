@@ -7,6 +7,7 @@ import { models, cloneWithColors, findNodes } from "./models.js";
 import { LANES_OURS, LANES_ONCOMING } from "./world.js";
 import { CAR_CIRCLES, CAR_RADIUS, CAR_HALF_W } from "./car.js";
 import { farLod, shadowProxy } from "./lod.js";
+import { ctx } from "./core/ctx.js";
 
 const PAINTS = ["#42A5F5", "#FFFFFF", "#FFCA28", "#66BB6A", "#EF5350", "#8D6E63", "#9E9E9E", "#26C6DA", "#263238", "#FF8A65", "#BA68C8"];
 const KINDS = {
@@ -169,7 +170,9 @@ export class Traffic {
     update(dt, player, playerS, playerD, difficulty, honked, time) {
         const events = [];
         // (laneFree: her car's lane — not on foot: foot's PROXY has no vF)
-        if (typeof player.vF === "number") { const m = this._me || (this._me = { s: 0, d: 0 }); m.s = playerS; m.d = playerD; this.me = m; } else this.me = null;
+        // (not in a 🎉 party: its traffic is the SHARED, seeded one — every screen must see the same cars do the same thing)
+        const solo = !(ctx.party && ctx.party.active);
+        if (solo && typeof player.vF === "number") { const m = this._me || (this._me = { s: 0, d: 0 }); m.s = playerS; m.d = playerD; this.me = m; } else this.me = null;
         this.spawnT -= dt;
         if (this.spawnT <= 0) { this.spawn(playerS, difficulty); this.spawnT = 0.35; }
 
@@ -232,7 +235,7 @@ export class Traffic {
                 // (2.6 m, not a lane's 2.2: a car pulling out to pass her keeps braking until its side clears hers)
                 // (an ONCOMING car only when she's going its way — the far carriageway down the lap; one she's facing
                 //  head-on keeps coming: chicken is her choice, and its near misses her bonus)
-                if (typeof player.vF === "number" && Math.abs(playerD - c.d) < 2.6) {
+                if (this.me && Math.abs(playerD - c.d) < 2.6) {
                     const g = (playerS - c.s) * c.dir, along = (player.vx || 0) * Math.sin(c.h) + (player.vz || 0) * Math.cos(c.h);
                     if (g > 0 && g < gap && (c.dir > 0 || along > 1)) { gap = g; ahead = { speed: Math.max(0, c.dir > 0 ? player.vF || 0 : along), hit: false }; }
                 }
