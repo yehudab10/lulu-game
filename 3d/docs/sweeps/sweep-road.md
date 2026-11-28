@@ -100,6 +100,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 18:35 UTC — part 9 on main: finding 32 (a walker into her stopped car). CI 46174112439 (core, platform,
+  sweeproad, roadevents, atmos, qacar, foot ✓) + local roadevents ✓. Main's Smoke after parts 6–8: 46170811719, 46173986970 ✓.
 - 2026-11-28 18:10 UTC — part 8 on main: finding 31 (town crash fairness). CI 46171804000 (town, midwood, lawstruck, qalaw,
   core, platform, sweeproad ✓; community ✗ — fails the same way locally with this change taken out, see For other branches).
 - 2026-11-28 17:35 UTC — part 7 on main: a given-up cruiser is let go 170 m on her way (down the lap too); the `amb`
