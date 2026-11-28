@@ -157,20 +157,33 @@ export class Bubbles {
     fit(b) {
         const cam = this.set.camera;
         if (!cam || !cam.isPerspectiveCamera) return;
-        cam.updateMatrixWorld();      // (this frame's camera — the last render's can be frames old: projecting with it slid bubbles the wrong way)
-        const d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vh = 2 * d * Math.tan(cam.fov * Math.PI / 360), vw = vh * cam.aspect;
-        const k = Math.min(1, (vw * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
-        b.sp.scale.set(b.w * k, b.h * k, 1);
+        cam.updateMatrixWorld();      // (this frame's camera — the last render's can be frames old)
+        const tn = Math.tan(cam.fov * Math.PI / 360), P = b.sp.position;
+        let k = 1, vh = 1;
+        const size = () => {
+            const d = Math.max(0.3, cam.position.distanceTo(P));
+            vh = 2 * d * tn;
+            k = Math.min(1, (vh * cam.aspect * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
+            b.sp.scale.set(b.w * k, b.h * k, 1);
+        };
+        size();
         // (…and never off the top of the screen: a bubble over someone near the lens rose past the edge, its first lines
         //  cut — it comes down until its top is on screen)
-        TMP.set(b.sp.position.x, b.sp.position.y + b.h * k / 2, b.sp.position.z).project(cam);
-        if (TMP.z < 1 && TMP.y > 0.9) b.sp.position.y -= (TMP.y - 0.9) * vh / 2;
+        TMP.set(P.x, P.y + b.h * k / 2, P.z).project(cam);
+        let moved = false;
+        if (TMP.z < 1 && TMP.y > 0.9) { P.y -= (TMP.y - 0.9) * vh / 2; moved = true; }
         // (…nor off a side: someone at the edge of a phone held upright had the start of their line cut — it slides in
         //  along the camera's right until both ends are on screen; ci/sweep-phone)
-        if (TMP.z < 1) {
-            const half = (b.w * b.fill * k) / vw, over = TMP.x - half < -0.96 ? -0.96 - (TMP.x - half) : TMP.x + half > 0.96 ? 0.96 - (TMP.x + half) : 0;
-            if (over) { SC.setFromMatrixColumn(cam.matrixWorld, 0); b.sp.position.addScaledVector(SC, over * vw / 2); }
+        SC.setFromMatrixColumn(cam.matrixWorld, 0);
+        TMP.setFromMatrixColumn(cam.matrixWorld, 2).negate();
+        const rx = P.x - cam.position.x, ry = P.y - cam.position.y, rz = P.z - cam.position.z;
+        const z = rx * TMP.x + ry * TMP.y + rz * TMP.z;
+        if (z > 0.3) {
+            const hw = z * tn * cam.aspect, cx = (rx * SC.x + ry * SC.y + rz * SC.z) / hw, half = (b.w * b.fill * k / 2) / hw;
+            const over = cx - half < -0.96 ? -0.96 - (cx - half) : cx + half > 0.96 ? 0.96 - (cx + half) : 0;
+            if (over) { P.addScaledVector(SC, over * hw); moved = true; }
         }
+        if (moved) size();      // (moved toward the middle = nearer the lens: sized again for where it is now)
     }
     update(dt) {
         for (let i = this.list.length - 1; i >= 0; i--) {
