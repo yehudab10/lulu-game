@@ -186,7 +186,7 @@ module.exports = {
         const where = `${town} ${d.name} (${id})`;
         const look = async (lab, i) => {
           const c = await camIn(), p = await CJ.probe(t, { room: true });
-          const fail = !c || !c.in || !c.seen || c.wall || !p || p.near > 0.35 || p.block;
+          const fail = !c || !c.in || !c.seen || c.wall || !p || p.near > 0.5 || p.block;      // (half the screen within 1.6 m of the lens = junk; a wall at one side of a cramped hallway is part of the room)
           if (fail) { bad.push({ where, lab, c, p }); if (bad.length <= 8) await t.shot(`room-${id}-${i}`); }
           return c;
         };
