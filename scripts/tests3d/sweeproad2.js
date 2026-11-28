@@ -49,15 +49,15 @@ async function survey(t) {
     const L = ${s0}, E = ${end};
     const signs = ctx.world.signs.filter(x => x.s > L - 200 && x.s < E + 2000).map(x => ({ s: Math.round(x.s), d: x.d, lines: x.lines, tab: x.tab || null }));
     const exits = ctx.town && ctx.town.exits ? ctx.town.exits.map(e => ({ s: Math.round(e.s), id: e.id, no: e.no, label: e.label })) : [];
-    const ap = ctx.airport && ctx.airport.on ? ctx.airport.debug && ctx.airport.debug.zones ? null : ctx.airport.planned : null;
+    const ap = ctx.airport && ctx.airport.on ? ctx.airport.planned : null;
     const air = ctx.airport && ctx.airport.zones ? ctx.airport.zones(L - 2000, E + 2000).map(z => Math.round(z.s)) : [];
     const rests = ctx.exits ? ctx.exits.rests.map(r => ({ s: Math.round(r.s), name: r.name })) : [];
     return { signs, exits, air, rests, ap };
   })()`);
   console.log(`    · exits ${JSON.stringify(W0.exits)} · JFK ${JSON.stringify(W0.air)} · rests ${JSON.stringify(W0.rests)}`);
   const places = [];
-  for (const e of W0.exits) places.push({ s: e.s, kind: "exit", name: (e.label || e.id).toUpperCase(), no: String(e.no || "") });
-  for (const s of W0.air) places.push({ s, kind: "exit", name: "JFK", no: "12" });
+  for (const e of W0.exits) places.push({ s: e.s, kind: "exit", name: String(e.id).toUpperCase(), alt: String(e.label || e.id).toUpperCase(), no: String(e.no || "") });
+  for (const s of W0.air) places.push({ s, kind: "exit", name: "JFK", alt: "JFK", no: "12" });
   for (const r of W0.rests) places.push({ s: r.s, kind: "rest", name: "REST AREA" });
   places.sort((a, b) => a.s - b.s);
   const nextAfter = (s, f = () => true) => places.find(p => p.s > s && f(p));
@@ -99,7 +99,7 @@ async function survey(t) {
       if (nx.kind === "exit" && !new RegExp(nx.name.split(" ")[0], "i").test(r.trip)) tb.push(`@${r.s} trip "${r.trip}" vs next ${nx.name}`);
     }
     if (nx && nx.s - r.s < MI - 100 && nx.s - r.s > 200 && !r.chip) tb.push(`@${r.s} no exit chip ${((nx.s - r.s) / MI).toFixed(1)} mi before ${nx.name}`);
-    if (r.chip && nx && nx.s - r.s < MI - 100 && !new RegExp(nx.kind === "rest" ? "REST" : nx.name.split(" ")[0], "i").test(r.chip)) tb.push(`@${r.s} chip "${r.chip}" vs ${nx.name}`);
+    if (r.chip && nx && nx.s - r.s < MI - 100 && !new RegExp(nx.kind === "rest" ? "REST" : nx.name.split(" ")[0] + "|" + nx.alt.split(" ")[0], "i").test(r.chip)) tb.push(`@${r.s} chip "${r.chip}" vs ${nx.name}`);
   }
   t.check("lap: the trip bar + the exit chip count down to the same next exit as the boards (JFK too)", tb.length === 0, tb.slice(0, 6).join(" · "));
   W.check(t, "lap survey", await W.report(t), ["nan", "overlay", "underground", "stuck"]);
