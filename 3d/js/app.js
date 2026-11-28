@@ -201,7 +201,9 @@ async function testFrame(dt) {
     if (m === "idle") { const r = testRealNow(); if (r - TC.idleAt < TC.idleMs) return; TC.idleAt = r; }
     stepping = true;
     try {
-        if (TC.restore) TC.restore();   // (a full-size picture drawn for a check / a screenshot: back to the small canvas)
+        // (a full-size picture drawn for a check: back to the small canvas — but NOT while a screenshot is being taken: the resize
+        //  clears the canvas and this frame may not draw, so a shot came out one flat sky-blue in rooms; afterShot() restores)
+        if (TC.restore && !TC.shooting) TC.restore();
         testBeforeStep();               // (the page's clock: one frame later)
         const P = frameInput(dt);
         if (skipping()) { await fastForward(P); TC.drawn = ctx.frames; }
@@ -228,6 +230,7 @@ function realFrame() {
     if (sc !== 1) renderer.setPixelRatio(gfx.pixelRatio);
     present(0);
     if (sc !== 1) TC.restore = () => { renderer.setPixelRatio(gfx.pixelRatio * TC.scale); TC.restore = null; };
+    TC.shooting = true;             // (until afterShot: the harness's screenshot reads this picture)
     return true;
 }
 
@@ -456,7 +459,7 @@ window.__lulu3d = {
         return true;
     },
     get drawnFrame() { return TC.drawn; },
-    afterShot() { if (TC.restore) TC.restore(); return true; },
+    afterShot() { TC.shooting = false; if (TC.restore) TC.restore(); return true; },
 };
 
 boot();
