@@ -151,12 +151,21 @@ module.exports = {
       await t.L(`import("./js/features/homes/house.js").then(m => { window.__hm = m; return true; })`);
       const CASTS = [["dad", "mom", "boy"], ["bubbe", "dad", "mom", "baby"], ["zeidy", "girl"]];
       const doors = (await findDoors()).filter(d => ROOMS.has(d.name)).concat(CASTS.map((cast, k) => ({ name: "house " + cast.join(","), house: { name: "Test", key: `test:cam${k}:${town}`, cast, seed: (k + 3) * 7919 } })));
+      // (+ the bowling alley — Midwood — and three of the one-joke shopfront rooms)
+      if (town === "midwood") doors.push({ name: "lanes", call: `ctx.lanes.enter({ exit: () => L3.setState("footRun", { resume: "interior" }) })` });
+      const fronts = await g(`ctx.storefronts && ctx.storefronts.fronts ? ctx.storefronts.fronts().filter(f => f.state === "open").map(f => ({ id: f.id, door: f.door })) : []`);
+      for (const f of fronts.filter((f, k) => k % Math.max(1, Math.floor(fronts.length / 3)) === 0).slice(0, 3))
+        doors.push({ name: "shop " + f.id, call: `ctx.storefronts.enter(${JSON.stringify(f.id)})`, at0: f.door });
       const bad = [];
       for (const d of doors) {
         await onFoot(t);
         await W.reset(t);
         let lbl = "";
-        if (d.house) {
+        if (d.call) {
+          lbl = d.name;
+          if (d.at0) { await W.moved(t); await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${d.at0.x}, 0.05, ${d.at0.z}); F.vel.set(0, 0, 0); return true; })()`); await t.frames(4); }
+          await g(`(${d.call}, true)`);
+        } else if (d.house) {
           lbl = d.name;
           await g(`Promise.resolve(window.__hm.prepare(${JSON.stringify({ home: d.house, mode: "guest", via: "door", cast: d.house.cast, noCatch: true })})).then(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff("home", { id: "home", s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })`);
         } else {
