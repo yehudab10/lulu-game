@@ -50,6 +50,14 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## For other branches
 
+- for `ci/sweep-health` (red on plain main, 2026-11-28 09:15 — checked locally with main's `3d/js`): `fuel` › "an exit is
+  planned" (`ctx.town.debug.X.exits` stays empty after 15 s; town pump / charge / dry then throw) and `movement` › "a coach
+  line names the jump the first walks" (ci/sweep-phone's `foot/index.js` coachHint now waits while a walk hint is up — the
+  first-ever walk hint stays until she's in the car). Both red with or without this branch.
+  Also `qa27` › "hospital (roadsideHatzalah): in every corner the camera stays inside… (the room went away)" + "👜 …inside:
+  no wall" — red locally on plain main too (rooms / camera: ci/sweep-camera's area now).
+  Also `parking` › "level 1 pays 1×25 + 15 per ★ to the shared wallet" (500 → 500 with 3 ★) — red locally on plain main too.
+
 - for `ci/sweep-phone` (the 📱): the handset's clock (`phone/ui.js` `clock()`) shows the sky's hour only when
   `G.mode === "cruise"`; in a 🎉 party run the sky is the party's (atmos `mode` "cruise") but the 📱 shows the device's time.
   `storefronts/hours.js` `worldNow()` is the one clock now (the sky's hour whenever atmos runs the Cruise day) — the 📱
