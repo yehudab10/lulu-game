@@ -94,7 +94,10 @@ both areas are this sweep's now.
   platform, qa27, qaweekend, unstuck: green); exits green in 46172828152 too. Main's Smoke test green on 04006770.
 - batch 3 → main (~18:55 UTC): item 14 (the ✋ passer-by). CI 46177147955 (core, platform, foot, homes, doors, life3,
   sweepplaces 1–4, sweepcamera: green).
-- Sweep done 18:55 UTC. Everything is on main.
+- batch 4 → main (~19:05 UTC): `foot/index.js` — `if (!F) return` after the actors' update (an actor that ends the walk
+  mid-update left updateStub reading F.car of null; sweep-logic2's note). CI 46178557760 (core, platform, foot,
+  footbounds, qafoot: green).
+- Sweep done ~19:05 UTC. Everything is on main.
 
 Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbon, doorout, roadside, airport, rest; `SWEEPCAM_PARTS`),
 `scripts/lib/camjunk.js` (the probe: rays from the lens into the real scene — what's within 1.6 m of the lens, what
