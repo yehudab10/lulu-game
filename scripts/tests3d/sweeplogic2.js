@@ -115,6 +115,13 @@ module.exports = {
       // riding in a friend's passenger seat: her car rides along at the friend's speed — no speed-camera ticket for it
       const cam = await t.L(`import("./js/features/openworld/ride.js").then(m => { const C = __lulu3d.ctx, D = C.cameras.debug; if (C.state !== "playing") return { skip: C.state };
         const own = D.noTicket(); m.RIDE.uid = "friend-test"; const ride = D.noTicket(); m.RIDE.uid = null; return { own, ride }; })`);
+      // the precinct's fines window settles "UNPAID SPEED CAMERA TICKETS" → the tickets are closed too (they stayed owed)
+      const fw = await t.L(`import("./js/core/ctx.js").then(m => { const D = __lulu3d.ctx.cameras.debug, S = D.S, w0 = S.warrant, n0 = S.tickets.length;
+        S.warrant = true; S.tickets.push({ id: "t-test", stage: "summons", refs: [], unread: true });
+        m.emit("law:cleared", { by: "fine" });
+        const t = S.tickets.find(x => x.id === "t-test"), out = { warrant: S.warrant, stage: t && t.stage };
+        S.tickets.splice(n0); S.warrant = w0; return out; })`);
+      t.check("ends: paying the precinct's fines window for the camera tickets closes them (no more owed, no warrant)", fw.warrant === false && fw.stage === "served", JSON.stringify(fw));
       t.check("ends: a passenger in a friend's car isn't flashed for the friend's speeding (her own driving still is)", cam.own === "" && cam.ride === "riding", JSON.stringify(cam));
       t.check("ends: arrested with a hitchhiker in the car → they're gone (and the 2× with them); a job's own rider stays", h.before === 2 && h.t0 > 0 && h.after.join() === "kept" && h.t1 === 0, JSON.stringify(h));
     });
