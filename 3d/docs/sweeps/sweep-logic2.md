@@ -86,7 +86,9 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   `mpworld` (the multiplayer mover glide — ci/friends' merge 14:50), `shul` "midwood friday: nobody stands inside a wall
   (gabbai)" (seen red on main before this branch: sweep-phone's notes), `moves` "banked: score × multiplier" (a random
   traffic crash broke the combo), `qa14` lap (a knock-out by traffic), `sweepcamera` / `unstuck` flat-picture glitches
-  (ci/sweep-camera's). For ci/sweep-health2 to triage.
+  (ci/sweep-camera's), `qafriends` hop-out jump (known, ci/friends), `sweeproad3` traffic (sweep-road's), and `storefronts`
+  "lakewood: FOR LEASE fronts (0)" — green locally on the same head at 18:40 (CI's shared world had them claimed: a
+  flake). For ci/sweep-health2 to triage. Still running at 18:40: airport, town/sweeplogic/calm, looktest/community groups.
 - batch 5 → main (2026-11-28 17:30 UTC): finding 18. CI 46169869568 (phone, qa26, sweepphone3, core, platform, sweeplogic2 ✓).
 - batch 4 → main (2026-11-28 17:20 UTC): findings 16–17. CI 46169158074 (cityhall 1–3, sweeplogic2, core, platform ✓);
   sweeplogic2 + cameras locally ✓ with the siren change.
