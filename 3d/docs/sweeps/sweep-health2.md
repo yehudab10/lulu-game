@@ -1,5 +1,28 @@
 # ci/sweep-health2 — keep main green (part 2 of `sweep-health.md`)
 
+## FINAL TABLE (first version — from whole suite #2, 46153406621 on main b789aeb0, finished 16:01 UTC; the last run updates it)
+
+194 test files on 16 machines: **11 machines green, 5 red — 5 test files red out of 194**.
+
+| group (machine) | result | why |
+|---|---|---|
+| town, sweepphone3, parking-levels, gfx, party, dealers, clothes, hidden, qaplaces, shabbos, cityhall… | ✅ green | |
+| looktest, sweeplogic2, yeshiva, homelife, qaweekend, life2, qafriends, native, accounts, qa3, hometown… | ✅ green | accounts green again (the name-ticket fix, batch 2) |
+| mpworld, sweepphone5, exits, qa6, cityhall, underworld, realestate, realestateworld, qaweekend-air… | ✅ green | |
+| friendsworld, storefronts, sweeproad, homeperf, openworld, qacar, foot, life, meta, crime2, moveout… | ✅ green | |
+| playershops, sweepphone2, midwood, places, seasons, hudfit, footbounds, ux, qa23, qaweekend-party… | ✅ green | sweepphone2 green again (room bubbles sized by depth, batch 3) |
+| pinroute, sweepphone, yeshiva2, qa18, law, journey, qa2, courts, cityhall3, playgate, qa25, qa12, cars… | ✅ green | |
+| unstuck, sweepphone4, community, shops, qa27, flow, partyplus, qa7, dina, rides, qatown, decor… | ✅ green | qa27's hospital corners green (sweep-camera) |
+| calm, playershopsfriends, sweepplaces2, partyhang, life3, interiors, accountsfriends… | ✅ green | calm: every minute within budget (on-foot calmer, batch 2) |
+| airport | ✅ green | |
+| lanes, sweeplogic, worldplace, core, calls, family, qa, memory, qa20, qa26, partyheist, qa26b… | ✅ green | |
+| carcare, playershopsworld, sweepplaces3, partners2, qaseam, partyfoot, world, atmos, worldclock… | ✅ green | |
+| perf, qa9, **streets**, bankfriends, qafriends2, music, play, qa5, platform, gadgets | ❌ streets | "a cop SAW it → an instant chase (CARJACKING)" — red in both whole suites; cops = `ci/sweep-road` |
+| homes, sweepplaces, crime3, qa15, shul, partners3, parking, qa10, qa8, home, cameras, qa24 | ❌ homes | "a speeding car: peds scatter (AAH!)" — mine, investigating |
+| install, sweephealth, **sweeproad3**, heist, friends, qa14, roadevents, roadside, qa17, nocalls, multiplayer… | ❌ sweeproad3 | `ci/sweep-road`'s own lap test (a Hatzalah van's bump at 3.45 km) — theirs |
+| dealersui, schlepnav, sweepplaces4, cameos, **partyworld**, airport-terminal, crime, phone, unstuck-air… | ❌ partyworld | "paused in a party: never rolls backwards" — red in every whole suite since part 1; party = `ci/friends` |
+| fuel, **sweepcamera**, sweeproad2, together, doors, partners, adhold, hustle, moves, friendsjobs… | ❌ sweepcamera | `ci/sweep-camera`'s own rest-area check (landed after this run: camera batch 1b) — theirs |
+
 Sweep agent notes (rules: `RULES.md`). Started 2026-11-28 09:10 UTC; the owner is back 22:00 UTC.
 
 Lanes right now (don't double-fix): camera cases → `ci/sweep-camera`; anything driving (traffic, law, cops, exits,
@@ -32,7 +55,7 @@ party* / qafriends / openworld relay → `ci/oneserver-place` / `ci/friends` whi
 
 ## Whole suite #2 — 46153406621 on ci/sweep-health2 (= main b789aeb0: sweep-road part 5, sweep-logic2 batch 2, sweep-camera batch 1 in), 2026-11-28 14:13Z
 
-(running)
+see the FINAL TABLE at the top.
 
 ## Findings + status
 
