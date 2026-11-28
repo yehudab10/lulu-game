@@ -215,9 +215,11 @@ export class Traffic {
                 // into her the moment she braked or stopped ("Tailgating doesn't pay" — for being rear-ended). Her CAR only
                 // (it has a vF): on foot (foot's PROXY) the drivers' own rules apply (foot/index.js: footAttn / the beep)
                 // (2.6 m, not a lane's 2.2: a car pulling out to pass her keeps braking until its side clears hers)
-                if (c.dir > 0 && typeof player.vF === "number" && Math.abs(playerD - c.d) < 2.6) {
-                    const g = playerS - c.s;
-                    if (g > 0 && g < gap) { gap = g; ahead = { speed: Math.max(0, player.vF || 0), hit: false }; }
+                // (an ONCOMING car only when she's going its way — the far carriageway down the lap; one she's facing
+                //  head-on keeps coming: chicken is her choice, and its near misses her bonus)
+                if (typeof player.vF === "number" && Math.abs(playerD - c.d) < 2.6) {
+                    const g = (playerS - c.s) * c.dir, along = (player.vx || 0) * Math.sin(c.h) + (player.vz || 0) * Math.cos(c.h);
+                    if (g > 0 && g < gap && (c.dir > 0 || along > 1)) { gap = g; ahead = { speed: Math.max(0, c.dir > 0 ? player.vF || 0 : along), hit: false }; }
                 }
                 let target = c.want;
                 if (ahead && gap < 26) {
