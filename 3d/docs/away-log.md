@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 07:20 UTC — 📱 Phones, part 2: on a small phone the Scrapbook's longer badge names ("Neighbourhood Hero")
+  stay inside their spot instead of running into the next one.
 - 2026-11-28 05:30 UTC — 📱 Phones, part 1 (what a player on a phone sees): a brand-new player at the porch gets ONE
   thing to do — "drag the WALK pad to your car", and the camera now looks at the car (on a phone held upright it was off
   the edge of the screen), so pushing up walks straight to it; the "tap JUMP" tip and the Day-1 streak card no longer

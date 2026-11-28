@@ -69,11 +69,17 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
    the room now moves its camera before it fits the bubbles (`interiors/engine.js`). — fixed
 19. **📱 ‹ Back / ☰ Menu ~26 px tall on fingers** — 40 px now (`phone/style.js`). — fixed
 
+20. **📒 Scrapbook on a small phone: "Neighbourhood Hero" ran out of its badge cell** — badge names break inside their
+   cell (`meta/style.js`). — batch 2
+
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
   houseitems, storefronts, lanes, doors, qa28, decor, family, realestate: green; cityhall + shul red — also red on main,
   see below), 46110656699 (core, platform, skip, ux, music, sweepphone 1/3/4, meta, phone, hudfit: green), 46110218885
   (home, onegame, world, qa26: green).
+
+- batch 2 → main (item 20 + the tests: the garage / scrapbook cards, every 📱 app on a small phone, a room on its
+  side). CI 46112736627 → fixes → run on the merged head (sweepphone2, sweepphone3, meta, core, platform: green).
 
 ## For other sweeps
 - for `ci/sweep-health`: on main a5c02a2a (run 46112384329 on a copy of main): `cityhall` › "the ribbon cutting: no jump
@@ -81,6 +87,8 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
   inside a wall (kid)" are red — not from this sweep (red on main without it).
 
 ## Left
+- `ci/sweep-phone-mainprobe` (a copy of main a5c02a2a used to check whether cityhall / shul were red on main too) could
+  not be deleted from this session (branch deletes are refused by the session's permissions) — safe to delete by hand.
 - No browser-back handling: an Android back gesture / an iOS Safari edge swipe leaves the page (the root page uses
   location.replace, so it doesn't loop). A history trap would be a new behaviour — owner's call.
 - `ci/install` (the install prompt) is the other account's and still moving: not looked at / not edited.
