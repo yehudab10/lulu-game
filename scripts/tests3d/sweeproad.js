@@ -370,6 +370,15 @@ async function body(t) {
   await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   t.check("body: back in her own car (a new run): her own body again", !(await g(`ctx.car.circles`)));
+  // 🔋 an EV at a rest area's pump bay: it charges there — no "try a charger" joke on top (at Yanky's Gas 'n' Go: the joke)
+  await standstill(t);
+  const ev = await t.L(`Promise.all([import("./js/car.js"), import("./js/features/fuel/index.js"), import("./js/hud.js")]).then(([C, Fu, H]) => {
+    const car = __lulu3d.ctx.car, was = car.skinKey; C.SKINS.__testev = Object.assign({}, C.SKINS.pink, { ev: true }); car.skinKey = "__testev";
+    const has = () => { const n = H.notifyState(); return n.toasts.some(x => /Yanky eyes/.test(x.text)) || n.waiting.some(x => /Yanky eyes/.test(x)); };
+    let rest, gas;
+    try { Fu.fill("exits_pump"); rest = has(); Fu.fill("gas"); gas = has(); } finally { car.skinKey = was; delete C.SKINS.__testev; }
+    return { rest, gas }; })`);
+  t.check("fuel: an EV at a rest area's pump bay gets no 'try a charger' joke (it charges right there); at Yanky's it does", ev.rest === false && ev.gas === true, JSON.stringify(ev));
 }
 
 /** A call-in in Lakewood: the cruiser looks for her; it doesn't know where she is. */

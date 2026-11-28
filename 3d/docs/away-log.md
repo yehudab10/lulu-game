@@ -4,6 +4,10 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 09:00 UTC — 🚗 On the road, part 3. Pulled over by the police on an exit ramp, in a rest area's car park, at
+  Trooper Post 7 or a dealership's lot, Lulu now stops right where she is and the police car pulls up behind her — before,
+  the game steered her back across the grass to the side of the highway. Driving straight on past an exit, the green
+  "EXIT … NOW" line no longer hangs on for a while after the exit has gone by.
 - 2026-11-28 08:05 UTC — 🚗 On the road, part 2. Being arrested on the highway near Midwood or at Trooper Post 7, the
   ride to the station and the booking now name the station she's actually taken to (they always said Lakewood's
   "Precinct 18½"). Shmuel's chop shop no longer calls while Lulu's own car is in the impound — "his guy brings your car
