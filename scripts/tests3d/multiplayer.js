@@ -97,7 +97,7 @@ async function body(t) {
   // ── drive: my state arrives in the 2D format ──
   // (▶ PLAY waits for the home start — her street built, the home town's models in; a slow machine takes a while: start
   //  the run once it's ready, like the title's gate does, so nothing about the home start lands after we've moved her)
-  await t.until(`(() => { const T = ctx.town, h = T && T.home; if (h && h.town && T.load) T.load(h.town); return !ctx.playGateInfo || !ctx.playGateInfo().applies || ctx.playGateInfo().ready; })()`, "the home start is ready (when one applies)", 180000);
+  await t.until(`(() => { const ctx = __lulu3d.ctx; return !ctx.playGateInfo || !ctx.playGateInfo().applies || ctx.playGateInfo().ready; })()`, "the home start is ready (when one applies)", 180000);
   await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
   if (!await t.until(`["playing", "footRun"].includes(__lulu3d.state)`, "cruise starts")) return;
   await t.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
