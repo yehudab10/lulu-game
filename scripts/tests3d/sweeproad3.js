@@ -29,16 +29,16 @@ async function drive(t) {
       const car = C.car, hw = C.world.highway, n = hw.nearest(car.pos.x, car.pos.z, car.s, {});
       // a slower car ahead in her lane → the other right lane if it's clear, else ease off
       let block = null;
-      for (const c of C.traffic.cars) { if (c.dir < 0 || c.hit) continue; const gap = c.s - n.s; if (gap > 0 && gap < 45 && Math.abs(c.d - D.lane) < 2.2) { if (!block || gap < block.gap) block = { gap, v: c.speed }; } }
+      for (const c of C.traffic.cars) { if (c.dir < 0 && !c.hit) continue; const gap = c.s - n.s; if (gap > 0 && gap < 55 && Math.abs(c.d - D.lane) < 2.4) { const v = c.hit || c.dir < 0 ? 0 : c.speed; if (!block || gap < block.gap) block = { gap, v }; } }      // (a wreck in her lane is in the way too)
       if (block && D.laneT <= 0) {
         const other = D.lane > 3 ? 1.75 : 5.25;
-        if (!C.traffic.cars.some(c => c.dir > 0 && !c.hit && Math.abs(c.d - other) < 2.4 && Math.abs(c.s - n.s) < 30)) { D.lane = other; D.laneT = 3; }
+        if (!C.traffic.cars.some(c => (c.dir > 0 || c.hit) && Math.abs(c.d - other) < 2.4 && Math.abs(c.s - n.s) < 30)) { D.lane = other; D.laneT = 3; }
       }
       D.laneT -= dt;
       const tgt = hw.point(n.s + 22, D.lane, {});
       const want = Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z); let a = want - car.h; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
-      const v = block && block.gap < 30 && Math.abs(n.d - D.lane) < 1.5 ? Math.min(D.v, block.v) : D.v;
-      ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)); ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 2.5 ? 0.5 : 0; ctl.handbrake = false; ctl.analog = true;
+      const v = block && Math.abs(n.d - D.lane) < 1.5 ? Math.min(D.v, block.v + Math.max(0, block.gap - 12) * 0.7) : D.v;      // (eases down to its speed, 12 m behind)
+      ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)); ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 1.5 ? Math.min(1, (car.speed - v) / 6) : 0; ctl.handbrake = false; ctl.analog = true;
     }, 1000);
     m.hook("hud", () => {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) { D.lastV = null; return; }
