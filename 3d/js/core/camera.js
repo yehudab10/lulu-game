@@ -53,6 +53,8 @@ function lookInput(dt) {
 // the free camera's state (on foot)
 const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2, clipD: 99 };
 const _t = new THREE.Vector3();
+/** Rooms: the free camera rises over her head from this close (m), this fast, up to this high (m). */
+const ROOM_LIFT = { from: 2.3, k: 0.85, max: 1.15 };
 /** The frame the free / chase rig last placed the camera + what it framed (her pivot / the car): the see-through line. */
 const SEEF = { f: -9, who: new THREE.Vector3(), piv: new THREE.Vector3(), clip: null };
 
@@ -172,7 +174,15 @@ export const cam = {
             D = Math.min(D, FREE.clipD);
         } else { FREE.clipD = 99; FREE.noLift = false; }
         // (pressed right up against a wall: rather than sit in it, the camera rises over her head and looks down)
-        const lift = D < 1.5 && !FREE.noLift ? (1.5 - D) * 1.4 : 0;
+        // (in a room — its own camera — it starts rising sooner: in a small shop on a phone the lens sat ~1 m behind her at
+        //  head height, her see-through head in the middle of the screen; from a little higher it looks over her shoulders
+        //  at the room; ci/sweep-camera)
+        let lift = FREE.noLift ? 0 : own ? (D < ROOM_LIFT.from ? Math.min(ROOM_LIFT.max, (ROOM_LIFT.from - D) * ROOM_LIFT.k) : 0) : D < 1.5 ? (1.5 - D) * 1.4 : 0;
+        if (own && lift > 0 && clip) {      // (…never up through a low ceiling or into what hangs over the lens: the room's clip straight up from it)
+            _t.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D, FREE.tgt.z - fz * cp * D);
+            const r = clip(_t, 0, 1, 0, lift + 0.3), up = typeof r === "number" ? r : r.d;
+            lift = Math.max(0, Math.min(lift, up - 0.3));
+        }
         camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D + lift, FREE.tgt.z - fz * cp * D);
         // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
         // (risen over her head against a wall / a room's door: the look point comes in toward her, so she stays in frame)
