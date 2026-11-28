@@ -9,7 +9,7 @@ const W = require("../lib/qawatch.js");
 module.exports = {
   name: "sweeproad3",
   viewport: { width: 1280, height: 720 },
-  query: "&enable=all",
+  query: "&enable=all&airport=1",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [], mpName: "Kugel Kid" },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
