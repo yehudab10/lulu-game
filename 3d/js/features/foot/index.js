@@ -2145,7 +2145,8 @@ const homeStreet = () => ctx.state === "playing" && !ctx.world.district && ctx.w
 const carClipFn = (tgt, dx, dy, dz, D) => {
     // (ci/airport-polish: and the airport's buildings — ctx.airport.camClip: the terminal + the tower; null away from it)
     const air = ctx.airport && ctx.airport.camClip ? ctx.airport.camClip(tgt, dx, dy, dz, D) : null;
-    if (!(ctx.town && ctx.town.active) && !homeStreet()) return air;
+    // (ci/sweep-camera: and a rest area's lot — its buildings are solid; backed into one, the chase cam showed one flat white)
+    if (!(ctx.town && ctx.town.active) && !homeStreet() && !(ctx.exits && ctx.exits.inside)) return air;
     carProbe.s = ctx.car.s; const r = camClip(carProbe, tgt, dx, dy, dz, D);
     return air != null && (r == null || air < (typeof r === "number" ? r : r.d)) ? air : r;
 };

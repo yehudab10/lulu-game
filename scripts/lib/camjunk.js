@@ -25,10 +25,10 @@ const SRC = String.raw`
     if (/sky|stars|rain|snow|fx|particle|shadow|beam|glow|bubble|label|tag/i.test(o.name || "")) return false;
     return true;
   };
+  let ROOTS = null;
   function targets(cam, maxD) {
     const out = [];
-    const root = ctx.scene;
-    root.traverseVisible(o => {
+    for (const root of ROOTS || [ctx.scene]) root.traverseVisible(o => {
       if (!usable(o)) return;
       const g = o.geometry; if (!g) return;
       if (!g.boundingSphere) g.computeBoundingSphere();
@@ -58,10 +58,14 @@ const SRC = String.raw`
   window.__camjunk = {
     /** opts: near (m), cols, rows, who (a Vector3-ish: what she is — default foot / the car) */
     probe(opts = {}) {
-      const camera = ctx.camera, cam = camera.position, near = opts.near || 1.6, cols = opts.cols || 7, rows = opts.rows || 11;
+      // (opts.room: inside a room — its own camera + scene: features/interiors)
+      const R = opts.room ? window.__interiors && window.__interiors.room : null;
+      if (opts.room && !R) return null;
+      ROOTS = R ? R.rayRoots() : null;
+      const camera = R ? R.set.camera : ctx.camera, cam = camera.position, near = opts.near || 1.6, cols = opts.cols || 7, rows = opts.rows || 11;
       camera.updateMatrixWorld();
       skip.clear();
-      const me = ctx.foot && ctx.foot.active && ctx.foot.obj ? ctx.foot.obj : ctx.car && ctx.car.obj;
+      const me = R ? R.lulu.obj : ctx.foot && ctx.foot.active && ctx.foot.obj ? ctx.foot.obj : ctx.car && ctx.car.obj;
       if (me) skip.add(me);
       for (const x of opts.skip || []) skip.add(x);
       const list = targets(cam, Math.max(near, 30));
@@ -75,15 +79,16 @@ const SRC = String.raw`
       }
       // what stands between the lens and her (chest + head)
       let block = null, bd = 0;
-      const who = opts.who || (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
+      const who = opts.who || (R ? R.lulu.obj.position : null) || (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
       if (who) for (const hy of [1.0, 1.45]) {
-        v.set(who.x, (opts.whoY != null ? opts.whoY : (ctx.foot && ctx.foot.active ? (ctx.foot.debug && ctx.foot.debug.F ? (ctx.foot.debug.F.y || 0) : 0) : 0)) + hy, who.z);
+        v.set(who.x, (opts.whoY != null ? opts.whoY : R ? who.y : (ctx.foot && ctx.foot.active ? (ctx.foot.debug && ctx.foot.debug.F ? (ctx.foot.debug.F.y || 0) : 0) : 0)) + hy, who.z);
         dir.subVectors(v, cam); const D = dir.length(); dir.normalize();
         rc.set(cam, dir); rc.near = 0; rc.far = Math.max(0, D - 0.45);
         const h = first(rc.intersectObjects(targets(cam, D), false));
         if (!h) { block = null; break; }
         block = nameOf(h.object) + (isLeaf(h) ? " (leaves)" : ""); bd = +h.distance.toFixed(2);
       }
+      ROOTS = null;
       let top = null, tn = 0; for (const k in fill) if (fill[k] > tn) { tn = fill[k]; top = k; }
       return { near: +(nearN / n).toFixed(2), block, bd, top, topShare: +(tn / n).toFixed(2), cam: [+cam.x.toFixed(1), +cam.y.toFixed(1), +cam.z.toFixed(1)],
         clipD: ctx.cam && ctx.cam.free ? +(+ctx.cam.free.clipD).toFixed(2) : null };

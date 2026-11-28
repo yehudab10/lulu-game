@@ -6,7 +6,7 @@
 // row of trees — and NOT pulling it in left a screen full of olive green on a phone (the leaves 1–3 m from the lens,
 // her behind them: qaweekend's "Lakewood on foot" shot at the Feldmans' door). Leaves are soft: they just thin out.
 //
-// Only LEAVES (and bushes / hedges' brush) and tree trunks are cut, never a wall: the town's merged scenery is one material, so its leaf
+// Only LEAVES (and bushes / hedges' brush), tree trunks and lamp / sign poles are cut, never a wall: the town's merged scenery is one material, so its leaf
 // vertices carry a flag in their colour (red + LEAF_FLAG — features/town/kit.js bakes it, the patched shader takes it back
 // off); the highway's merged leaves have a material of their own (merge.js), cut whole, and its trunks are flagged.
 //
@@ -19,7 +19,7 @@ import * as THREE from "three";
  *  sat in one — the bottom of a phone one brown wall). */
 export const LEAF_FLAG = 4;
 /** Does a scenery material's parts get the flag (by its name)? → the flag or 0. */
-export const seeFlag = name => /Leaves|^Brush$|^Bush|^(Bark|PalmBark)$/i.test(name || "") ? LEAF_FLAG : 0;
+export const seeFlag = name => /Leaves|^Brush$|^Bush|^(Bark|PalmBark|Pole)$/i.test(name || "") ? LEAF_FLAG : 0;
 export const SEE_TUBE = { r0: 1.15, r1: 0.6, short: 0.35, minY: 0.3 };
 
 const U = {

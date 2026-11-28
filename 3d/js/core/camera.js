@@ -85,6 +85,17 @@ export const cam = {
         st.pos.lerp(from, Math.min(1, dt * rate));
         st.look.lerp(look, Math.min(1, dt * rate * 1.5));
         camera.position.copy(st.pos);
+        // (a scene's shot is placed off her / the car — in a town it could stand inside the houses behind the kerb: the same
+        //  walls as the chase cam (cam.carClip, set by foot in a town / her home street) bring it in to this side; ci/sweep-camera)
+        const fn = cam.carClip;
+        if (fn) {
+            _v.subVectors(camera.position, st.look);
+            const D = _v.length();
+            let r = null;
+            if (D > 1) try { r = fn(st.look, _v.x / D, _v.y / D, _v.z / D, D); } catch (e) { r = null; }
+            const lim = r == null ? D : typeof r === "number" ? r : r.d;
+            if (lim < D) camera.position.copy(st.look).addScaledVector(_v, Math.max(0.9, lim) / D);
+        }
         camera.lookAt(st.look);
         camera.fov += (fov - camera.fov) * Math.min(1, dt * 2);
         camera.updateProjectionMatrix();
