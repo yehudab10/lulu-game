@@ -52,6 +52,9 @@ async function drive(t) {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) { D.lastV = null; return; }
       const car = C.car, v = car.speed;
       if (C.frames % 10 === 0) { (D.trail = D.trail || []).push(Math.round(car.s) + "/" + car.d.toFixed(1) + "/" + v.toFixed(0)); if (D.trail.length > 12) D.trail.shift(); }
+      // (the way the world thinks she's going: it should stay hers for the whole drive)
+      if (D.wdir != null && C.world.dir !== D.wdir) (D.flips = D.flips || []).push({ s: Math.round(car.s), d: +car.d.toFixed(1), to: C.world.dir, h: +car.h.toFixed(2), trail: (D.trail || []).slice(-6) });
+      D.wdir = C.world.dir;
       // an invisible bump: ≥ 6 m/s lost in one frame (1/30 s = 180 m/s²) with no crash event this frame or the last
       if (D.lastV != null && D.lastV - v > 6 && !(D.crashT >= C.frames - 2)) D.bumps.push({ s: Math.round(car.s), d: +car.d.toFixed(1), from: +D.lastV.toFixed(1), to: +v.toFixed(1) });
       D.lastV = v;
@@ -119,9 +122,10 @@ async function drive(t) {
     lastS = DIR > 0 ? Math.max(lastS, st.s) : Math.min(lastS, st.s);
     if (along(st.s) >= LEN) break;
   }
-  const D = await g(`(() => { const D = window.__drv; D.on = false; return { bumps: D.bumps, sunk: D.sunk, crashes: D.crashes, f: D.f, maxY: +D.maxY.toFixed(2), minY: +D.minY.toFixed(2) }; })()`);
+  const D = await g(`(() => { const D = window.__drv; D.on = false; return { flips: D.flips || [], bumps: D.bumps, sunk: D.sunk, crashes: D.crashes, f: D.f, maxY: +D.maxY.toFixed(2), minY: +D.minY.toFixed(2) }; })()`);
   if (waits.length) console.log(`    · waited (carried on) at s ${waits.join(", ")}`);
   console.log(`    · ${D.f} frames driven, ${D.crashes.length} crashes, y ${D.minY}…${D.maxY}, trips: ${[...trips].slice(0, 12).join(" | ")}`);
+  if (D.flips.length) console.log(`    · the world's direction flipped: ${JSON.stringify(D.flips.slice(0, 6))}`);
   if (D.crashes.length) console.log(`    · crashes: ${JSON.stringify(D.crashes.slice(0, 12))}`);
   t.check(`drive: she drove the whole ${KM ? KM + " km" : "lap"}${DOWN ? " down the lap" : ""}`, along(lastS) >= LEN - 50, `${along(lastS)} m of ${LEN}`);
   t.check("drive: no invisible bumps (≥ 6 m/s lost in a frame with nothing hit)", D.bumps.length === 0, JSON.stringify(D.bumps.slice(0, 8)));
