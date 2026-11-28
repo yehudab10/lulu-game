@@ -79,6 +79,8 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   no wall" — red locally on plain main too (rooms / camera: ci/sweep-camera's area now).
   Also `parking` › "level 1 pays 1×25 + 15 per ★ to the shared wallet" (500 → 500 with 3 ★) — red locally on plain main too.
 
+## Landed
+
 - batch 4 → main (2026-11-28 17:20 UTC): findings 16–17. CI 46169158074 (cityhall 1–3, sweeplogic2, core, platform ✓);
   sweeplogic2 + cameras locally ✓ with the siren change.
 
