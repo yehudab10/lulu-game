@@ -66,6 +66,9 @@ module.exports = {
       if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts", 120000)) return;
     }
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    // (a clear noon, whatever the clock says when it runs: an evening run's night frames are dark on purpose, and the
+    //  watchdog's "one flat colour" read a night street as junk — CI 46169174266 at 17:20 UTC)
+    await g(`(ctx.atmos && ctx.atmos.debug && (ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true)), true)`);
     await W.reset(t);
     await CJ.install(t);
     if (process.env.SWEEPCAM_NOSEE) await t.L(`import("./js/core/seethrough.js").then(m => { m.SEE.set = () => m.SEE.off(); return true; })`);     // (before / after pictures)
@@ -358,6 +361,16 @@ module.exports = {
           if (inS || p.near > 0.5) { bad.push({ c, a, inS, ...p }); if (bad.length <= 2) await t.shot(`rest-${bad.length}`); }
         }
         t.check(`a rest area: the chase cam backed up to its buildings stays out of them (${sol.length} buildings × 3)`, sol.length > 0 && bad.length === 0, JSON.stringify(bad.slice(0, 3)));
+      }
+    }
+
+    // ── (debug) SWEEPCAM_SPOT=town,x,z,yaw: stand there, a probe + a picture ──
+    if (process.env.SWEEPCAM_SPOT) {
+      const [town, x, z, yaw] = process.env.SWEEPCAM_SPOT.split(",");
+      if (await inTown(t, town) && await onFoot(t)) {
+        await standAt(t, +x, +z, +yaw);
+        for (let k = 0; k < 4; k++) { await t.frames(10); console.log("   spot:", JSON.stringify(await CJ.probe(t)), JSON.stringify(await t.L(`window.__qa.flatFrame()`))); }
+        await t.shot("spot");
       }
     }
   },
