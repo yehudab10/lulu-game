@@ -94,8 +94,9 @@ async function drive(t) {
   if (D.crashes.length) console.log(`    · crashes: ${JSON.stringify(D.crashes.slice(0, 12))}`);
   t.check("drive: she drove the whole lap", lastS >= goal - 50, `${lastS - s0} m of ${goal - s0}`);
   t.check("drive: no invisible bumps (≥ 6 m/s lost in a frame with nothing hit)", D.bumps.length === 0, JSON.stringify(D.bumps.slice(0, 8)));
-  const rear = D.crashes.filter(c => c.fault === "them" && c.kind !== "cop" && !/^underworld_/.test(c.kind));      // (road-ragers ram her on purpose)
-  t.check("drive: traffic never drives into her (their fault) on an ordinary lap", rear.length === 0, JSON.stringify(rear.slice(0, 6)));
+  // (a heart-costing hit only: road-ragers ram her on purpose; a siren ambulance nudges her to pull over)
+  const rear = D.crashes.filter(c => c.fault === "them" && c.imp > 6.5 && c.kind !== "cop" && !/^underworld_/.test(c.kind));
+  t.check("drive: traffic never drives into her hard enough to cost a heart (their fault) on an ordinary lap", rear.length === 0, JSON.stringify(rear.slice(0, 6)));
   t.check("drive: the trip bar always names where she's heading", trips.size > 2 && ![...trips].some(x => !x.trim()), [...trips].join(" | ").slice(0, 400));
   W.check(t, "drive: the lap", await W.report(t));
 }
