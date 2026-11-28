@@ -67,6 +67,7 @@ const carNow = () => ctx.state === "playing" && !!ctx.G && (party() ? ctx.G.mode
 const roomNow = () => party() && ctx.state === "interior" && !!(ctx.together && ctx.together.inRoom && ctx.together.inRoom());
 /** Can I emote right now? (on foot — solo or a party — or in the car with friends) */
 function allowed() {
+    if (!ctx.enabled("party")) return false;        // (this module can load with the feature off: then multiplayer keeps its wheel)
     if (ctx.paused || ctx.dialogOpen || H.screenOpen()) return false;
     if (ctx.phone && ctx.phone.isOpen) return false;
     if (roomNow()) return true;                     // (a room is drawn as its own view — that's fine)

@@ -31,6 +31,9 @@ import { tone } from "../parking/sfx.js";
 
 const tmp = {};
 
+/** One emote system: the party feature's 8-gesture wheel is THE wheel (strangers too); the old 6-emoji one only without it. */
+const partyWheel = () => !!ctx.emotes && ctx.enabled("party");
+
 // ── the service other features (and parking) use ─────────────────────────
 ctx.mp = {
     open: from => U.openSharedRoad(from),
@@ -177,7 +180,7 @@ function frame() {
         me.social = social;
         // (one emote system: with the party feature its 8-gesture wheel is the wheel for strangers too — party/emotes.js;
         //  the old 6-emoji wheel only without it)
-        const own = !ctx.emotes;
+        const own = !partyWheel();
         U.wheelTick(dt, own && inRun && social && !ctx.paused && !ctx.dialogOpen);
         U.setKeyInRun(own && inRun && social && !ctx.paused);
         titleRefresh();
@@ -417,7 +420,7 @@ addMenuItem("pause", { id: "sharedroad", order: 40, label: "🕹️ Classic 2D f
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });
-addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => !ctx.emotes && MP.connected && me.social && me.inWorld });
+addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => !partyWheel() && MP.connected && me.social && me.inWorld });
 hook("update", (dt, P) => { if (P.mpEmote) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); } }, -6);
 
 // tidy up ghosts when leaving a session
