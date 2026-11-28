@@ -23,10 +23,14 @@ import { current } from "../interiors/engine.js";
 import { tone } from "../interiors/fx.js";
 import { EMOTES } from "../party/emotes.js";
 import { friends, friendHex, zoneOf } from "./where.js";
+import { SKINS } from "../../car.js";
 
 /** A friend's outfit, compact (features/clothes: d.x.ot) — "" for none / an old client. */
 const otOf = p => (p && p.x && typeof p.x.ot === "string" ? p.x.ot.slice(0, 160) : "");
 
+/** Another player (multiplayer's EVERYONE peer) seen the way the room's Mate reads a friend: her hair, outfit, spot. */
+const mpView = p => ({ hc: p.hc || "", x: { in: p.in, ot: p.ot || "", e: null } });
+const skinHexOf = sk => (SKINS[sk] || SKINS.pink).body;
 /** Which rooms friends share, and how two copies of a room are told apart. */
 export const SHARED = {
     home: () => (ctx.homes && ctx.homes.house ? ctx.homes.house.key : null),       // a house in town: its door
@@ -52,7 +56,12 @@ const _a = [0, 0, 0, 0, 0, 0];
 
 /** My room right now: { rt, id, inst } — a shared room in a party — or null. */
 export function myRoom() {
-    if (!ctx.party || !ctx.party.active || ctx.state !== "interior") return null;
+    if (!ctx.party || !ctx.party.active) return null;
+    return roomNow();
+}
+/** The shared room I'm in right now (party or not), or null. */
+function roomNow() {
+    if (ctx.state !== "interior") return null;
     const rt = current();
     if (!rt || !rt.ready || rt.disposed || !rt.set) return null;
     const f = SHARED[rt.def.id];
@@ -62,6 +71,14 @@ export function myRoom() {
     return { rt, id: rt.def.id, inst: String(inst) };
 }
 export const setMyDoor = d => { M.myDoor = d; };
+/** Stage 3 ("no ghosts"): the PUBLIC room I'm in — any shared room but a house (other players see me inside it, not just
+ *  friends; multiplayer sends it as d.in) — or null. Houses stay friends-only; Ima's isn't shared at all. */
+export function publicRoom() {
+    const R = roomNow();
+    if (!R || R.id === "home") return null;
+    const o = R.rt.lulu.obj;
+    return { id: R.id, inst: R.inst, x: Math.round(o.position.x * 100), z: Math.round(o.position.z * 100), h: Math.round(wrap(o.rotation.y) * 100), bits: myBits(R.rt) };
+}
 
 /** Pose bits of my Lulu in the room (what friends need to draw her like I see her). */
 function myBits(rt) {
@@ -86,16 +103,16 @@ function inMine(p, R) {
 }
 
 class Mate {
-    constructor(uid, rt, p) {
+    constructor(uid, rt, p, look) {
         this.uid = uid; this.rt = rt; this.buf = []; this.leaving = 0; this.gone = false; this.emKey = ""; this.em = null; this.key = "";
         const colors = p.hc ? { Hair: p.hc } : null;
         this.ot = otOf(p);
         this.person = spawnPerson("luluPerson", { colors, outfit: this.ot && ctx.clothes ? ctx.clothes.decode(this.ot) : false });
         this.person.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
         rt.set.add(this.person.obj);
-        const NT = ctx.party.visuals && ctx.party.visuals.NameTag;
+        const NT = ctx.party && ctx.party.visuals && ctx.party.visuals.NameTag;
         this.tag = NT ? new NT() : null;
-        if (this.tag) { this.tag.set(ctx.party.displayName(uid), friendHex(uid), {}); rt.set.add(this.tag.sp); }
+        if (this.tag) { this.tag.set(look ? look.name : ctx.party.displayName(uid), look ? look.hex : friendHex(uid), {}); rt.set.add(this.tag.sp); }
         this.vx = 0; this.vz = 0;
     }
     push(a) {
@@ -169,9 +186,9 @@ function clearMates() { for (const m of M.mates.values()) m.dispose(); M.mates.c
 
 /** Per frame (features/together's rAF). */
 export function tick(dt) {
-    const R = myRoom();
+    const R = roomNow(), party = !!(ctx.party && ctx.party.active);
     // ── publish my spot (or stop) ──
-    if (R) {
+    if (R && party) {
         M.sendT -= dt;
         if (M.sendT <= 0) {
             M.sendT = 0.1;
@@ -189,7 +206,23 @@ export function tick(dt) {
     M.t = (M.t || 0) + dt;
     if (!models.luluPerson) { ensureModels(["luluPerson"]).catch(() => { }); return; }
     const here = new Set();
-    for (const uid of friends()) {
+    // other players in this PUBLIC room (multiplayer's d.in: everyone online, not only friends — stage 3)
+    if (R.id !== "home" && ctx.mp && ctx.mp.peersIn) {
+        const Z = ctx.town && ctx.town.active ? ctx.town.id || "" : "";
+        for (const p of ctx.mp.peersIn(R.id, R.inst, Z)) {
+            const key = "mp:" + p.id, view = mpView(p);
+            here.add(key);
+            let m = M.mates.get(key);
+            if (!m || m.leaving > 0) {
+                if (m) m.dispose();
+                m = new Mate(key, rt, view, { name: p.name || "Player", hex: skinHexOf(p.sk) });
+                M.mates.set(key, m);
+            }
+            m.push(p.in);
+            m.mpView = view;
+        }
+    }
+    if (party) for (const uid of friends()) {
         const p = ctx.party.peer(uid);
         if (!p || !ctx.party.fresh(p, 8000) || !inMine(p, R)) continue;
         here.add(uid);
@@ -204,7 +237,7 @@ export function tick(dt) {
     }
     for (const [uid, m] of M.mates) {
         if (!here.has(uid) && !m.leaving) { m.leaving = 1.6; emit("together:out", { uid, room: R.id }); }
-        m.update(dt, ctx.party.peer(uid));
+        m.update(dt, m.mpView || (ctx.party && ctx.party.peer(uid)));
         if (m.gone) { m.dispose(); M.mates.delete(uid); }
     }
 }
