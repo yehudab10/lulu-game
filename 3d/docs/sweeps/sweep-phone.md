@@ -88,6 +88,9 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 26. **A phone on its side: the first-drive tutorial's card sat over the NITRO button it was pointing at** (667 × 375) —
    narrower between the stick and the right-hand buttons (`meta/tutorial.js`); `sweepphone5` plays the first five
    minutes on a small phone on its side. — batch 4
+27. **Controller words on a phone, in text**: serving a sentence said "mash [Tap] (or tap) to do your time", the
+   garage "Press [Tap] again to buy", the empty photo album "press [Tap] to snap one" — touch has its own words now
+   (`law/jail.js`, `garage/shop.js`, `play/photo.js`). — batch 5
 
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
