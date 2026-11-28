@@ -186,7 +186,7 @@ let pinned = false;
 hook("hud", () => {
     if (pinned || !ctx.pins || !ctx.pins.add) return;
     pinned = true;
-    try { ctx.pins.add({ id: LUX.addr, name: LUX.full, icon: LUX.emoji, cat: "shops", lap: LAP_M, sub: "luxury cars · 6,000–38,000 💰" }); } catch (e) { /* the registry's own rules */ }
+    try { ctx.pins.add({ id: LUX.addr, name: LUX.full, icon: LUX.emoji, cat: "shops", lap: LAP_M, d: LUX.d, sub: "luxury cars · 6,000–38,000 💰" }); } catch (e) { /* the registry's own rules */ }
 });
 
 ctx.dealers = {

@@ -14,7 +14,7 @@
 //  the same beam in their colour + one quiet line on the objective line for a few seconds. No relay change.
 //
 //  ctx.pins = {
-//    add({ id, name, icon, cat: "shops"|"town"|"help"|"mine", town?, spot?, local?: [lx, lz], lap?: m | "jfk", group?, sub?,
+//    add({ id, name, icon, cat: "shops"|"town"|"help"|"mine", town?, spot?, local?: [lx, lz], lap?: m | "jfk", d?: metres off the road (+ = her side), group?, sub?,
 //          arrive?: "rest"|"jfk" }) → the place          (new places register themselves — e.g. ci/roadside's)
 //    list() · get(id) · ping(id, { from }) · pingKind(key) · clear() · current · target(id?) · groups() · debug
 //  }
@@ -152,6 +152,20 @@ function reach(id, w) {
     RC.set(k, r);
     return r;
 }
+/** The shorter way round the lap from lap metre `from` to `m` (both carriageways are drivable — ci/twoway), but never back
+ *  past the start of the road (lap 1 begins at 0): → { far, back } */
+function way(from, m, sAbs = ctx.car ? ctx.car.s : 0) {
+    const fw = ahead(m, from), bk = LAP - fw;
+    return bk < fw && sAbs - bk > 0 ? { far: bk, back: true } : { far: fw, back: false };
+}
+const _hd = {};
+/** Is she facing up the lap (+s)? (in the car or on foot) */
+function facingUp() {
+    const road = ctx.world && ctx.world.road, car = ctx.car;
+    if (!road || !road.at || !car) return true;
+    const h = ctx.foot && ctx.foot.active && ctx.foot.facing != null ? ctx.foot.facing : car.h, rh = road.at(car.s, _hd).h;
+    return Math.sin(h) * Math.sin(rh) + Math.cos(h) * Math.cos(rh) >= 0;
+}
 /** → { kind: "at" (the place itself) | "exit" (the way there), x, z, d, label, arrived? } | null */
 export function target(id = PS.ping) {
     const p = typeof id === "string" ? get(id) : id;
@@ -162,8 +176,14 @@ export function target(id = PS.ping) {
     if (inTown && p.town !== inTown) {
         let best = null, bd = 1e9;
         for (const e of townExits()) { const d = Math.hypot(e.x - me.x, e.z - me.z); if (d < bd) { bd = d; best = e; } }
-        const where = p.town ? `in ${townName(p.town)}` : p.group === "jfk" ? "at JFK" : "on the highway";
-        return best ? out("exit", best.x, best.z, null, `${where} · head out of town`) : null;
+        if (!best) return null;
+        // (the WHOLE route in plain words — owner 2026-11-27: "I pinged the dealerships but it only pointed towards outside
+        //  midwood": leave this town, then how far along the highway and which way)
+        const dOut = Math.hypot(best.x - me.x, best.z - me.z), sAbs = T.highwayS != null ? T.highwayS : ctx.car.s, from = lapS(sAbs);
+        const m = lapM(p), w = m != null ? way(from, m, sAbs) : null;
+        // (another town: its exit is up the lap — the on-ramps join that way)
+        const leg = !w ? "" : p.town ? `, then ${fmtDist(ahead(m, from))} to the ${townName(p.town)} exit` : `, then ${fmtDist(w.far)} on the highway${w.back ? " (back the other way)" : ""}`;
+        return out("exit", best.x, best.z, dOut + (!w ? 0 : p.town ? ahead(m, from) : w.far), `leave ${townName(inTown)}${leg}`);
     }
     if (p.town) {
         if (inTown === p.town) {
@@ -184,10 +204,17 @@ export function target(id = PS.ping) {
     const m = lapM(p);
     if (m == null || !ctx.world.road) return null;
     if (p.arrive === "jfk" && ctx.airport && ctx.airport.inside) return Object.assign(out("at", me.x, me.z, 0, ""), { arrived: true });
-    const far = ahead(m, lapS(ctx.car.s));
+    const far = way(lapS(ctx.car.s), m).far;
     if (p.arrive === "rest" && ctx.exits && ctx.exits.inside && (far < 400 || far > LAP - 400)) return Object.assign(out("at", me.x, me.z, 0, ""), { arrived: true });
-    ctx.world.road.point(ctx.car.s + far, 12, _pt);
-    return out(far < 250 ? "at" : "road", _pt.x, _pt.z, far, far < 250 ? "" : "up the road");
+    const w = way(lapS(ctx.car.s), m), along = w.back ? -w.far : w.far;
+    const side = typeof p.d === "number" ? p.d : p.side === -1 ? -12 : 12;       // (a place's own offset from the road, if it gives one)
+    if (w.far < 250) { ctx.world.road.point(ctx.car.s + along, side, _pt); return out("at", _pt.x, _pt.z, w.far, ""); }
+    // (her heading vs the road's: driving away from it → "turn around"; both carriageways run their own way — ci/twoway)
+    const up = facingUp();
+    ctx.world.road.point(ctx.car.s + along, side, _pt);
+    const px = _pt.x, pz = _pt.z;          // (the place itself: the beam stands there once she's within 1.2 km)
+    ctx.world.road.point(ctx.car.s + Math.sign(along) * Math.min(Math.abs(along), 600), w.back ? -5 : 5, _pt);
+    return Object.assign(out("road", _pt.x, _pt.z, w.far, (up === !w.back) ? (w.back ? "back down the highway" : "up the highway") : "turn around"), { px, pz });
 }
 
 /** The pinged place's id (or null). */
@@ -269,8 +296,8 @@ function tick(dt) {
     }
     const p = PS.ping && get(PS.ping), t = P.t;
     if (!p || !live()) { hideBeacon("pin"); chip(p && live() ? `📍 ${short(p.name)}` : ""); return; }
-    if (t && PS.pointer !== false && (t.kind === "at" || t.d < 1200)) beacon("pin", t.x, t.z, HEX, 2.6, 34); else hideBeacon("pin");
-    chip(`📍 ${short(p.name)}${t ? ` · ${fmtDist(t.d)}` : ""}`);
+    if (t && PS.pointer !== false && (t.kind === "at" || t.d < 1200)) beacon("pin", t.px != null ? t.px : t.x, t.pz != null ? t.pz : t.z, HEX, 2.6, 34); else hideBeacon("pin");
+    chip(`📍 ${short(p.name)}${t ? ` · ${t.label ? t.label + " · " : ""}${fmtDist(t.d)}` : ""}`);
 }
 hook("hud", dt => { try { tick(dt || 1 / 60); } catch (e) { console.error("[pins]", e); } });
 on("state", ({ to }) => { if (to === "title") { hideBeacons("pin"); chip(""); fchip(""); } });

@@ -66,12 +66,16 @@ on("chunk:dispose", ({ chunk }) => {
     for (const [k, sp] of SPOTS) if (sp.chunk === chunk) { for (const p of sp.people || []) p.obj.removeFromParent(); SPOTS.delete(k); }
 });
 
+/** A board's words for drivers going the other way: the place is on their OTHER side (RIGHT ↔ LEFT, → ↔ ←). */
+const mirrorLines = lines => (lines || []).map(l => String(l).replace(/RIGHT|LEFT/g, m => (m === "RIGHT" ? "LEFT" : "RIGHT")).replace(/[→←]/g, c => (c === "→" ? "←" : "→")));
 on("chunk:build", ({ chunk, world, s0, s1 }) => {
     if (!ctx.enabled("world")) return;
     const mode = modeNow();
     for (const place of PLACES.values()) {
         for (const s of positions(place, mode)) {
             if (place.sign && s - 190 >= s0 && s - 190 < s1) chunk.sign(world, Object.assign({ s: s - 190, d: 10.4 }, place.sign));
+            // (and the same board for drivers going DOWN the lap: 190 m before it their way, on their side — ci/twoway)
+            if (place.sign && s + 190 >= s0 && s + 190 < s1) chunk.sign(world, Object.assign({}, place.sign, { s: s + 190, d: -(place.sign.d || 10.4), back: true, lines: mirrorLines(place.sign.lines) }));
             if (s < s0 || s >= s1) continue;
             const road = world.road, p = road.point(s, place.d, {}), h = road.at(s).h;
             const spot = { key: place.id + "@" + Math.round(s), place, s, x: p.x, z: p.z, h, rot: facingRoad(h, place.side), chunk, obj: null, anchors: {}, people: [] };

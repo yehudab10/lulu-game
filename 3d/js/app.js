@@ -25,6 +25,8 @@ import { TC, mode as testMode, afterStep as testAfterStep, beforeStep as testBef
 import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
 import "./features/index.js";
 
+const _rh = {};          // (scratch: the road heading under her, for the world's streaming direction)
+let _backT = 0;          // (s of steady travel down the lap)
 const MPH = 2.23694;
 
 // ── renderer / scene ────────────────────────────────────────────────────
@@ -251,7 +253,21 @@ function step(dt, P) {
 
     const cur = ctx.states[ctx.state] || def;
     if (!ctx.view && ctx.world) {
-        if (cur && cur.world !== false) ctx.world.update(dt, ctx.car.s, camera.position);
+        if (cur && cur.world !== false) {
+            // (which way she's travelling along the road — the world streams its chunks that way: ci/twoway, the far
+            //  carriageway is drivable both ways; a moment's stop keeps the last direction)
+            const w = ctx.world, c = ctx.car;
+            // (down the lap only after 2 s of steady travel that way — reversing in a bay, a ramp's bend or a drift never
+            //  flips it; any real speed up the lap flips it straight back)
+            if (w.road && w.road.at && c && !w.district) {
+                const rh = w.road.at(c.s, _rh).h, v = (c.vx || 0) * Math.sin(rh) + (c.vz || 0) * Math.cos(rh);
+                const facingDown = Math.sin(c.h) * Math.sin(rh) + Math.cos(c.h) * Math.cos(rh) < -0.3;      // (reversing never counts)
+                if (v > 3) { _backT = 0; w.dir = 1; }
+                else if (v < -6 && facingDown) { _backT += dt; if (_backT > 2) w.dir = -1; }
+                else _backT = 0;
+            }
+            w.update(dt, ctx.car.s, camera.position);
+        }
         try { cam.update(dt); } catch (e) { console.error("Lulu3D camera error", e); }
         placeSun(ctx.car.pos);
     }
