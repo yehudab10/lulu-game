@@ -890,7 +890,8 @@ on("state", ({ to }) => {
 on("honk", () => { if (S.active) honked(); });
 on("crash", e => {
     if (!S.active || !e || !e.car || !(e.car.data && e.car.data.town)) return;
-    if (e.car === C.patrol && e.impact > 3) crime("RAMMING A POLICE CRUISER", "🚨 YOU HIT THE PATROL CAR!", 2);
+    // (the patrol car driving into HER — traffic.js says whose fault — isn't her ramming it: the highway's rule, ci/sweep-road #1)
+    if (e.car === C.patrol && e.impact > 3 && e.fault !== "them") crime("RAMMING A POLICE CRUISER", "🚨 YOU HIT THE PATROL CAR!", 2);
     else if (e.impact > 4) gossip("crash");
 });
 on("streets:carjack", e => {

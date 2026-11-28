@@ -398,6 +398,13 @@ async function bolo(t) {
   await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
   if (!await t.until(`__lulu3d.ctx.town.active`, "bolo: into Lakewood", 20000)) return;
   await t.frames(20);
+  // (town crash fairness: the patrol car driving into HER isn't "RAMMING A POLICE CRUISER"; her ramming it still is)
+  const tc = await t.L(`import("./js/core/ctx.js").then(m => { const C = m.ctx.town.debug.C, was = C.patrol, fp = { data: { town: true }, kind: "sedan" }; C.patrol = fp;
+      m.emit("crash", { type: "crash", car: fp, impact: 6, fault: "them" }); const them = !!m.ctx.law.chasing;
+      m.emit("crash", { type: "crash", car: fp, impact: 6, fault: "lulu" }); const hers = !!m.ctx.law.chasing;
+      m.ctx.law.standDown("test"); C.patrol = was; return { them, hers }; })`);
+  t.check("bolo/town: the patrol car rear-ending her isn't her ramming it (her ramming it still is)", !tc.them && tc.hers, JSON.stringify(tc));
+  await t.frames(4);
   await g(`(ctx.town.debug.place("Main St", 60, 1.75, 0, 1), ctx.law.callIn("RECKLESS DRIVING", { delay: 0.2 }), true)`);
   if (!await t.until(`__lulu3d.ctx.law._dbg.L.units.some(u => u.bolo && u.car)`, "bolo: the cruiser comes out looking", 20000)) return;
   // she drives off somewhere else (a far street), quietly

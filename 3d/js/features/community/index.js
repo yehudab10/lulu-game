@@ -112,6 +112,8 @@ on("town:stopSign", () => { if (inTown()) witness("RUNNING A STOP SIGN", 50, 0.2
 on("streets:carjack", () => { if (inTown()) witness("GRAND THEFT MINIVAN", 70, 0.45); });
 on("crash", e => {
     if (!inTown() || !e || !e.car || !e.car.data || ctx.state !== "playing") return;
+    // (one that drove into HER isn't hers to answer for — traffic.js's fault; ci/sweep-road)
+    if (e.fault === "them") return;
     const V = e.car.data.community;
     if (V && e.impact > 4) {
         if (V.org === "shomrim") { bubble(V.car.obj, "My CROWN VIC! It's a 2009!", 2.4, "cop"); witness("RAMMING A SHOMRIM CAR", 90, 1); }
