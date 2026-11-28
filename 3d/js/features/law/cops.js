@@ -783,6 +783,8 @@ function updateBolo(dt, controlsOn) {
             : addUnit(car.s - rand(170, 220), pick(LANES_OURS), 1, clamp(car.speed * 0.9, 18, TUNE.boloSpeed), { mode: "chase" });
         u.bolo = true; u.hunter = true; u.siren = false;
         b.unit = u; b.phase = "looking";
+        // (in town: where the caller saw her — the cruiser prowls round there, it doesn't know where she's gone since)
+        if (tp) b.last = { s: car.s, d: car.d, h: car.h, v: 0, t: ctx.time };
         H.toast("🚓 A cruiser's out looking for your car…", "red", { key: "law:bolo" });
         return;
     }
