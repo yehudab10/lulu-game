@@ -106,6 +106,9 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
   houseitems, doors, qa28, storefronts, lanes, family: green) + 46122900830 (sweepphone, movetouch, qatouch, core,
   platform, meta, garage, shops: green).
 - batch 4 → main (item 26 + `sweepphone5`). CI: the run after 46123381505 (sweepphone, sweepphone5, meta, hudfit: green).
+- batch 5 → main (items 27–28). CI 46125282272 (sweepphone, sweepphone5, home, qafoot, qa4, garage, shops, law, qalaw,
+  core, platform, skip, ux, music, foot, footbounds: green). The pop-up budget test `calm` on the batch-4 head
+  (46124733994): green.
 
 ## For other sweeps
 - for `ci/sweep-health`: on main a5c02a2a (run 46112384329 on a copy of main): `cityhall` › "the ribbon cutting: no jump

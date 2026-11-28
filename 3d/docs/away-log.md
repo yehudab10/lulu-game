@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 08:30 UTC — 📱 Phones, part 5: on a phone, the ✋ button by her car says DRIVE (it said "OWN"), and a few
+  lines that told touch players to "press Tap" / "mash Tap (or tap)" say it in plain words.
 - 2026-11-28 08:15 UTC — 📱 Phones, part 4: on a small phone held sideways, the first-drive lesson's card no longer
   covers the NITRO button it's telling you to press.
 - 2026-11-28 08:10 UTC — 📱 Phones, part 3: the on-screen stick no longer creeps Lulu (or the car) along when a thumb
