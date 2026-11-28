@@ -113,7 +113,7 @@ export function release(how) {
     const sp = ctx.civic && ctx.civic.spot("impound");
     if (!sp || !ctx.foot || !ctx.foot.start) return false;
     if (ctx.civic.impound) ctx.civic.impound.show(false);
-    const c = ctx.car, k = kerbAt(sp, 3);
+    const c = ctx.car, k = sp.kerbAt ? sp.kerbAt(3) : kerbAt(sp, 3);      // (a roadside yard: its own stalls — the town kerb rule put it in a highway lane)
     const face = Math.atan2(sp.nx, sp.nz);
     const at = { x: sp.x + sp.nx * 1.2, z: sp.z + sp.nz * 1.2 };
     if (carsOn() && IM.held && IM.held.key) ctx.cars.fromImpound(IM.held.key);     // (that car; the one she came in stays parked)

@@ -272,6 +272,8 @@ async function yard(t) {
   await g(`ctx.impound.release("gate")`);
   await t.frames(20);
   t.check("yard: …and the gate gives the car back (it's with her)", (await g(`ctx.cars.where("purple").kind`)) === "with" && !(await g(`ctx.impound.held`)));
+  const cd = await g(`+ctx.world.highway.nearest(ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, {}).d.toFixed(1)`);
+  t.check("yard: …out in the yard's stalls, not in a highway lane", Math.abs(cd) > 9, String(cd));
   await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
