@@ -52,7 +52,7 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | adhold, cityhall3, homelife2, life2, onegame, places, qa20, qa9, realestatego, town | green (onegame's "next to Dina" was fixed by `ci/doors`' NEXT_TO rule) |
 | crime, friendsworld, impound, movetouch, partyfoot, qa13, qatouch, shabbos | green |
 | qa27 — 6.8 km court: no jump glitch (the camera 5.8 m in one frame, state playing) | test: between two places the test ends her walk by script (`foot.end("test")` → straight back at the wheel) BEFORE it declared the cut — the chase cam taking over from the foot cam. Declared first now; green on CI 46097614177 |
-| perf (main run 46089441840, someone's 3-file dispatch) — the friend's car is in my world | test: checked after a frame count while the friend arrives over the relay on real time; waits for it now |
+| perf (main run 46089441840, someone's 3-file dispatch) — the friend's car is in my world | test: checked after a frame count while the friend arrives over the relay on real time; waits for it now — green on CI 46098629151 (qafriends green there too: a flake) |
 
 ## Findings + status
 
