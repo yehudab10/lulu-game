@@ -304,7 +304,7 @@ function spend(price, armKey) {
     if (shop.armed !== armKey) {
         shop.armed = armKey;
         S.sfxClick();
-        setMsg(`Press ${glyph("confirm")} again to buy for ${priceTag(price)}`, "gold");
+        setMsg(`${input.device === "touch" ? "Tap" : `Press ${glyph("confirm")}`} again to buy for ${priceTag(price)}`, "gold");      // (touch: "Press Tap again")
         return false;
     }
     shop.armed = null;

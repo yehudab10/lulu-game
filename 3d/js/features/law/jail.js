@@ -16,7 +16,7 @@ import { models, cloneWithColors, findNodes, registerModels, ensureModels } from
 import { makeSet, textPlane } from "../../core/sets.js";
 import { wallet } from "../../core/save.js";
 import { SKINS } from "../../car.js";
-import { glyph, rumble } from "../../input.js";
+import { glyph, rumble, input } from "../../input.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
@@ -677,7 +677,8 @@ function updateServe(dt, P) {
     sv.lifeT -= dt;
     if (sv.lifeT <= 0) { sv.lifeT = rand(6, 9); UI.toast(pick(JAIL_LIFE), ""); }
     J.tally.count = Math.min(150, sv.days);
-    UI.caption("⛓️ SERVING YOUR SENTENCE", `${SERVE_ACTS[sv.act]} · mash ${glyph("confirm")} (or tap) to do your time`);
+    // (on a phone: "mash Tap (or tap)" — ci/sweep-phone)
+    UI.caption("⛓️ SERVING YOUR SENTENCE", `${SERVE_ACTS[sv.act]} · ${input.device === "touch" ? "tap tap tap" : `mash ${glyph("confirm")} (or tap)`} to do your time`);
     UI.progress(sv.days / sv.total, `DAY ${sv.days} / ${sv.total} · car impounded — you'll walk out 🚶‍♀️`);
 }
 
