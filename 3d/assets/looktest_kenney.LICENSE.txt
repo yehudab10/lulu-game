@@ -1,0 +1,17 @@
+looktest_kenney.glb — look test only (ci/looktest, ?look=2&car=kenney)
+
+Source model : "sedan-sports.glb" from Kenney's "Car Kit" version 3.1 (created 2026-02-04)
+Author       : Kenney (www.kenney.nl)
+Downloaded   : 2026-11-27 from https://opengameart.org/content/car-kit
+               (file https://opengameart.org/sites/default/files/kenney_car-kit_3.1.zip)
+Licence      : Creative Commons Zero (CC0 1.0) — public domain dedication
+               http://creativecommons.org/publicdomain/zero/1.0/
+               "You can use this content for personal, educational, and commercial purposes.
+                Support by crediting 'Kenney' or 'www.kenney.nl' (this is not a requirement)"
+The original file + Kenney's License.txt are kept in 3d/blender/vendor/kenney_car-kit/.
+
+What we changed (3d/blender/assets_looktest.py › build_kenney_car): scaled to the game's car size (×1.40 across,
+×1.58 along), its palette texture replaced by our named plain-colour materials (Body, Chrome, Rim, Tire, Taillight,
+Headlight, Glass, DarkTrim) so the game can repaint it, wheels renamed Wheel_FL/FR/RL/RR with the hub as origin,
+body + spoiler joined as "LuluCar_body", plus a windscreen pivot, a steering wheel, the anchors and our own Lulu at
+the wheel.

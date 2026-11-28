@@ -185,6 +185,8 @@ export function gfxFrame(dt, camera) {
     const night = ctx.atmos ? ctx.atmos.night || 0 : 0;
     ctx.renderer.toneMappingExposure = 1.05 + 0.13 * night;
 }
+/** The sky's pre-filtered environment map (MEDIUM / HIGH; null on LOW) — features/looktest lights the scene with it. */
+export function skyEnvTexture() { return ENV.rt ? ENV.rt.texture : null; }
 export function gfxInfo() {
     return { envFresh: !ENV.rt || !ctx.world || !ctx.world.sky || Math.abs(skySig() - ENV.sig) <= 0.4, blobs: blobs ? blobs.count : 0, blobsOn: !!(blobs && blobs.visible), env: !!ENV.rt, painted: ENV.tagged.size, wetRoad: ENV.roadOn, sway: WIND.uSway.value, leaves: leafMaterials().length };
 }

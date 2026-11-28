@@ -79,6 +79,7 @@ process.on("exit", () => { try { relay && relay.kill(); } catch (e) { } });
 
 module.exports = {
   name: "perf",
+  fast: false,     // (it measures draws / pictures per frame: the old clock — scripts/smoke3d.js › THE FAST TEST CLOCK)
   viewport: { width: 1280, height: 720 },
   query: Q,
   save2d: { totalCoins: 2000, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [], missiles: 0, shields: 0, pepperSpray: 0, mpName: "Perf Pal" },
