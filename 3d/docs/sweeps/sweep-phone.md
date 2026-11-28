@@ -121,3 +121,12 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 - No browser-back handling: an Android back gesture / an iOS Safari edge swipe leaves the page (the root page uses
   location.replace, so it doesn't loop). A history trap would be a new behaviour — owner's call.
 - `ci/install` (the install prompt) is the other account's and still moving: not looked at / not edited.
+- Not testable headless (needs a real iPhone): the on-screen keyboard over the 🪪 name / friend-code / save-code inputs,
+  the notch / home-bar insets (the CSS now pads for them; headless Chromium reports 0), iOS Safari's dynamic toolbar
+  (the 📱 handset now uses 100dvh).
+- Rooms: right at a room's door the camera sits ~1.4 m behind her (the walls) — she's see-through there now, but a
+  higher / further camera for small rooms would read better; a camera-rig change, left for a sweep with time to tune it.
+- The username ask on the title (accounts) was only checked by its own test (`accounts`, 360 × 800): the local relay
+  isn't in this sweep's tests.
+- Next for whoever picks this up: the first exit / first shop / the ER on a phone with REAL screenshots (the fast test
+  clock draws those states as one flat colour — run those parts with `fast: false` as `sweepphone2` does).
