@@ -105,7 +105,8 @@ async function body(t) {
   // (diag: every car.place from here on, with who called it — if something puts her back home, the log names it)
   await t.game(`(() => { const c = ctx.car; if (!c.__pl) { c.__pl = []; const o = c.place.bind(c); c.place = (x, z, h) => { c.__pl.push([L3.frames, Math.round(x), Math.round(z), ctx.state, (new Error().stack || "").split("\\n").slice(2, 6).map(l => l.trim().replace(/^at /, "").replace(/\\(.*\\/js\\//, "(").slice(0, 70)).join(" < ")]); return o(x, z, h); }; } return true; })()`);
   await t.game(`(() => { ctx.traffic.clear(); ctx.traffic.config.enabled = false; const r = ctx.world.road, p = r.point(400, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 400; })()`);
-  await peer.pump(2500);
+  // (a slow runner's page sends a state every couple of seconds at ~1 fps: keep pumping until the move has arrived)
+  for (let i = 0; i < 40; i++) { await peer.pump(500); const L = peer.last; if (L && typeof L.di === "number" && Math.abs(L.di - 400 * 56000 / 4800) < 60) break; }
   const last = peer.last || {};
   t.check("3D state relayed in 2D format (m, x, di, sp, vk)", last.m === 0 && typeof last.di === "number" && last.vk === "car" && Math.abs(last.x - 275) <= 3,
     JSON.stringify(last));
