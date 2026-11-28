@@ -68,6 +68,18 @@ module.exports = {
       const d = await g(`({ pick: window.__pick, paused: ctx.paused, open: ctx.dialogOpen })`);
       t.check("pause mid-question (a background tab): ✕ resumes the game; the question is still waiting", d.pick === null && d.paused === false && d.open === true, JSON.stringify(d));
       await t.tap(0); await t.frames(4);
+      // paused mid-question → ⌂ Title / ↺ Restart: the question doesn't come along (it ate the title's ✕ — a dead end)
+      for (const how of ["title", "restart"]) {
+        await ask(); await t.frames(40);
+        await t.L(`import("./js/core/screens.js").then(m => (m.pause(), true))`); await t.frames(2);
+        await g(`(document.getElementById(${JSON.stringify(how)}).click(), true)`);
+        await t.frames(30);
+        const e = await g(`({ open: ctx.dialogOpen, pick: window.__pick, state: __lulu3d.state })`);
+        t.check(`pause mid-question → ${how === "title" ? "⌂ Title screen" : "↺ Restart"}: the question is gone (answered "closed")`, e.open === false && e.pick === -1, JSON.stringify(e));
+        if (how === "title") { await g(`(L3.startRun({ mode: "cruise", quick: true }), true)`); await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "a run", 60000); }
+        if (await g(`__lulu3d.state`) === "footRun") { await g(`(ctx.foot.end("test"), true)`); await t.frames(6); }
+        if (await g(`__lulu3d.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(4); }
+      }
       // two features' lines at once: the one replaced answers -1 (closed) — its await used to hang forever
       const sup = await t.L(`import("./js/core/dialog.js").then(async m => { let a = null; m.choose("A", "Pay the meter maid?", ["Yes", "No"]).then(i => { a = i; }); const b = m.say("B", "Hey, Lulu!"); await null; await null; const r = { a, open: m.isOpen() }; m.closeDialog(); await b; return r; })`);
       t.check("two lines at once: the question that got covered answers -1 (closed), never hangs", sup.a === -1 && sup.open === true, JSON.stringify(sup));

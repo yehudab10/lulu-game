@@ -7,7 +7,7 @@
 // Works with the controller (A/✕ advances, D-pad picks), keyboard (Enter /
 // arrows) and touch (tap). While a line is open the game loop routes input
 // here, so pressing A doesn't also floor the gas.
-import { ctx, css } from "./ctx.js";
+import { ctx, css, on, hook } from "./ctx.js";
 import { sfxMove, sfxSelect } from "../audio.js";
 
 css("dialog", `
@@ -124,6 +124,11 @@ export function dialogFastForward() {
     return true;
 }
 export function closeDialog() { const r = cur && cur.resolve; close(); if (r) r(-1); }
+// ⌂ Title / ↺ Restart / a new run while a line or a question is still up (paused mid-question — ☰, ❚❚ or another app —
+// then a pause-menu exit): it doesn't come along — it answered the title's ✕ itself, a dead end (ci/sweep-logic2).
+// (runStart at the top: before any feature's own runStart opens a line for the new run)
+hook("runStart", () => { if (cur || ctx.dialogOpen) closeDialog(); }, 1000);
+on("state", ({ to }) => { if (to === "title" && (cur || ctx.dialogOpen)) closeDialog(); });
 
 function setFocus(i, sound = true) {
     if (!cur || !cur.options) return;
