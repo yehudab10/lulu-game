@@ -87,7 +87,7 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | qa27 — 10.7 km hospital: "the room went away" in a corner; 👜 Maison de Gelt: a 2.1 m rail between the camera and her | `ci/sweep-phone` (moving) changed the room cameras at 04:36–05:15 (over-the-shoulder at someone's ✋, see-through) — left for them |
 | cityhall — the ribbon cutting: no jump glitch (camera 5.3 m in a frame, on foot) | likely the same camera change (`ci/sweep-phone`'s shoulder camera for people) — left for them |
 | qaweekend — home → highway: no inwall (camera inside block@128,195 at f27 ×8, her lot) | `ci/sweep-phone`'s "the home start looks at the car" (05:01) — left for them |
-| qa14 — one full 16 km lap: knocked out at 8.1 km | one run; two-way highway traffic — re-run later |
+| qa14 — one full 16 km lap: knocked out at 8.1 km | flake: green on the re-run (46126893799, with unstuck + cityhall — both green too) |
 | (verification 46125898854) life3, doors, shul, memory, sweeplogic, sweephealth, qa7, foot, carcare, yeshiva, seasons green; unstuck: a flat white picture at the REST AREA (highway — not the driveway change: green on main in #3) — `ci/doors`' 7fdec714 family, intermittent | landed 09:00 (13c600a) — **my mistake:** that landing's merge had an AGENTS.md §6 conflict (my row vs `ci/sweep-road`'s new row) and went to main WITH the conflict markers; fixed one minute later (5d48330, both rows kept). Nothing else conflicted |
 | accounts, qafriends, sweepplaces, sweepphone2 | left (`ci/oneserver-place`, `ci/friends`, `ci/sweep-places`, `ci/sweep-phone`) |
 
@@ -109,3 +109,15 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 - `ci/fasttests` (other account, moving) is reworking test timing (the fast test clock): timing flakes that its
   clock work covers are left to it — its test fixes not on main yet: unstuck (bc1e2cd), crime2 (7136f90),
   movetouch / movement / playgate (06647cf), hometown / partners / partyhang / together opt-outs.
+
+## Where it stands (2026-11-28 09:45 UTC)
+
+Landed on main in 6 batches (dedf7de, 81d3516, fd6447b, d5e43d8, a5c02a2, 16b16df, 13c600a + 5d48330). Main's push Smoke
+test green after every landing. Still red / flaky on main, all in other branches' lanes (see the tables above):
+- `ci/sweep-phone` (room cameras, the home start): qa27's Hatzalah corners + Maison de Gelt rail, qaweekend "home → highway"
+  inwall, cityhall's ribbon-cutting camera jump (green on a re-run).
+- `ci/oneserver-place`: accounts (names over cars), multiplayer.
+- `ci/friends`: qafriends (a passenger's car jumps on packet bursts), partyworld (2-page flakes).
+- `ci/sweep-road`: schlepnav (the ⚡ self-drive hands back at the town line).
+- `ci/sweep-places` / `ci/sweep-phone`: their own sweepplaces* / sweepphone* checks.
+- airport-free: unstuck's rest-area flat white (intermittent; `ci/doors`' camClip family).
