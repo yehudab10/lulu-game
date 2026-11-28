@@ -7,6 +7,7 @@
 // software WebGL on a CI runner is far slower than a phone, so only the ratios mean anything).
 module.exports = {
   name: "homeperf",
+  fast: false,     // (it measures draws / pictures per frame: the old clock — scripts/smoke3d.js › THE FAST TEST CLOCK)
   viewport: { width: 844, height: 390 },
   query: "&enable=world,foot,day,town,decor,exits,community",
   save2d: { totalCoins: 300 },

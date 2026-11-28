@@ -19,6 +19,8 @@ const PLACE = (x, z, h = 0) => `(() => { const c = ctx.car, n = ctx.world.road.n
 
 module.exports = {
   name: "partyhang",
+  fast: false,     // (two pages on the relay keep a REAL performance.now — the party clock is built on it — and this file's flow trips on
+                   //  a real-millisecond guard (e.g. the emote spam guard after the auto 👋) under the fast clock: the old clock)
   viewport: { width: 1280, height: 720 },
   query: Q0,
   save2d: { totalCoins: 500, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid", luluHair: "#8D6E63" },

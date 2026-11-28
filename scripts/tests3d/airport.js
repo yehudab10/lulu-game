@@ -18,6 +18,7 @@ const BUDGET = { calls: 240, tris: 120000, buildWorstMs: 60, buildTris: 70000, l
 
 module.exports = {
   name: "airport",
+  fast: false,     // (it measures draws / pictures per frame: the old clock — scripts/smoke3d.js › THE FAST TEST CLOCK)
   viewport: { width: 1280, height: 720 },
   query: "&enable=airport,foot,atmos",
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink" },

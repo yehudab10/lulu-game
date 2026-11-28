@@ -122,7 +122,8 @@ module.exports = {
     await openP(t, "lapmap");
     const chip = await L(`(() => { const c = document.querySelector("#lpApp [data-pcat]"); return c ? Math.round(c.getBoundingClientRect().height) : 0; })()`);
     t.check("🗺️ Map: the filter chips are ≥ 40 px tall", chip >= 40, chip);
-    const pid = await L(`(() => { const r = [...document.querySelectorAll("#lpApp [data-pin]")].find(b => /makolet|clothes|pizza/.test(b.dataset.pin)) || document.querySelector("#lpApp [data-pin]"); if (!r) return null; r.click(); return r.dataset.pin; })()`);
+    // (a place she isn't standing at: a ping of Ima's house from her porch is 'arrived' at once — sweep-health, run 46073386320)
+    const pid = await L(`(() => { const rows = [...document.querySelectorAll("#lpApp [data-pin]")], r = rows.find(b => /makolet|clothes|pizza/.test(b.dataset.pin)) || rows.find(b => !/^home:/.test(b.dataset.pin)) || rows[0]; if (!r) return null; r.click(); return r.dataset.pin; })()`);
     await t.frames(8);
     t.check("…ONE tap on a place pings it and the phone closes", !!pid && await g(`ctx.pins.current === ${JSON.stringify(pid)} && !ctx.phone.isOpen`), pid);
     await openP(t, "lapmap");
