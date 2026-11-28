@@ -23,6 +23,8 @@ async function drive(t) {
   // the test driver + a per-frame log of what a player would feel
   await t.L(`import("./js/core/ctx.js").then(m => {
     const C = m.ctx, D = window.__drv = { on: false, v: 31, lane: 5.25, bumps: [], sunk: [], rear: 0, crashes: [], f: 0, lastV: null, maxY: 0, minY: 0, laneT: 0, hold: 0 };
+    // (a pothole, a cone, a puddle: visible bumps that slow her on purpose — not "invisible")
+    m.on("stat", e => { if (e && /pothole|cone|puddle|splash/i.test(e.id || "")) D.crashT = C.frames; });
     m.on("crash", e => { D.crashT = C.frames; if (D.on) D.crashes.push({ s: Math.round(C.car.s), kind: e.kind || (e.collider && e.collider.kind) || (e.actor && e.actor.kind) || "?", fault: e.fault || null, imp: +(e.impact || 0).toFixed(1) }); });
     m.hook("controls", (ctl, dt) => {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) return;
