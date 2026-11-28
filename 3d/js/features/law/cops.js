@@ -410,7 +410,9 @@ function steerUnit(dt, c, u) {
     } else if (u.mode === "haul") {             // drive Lulu downtown
         tD = 1.75; vT = 30; u.vmax = 32;
     } else if (u.mode === "giveup") {
-        tD = ctx.town && ctx.town.active ? c.d : clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
+        // (off the highway's asphalt — a ramp, a cross road, JFK's roads — it stops where it is: it used to cut back across
+        //  the grass to the highway's shoulder)
+        tD = (ctx.town && ctx.town.active) || Math.abs(c.d) > 9.5 ? c.d : clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
     } else if (u.mode === "park") { vT = 0; u.vmax = 0; }
 
     // traffic in the way: pass (cops will use any lane) or slow down; bang into it if we can't
