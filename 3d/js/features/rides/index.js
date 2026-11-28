@@ -55,7 +55,8 @@ function poll() {
     if (R) exitRide("swap");
     curObj = so;
     // her collision body follows what she drives: a ride's shell its kind's own (a bus is 10 m long, not her car's 4.6)
-    const sp = so && ctx.foot.vehicle ? specOfModel(ctx.foot.vehicle.kind) : null;
+    // (only the LONG ones — a box truck, a bus, the ambulance: a car-sized shell keeps her own car's circles)
+    const sp0 = so && ctx.foot.vehicle ? specOfModel(ctx.foot.vehicle.kind) : null, sp = sp0 && (sp0.len || 0) > 5.6 ? sp0 : null;
     if (ctx.car) { ctx.car.circles = sp && sp.circles && sp.circles.length ? sp.circles.slice() : null; ctx.car.radius = sp && sp.circles ? Math.max(0.85, sp.r || 1) : null; }
     if (!so) return;                                   // (in a 🎉 party too: handling, horns, tricks are per player)
     const v = ctx.foot.vehicle;
