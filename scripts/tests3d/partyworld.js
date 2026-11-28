@@ -181,7 +181,10 @@ async function roadTrip(t, guests) {
   await A.game(`(ctx.banter.autopilot = { d: 1.75, speed: 0 }, true)`);
   // the 📱 phone / pause in a party doesn't stop the world: her car eases to a stop and STAYS there
   // (it used to hold the brake at a standstill — and the brake is reverse: it backed down the highway)
-  await g(`(ctx.banter.autopilot = null, ctx.party._debug.place(1500, 1.75, 16), true)`);
+  // (150 m behind the guest: she was told to stop in the same lane right about at 1500, and the host coasting into her
+  //  stopped car bounced back — "rolls backwards" min vF −6…−16 in every whole suite; sweep-health2)
+  const gStop = await A.game(`ctx.car.s`);
+  await g(`(ctx.banter.autopilot = null, ctx.party._debug.place(${(gStop - 150).toFixed(1)}, 1.75, 16), true)`);
   await t.L(`import("./js/core/ctx.js").then(m => { window.__pv = { min: 9, n: 0 }; m.hook("hud", () => { if (m.ctx.paused && m.ctx.state === "playing") { window.__pv.min = Math.min(window.__pv.min, m.ctx.car.vF); window.__pv.n++; } }); return true; })`);
   const s0p = await g(`ctx.car.s`);
   await g(`(ctx.paused = true, true)`);

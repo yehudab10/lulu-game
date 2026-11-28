@@ -877,7 +877,9 @@ function holdCtl(dt, speed) {
     // hold still: brake while she's still rolling forward, then the HANDBRAKE — never the brake pedal at a standstill
     // (the brake is also reverse: with the phone / pause up in a party the car backed down the highway)
     c.brake = speed > 0 ? c.brake : (car.vF > 0.6 ? 0.6 : 0);
-    if (speed <= 0) { c.handbrake = true; if (car.vF < -0.2) c.throttle = 0.25; }
+    // (the handbrake only once she's nearly stopped: pulled at 16 m/s it slid the car round — its forward speed went to
+    //  −4…−16 m/s for a moment, partyworld's "never rolls backwards" red in every whole suite; sweep-health2)
+    if (speed <= 0) { c.handbrake = Math.abs(car.vF) < 1.5; if (car.vF < -0.2) c.throttle = 0.25; }
     return c;
 }
 function waitCtl(dt) {
