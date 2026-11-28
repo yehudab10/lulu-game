@@ -43,9 +43,10 @@ ctx.heist = {
     get robbery() { return R.ev; },
     get snatcher() { return SN.ev; },
     get thief() { return CT.ev; },
-    /** Is any heist thing going on (other than `except`: "robbery" | "snatch" | "job")? Schedulers stand down. */
+    /** Is any heist thing going on (other than `except`: "robbery" | "snatch" | "job" | "plan" — a job only planned)?
+     *  Schedulers stand down. */
     busy(except = "") {
-        return (except !== "robbery" && !!R.ev) || (except !== "snatch" && !!(SN.ev || CT.ev)) || (except !== "job" && !!(J.job || J.plan));
+        return (except !== "robbery" && !!R.ev) || (except !== "snatch" && !!(SN.ev || CT.ev)) || (except !== "job" && !!(J.job || (except !== "plan" && J.plan)));
     },
     /** Plan a heist (the bank interior / the tip do this): town id or null (either), plan id → bool. */
     planHeist: (town, plan = "classic", via = "debug") => setPlan(town, plan, via),

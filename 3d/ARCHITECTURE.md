@@ -2412,7 +2412,13 @@ friends who open the link land beside you — from mid-drive the solo run is ban
 friends (the Shared Road screen: a 2D-compatible code room + your rider name) + a line saying who's around. The phone's 👯 app is
 there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs friends on screen (stage 3 of roadmap 25, "no ghosts", owner
 2026-11-27 — landed 2026-11-28):** everyone is drawn SOLID — her car in her paint + hair colour (baked into one mesh), or
-walking in her own outfit (`d.hc` / `d.ot` in the EVERYONE state; an old client without them: a top in her car's colour); one
+walking in her own outfit (`d.hc` / `d.ot` in the EVERYONE state; an old client without them: a top in her car's colour) and
+her salon hairdo (`d.hs` / the party's `hs`: the style's hair piece on her car, its walking model on foot) and her moves on foot —
+rolls, slides, vaults, dancing, the jumpsuit and disguises (`d.f`, the friends' foot code, one `poseWalker`), her bling on her
+car and her own horn when she honks (`d.dc` / `d.hn`; the party's `dc` / `hn`); ONE emote system — the party's 8-gesture wheel
+with its fixed phrases for strangers too (`party/emotes.js` → `ctx.mp.gesture`, the same `em` event as before + `d.eg`; in the car
+online without friends: hold the horn) and her POLICE CHASES — `d.ch` (her heat) → every screen near her draws one or two
+cruisers on her tail itself, lights flashing (`ghosts.js` › `chaseTick`, the nearest chase only); one
 bump rule (one harmless bounce, then she drives through for a moment — `index.js` › `strangerBump`); the friends' name tag
 (the label: "Gold 72" or her signed username; a friend's is her name with the 👑 / presence chips); other players inside
 PUBLIC rooms (`d.in`, `together/rooms.js` › `publicRoom` — houses friends-only, Ima's private). **The world clock's client

@@ -338,14 +338,18 @@ function warrant(why) {
     try { if (ctx.law && ctx.law.addWarrant) ctx.law.addWarrant(CHARGE.name); } catch (e) { /* no law */ }
     stat("camWarrants"); log("warrant", { why });
 }
-// arrested while the warrant's on file → it's served: the open tickets are closed (court clears the file)
-on("law:arrest", () => {
+// arrested while the warrant's on file → it's served: the open tickets are closed (court clears the file). The same when
+// she settles the file at the precinct's fines window ("On file: UNPAID SPEED CAMERA TICKETS. Settle up?" — law:cleared):
+// the tickets she just paid for used to stay owed in the 📬 / City Hall's ledger, and no new warrant could come (ci/sweep-logic2)
+on("law:cleared", served);
+on("law:arrest", served);
+function served() {
     if (!S.warrant) return;
     S.warrant = false;
     for (const t of S.tickets) if (open(t) && t.stage !== "new") { for (const r of t.refs) { const b = billOf(r); if (b && !b.paid) { b.paid = true; b.waived = true; } } t.stage = "served"; t.unread = false; }
     saveSoon();
     log("served", {});
-});
+}
 on("boot", () => { try { if (ctx.law && ctx.law.addCharge) ctx.law.addCharge(CHARGE); } catch (e) { /* no law */ } });
 
 // ── the mailbox: where her day starts (Ima's, or her own house's) ──
