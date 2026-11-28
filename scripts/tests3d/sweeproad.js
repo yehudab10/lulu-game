@@ -278,6 +278,12 @@ async function ramp(t) {
         car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return r; })`);
       await W.moved(t);
       t.check("ramp: busted in a rest area's lot she stops where she is", po2, String(po2));
+      // …and anywhere else well off the asphalt (a roadside place's lot, a dealership's)
+      const po3 = await t.L(`import("./js/features/law/bust.js").then(B => { const C = __lulu3d.ctx, hw = C.world.highway, car = C.car, keep = { x: car.pos.x, z: car.pos.z, s: car.s, d: car.d, h: car.h };
+        const s0 = Math.floor(car.s / 16000) * 16000 + 6800, p = hw.point(s0, 26, {}); car.place(p.x, p.z, p.h); car.s = s0; car.d = 26; const r = !!B.pullOverSpot(car);
+        car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return r; })`);
+      await W.moved(t);
+      t.check("ramp: busted in Trooper Post 7's lot she stops where she is", po3, String(po3));
       t.check("ramp: into a rest area too, the cruiser keeps to its ramp + aisle (not across the grass)", seen2.some(n => n > 0) && off2.length === 0, JSON.stringify(off2.slice(0, 8)) + " · " + seen2.slice(0, 20).join(","));
       await g(`(ctx.law.standDown("test"), true)`);
     }

@@ -28,6 +28,9 @@ export const cast = { cop: null, unit: null };   // shared with the arrest scene
  *  on), no easing over to d 7.9 — or null (not its business: law's own shoulder, pullDAt). */
 export function pullOverSpot(car = ctx.car) {
     for (const fn of hooks.pullOverSpot || []) { try { const r = fn(car); if (r && Number.isFinite(r.h)) return r; } catch (e) { console.error("[law] pullOverSpot", e); } }
+    // (well off the highway's asphalt with nobody's answer — a roadside place's lot, a dealership's, a lay-by: she stops
+    //  right there; steering her back to the shoulder drove her across the grass)
+    if (car && !(ctx.town && ctx.town.active) && Math.abs(car.d) > 10.5) return { h: car.h };
     return null;
 }
 function autoLulu(dt, d, stop) {
