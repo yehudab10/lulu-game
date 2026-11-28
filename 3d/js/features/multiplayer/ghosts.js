@@ -182,6 +182,7 @@ export const ghostStats = () => {
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */
 function placeOf(p, me, road, out) {
+    if (p.in) return false;                             // (inside a room: drawn in that room, not on the street)
     const W = p.w && MP.clock - p.w.at < 4 ? p.w : null;
     if (W) {
         if (W.z === "~" || W.z !== me.zone) return false;

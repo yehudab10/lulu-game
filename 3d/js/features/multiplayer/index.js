@@ -70,15 +70,20 @@ function myPose() {
     const pa = ctx.party && ctx.party.active ? ctx.party : null;
     const partyBusy = !!pa && !(pa.activity && pa.activity.k === "roam");
     me.inWorld = (!!def.driving || ctx.state === "footRun") && !partyBusy;
+    // inside a PUBLIC room (a shop, the bank, the terminal, the lanes… — together/rooms.js › publicRoom; never a house,
+    // never Ima's) she stays online: her spot in the room rides along as d.in, and nobody draws her out on the street
+    const pr = !partyBusy && ctx.state === "interior" && ctx.together && ctx.together.publicRoom ? ctx.together.publicRoom() : null;
+    me.in = pr ? [pr.id, pr.inst, pr.x, pr.z, pr.h, pr.bits] : null;
     me.pt = pa && pa.code ? N.partyTag(pa.code) : null;
     me.foot = foot;
     me.driving = !!def.driving && !foot;
     me.parking = ctx.state === "parking";
-    me.sending = (me.inWorld && !ctx.view) || me.parking;
+    me.sending = (me.inWorld && !ctx.view) || me.parking || !!me.in;
     me.hidden = !me.sending;
     me.s = car ? car.s : 0; me.d = car ? car.d : 0; me.sp = car ? car.speed : 0;
     const T = ctx.town, inTown = !!(T && T.active && T.plan);
     let wx = car ? car.pos.x : 0, wz = car ? car.pos.z : 0, yaw = car ? car.h : 0;
+    if (me.in && me.outAt) { wx = me.outAt.x; wz = me.outAt.z; }
     if (foot) {
         const fp = footPos();
         if (fp) { wx = fp.x; wz = fp.z; }
@@ -90,7 +95,8 @@ function myPose() {
             me.s = n.s; me.d = n.d;
         }
     }
-    if (me.parking) me.sp = 0;
+    if (me.parking || me.in) me.sp = 0;
+    if (me.inWorld) me.outAt = { x: wx, z: wz };       // (the last spot outside: where she's "standing" while in a room)
     me.zone = !me.sending || me.parking ? "~" : inTown ? String(T.id || "") : "";
     if (me.zone === "" && ctx.world) {
         // the highway: road distance + offset + heading relative to the road (riders' roads can bend differently)
@@ -280,6 +286,7 @@ export function setOnline(on) {
     emit("mp:online", { on: !!on });
 }
 ctx.mp.setOnline = setOnline;
+ctx.mp.peersIn = N.peersIn;              // (features/together: other players inside the same public room)
 ctx.mp.setFr = N.setFr;                 // (features/friends: ➕ a friend from 📍 Nearby)
 ctx.mp.relabel = N.relabel;             // (features/friends: a friend recognised in EVERYONE → 👯 + her name over her ghost)
 // Tap a NAME over a car (a ghost in EVERYONE) → 📍 Nearby's page for that driver (➕ ask to be friends — features/friends).

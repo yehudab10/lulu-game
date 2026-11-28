@@ -116,6 +116,25 @@ async function body(t, pages, riders) {
   t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && !!bLook.hc && !!bLook.ot && look.hc === bLook.hc && look.ot === bLook.ot, JSON.stringify({ look, bLook }));
   await t.shot("dropin");
 
+  // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
+  // draws the other in the hall, in her own look; out again, both are back on the road
+  for (const P of [{ g, until: (c, w, ms) => A.until(c, w, ms) }, { g: c => B.game(c), until: (c, w, ms) => B.until(c, w, ms) }]) {
+    await P.g(`(window.__e = ctx.airport && ctx.airport.debug && ctx.airport.debug.enterTerminal ? ctx.airport.debug.enterTerminal() : null, true)`);
+    await P.until(`ctx.state === "interior" && window.__interiors && window.__interiors.room && window.__interiors.room.ready && window.__interiors.room.def.id === "terminal"`, "inside the terminal", 90000);
+  }
+  const bId = await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).id`);
+  const seeB = await A.until(`ctx.together.debug.room().mates.some(m => m.uid === "mp:" + ${JSON.stringify(bId || "")})`, "A sees B inside the terminal", 60000);
+  t.check("stage 3: A sees B (a stranger, not a friend) inside the terminal", seeB, JSON.stringify(await g(`ctx.together.debug.room()`)).slice(0, 300));
+  t.check("stage 3: …and B sees A in there too", await B.until(`ctx.together.debug.room().mates.some(m => /^mp:/.test(m.uid))`, "B sees A inside the terminal", 60000));
+  t.check("stage 3: inside, she isn't drawn out on the street (d.in)", await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return !!p && !!p.in && !p.onScreen; })()`));
+  for (const P of [g, c => B.game(c)]) await P(`(window.__interiors.room && window.__interiors.room.leave(), true)`);
+  await A.until(`["playing", "footRun"].includes(ctx.state)`, "A: out of the terminal", 60000);
+  await B.until(`["playing", "footRun"].includes(ctx.state)`, "B: out of the terminal", 60000);
+  for (const [P, s0, d0] of [[g, 400, 1.75], [c => B.game(c), 425, -1.75]]) await P(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+  await A.until(`ctx.state === "playing"`, "A: driving again", 30000); await B.until(`ctx.state === "playing"`, "B: driving again", 30000);
+  await g(HOLD); await g(PLACE(400, 1.75)); await B.game(HOLD); await B.game(PLACE(425, -1.75));
+  await A.until(`Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`, "A sees B on the road again", 60000);
+
   // ── SAFE: a stranger with a hacked client ──
   const bad = new Rider("BAD WORDS HERE", "red");
   riders.push(bad);

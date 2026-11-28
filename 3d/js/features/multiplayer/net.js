@@ -295,6 +295,7 @@ function applyState(id, d, snap, src = LEGACY) {
     p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
     p.hc = typeof d.hc === "string" && CO_RE.test(d.hc) ? d.hc : null;                       // (her hair colour)
     p.ot = typeof d.ot === "string" && d.ot.length <= 160 && /^[a-z0-9_,-]*$/i.test(d.ot) ? d.ot : null;   // (her outfit: ids only)
+    p.in = validIn(d.in);                                                                            // (inside a public room)
     p.fr = Array.isArray(d.fr) && d.fr.length <= 3 ? d.fr : null;      // (features/friends: a ➕ friend handshake — read + checked there)
     const un = typeof d.un === "string" && d.un.length <= 60 ? d.un : null;   // (features/accounts: a name ticket — the server reads it)
     if (un !== (p.un || null)) { p.un = un; p.name = labelFor(p); }
@@ -345,6 +346,25 @@ function applyState(id, d, snap, src = LEGACY) {
 
 /** A 3D rider's place in the 3D world (`d.w` = [zone, a, b, h]): zone "" the highway (a = s, b = d), a town id
  *  (a, b = metres from the town's origin — the same on every screen), "~" somewhere nobody else can see (indoors, a scene). */
+/** d.in = [room id, instance, x×100, z×100, facing×100, pose bits] — checked, or null. */
+function validIn(a) {
+    if (!Array.isArray(a) || a.length !== 6 || typeof a[0] !== "string" || !/^[A-Za-z0-9_]{1,24}$/.test(a[0])) return null;
+    if (typeof a[1] !== "string" || a[1].length > 40 || !/^[A-Za-z0-9_:.\-]*$/.test(a[1])) return null;
+    for (let i = 2; i < 6; i++) if (!Number.isFinite(a[i]) || Math.abs(a[i]) > 100000) return null;
+    return a;
+}
+/** Other players inside room `id` / `inst` in my zone (together/rooms.js draws them) — never a friend my party draws. */
+export function peersIn(id, inst, zone) {
+    const out = [];
+    for (const k in MP.peers) {
+        const p = MP.peers[k];
+        if (!p.in || p.in[0] !== id || p.in[1] !== String(inst) || MP.clock - p.lastPacket > 6) continue;
+        if ((p.w ? p.w.z : "") !== zone) continue;
+        if (p.pt && MP.me.pt && p.pt === MP.me.pt) continue;
+        out.push(p);
+    }
+    return out;
+}
 function applyWorld(p, w) {
     if (!Array.isArray(w) || w.length < 3 || typeof w[0] !== "string" || !ZONE_RE.test(w[0])) return;
     const a = fin(w[1], -1e7, 1e7), b = fin(w[2], -1e7, 1e7), h = fin(w[3], -10, 10);
@@ -412,6 +432,7 @@ function sendState() {
     if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     if (me.hc) d.hc = me.hc;                          // (stage 3: her hair colour + outfit — everyone sees her look; old clients ignore it)
     if (me.ot) d.ot = me.ot;
+    if (me.in) d.in = me.in;                          // (stage 3: inside a public room — [room, instance, x×100, z×100, facing×100, pose bits])
     if (MP.fr) d.fr = MP.fr;                          // (features/friends: my ➕ friend handshake entries, ≤ 3)
     const un = MP.myId && ctx.accounts && ctx.accounts.ticketFor ? ctx.accounts.ticketFor(roomPath(), MP.myId) : null;
     if (MP.roomKind === "place") d.sid = MP.sid;      // (🌍 step 3: the same me across rooms — net.js › pkey)
