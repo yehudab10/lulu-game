@@ -3,6 +3,7 @@
 // shop; every later front with the same name becomes the street's next NEW shop (data.js › SHOPS rows with a `list`), and
 // after those the cycle of non-shops (FOR LEASE · COMING SOON · offices · closed for good). Midwood's east end of Avenue M
 // is kept as one long front for the bowling alley.
+import { ctx } from "../../core/ctx.js";
 import { SHOPS, NAMED, SOON, BOWLING, FILL_SIGN, FILL_CYCLE } from "./data.js";
 
 const WEEK0 = Date.UTC(2026, 0, 4);
@@ -31,7 +32,7 @@ function pickState(f, memo) {
     const used = memo.used || (memo.used = new Set());
     const B = BOWLING;
     if (town === B.town && list === B.list && f.x >= B.x0 && f.x <= B.x1 && f.z >= B.z0 && f.z <= B.z1)
-        return { lines: B.sign, state: "soon", bowling: true, style: PLAIN.soon, small: true };
+        return { lines: ctx.lanes ? B.open : B.sign, state: "soon", bowling: true, style: PLAIN.soon, small: true };
     const name = f.lines && f.lines[0];
     if (name && !used.has(name)) {
         used.add(name);
