@@ -332,7 +332,10 @@ export class Traffic {
         // who was moving into whom (along the contact line, n points from them to her): a car that drove into a slower Lulu
         // (a rear-end, a cruiser ramming her) is THEIR fault — law + the crash lines read it
         const herIn = -(player.vx * nx + player.vz * nz), theirIn = cvx * nx + cvz * nz;
-        const fault = theirIn > herIn + 1 ? "them" : "lulu";
+        // (an oncoming car hit on ITS side of the road: she's the one in the wrong lane, however slow she was)
+        //  (…heading against it: driving down the far carriageway WITH its traffic is her side too)
+        const wrongSide = c.dir < 0 && Number.isFinite(player.d) && player.d * c.d > 0 && player.vx * cfx + player.vz * cfz < 0;
+        const fault = theirIn > herIn + 1 && !wrongSide ? "them" : "lulu";
         return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, fault, car: c, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
     }
 }
