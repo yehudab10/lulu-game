@@ -4,6 +4,10 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 08:05 UTC — 🚗 On the road, part 2. Being arrested on the highway near Midwood or at Trooper Post 7, the
+  ride to the station and the booking now name the station she's actually taken to (they always said Lakewood's
+  "Precinct 18½"). Shmuel's chop shop no longer calls while Lulu's own car is in the impound — "his guy brings your car
+  round" after the job used to get it out of the impound for free.
 - 2026-11-28 07:20 UTC — 📱 Phones, part 2: on a small phone the Scrapbook's longer badge names ("Neighbourhood Hero")
   stay inside their spot instead of running into the next one.
 - 2026-11-28 07:20 UTC — 🚗 On the road, part 1. A police car that rear-ends Lulu is now the police car's fault — on

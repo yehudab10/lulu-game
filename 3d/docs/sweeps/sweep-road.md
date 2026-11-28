@@ -52,6 +52,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 08:05 UTC — part 2 on main: findings 19–20. CI 46121235380 (core, platform, sweeproad, law, places, roadside,
+  qaplaces, interiors, partners, streets, nocalls ✓); main's Smoke test after part 1: 46120263706 ✓.
 - 2026-11-28 07:25 UTC — part 1 on main (e7241646, fast-forward): findings 1–18. CI 3D full suite run 46110858388 on the branch (core, platform,
   sweeproad, sweeproad2, law, town, impound, cars2, cars, rides, roadside, qalaw, dealers, dealersui, shops, cameras, qacar,
   lawstruck, cameos, exits, fuel, carcare ✓; partyworld ✗ — see below) + the wide run 46096797384 earlier. Reds judged not ours: `partyworld`
