@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 17:30 UTC — 🔍 Game logic, part 2e: playing with friends, the 📱's clock now shows the same time of day as the
+  sky (and the shop doors), not the device's.
 - 2026-11-28 17:30 UTC — 🚗 On the road, part 6. The "🚑 pull aside for the ambulance!" on the highway no longer
   turns up in the middle of a police chase, a road-rager or a side job. Driving the highway the other way (the far side):
   the other driver being pulled over by the police is now up ahead of her where she can see it (it used to happen behind
