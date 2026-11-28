@@ -110,6 +110,14 @@ module.exports = {
     await t.frames(150);
     const back = await g(`ctx.world.signs.filter(x => x.back).map(x => ({ s: Math.round(x.s), lines: x.lines.join(" / ") }))`);
     console.log("   BACK SIGNS", JSON.stringify(back));
+    // traffic + cops come from the way she's going (ci/twoway round 3)
+    await g(`(ctx.traffic.clear(), ctx.traffic.config.enabled = true, true)`);
+    await t.frames(240);
+    const tr = await g(`(() => { const s = ctx.car.s, cs = ctx.traffic.cars.filter(c => !c.ai); return { n: cs.length, ahead: cs.filter(c => c.s < s - 150).length, behindFar: cs.filter(c => c.s > s + 300).length, withHer: cs.filter(c => c.s < s - 150 && c.dir < 0).length }; })()`);
+    t.check(`going down the lap: traffic comes from ahead of her that way, the far side's going her way (${JSON.stringify(tr)})`, tr.ahead >= 2 && tr.withHer >= 1 && tr.behindFar === 0, JSON.stringify(tr));
+    await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    const pat = await g(`(() => { const D = ctx.law && ctx.law._dbg; if (!D || !D.spawnPatrol) return null; const u = D.spawnPatrol({ oncoming: false, fast: false }); const r = u && u.car ? { ds: Math.round(u.car.s - ctx.car.s), d: u.car.d, dir: u.car.dir } : null; if (u && D.L) { const i = D.L.units.indexOf(u); if (i >= 0) D.L.units.splice(i, 1); if (u.car) ctx.traffic.remove(u.car); } return r; })()`);
+    if (pat) t.check(`…a patrol going her way spawns ahead of her, on her side (${JSON.stringify(pat)})`, pat.ds < -200 && pat.d < 0 && pat.dir === -1, JSON.stringify(pat));
     // the trip bar reads her way too (ci/twoway round 2: it used to say "Lakewood exit in 2.9 mi" going the other way)
     const trip = await t.L(`(document.getElementById("tripLabel") || {}).textContent || ""`);
     t.check(`going down the lap, the trip bar names the next place HER way + "exit on the other side" (${trip})`, /exit on the other side/.test(trip) && !/Lakewood/.test(trip), trip);
