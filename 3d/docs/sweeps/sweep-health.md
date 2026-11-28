@@ -61,7 +61,8 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | check | verdict / status |
 |---|---|
 | feel — rain on foot: open-air hiss, no drum (drum 0.047) | test: the mix fades on the AUDIO clock (real time, 0.3 s); 30 fast-clock frames can be less. Polls now |
-| storefronts — lakewood: the town's signs stay sharp (atlas scale 0.578 < 0.58) | more signs went up on 11-28 (the yeshiva campus, the fronts' fixes); 2 % smaller texels, nothing visible. Floor 0.57 (a guard against a big drop, not a budget) |
+| storefronts — lakewood: the town's signs stay sharp (atlas scale 0.578 < 0.58) | cause: the yeshiva's three signs (1024×104, 256×104, 192×112) took ~4 % more atlas area, and the atlas packed "next shelf" (a short sign never went back to the end of an earlier, taller shelf). The atlas packs FIRST-FIT now (`town/kit.js` Atlas.pack): Lakewood 0.589, Midwood 0.528 → 0.549 (sharper too); the floor stays 0.58 (the coordinator: fix the cause, not the bar) |
+| fast-clock screenshots of rooms come out flat sky-blue (`ci/sweep-places`' note) | harness/app: a test frame between `realFrame()` and the screenshot restored the small canvas (a resize clears it) and didn't draw. No restore while a shot is being taken now (`app.js` TC.shooting, cleared in afterShot) |
 | life3 — a hotwire: no inwall + no inside glitch (Lulu AND the camera inside block@38,38 at [-125.4, -3186.1], ×215 / ×258) | Lakewood's block 2,3 area (Minivan Way) — the same block@38,38 as qaweekend's camera. `ci/yeshiva`'s campus (its car park) stands in block 2,3's south face since today: a parked car in it → she's put inside the block's occluder rect. **Left for `ci/yeshiva` / `ci/doors`** (both moved < 2 h) |
 | sweeplogic — no page errors (`[cameos] model load TypeError: Failed to fetch`) | `ci/sweep-logic`'s own test: it navigates while a lazy model download is in flight (the pattern `ci/fasttests` fixed in 06647cf: let the downloads finish first) — theirs |
 | sweepplaces3 — THE ONE SOCK LAUNDROMAT: at its door the ✋ is the door (got 💬 SAY HI) | `ci/sweep-places`' own test — theirs |
@@ -71,7 +72,8 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | accounts — A sees B's USERNAME over B's car (got "Pink 45"); multiplayer — the 2D ghost / emote checks | `ci/oneserver-place`'s rooms-by-place landed on main 02:49 and is still moving — left for them |
 | qafriends — guest: riding across the town line (car 6.2 m in a frame), 2 runs of 3 | left for `ci/friends` (`openworld/ride.js`, moving) |
 | airport — the cruiser doesn't drive through her car (ram: centres 1.3 m < 1.5), no teleport (ram 0.6 m > 0.5 a frame) | REAL (intermittent): a hard ram WRECKS the cruiser (c.hit), and the kerb's hold skipped wrecks — the tumbling wreck slid on into her car while the kerb held her in place. The kerb now holds a wreck off her too and drops its slide into her (`airport/chase.js` kerbHold) — CI 46106485955 |
-| (the dealersui / schlepnav / exits / friends / qacar / partners3 / hidden / qa10 / qa28 / homelife2 / movement / cityhall4 machine) | cancelled by my own next dispatch — to re-run |
+| (the dealersui / schlepnav / exits / friends / qacar / partners3 / hidden / qa10 / qa28 / homelife2 / movement / cityhall4 machine) | cancelled by my own next dispatch — re-run in 46106485955 |
+| schlepnav — …still self-driving in town (it plans the streets from the approach): it hands back "arrived" on entering Lakewood | REAL-looking (the ⚡ self-drive gives up at the town line); `features/dealers` is in `ci/sweep-road`'s lane (moving) — left for them |
 | qa4, qa26, qa27, exits, calm, qol, qaweekend's HUD, perf | green |
 
 ## Findings + status
