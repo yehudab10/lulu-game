@@ -131,6 +131,7 @@ window.addEventListener("keyup", e => {
 window.addEventListener("blur", () => keys.clear());
 
 // ── touch controls ─────────────────────────────────────────────────────
+const TOUCH_DEAD = 0.08;      // the touch stick's dead zone (of its 60 px reach)
 export function bindTouch() {
     const zone = document.getElementById("stickZone");
     const knob = document.getElementById("stickKnob");
@@ -150,8 +151,11 @@ export function bindTouch() {
         if (e.pointerId !== stickId) return;
         const dx = Math.max(-60, Math.min(60, e.clientX - cx));
         const dy = Math.max(-60, Math.min(60, e.clientY - cy));
-        touch.steer = dx / 60;
-        touch.moveY = dy / 60;
+        // (a small dead zone — a thumb resting on the stick's middle drifted her / the car a little; the pads have one too.
+        //  Past it the value is rescaled, so a full push is still 1; ci/sweep-phone)
+        const m = Math.hypot(dx, dy) / 60, k = m <= TOUCH_DEAD ? 0 : (m - TOUCH_DEAD) / (1 - TOUCH_DEAD) / m;
+        touch.steer = dx / 60 * k;
+        touch.moveY = dy / 60 * k;
         knob.style.transform = `translate(${dx}px, ${input.stick2d ? dy : 0}px)`;
     };
     zone.addEventListener("pointermove", moveStick);

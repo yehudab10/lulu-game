@@ -33,6 +33,19 @@ module.exports = {
     const home8 = await S.texts();
     t.check("at home: ONE hint at a time (the walk-to-the-car line, no moves coach under it)", !home8.some(x => /JUMP ·|tap JUMP/.test(x.tx) && /prompt/.test(x.cls)), home8.filter(x => /prompt|padHint/.test(x.cls + x.id)).map(x => x.tx).join(" | "));
     t.check("at home: the 🔥 streak card waits for the drive (not on top of Ima's line)", !home8.some(x => /streak/.test(x.tx)));
+    // the WALK stick: a thumb resting 3 px off its middle doesn't move her; a full push is a full push
+    const stick = async dx => {
+      await t.L(`(() => { const z = document.getElementById("stickZone"), b = document.getElementById("stickBase").getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        z.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", pointerId: 21, clientX: cx + ${dx}, clientY: cy }));
+        z.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerType: "touch", pointerId: 21, clientX: cx + ${dx}, clientY: cy })); return 0; })()`);
+      await t.frames(2);
+      const v = await g(`L3.input.moveX`);
+      await t.L(`(document.getElementById("stickZone").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "touch", pointerId: 21 })), 0)`);
+      await t.frames(2);
+      return v;
+    };
+    const rest = await stick(3), full = await stick(70);
+    t.check(`the touch stick has a small dead zone (3 px → ${rest}) and still reaches 1 (→ ${full})`, rest === 0 && full > 0.99);
     // where's her car? (on screen, so "drag the WALK pad to your car" means something)
     const carView = () => g(`(() => { const c = ctx.foot.parkedCar, cam = ctx.camera; if (!c) return null; const v = new cam.position.constructor(c.x, 1, c.z).project(cam);
       const F = ctx.foot.debug.F; return { sx: Math.round((v.x + 1) * innerWidth / 2), sy: Math.round((1 - v.y) * innerHeight / 2), front: v.z < 1, d: +Math.hypot(c.x - F.pos.x, c.z - F.pos.z).toFixed(1) }; })()`);
