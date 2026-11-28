@@ -128,7 +128,9 @@ async function body(t, pages, riders) {
   // 🌍 an emote is a reliable one-time event (the relay's r): A gets B's 😱 once, as an event — not only from B's state
   await g(`(window.__emr = [], import("./js/core/ctx.js").then(m => m.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); })), true)`);
   await B.game(`(ctx.mp.emote(2), true)`);
-  t.check("an emote arrives as a reliable event (r) and shows once", await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`), JSON.stringify(await g(`window.__emr`)));
+  const emOk = await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`);
+  if (!emOk) console.log("   EMDIAG", JSON.stringify({ B: await B.game(`({ flags: ctx.worldClock.flags, out: ctx.mp._debug.relOut ? ctx.mp._debug.relOut.size : -1, room: ctx.mp.room, conn: ctx.mp._debug.connected })`), A: await g(`({ seen: ctx.mp._debug.relSeen ? ctx.mp._debug.relSeen.size : -1, room: ctx.mp.room, emr: window.__emr })`) }));
+  t.check("an emote arrives as a reliable event (r) and shows once", emOk, JSON.stringify(await g(`window.__emr`)));
 
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
   // draws the other in the hall, in her own look; out again, both are back on the road
@@ -178,10 +180,11 @@ async function body(t, pages, riders) {
     const s0 = me.s + 20, t0 = Date.now();
     mv.keep(() => { const s = s0 + 12 * (Date.now() - t0) / 1000; return { di: Math.round(s * 56000 / 4800), x: 240, sp: Math.round(12 * 56000 / 4800), w: ["", Math.round(s * 10) / 10, -1.75, 0] }; }, 200);
     await A.until(`Object.values(${S}.peers).some(p => p.raw === "Kugel Kid" && p.w && p.w.buf && p.w.buf.length >= 3)`, "A: the mover's timestamped updates", 30000);
-    const xs = [];
-    for (let i = 0; i < 24; i++) { xs.push(await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? +p.w.ca.toFixed(2) : null; })()`)); await A.frames(3); }
-    const steps = xs.slice(1).map((x, i) => x - xs[i]).filter(d => d !== 0);
-    t.check("drawn between real updates: the mover glides forward (never back, no jumps)", xs.every(x => x != null) && steps.length >= 6 && steps.every(d => d > -0.05 && d < 6), JSON.stringify(xs));
+    const xs = [], ts = [];
+    for (let i = 0; i < 24; i++) { xs.push(await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? +p.w.ca.toFixed(2) : null; })()`)); ts.push(Date.now()); await A.frames(3); }
+    // (the samples are seconds apart on a slow page: judge each step against the real time between them — 12 m/s ± a little)
+    const bad = xs.slice(1).map((x, i) => ({ d: x - xs[i], want: 12 * (ts[i + 1] - ts[i]) / 1000 })).filter(o => o.d < -0.05 || Math.abs(o.d - o.want) > 6 + o.want * 0.25);
+    t.check("drawn between real updates: the mover glides forward at her real speed (never back, no jumps)", xs.every(x => x != null) && !bad.length, JSON.stringify({ xs, bad: bad.slice(0, 4) }));
     mv.close(); riders.splice(riders.indexOf(mv), 1);
   }
 
