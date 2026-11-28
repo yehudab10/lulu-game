@@ -126,7 +126,7 @@ async function body(t, pages, riders) {
   t.check("world sky: the same weather (from the world clock)", skyA.w === skyB.w && skyA.w === skyA.want, JSON.stringify({ skyA, skyB }));
 
   // 🌍 an emote is a reliable one-time event (the relay's r): A gets B's 😱 once, as an event — not only from B's state
-  await g(`(window.__emr = [], import("./js/core/ctx.js").then(m => m.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); })), true)`);
+  await g(`(window.__emr = [], L3.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); }), true)`);
   await B.game(`(ctx.mp.emote(2), true)`);
   const emOk = await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`);
   if (!emOk) console.log("   EMDIAG", JSON.stringify({ B: await B.game(`({ flags: ctx.worldClock.flags, out: ctx.mp._debug.relOut ? ctx.mp._debug.relOut.size : -1, room: ctx.mp.room, conn: ctx.mp._debug.connected })`), A: await g(`({ seen: ctx.mp._debug.relSeen ? ctx.mp._debug.relSeen.size : -1, room: ctx.mp.room, emr: window.__emr })`) }));
