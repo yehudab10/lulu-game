@@ -40,9 +40,19 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | unstuck — ramp + rest area: no inwall glitch (camera inside a big tree trunk r1.4, ×2) | same family as above (Lakewood z ≈ -3189); 2 frames after a rescue — open |
 | partners2 — bail paid at the desk ("She's not in a cell here.": the guest was already called to court) | timing: the cell's court clock is real time since a6bd69f (`ci/friends`); `ci/fasttests` gives partners2 the old clock — left |
 | exits — interchange triangles (242k vs 85k) | stale test: the baseline 2.6 km back is now a different scenery region (open fields, no trees: 0 leaves) vs the T's forest (106k leaf triangles). The baseline now stands in the interchange's own region — 6526f26; CI 46089119253: 242k vs 194k on the same region's highway, green |
-| qaweekend-party — both screens have the same puddles + pigeons (host 0 sites) | open (party; `ci/friends` area) |
-| partyplus — the claimed minivan pulls over the same way on both screens (guest null) | open (party; `ci/friends` area) |
-| qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame | open (party) |
+| qaweekend-party — both screens have the same puddles + pigeons (host 0 sites) | flake: green on the re-run (46097614177) |
+| partyplus — the claimed minivan pulls over the same way on both screens (guest null) | flake: green on the re-run (46097614177) |
+| qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame; re-run: riding across the town line, 6.2 m | a passenger's car follows the driver's packets as they arrive (two pages on the relay, real time): a burst = a jump on the guest's screen. `openworld/ride.js` (`tickSeats`) is `ci/friends`' (moved < 2 h) — left for them |
+
+### The two machines the whole-suite run lost (re-run on this branch: 46096783229, main cd9c4de + test-only changes)
+
+| check | verdict / status |
+|---|---|
+| calm (all four minutes within budget: solo highway 11 / min) | green — the pothole fix holds |
+| adhold, cityhall3, homelife2, life2, onegame, places, qa20, qa9, realestatego, town | green (onegame's "next to Dina" was fixed by `ci/doors`' NEXT_TO rule) |
+| crime, friendsworld, impound, movetouch, partyfoot, qa13, qatouch, shabbos | green |
+| qa27 — 6.8 km court: no jump glitch (the camera 5.8 m in one frame, state playing) | test: between two places the test ends her walk by script (`foot.end("test")` → straight back at the wheel) BEFORE it declared the cut — the chase cam taking over from the foot cam. Declared first now; green on CI 46097614177 |
+| perf (main run 46089441840, someone's 3-file dispatch) — the friend's car is in my world | test: checked after a frame count while the friend arrives over the relay on real time; waits for it now — green on CI 46098629151 (qafriends green there too: a flake) |
 
 ## Findings + status
 

@@ -142,7 +142,7 @@ export { carBox, pushC };
  * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
  * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
  */
-const CAM_PAD = 0.25, CAM_MIN = 0.05, _cl = {}, _cl2 = {};
+const CAM_PAD = 0.25, CAM_FRONT = 2.4, CAM_MIN = 0.05, _cl = {}, _cl2 = {};
 /** An open lot inside a town block (features/shops' car lot): walkable, the camera may stand over it. */
 const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z))
     || !!(ctx.home && ctx.home.isFamily && ctx.home.isFamily(x, z));      // (and her own lot on E 34th St: the camera stops at its hedge, not in the neighbours' houses)     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
@@ -199,7 +199,10 @@ export function camClip(F, tgt, dx, dy, dz, D) {
         const L = pl.local(tgt.x, tgt.z, _cl), ax = L.x, az = L.z, wx = dx, wz = dz;
         dx = wx * pl.COS - wz * pl.SIN; dz = wx * pl.SIN + wz * pl.COS;
         for (const r of pl.OCCLUDERS) {
-            let p = CAM_PAD;
+            // (a block's outline sits ~2 m BEHIND its houses' front walls — FRONT + 1.2 — and a landmark like Lakewood's
+            //  yeshiva protrudes past the front line: padded by only CAM_PAD, the camera behind her as she came out of a
+            //  front door sat inside the house — one flat colour, her out of the picture. The lens stops at the walls.)
+            let p = CAM_PAD + CAM_FRONT;
             if (ax > r.x0 - p && ax < r.x1 + p && az > r.z0 - p && az < r.z1 + p) p = 0.05;     // (right up against it)
             const x0 = r.x0 - p, x1 = r.x1 + p, z0 = r.z0 - p, z1 = r.z1 + p;
             if (ax > x0 && ax < x1 && az > z0 && az < z1) {

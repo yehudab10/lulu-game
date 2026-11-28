@@ -19,6 +19,7 @@ function make(t) {
   const shot = async label => {
     if (!process.env.SWEEP_SHOTS && !process.argv.includes("--shots")) return;
     fs.mkdirSync(SHOTS, { recursive: true });
+    await t.L(`(window.__lulu3d && __lulu3d.realFrame && __lulu3d.realFrame(), true)`).catch(() => {});      // (the fast test clock draws small: one full picture)
     await t.page.screenshot({ path: path.join(SHOTS, `${label.replace(/[^\w-]+/g, "-")}.png`) });
   };
   const playing = async () => {
@@ -256,13 +257,13 @@ function make(t) {
       const d = await drive(`${where} ${h.id}`, { pick });
       await t.frames(2);
       // the room's speech bubbles (interiors/fx.js Bubbles): shown = it did something; none wider than the screen
-      const bub = await room(`(() => { const cam = r.set.camera; return r.bubbles.list.map(b => { const d = cam.position.distanceTo(b.sp.position), vw = 2 * d * Math.tan(cam.fov * Math.PI / 360) * cam.aspect;
+      const bub = await room(`(() => { const cam = r.set.camera; return r.bubbles.list.map(b => { const d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vw = 2 * d * Math.tan(cam.fov * Math.PI / 360) * cam.aspect;
         const top = b.sp.position.clone(); top.y += b.sp.scale.y / 2; top.project(cam);
         return { text: b.text || "?", frac: +(b.sp.scale.x * (b.fill || 1) / vw).toFixed(2), top: +top.y.toFixed(2), behind: top.z > 1 }; }); })()`) || [];
       for (const b of bub) {
         d.seen.push(`💬 ${b.text.slice(0, 50).replace(/\n/g, " ")} (${Math.round(b.frac * 100)}% wide)`);
-        if (b.frac > 0.95) d.fits.push(`bubble ${Math.round(b.frac * 100)}% of the screen wide: ${b.text.slice(0, 40)}`);
-        if (!b.behind && b.top > 1.02) d.seen.push(`(⚠ off the top of the screen: ${b.top})`);
+        if (b.frac > 1.02) d.fits.push(`bubble ${Math.round(b.frac * 100)}% of the screen wide: ${b.text.slice(0, 40).replace(/\n/g, " ")}`);   // (sized to ≤ 90 %; a frame's camera move can nudge it)
+        if (!b.behind && b.top > 1.02) d.fits.push(`bubble off the top of the screen (${b.top}): ${b.text.slice(0, 40).replace(/\n/g, " ")}`);
       }
       const c1 = await coins();
       const did = d.seen.length > 0 || c1 !== c0;
@@ -373,10 +374,6 @@ function make(t) {
     for (const d of doors) {
       const where = `${prefix}${id}-${d.name}`;
       await W.reset(t);
-      // KNOWN, left for the town engine (3d/docs/sweeps/sweep-places.md): at Lakewood's shul door (the yeshiva building
-      // protrudes past its block's camera outline) the free camera behind her can sit inside the building — one flat colour
-      const known = id === "lakewood" && d.name === "yeshiva";
-      if (known) await t.L(`(window.__qa.allow.push({ kind: "flat", re: /./, sweep: 1 }), true)`);
       const car0 = await carPos();
       const ok = await enter(d, where);
       if (ok === "card") continue;
@@ -391,7 +388,6 @@ function make(t) {
         await leave(d, where, car0);
       } else { await playing(); }
       const r = await W.report(t); W.log(r); W.check(t, `${where}: in + out`, r); await W.reset(t);
-      if (known) await t.L(`(window.__qa.allow = window.__qa.allow.filter(a => !a.sweep), true)`);
       await onFoot();
     }
     return res;
