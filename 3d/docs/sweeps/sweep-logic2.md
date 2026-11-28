@@ -54,6 +54,13 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## For other branches
 
+- for `ci/friends` (`openworld/ride.js`): riding in a friend's passenger seat, her own (hidden) car is moved along with the
+  friend's at its speed (`vF`, `vx/vz`). This sweep stopped the speed cameras and the Shomrim from charging HER for it;
+  worth checking the rest of what reads `ctx.car` while she rides — a traffic crash / the Hillel insurance scene / a pothole
+  costing the passenger a heart or a deductible (not verified: needs two players).
+- for `ci/sweep-road` (roadevents): see "Owner may want to decide" — the 🚑 ambulance-behind-you event isn't gated by
+  `ctx.engaged()`.
+
 - for `ci/sweep-camera` (`foot/index.js` is yours now): `footUpdate` returns when `F` went null after `trafficStep` but not
   after `updateActors(dt, true)` — an actor (community's timers, …) that ends the walk / changes the state mid-update
   makes `updateStub` read `F.car` of null ("Lulu3D frame error … reading 'car'"). Community's arrests now run after the
