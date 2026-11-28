@@ -233,7 +233,9 @@ async function body(t, pages, riders) {
     // strangers' screens at the same world time (each still has her own extra drivers), and one stopped by A stops for B
     await B.game(`ctx.town.load("lakewood")`);
     if (await B.until(`ctx.town.loaded("lakewood")`, "B: Lakewood loaded", 120000)) {
-      await B.game(`(ctx.town.enter({ town: "lakewood", exitS: ctx.car.s, speed: 0 }), true)`);
+      // (the same interchange as A's — in the game a town always stands at its own fixed exit; the test dropped A in at hers)
+      const exA = await g(`ctx.town.highwayS`);
+      await B.game(`(ctx.town.enter({ town: "lakewood", exitS: ${JSON.stringify(exA)}, speed: 0 }), true)`);
       await B.until(`ctx.town.active && ctx.town.id === "lakewood" && !ctx.town.transitioning`, "B: in Lakewood", 60000);
       const loopsOn = q => q.until(`ctx.openworld.worldTowns() && ctx.openworld.debug.townLive().length >= 6`, "the world's town loops", 60000);
       if (await loopsOn(A) && await loopsOn(B)) {
