@@ -2,7 +2,7 @@
 //   1. one clock: in a Cruise day the sky runs its own 9-minute day (the 📱's clock + the households follow it) — a
 //      shopfront's hours, the car-care row and the school-zone cameras follow THAT hour, not the device's (a shop said
 //      "CLOSED · opens 7 am" under the noon sun; a school camera flashed under the stars)
-const Q = "&enable=town,world,foot,atmos";
+const Q = "&enable=town,world,foot,atmos,cameras";
 
 module.exports = {
   name: "sweeplogic2",
@@ -86,6 +86,25 @@ module.exports = {
       t.check("one activity: a 🚑 patient run (to the patient, loading, the ER clock) counts — nothing new starts on top", r.free === "" && r.pickup === "ride" && r.load === "ride" && r.rush === "ride", JSON.stringify(r));
       t.check("one activity: Uncle Refael's 60 s test drive counts", r.test === "testdrive", JSON.stringify(r));
       t.check("one activity: the 🔦 Shomrim on her tail (about to call the cops) count", r.shomrim === "shomrim" && r.after === "", JSON.stringify(r));
+    });
+
+    // ════ 4. ends put her somewhere sensible ════
+    await step("ends", async () => {
+      // a hitchhiker in the seat when she's arrested → not still there (with the 2× to come) when she drives out of jail
+      const h = await t.L(`Promise.all([import("./js/features/roadevents/passengers.js"), import("./js/core/ctx.js")]).then(([P, C]) => {
+        const T = __lulu3d.ctx.THREE, fake = () => ({ obj: new T.Group(), update() {}, kid: false });
+        P.seatRider(fake(), { who: "hitchhiker" }); P.seatRider(fake(), { who: "kept", keep: true, bonus: false });
+        const before = P.seat.riders.length, t0 = P.seat.t;
+        C.emit("state", { from: "playing", to: "lawJail", data: {} });
+        const after = P.seat.riders.map(r => r.who), t1 = P.seat.t;
+        P.clearRiders();
+        return { before, t0, after, t1 };
+      })`);
+      // riding in a friend's passenger seat: her car rides along at the friend's speed — no speed-camera ticket for it
+      const cam = await t.L(`import("./js/features/openworld/ride.js").then(m => { const C = __lulu3d.ctx, D = C.cameras.debug; if (C.state !== "playing") return { skip: C.state };
+        const own = D.noTicket(); m.RIDE.uid = "friend-test"; const ride = D.noTicket(); m.RIDE.uid = null; return { own, ride }; })`);
+      t.check("ends: a passenger in a friend's car isn't flashed for the friend's speeding (her own driving still is)", cam.own === "" && cam.ride === "riding", JSON.stringify(cam));
+      t.check("ends: arrested with a hitchhiker in the car → they're gone (and the 2× with them); a job's own rider stays", h.before === 2 && h.t0 > 0 && h.after.join() === "kept" && h.t1 === 0, JSON.stringify(h));
     });
   },
 };

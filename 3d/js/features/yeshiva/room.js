@@ -16,6 +16,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ctx, emit } from "../../core/ctx.js";
+import { worldNow } from "../storefronts/hours.js";
 import { store, saveSoon } from "../../core/save.js";
 import { textPlane } from "../../core/sets.js";
 import { defineInterior, pick, pool } from "../interiors/engine.js";
@@ -28,7 +29,7 @@ export const force = {};                              // tests: { kind, hour }
 /** What's on right now — the clock + the calendar (ctx.seasons), like the shul's. */
 export function plan() {
     const d = ctx.seasons && ctx.seasons.day ? ctx.seasons.day() : null;
-    const now = new Date(), h = force.hour != null ? force.hour : now.getHours() + now.getMinutes() / 60;
+    const now = worldNow(), h = force.hour != null ? force.hour : now.getHours() + now.getMinutes() / 60;      // (the hour the sky / the 📱 show — ci/sweep-logic2)
     let kind = "weekday";
     if (d) {
         const fast = d.ids.some(id => ["tzomGedaliah", "asaraBTeves", "taanisEsther", "tamuz17", "tishaBav", "yomKippur"].includes(id));

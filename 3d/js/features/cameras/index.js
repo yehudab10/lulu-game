@@ -169,6 +169,9 @@ function noTicket() {
     const m = ctx.G && ctx.G.mode;
     if (m && !/^(cruise|story)$/.test(m)) return "mode:" + m;
     if (ctx.car && (ctx.car.selfDrive || ctx.car.autopilot)) return "self";      // (a self-driving car keeps the limit)
+    // riding in a friend's passenger seat: her own car rides along at the friend's speed, but she isn't driving —
+    // openworld/ride.js promises "she's never ticketed or chased for the driver's driving" (ci/sweep-logic2)
+    if (ctx.openworld && ctx.openworld.riding) return "riding";
     return "";
 }
 
@@ -448,5 +451,5 @@ ctx.cameras = {
     tickets: () => S.tickets.map(t => Object.assign({ owed: owedOf(t) }, t)),
     unread: () => unread().length, mailbox, read, schoolHours,
     get warrant() { return S.warrant; },
-    debug: { S, CM, buildCams, check, fire, ladder, rule, owedOf, inZone, addCase },
+    debug: { S, CM, buildCams, check, fire, ladder, rule, owedOf, inZone, addCase, noTicket },
 };

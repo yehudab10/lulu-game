@@ -12,6 +12,9 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 | 2 | ☰ Options (a controller) in the middle of a question ANSWERED it — it's "start" too, and "start" advances a line / picks the highlighted answer ("Yes, buy it"). | `core/dialog.js` `dialogUpdate` | **fixed** — ☰ / Esc pause the game (the question waits) |
 | 3 | Paused with a question open (the tab went to the background — every phone app switch pauses) → ✕ / Enter on "▶ Resume" went to the QUESTION behind the pause card (picked its answer), and the pause card got nothing; a line with an auto-advance kept running behind the card. | `app.js` `step` | **fixed** — while paused, the pause card has the controls; the question waits |
 | 5 | One activity at a time had holes: a 🚑 ambulance patient run (the ER clock), Uncle Refael's 60 s test drive and the 🔦 Shomrim on her tail (filming, about to call the cops) weren't on `ctx.engaged()`'s list — a robbery to foil, a snatcher, a cameo, the Fixer's / a job's offer could start on top (the owner's friend's "five chips at once"). And the ambulance's dispatcher sent her to a patient in the middle of a robbery / a side job (it only checked a police chase). | `rides/ambulance.js`, `shops/dealer.js`, `community/shomrim.js` | **fixed** — each adds its activity (`ride`, `testdrive`, `shomrim`); dispatch waits while she's in something else |
+| 6 | Arrested (or taken to the ER) with a hitchhiker / a parade marcher / Dina in the passenger seat: they sat through the booking, the cell and court, and she drove out of jail with them still there — the 2× coins still to come. (Getting out on foot already let them go; Avigail's ride ends on foot too.) | `roadevents/passengers.js` | **fixed** — they're let go (quietly) at the arrest / the ER; a job's own rider (`keep`) stays |
+| 7 | (with #1) Inside the shul / the yeshiva, what's on (davening, kiddush, the shiur) followed the device's hour while the 📱 showed the sky's. | `shul/room.js`, `yeshiva/room.js` `plan()` | **fixed** — the same `worldNow()` hour |
+| 8 | Riding in a friend's passenger seat past a speed camera: her own (hidden) car rides along at the friend's speed, and the camera flashed HER — a ticket in the mail for the friend's driving (the ride promises "she's never ticketed or chased for the driver's driving"). | `cameras/index.js` `noTicket` | **fixed** — no ticket while riding |
 | 4 | Two features' lines at once: a second `say` / `choose` opening over one still waiting replaced it without answering it — the first feature's `await` hung forever (its "busy" flag stuck for the run). | `core/dialog.js` | **fixed (defensive)** — the covered line / question answers -1 ("closed", like `closeDialog`); `script()` stops at a -1 (a closed / covered line), so an old conversation doesn't keep talking over the new one |
 
 ## Checked and fine
@@ -30,6 +33,15 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 - Clothes' limited pieces: paid → `pending` in the save → the next launch confirms or refunds.
 
 ## Owner may want to decide
+
+- **The town's EVENTS still run on the real clock**: City Hall's protests (`PROTEST_HOURS`, e.g. lunchtime), the
+  "wrong address" picket (lunchtime) and public comment night (evenings), the "back in 5 minutes" window (changes each
+  real hour) and the 24 HR Gas & Gossip (a new tip each real hour, quoting those hours). Everything the player can SEE the
+  hour of — the sky, the 📱 clock, households, Fayge's day + the Avenue M Ballroom's wedding, shop doors, car care, school
+  cameras, the shul / yeshiva — now follows the sky's ~9-minute day. Moving the protests to the sky's clock would make each
+  one last ~45 real seconds per cycle (2 sky-hours), so they were left on the real clock; Bracha's gossip ("a protest in
+  Midwood today, 12 pm–2 pm") can then disagree with the 📱. Options: show the device time on the 📱 (and drop the sky's
+  day), or lengthen the sky's day, or make the events' hours sky-hours with longer spans.
 
 ## For other branches
 
