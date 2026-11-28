@@ -25,7 +25,7 @@ css("pins-map", `
 body.tv .lphone .pin-filter .btn.lp-mini { font-size: 18px; min-height: 52px; } body.tv .pin-grp { font-size: 17px; }
 `);
 
-const F = { cat: "", sel: null, pts: [] };
+const F = { cat: "", sel: null, pts: [], here: null };
 const CATS = [["", "All"], ["shops", "🛍️ Shops"], ["town", "🏛️ Town"], ["help", "🚑 Help"], ["mine", "🏠 Mine"]];
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const inTown = () => (ctx.town && ctx.town.active ? ctx.town.id : "");
@@ -52,7 +52,7 @@ export function html() {
             if (here && p.town === here) { const t = PN.target(p.id); if (t && t.kind === "at") meta = fmtDist(Math.hypot(t.x - me.x, t.z - me.z)); }
             // (QA 2026-11-27: ONE tap pings — the row used to open a drawer holding only "📍 Ping"; the pinned row says ✕)
             const on = cur && cur.id === p.id, sel = F.sel === p.id;
-            out += `<button class="btn lp-row pin-row${on ? " on" : ""}${sel ? " sel" : ""}" data-pin="${esc(p.id)}"><span class="lp-av">${p.icon}</span><span class="lp-tx"><b>${esc(p.name)}${PN.isFresh(p.id) ? ' <i class="pin-new" title="new">●</i>' : ""}</b><small>${esc(p.sub || "")}${on ? " · 📍 pinned — tap to clear" : ""}</small></span><span class="lp-meta">${on ? "✕" : meta || "📍"}</span></button>`;
+            out += `<button class="btn lp-row pin-row${on ? " on" : ""}${sel ? " sel" : ""}" data-pin="${esc(p.id)}"><span class="lp-av">${p.icon}</span><span class="lp-tx"><b>${esc(p.name)}${PN.isFresh(p.id) ? ' <i class="pin-new" title="new">●</i>' : ""}</b><small>${esc(p.sub || "")}${on ? " · 📍 pinned — tap to clear" : F.here === p.id ? " · 📍 you're here!" : ""}</small></span><span class="lp-meta">${on ? "✕" : meta || "📍"}</span></button>`;
         }
     }
     out += `<p class="lp-fine">📍 Ping a place: a light over it, a little arrow at the edge of the screen and how far. New places show up here once you've walked past them.</p>`;
@@ -66,6 +66,10 @@ export function bind(el, api) {
     q("[data-pin]", b => {
         const cur = PN.ctxCurrent(); F.sel = null;
         if (cur === b.dataset.pin) { PN.clear(); api.refresh(); return; }
+        // (she's standing at it: a ping would be "arrived" the same moment and the phone just closed on nothing — the row
+        //  says so instead and the phone stays open; sweep-health, qa26)
+        if (PN.arrivedAt(b.dataset.pin)) { F.here = b.dataset.pin; api.refresh(); return; }
+        F.here = null;
         PN.ping(b.dataset.pin, { from: "map" }); api.close();
     });
     q("#pinClear", () => { PN.clear(); F.sel = null; api.refresh(); });
