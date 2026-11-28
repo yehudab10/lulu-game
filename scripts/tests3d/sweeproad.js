@@ -531,6 +531,17 @@ async function amb(t) {
   const after = await t.until(`__lulu3d.ctx.traffic.cars.some(c => c.kind === "roadevents_ambulance")`, "amb: …and the ambulance comes once the chase is over", 20000);
   await t.L(`(window.__RATES.ambulance = ${JSON.stringify(was)}, true)`);
   if (after) await g(`(ctx.traffic.cars.filter(c => c.kind === "roadevents_ambulance").forEach(c => ctx.traffic.remove(c)), true)`);
+  // a walker crossing into her STOPPED car waits beside it (it was knocked flying into the car — a "reckless" chase if a cop saw)
+  await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, ctx.roadevents.autopilot = { d: ctx.car.d, speed: 0 }, true)`);
+  await t.frames(20);
+  const pd = await t.L(`import("./js/core/ctx.js").then(async m => { const C = m.ctx; window.__bonks = 0; if (!window.__bk) { window.__bk = true; m.on("roadevents:bonk", () => window.__bonks++); }
+      const p = await C.roadevents.spawn("pedestrian", { s: C.car.s + 0.3, d: C.car.d + 2.6, cross: true, side: 1, kind: "walker" }); window.__ped = p; return !!p; })`);
+  if (pd) {
+    await t.frames(120);
+    const pw = await g(`({ bonks: window.__bonks, gone: !!window.__ped.gone, d: +window.__ped.d.toFixed(1), me: +ctx.car.d.toFixed(1), v: +ctx.car.speed.toFixed(1) })`);
+    t.check("amb: a walker who walks into her stopped car isn't knocked flying (waits beside it)", pw.bonks === 0 && !pw.gone, JSON.stringify(pw));
+  } else t.check("amb: a walker spawns", false);
+  await g(`(ctx.roadevents.autopilot = null, true)`);
   await g(`(L3.setState("title"), ctx.enabled = window.__en0, true)`);
   await t.frames(6);
   await W.pause(t, true);
