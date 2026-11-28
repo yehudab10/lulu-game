@@ -267,6 +267,16 @@ function aimRamp(la, out) {
     if (ua >= b.stop - 4) { out.x = A.tx; out.z = A.tz; return out; }
     return ctx.world.highway.point(A.e.s + ua, exitLineD(b, ua), out);
 }
+/** The on-ramp's line at u (the ramp, then the middle of the acceleration lane). */
+const onLineD = u => (u < ON1 ? onD(u) : (LANE_EDGE + accelEdge(u)) / 2);
+const _co = { e: null, uC: 0, dC: 0 };
+function aimOn(la, out) {
+    const A = _co, hw = ctx.world.highway;
+    // still up the inner cross road (the town side of the ramp's corner): down it toward the corner first
+    if (A.dC > ON_D0 + ARC_R + 2 && Math.abs(A.uC - X_IN) < 16) return hw.point(A.e.s + X_IN, Math.max(ON_D0 + ARC_R, A.dC - la), out);
+    const ua = Math.max(ON0, A.uC) + la;
+    return hw.point(A.e.s + ua, ua < ACC1 ? onLineD(ua) : 5.25, out);
+}
 hook("copRoute", (c, unit, ch) => {
     if (!unit || unit.mode !== "chase" || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
     const car = ctx.car, hw = ctx.world.highway;
@@ -276,9 +286,16 @@ hook("copRoute", (c, unit, ch) => {
     const e = exitAt(ts);
     if (!e) return null;
     const ph = rampPhase(e, ts, td, _cr), u = ts - e.s;
+    const uC = c.s - e.s;
+    // back OUT of town: she's on the on-ramp / the accel lane — a cruiser behind her comes down the cross road to the ramp's
+    // corner, then along the on-ramp (not across the grass between them)
+    if (!ph.phase && u > ON0 - 6 && u < ACC1 && td > 6.6 && Math.abs(td - onLineD(u)) < 4.5) {
+        if (uC > u + 5 || uC < X_IN - 40) return null;
+        Object.assign(_co, { e, uC, dC: c.d });
+        return { gap: Math.max(0, (u - uC) + Math.max(0, c.d - ON_D0 - ARC_R)), aim: aimOn };
+    }
     const atT = !ph.phase && u > STOP_OUT - 8 && u < X_IN + 30 && td > D_IN - 12;     // past a stop line, at / on the cross road
     if (!ph.phase && !atT) return null;
-    const uC = c.s - e.s;
     if (uC < TAPER0 - 400 || uC > u + 5) return null;        // (far back on the highway: law's lanes; level with / past her: its own)
     // (her branch; at the T: the branch whose stop line is nearest her)
     const b = ph.branch != null ? e.branches[ph.branch] : e.branches.reduce((m, x) => (Math.abs(td - x.dOf(x.stop)) < Math.abs(td - m.dOf(m.stop)) ? x : m), e.branches[0]);
