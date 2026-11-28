@@ -4,6 +4,12 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 18:35 UTC — 🚗 On the road, part 9. Someone crossing the road who walks into Lulu's car while she's
+  standing still now stops and waits beside it, then walks on — before, they were knocked flying into the car, and if a
+  police car was nearby that started a chase for reckless driving.
+- 2026-11-28 18:10 UTC — 🚗 On the road, part 8. In town, the police patrol car (or a Shomrim car, or any town car)
+  driving into Lulu no longer counts as Lulu ramming it — no "YOU HIT THE PATROL CAR!" chase and no witness calling it
+  in. Ramming them herself still does. (The same fix the highway got this morning.)
 - 2026-11-28 18:00 UTC — 🩺 Tests + small fixes, part 4. Playing with friends, opening the 📱 phone or the pause menu
   while driving no longer spins Lulu's car round (it pulled the handbrake at full speed) — it brakes to a stop in its
   lane and stays there.

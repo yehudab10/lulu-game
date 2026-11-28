@@ -203,10 +203,11 @@ export function addPed(opts = {}) {
                 ped.vx = (ped.d >= car.d ? 1 : -1) * 5.5;
                 bubble(pick(["EEK!", "AAH!", "Whoa!!", "Mommy!"]), p.obj, { t: 1.2, y: 1.6 });
             }
-            ped.d += ped.vx * dt;
-            ped.s += ped.vs * dt;
+            // (walked up to her STOPPED car: they wait at its side until she goes — collide())
+            if (ped.waitT > 0) ped.waitT -= dt;
+            else { ped.d += ped.vx * dt; ped.s += ped.vs * dt; }
             ped.sway += dt;
-            const sp = Math.hypot(ped.vx, ped.vs);
+            const sp = ped.waitT > 0 ? 0 : Math.hypot(ped.vx, ped.vs);
             const pp = pt(ped.s, ped.d);
             p.obj.position.set(pp.x, 0, pp.z);
             p.obj.rotation.y = pp.h + headingFor(ped);
@@ -234,6 +235,8 @@ export function addPed(opts = {}) {
                 if (dx * dx + dz * dz < 1.35 * 1.35) hit = true;
             }
             if (!hit) return null;
+            // (a walker who walks into her STOPPED car isn't knocked flying — nor a "reckless" chase if a cop's near — they wait)
+            if (Math.abs(car.vF != null ? car.vF : car.speed || 0) < 1.5) { if (!(ped.waitT > 0)) { ped.d -= ped.vx * 0.12; ped.s -= ped.vs * 0.12; } ped.waitT = 0.4; return null; }
             bonk(ped);
             return null;
         },
