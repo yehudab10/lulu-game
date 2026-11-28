@@ -30,6 +30,10 @@ party* / qafriends / openworld relay → `ci/oneserver-place` / `ci/friends` whi
 | sweepphone — first drive: no text off the sides (a pedestrian's "Shalom!" 379..448 on a 390 px phone) | REAL (intermittent, green on a re-run 46149453258): outdoor NPC bubbles had no side clamp. They slide in now (`banter/bubbles.js` placeNpc) — green 46150264657, landed 13:45 |
 | sweeproad3 — no invisible bumps (s 1687) | `ci/sweep-road`'s own test, red on their run 46143702743 too — theirs |
 
+## Whole suite #2 — 46153406621 on ci/sweep-health2 (= main b789aeb0: sweep-road part 5, sweep-logic2 batch 2, sweep-camera batch 1 in), 2026-11-28 14:13Z
+
+(running)
+
 ## Findings + status
 
 ## Left for other branches
