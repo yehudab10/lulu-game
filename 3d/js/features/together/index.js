@@ -87,7 +87,8 @@ function frame() {
 }
 function tick(dt) {
     const party = !!(ctx.party && ctx.party.active);
-    if (party) { ROOMS.tick(dt); OUT.tick(dt); }
+    ROOMS.tick(dt);                    // (stage 3: other players in a public room are drawn with or without a party)
+    if (party) OUT.tick(dt);
     const st = ctx.state, live = (st === "playing" || st === "footRun") && !ctx.paused && !ctx.view && !H.screenOpen() && !ctx.dialogOpen;
     // (no friends to find: the pointers still carry features/pins' 📍 ping)
     if (!party || !roam() || !ctx.camera || !ctx.car) { if (T.dest) setDest(""); if (ctx.camera && ctx.car) PTR.tick(dt, [], "", live); else PTR.hideAll(); return; }
@@ -119,6 +120,8 @@ const SVC = {
     locate: uid => locate(uid), locateAll: () => locateAll(),
     /** Am I inside a room shared with friends right now (party/emotes.js: emotes work in there)? */
     inRoom: () => !!ROOMS.myRoom(),
+    /** Stage 3: the public room I'm in (multiplayer sends it as d.in so everyone online sees her inside), or null. */
+    publicRoom: () => ROOMS.publicRoom(),
     friendIn: (id, inst) => ROOMS.friendIn(id, inst),
     roomSay: text => ROOMS.roomSay(text), roomPose: (E, t) => ROOMS.roomPose(E, t),
     /** The rooms friends share / the ones still personal (with why). */

@@ -59,19 +59,34 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    ctx.car; a teleport needs the watchdog's moved(); street counters (makolet, Bling Bay) open a card on the street;
    the impound gate only opens on an impounded car; carcare's fronts play on the street; a fake house / listing.
 
+## Landed
+- batch 1 → main d1e1ea71 (items 1–7, 9–12) · batch 2 → fc833998 (13, 15) · batch 3 → 4fd9e37b (16 + Lakewood's shul door).
+- CI: 46070200525, 46075301278, 46084222813 (incl. calm + hudfit green), 46091087093; later batches on the local fast
+  clock (core, platform, doors, qa, qa2, qa3, qa7, qacar, qafoot, qaseam, qatown, foot, movement, moves, unstuck,
+  interiors, shops, clothes, decor, realestate, lanes, homes, family, shul, cityhall, heist, qaplaces, sweepplaces 1–4).
+
+## Next (not started — for whoever picks this up)
+- Two ✋ too close in strangers' houses: e.g. "Grab the leaf blower" vs "Grab the broom", "Talk to Mom" vs "Grab the
+  seltzer" — standing at one, facing it, the prompt is the other (houseitems pickups placed by `homes/house.js`).
+  Logged by sweepplaces3 ("standing at it, the prompt is …"); a spacing rule when the pickups are placed would fix it.
+- The one-joke shopfront room on a phone: the camera sits right behind her and her head hides the shopkeeper (a small
+  room: the camera is pulled in). A higher / further-to-the-side camera for `storefronts/room.js` would help.
+- The clothes shop's "💳 Pay at the counter" ✋ only shows the clerk's hello (buying happens at the racks) — the label
+  promises more than it does.
+- Party: Borough Hall / the realtor are shared rooms already (friends see each other) — fine.
+
 ## Left (owner's call / not a fix)
-- **Lakewood's shul door (the yeshiva building on Carpool Ln): the free camera can end up INSIDE the building** — one
-  flat dark screen when she stands at the door with the camera on the building side, and right after walking OUT of
-  the shul (the camera starts behind her = in the building) until she walks off. The town camera clip
-  (`foot/jump.js` camClip) uses the blocks' outlines (`town/plan.js` OCCLUDERS = block inset FRONT + 1.2), but the
-  yeshiva model protrudes past the front line (`town/build.js` town_yeshiva `prot: 1.2`; Bais Yaakov `prot: 3.1`), so
-  its front few metres aren't covered. Town-engine work (an occluder per protruding landmark) — left for the town
-  owner; the sweep test allows it at that one door.
+- (Lakewood's shul door — the camera inside the yeshiva building: fixed with item 16, batch 3.)
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
 
 15. **A room's speech bubble rose off the top of the screen** (its first lines cut, e.g. the pizza shop's wall of fame
    at 1280 × 720) — it comes down until its top is on screen (`interiors/fx.js`). — batch 2
+
+16. **Out of a neighbour's front door: one flat beige screen** — the camera behind her (facing out) started inside the
+   house: a town block's camera outline (`town/plan.js` OCCLUDERS, FRONT + 1.2) sits ~2 m behind the houses' front
+   walls, and the camera only stopped CAM_PAD (0.25 m) short of it. `foot/jump.js` camClip: the lens stops 2.4 m
+   further out (at the walls). Same cause as Lakewood's shul door below (the yeshiva protrudes 1.2 m more). — batch 3
 
 ## For other sweeps
 - for `ci/sweep-health`: `storefronts` › "lakewood: the town's signs stay sharp" is red on main since ci/yeshiva landed

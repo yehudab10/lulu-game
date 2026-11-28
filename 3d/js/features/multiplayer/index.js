@@ -70,15 +70,20 @@ function myPose() {
     const pa = ctx.party && ctx.party.active ? ctx.party : null;
     const partyBusy = !!pa && !(pa.activity && pa.activity.k === "roam");
     me.inWorld = (!!def.driving || ctx.state === "footRun") && !partyBusy;
+    // inside a PUBLIC room (a shop, the bank, the terminal, the lanes… — together/rooms.js › publicRoom; never a house,
+    // never Ima's) she stays online: her spot in the room rides along as d.in, and nobody draws her out on the street
+    const pr = !partyBusy && ctx.state === "interior" && ctx.together && ctx.together.publicRoom ? ctx.together.publicRoom() : null;
+    me.in = pr ? [pr.id, pr.inst, pr.x, pr.z, pr.h, pr.bits] : null;
     me.pt = pa && pa.code ? N.partyTag(pa.code) : null;
     me.foot = foot;
     me.driving = !!def.driving && !foot;
     me.parking = ctx.state === "parking";
-    me.sending = (me.inWorld && !ctx.view) || me.parking;
+    me.sending = (me.inWorld && !ctx.view) || me.parking || !!me.in;
     me.hidden = !me.sending;
     me.s = car ? car.s : 0; me.d = car ? car.d : 0; me.sp = car ? car.speed : 0;
     const T = ctx.town, inTown = !!(T && T.active && T.plan);
     let wx = car ? car.pos.x : 0, wz = car ? car.pos.z : 0, yaw = car ? car.h : 0;
+    if (me.in && me.outAt) { wx = me.outAt.x; wz = me.outAt.z; }
     if (foot) {
         const fp = footPos();
         if (fp) { wx = fp.x; wz = fp.z; }
@@ -90,7 +95,8 @@ function myPose() {
             me.s = n.s; me.d = n.d;
         }
     }
-    if (me.parking) me.sp = 0;
+    if (me.parking || me.in) me.sp = 0;
+    if (me.inWorld) me.outAt = { x: wx, z: wz };       // (the last spot outside: where she's "standing" while in a room)
     me.zone = !me.sending || me.parking ? "~" : inTown ? String(T.id || "") : "";
     if (me.zone === "" && ctx.world) {
         // the highway: road distance + offset + heading relative to the road (riders' roads can bend differently)
@@ -107,6 +113,16 @@ function myPose() {
     const veh = ctx.foot && ctx.foot.vehicle;   // a borrowed ride, if the foot feature exposes one
     if (!foot && veh && veh.kind) { me.vk = "borrowed"; me.ct = veh.ct || 0; me.co = veh.color || "#E53935"; }
     else me.vk = (ctx.G && ctx.G.vehicleKind) || "car";
+    // her look, so everyone sees her the way friends do (stage 3, "no ghosts"): hair colour + the outfit's compact
+    // form (features/clothes) — read every couple of seconds, not per frame
+    if (!me.lookAt || performance.now() - me.lookAt > 2000) {
+        me.lookAt = performance.now();
+        const s2 = shared.get();
+        me.hc = typeof s2.luluHair === "string" && /^#[0-9a-fA-F]{6}$/.test(s2.luluHair) ? s2.luluHair : null;
+        let ot = null;
+        try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
+        me.ot = ot;
+    }
     return me;
 }
 
@@ -149,6 +165,28 @@ function titleRefresh() {
 
 // ── party mechanics while driving (friend rooms) ─────────────────────────
 let prevScore = 0, honkCd = 0;
+// 🚗 Everyone follows the same bump rule (stage 3, "no ghosts"): two players' cars that touch get ONE harmless bounce
+// (sparks + a thunk, never a heart, a coin or a star), then that player drives THROUGH her for a moment — so nobody can
+// pin, drag, shove or trap anyone: a second bounce from the same player waits SB.PER s, and any bounce at all waits
+// SB.ANY s. Judged on my own screen, on where I see her (ghosts.js: p.ws / p.wd, only while she's drawn).
+const SB = { R: 2.3, PER: 2.5, ANY: 1.0, PUSH: 3.0 };
+let sbAny = 0;
+function strangerBump(p, car, dt) {
+    if (p.m !== 0 || !p.onScreen || typeof p.ws !== "number" || ctx.foot && ctx.foot.active) { p.bonkOverlap = false; return; }
+    const dx = car.pos.x - p.ws, dz = car.pos.z - p.wd, d = Math.hypot(dx, dz);
+    const overlap = d < SB.R;
+    if (overlap && !p.bonkOverlap && !(p.bonkCd > 0) && !(sbAny > 0) && d > 1e-3) {
+        const nx = dx / d, nz = dz / d, side = nx * -Math.cos(car.h) + nz * Math.sin(car.h);
+        car.applyImpulse(nx * SB.PUSH, nz * SB.PUSH, side * 0.3);
+        p.bonkCd = SB.PER; sbAny = SB.ANY;
+        // (no toast: the bounce, the sparks and the sound are the feedback)
+        car.fx.burst(car.pos.x - nx * 1.0, 1.0, car.pos.z - nz * 1.0, 14, 4, [1, 0.94, 0.46], 0.35, 0.45);
+        tone(150, 0.12, "square", 0.22, 90);
+        rumble(0.45, 0.5, 160, true);
+        MP.bumps = (MP.bumps || 0) + 1;
+    }
+    p.bonkOverlap = overlap;
+}
 hook("runStart", G => { prevScore = 0; G.mpPbDone = false; MP.scorePosted = false; MP.convoy.active = false; MP.convoy.t = 0; MP.draft.active = false; MP.draft.t = 0; });
 hook("update", (dt, P, controlsOn) => {
     const G = ctx.G, car = ctx.car;
@@ -157,6 +195,7 @@ hook("update", (dt, P, controlsOn) => {
     if (!G.mpPbDone && save3d.best > 0 && G.score > save3d.best && controlsOn) { G.mpPbDone = true; if (MP.connected) N.noteRecord(G.score); }
     if (!MP.connected || ctx.state !== "playing") { prevScore = G.score; return; }
     const friend = N.friendRoom();
+    if (sbAny > 0) sbAny -= dt;            // (the shared bump cooldown: once a frame)
     let near = false, draftWin = false;
     const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
     for (const id in MP.peers) {
@@ -164,7 +203,8 @@ hook("update", (dt, P, controlsOn) => {
         if (!p.seen) continue;
         const rel = p.rel;
         if (Math.abs(rel) < 500) near = true;
-        if (!friend || p.m !== 0) { p.bonkOverlap = false; continue; }
+        if (!friend) { strangerBump(p, car, dt); continue; }
+        if (p.m !== 0) { p.bonkOverlap = false; continue; }
         const ds = rel / DI_PER_M, dd = (p.x - X_MID) / X_PER_M - car.d;
         // SLIPSTREAM: a friend 10–36 m ahead, lined up
         if (rel > 120 && rel < 420 && Math.abs(dd) < 1.7) draftWin = true;
@@ -246,6 +286,7 @@ export function setOnline(on) {
     emit("mp:online", { on: !!on });
 }
 ctx.mp.setOnline = setOnline;
+ctx.mp.peersIn = N.peersIn;              // (features/together: other players inside the same public room)
 ctx.mp.setFr = N.setFr;                 // (features/friends: ➕ a friend from 📍 Nearby)
 ctx.mp.relabel = N.relabel;             // (features/friends: a friend recognised in EVERYONE → 👯 + her name over her ghost)
 // Tap a NAME over a car (a ghost in EVERYONE) → 📍 Nearby's page for that driver (➕ ask to be friends — features/friends).

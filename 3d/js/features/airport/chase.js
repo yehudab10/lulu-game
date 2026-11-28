@@ -253,7 +253,7 @@ export function kerbHold(S, car) {
     S.kerbHolds = (S.kerbHolds || 0) + 1;
     // the cruiser pressing on her: held off her car (it can't push her through the kerb, so it can't drive into her)
     for (const c of ctx.traffic ? ctx.traffic.cars : []) {
-        if (!c.data || !c.data.law || c.hit || !c.spec) continue;
+        if (!c.data || !c.data.law || !c.spec) continue;      // (a WRECKED cruiser too: a hard ram's wreck slid on into her — sweep-health)
         const dx0 = c.x - car.pos.x, dz0 = c.z - car.pos.z;
         if (dx0 * dx0 + dz0 * dz0 > 49) continue;
         const pfx = Math.sin(car.h), pfz = Math.cos(car.h), cfx = Math.sin(c.h), cfz = Math.cos(c.h);
@@ -264,7 +264,11 @@ export function kerbHold(S, car) {
         }
         if (!best) continue;
         c.x += best.nx * best.pen; c.z += best.nz * best.pen;
-        if (cfx * -best.nx + cfz * -best.nz > 0.5) c.speed = 0;   // (nosing into her: it stops — and eases on again, law's own pace)
+        if (c.hit) {                                        // (a tumbling wreck: it keeps its slide, minus the part into her car)
+            const vin = -(c.vx * best.nx + c.vz * best.nz);
+            if (vin > 0) { c.vx += best.nx * vin; c.vz += best.nz * vin; }
+            if (c.obj) c.obj.position.set(c.x, 0, c.z);
+        } else if (cfx * -best.nx + cfz * -best.nz > 0.5) c.speed = 0;   // (nosing into her: it stops — and eases on again, law's own pace)
         K.t = ctx.time;                                     // (still pressing: the kerb keeps holding)
     }
     return true;
