@@ -2,6 +2,7 @@
 // a head-on crash, pause/resume, settings, and arriving at Bubbe's house.
 module.exports = {
   name: "core",
+  fast: false,     // (the REAL-TIME CANARY: core keeps the old clock, so a bug that only shows in real time still can)
   async run(t) {
     await t.frames(20);
     t.check("controller detected on the title screen", await t.L(`document.querySelector(".pad-status.on") !== null`));
