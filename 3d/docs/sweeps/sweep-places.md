@@ -53,8 +53,8 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    camera starts behind her, right inside the front door model, and the room's camera only ever looked at a room's
    MODEL — the houses, the clothes shop, the lanes, the shops are built in code, so their walls never stopped the lens
    and their furniture / front door never faded. `interiors/engine.js` rayRoots(): the camera's clip, the fading and
-   the test probe see the code-built pieces too (the door fades, the room shows). — on the branch, batch 2 (doors'
-   "no wall between the camera and her" now sees a code-built mesh in City Hall: to sort out before landing)
+   the test probe see the code-built pieces too (the door fades, the room shows). — batch 2 (rooms that merge their
+   boxes — City Hall's bake() — take the originals out: only what's still in the scene counts)
 14. Test artefacts found + fixed in the sweep test itself (not game bugs): the parked car is the foot stub, not
    ctx.car; a teleport needs the watchdog's moved(); street counters (makolet, Bling Bay) open a card on the street;
    the impound gate only opens on an impounded car; carcare's fronts play on the street; a fake house / listing.
@@ -70,6 +70,13 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
 
+15. **A room's speech bubble rose off the top of the screen** (its first lines cut, e.g. the pizza shop's wall of fame
+   at 1280 × 720) — it comes down until its top is on screen (`interiors/fx.js`). — batch 2
+
 ## For other sweeps
+- for `ci/sweep-health`: `storefronts` › "lakewood: the town's signs stay sharp" is red on main since ci/yeshiva landed
+  (02:12): Lakewood's sign atlas scale 0.578 < 0.58 (the yeshiva's new signs) — not from this sweep.
+- the fast test clock (ci/fasttests) draws a small canvas every 6th frame: page screenshots at 1280 × 720 inside rooms
+  come out one flat sky-blue (not a game bug — the rooms render; seen in `doors`' room shots)
 - for `ci/sweep-logic`: free coins from interiors' one-off ✋ (precinct coffee +30, hospital vending +5, Heshy +4…)
   were "once per interior per RUN" — done by ci/sweep-logic (once a day now).
