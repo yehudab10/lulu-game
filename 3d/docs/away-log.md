@@ -30,6 +30,11 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 05:15 UTC (fixes) — 🗺️ On the phone's Map, tapping the place Lulu is already standing at (say, Ima's house
+  while she's on the porch) used to close the phone and do nothing; now the phone stays open and the place says
+  "📍 you're here!". ✈️ At the JFK kerb, a police car that wrecked itself ramming her could keep sliding right through her
+  car; the wreck now stops against her car like a solid thing. Two automatic checks that timed things on the wrong clock
+  were fixed.
 - 2026-11-28 02:15 UTC (tests) — The speed check at the Lakewood exit compared it with a bare stretch of fields with no
   trees; it now compares it with the same kind of countryside, and the exit is well within budget (nothing changed in
   the game).
