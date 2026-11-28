@@ -493,6 +493,11 @@ hook("hud", dt => {
 
 ctx.carcare = {
     cond: k => (SKINS[k] ? cond(k) : null), mine, wash, fix, fit, muffler, gossip, wear: k => wear(cond(k)),
+    /** What other players see of car k (multiplayer's d.cc): [dirt 0..10, dents 0..3] — a fresh wash shows clean; null
+     *  when it isn't one of hers. */
+    look(k) { if (!on_() || !SKINS[k] || !owned(k)) return null; const c = cond(k); return [shining(c) ? 0 : Math.round(Math.min(1, c.dirt) * 10), Math.max(0, Math.min(3, c.dents | 0))]; },
+    /** Dress another player's car copy (a clone of the lulu model): her dirt (0..10) on the paint, her dents (0..3). */
+    dressOther(obj, dirt10, dents) { if (!obj) return; if (dirt10) paintLook(obj, Math.min(10, dirt10) / 10, 0); if (dents) dentLook(obj, Math.min(3, dents) * 2); },
     get look() { return S.look; }, get hear() { return S.hear; },
     debug: { S, SAVE, D: DIY, diyTap, addDirt, lawMuls, facts, gossipNow, carAt, frontsHere, act, dressAll, mods, lookDebug, staffTick, claimTown },
 };

@@ -126,6 +126,15 @@ function myPose() {
     // what's in her hand / on her head on foot (features/houseitems) — everyone sees the same props she does
     const HI = foot && ctx.houseitems ? ctx.houseitems : null;
     me.hi = HI ? HI.shown : null; me.hw = HI ? HI.worn : null;
+    // her car as she sees it: the skin she's in NOW (the hello only has the one she joined with), a Tushla's configuration,
+    // its condition (car care: dirt, dents) — read with the look, every couple of seconds
+    if (!me.carAt || performance.now() - me.carAt > 2000) {
+        me.carAt = performance.now();
+        const k = car && car.skinKey;
+        me.sk = k || null;
+        try { me.ev = k && ctx.dealers && ctx.dealers.myCfg ? ctx.dealers.myCfg(k) : null; } catch (e) { me.ev = null; }
+        try { me.cc = k && ctx.carcare && ctx.carcare.look ? ctx.carcare.look(k) : null; } catch (e) { me.cc = null; }
+    }
     return me;
 }
 

@@ -136,6 +136,11 @@ async function body(t, pages, riders) {
     await B.game(HOLD); await B.game(PLACE(425, -1.75));
   }
 
+  // her car as she sees it: B switches to her pink car mid-session → A draws B's car pink (d.sk: the hello only knew gold)
+  await B.game(`(ctx.car.setSkin("pink"), ctx.mp._debug.me.carAt = 0, true)`);
+  t.check("B's car switch reaches A (she's drawn in the car she's in now)", await A.until(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return !!p && p.sk === "pink"; })()`, "A: B's car is pink now", 30000));
+  await B.game(`(ctx.car.setSkin("gold"), ctx.mp._debug.me.carAt = 0, true)`);
+
   // 🌍 an emote is a reliable one-time event (the relay's r): A gets B's 😱 once, as an event — not only from B's state
   await g(`(window.__emr = [], L3.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); }), true)`);
   await B.game(`(ctx.mp.emote(2), true)`);
