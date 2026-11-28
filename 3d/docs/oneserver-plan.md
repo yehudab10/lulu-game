@@ -231,3 +231,14 @@ account is still on Free, and set a spending alert (Cloudflare → Billing → n
   the relay sees (it starts at the deploy), so treat it as a close estimate; Cloudflare's dashboard has the exact figure.
 - **When the free allowance runs out:** players get ONE quiet line, "🌙 Online play is resting until 7:00 PM. You can
   keep playing." (their local time for midnight UTC). Play goes on solo; the game reconnects by itself after the reset.
+
+## Step 3 switched on (2026-11-27)
+
+- **The owner approved step 3 on the Free plan** ("Yes switch it on step 3", relayed by the coordinator, 2026-11-27).
+- **Areas are 2 km, not 500 m.** Every room change is a new connection, and each one counts on the free allowance. At
+  highway speed, 500 m stretches would have cost about +70 %; 2 km stretches cost about +15 %.
+- **Who is heard.** Anyone close enough to be drawn (320 m) is heard across a line: the listening zone matches the
+  drawing range.
+- **The lobby bridge** for old copies sends every 2 s (about +10 %) and can go once old copies have updated.
+- **Budget with step 3:** about +25–30 % per player-hour while driving. The Free plan's daily cap drops from about 110
+  to about **85 player-hours a day**. Watch `/world/usage?text=1`.

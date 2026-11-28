@@ -36,14 +36,38 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | qa4 — by her shoved car: ✋ GET BACK IN (got 🏘️ ENTER GOLD STANDARD REALTY → walked into the realty) | REAL: beside her own car's door she is ~2 m from its centre, so a shop door's zone (score floor 0.5) beat it. Her own car now counts as "right next to her" by its body (foot's NEXT_TO rule) — 2b96cbf |
 | qa26 — 🗺️ Map: one tap pings + closes; a tap on the pinned place clears it | stale test: the first row is Ima's house, where she stands — the ping is "arrived" at once. The test pings a place she isn't at — 2b96cbf |
 | qaweekend — phone, driving in Lakewood: HUD … off-screen jtext | test: a text message sliding in / out (jphIn / jphOut, wall-time CSS) is off the edge on purpose; the check skips one mid-slide — 2b96cbf (screenshot: nothing overlaps) |
-| qaweekend — Lakewood on foot in the rain: no inwall glitch (camera inside block@38,38 ×37; inside a tree's leaves ×26) | open: the foot camera's clip vs. the watchdog — needs a repro |
-| qaweekend-party — both screens have the same puddles + pigeons (host 0 sites) | open (party; `ci/friends` area) |
-| partyplus — the claimed minivan pulls over the same way on both screens (guest null) | open (party; `ci/friends` area) |
-| qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame | open (party) |
+| qaweekend — Lakewood on foot in the rain: no inwall / flat glitch (camera inside block@38,38 ×37; inside a tree's leaves ×26; a re-run: one flat colour in foot phase "script") | REAL but not pinned down: the end-of-mash screenshot (`3d-qaweekend-lakewood-foot.png`, run 46085361039) is a screen full of a street tree's leaves at the Feldmans' door. Always Lakewood's E-W street at z ≈ -3190 (x -100…-180). camClip's leaf rule skips a tree she stands under and a trunk between them; not reproduced locally yet — open |
+| unstuck — ramp + rest area: no inwall glitch (camera inside a big tree trunk r1.4, ×2) | same family as above (Lakewood z ≈ -3189); 2 frames after a rescue — open |
+| partners2 — bail paid at the desk ("She's not in a cell here.": the guest was already called to court) | timing: the cell's court clock is real time since a6bd69f (`ci/friends`); `ci/fasttests` gives partners2 the old clock — left |
+| exits — interchange triangles (242k vs 85k) | stale test: the baseline 2.6 km back is now a different scenery region (open fields, no trees: 0 leaves) vs the T's forest (106k leaf triangles). The baseline now stands in the interchange's own region — 6526f26; CI 46089119253: 242k vs 194k on the same region's highway, green |
+| qaweekend-party — both screens have the same puddles + pigeons (host 0 sites) | flake: green on the re-run (46097614177) |
+| partyplus — the claimed minivan pulls over the same way on both screens (guest null) | flake: green on the re-run (46097614177) |
+| qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame; re-run: riding across the town line, 6.2 m | a passenger's car follows the driver's packets as they arrive (two pages on the relay, real time): a burst = a jump on the guest's screen. `openworld/ride.js` (`tickSeats`) is `ci/friends`' (moved < 2 h) — left for them |
+
+### The two machines the whole-suite run lost (re-run on this branch: 46096783229, main cd9c4de + test-only changes)
+
+| check | verdict / status |
+|---|---|
+| calm (all four minutes within budget: solo highway 11 / min) | green — the pothole fix holds |
+| adhold, cityhall3, homelife2, life2, onegame, places, qa20, qa9, realestatego, town | green (onegame's "next to Dina" was fixed by `ci/doors`' NEXT_TO rule) |
+| crime, friendsworld, impound, movetouch, partyfoot, qa13, qatouch, shabbos | green |
+| qa27 — 6.8 km court: no jump glitch (the camera 5.8 m in one frame, state playing) | test: between two places the test ends her walk by script (`foot.end("test")` → straight back at the wheel) BEFORE it declared the cut — the chase cam taking over from the foot cam. Declared first now; green on CI 46097614177 |
+| perf (main run 46089441840, someone's 3-file dispatch) — the friend's car is in my world | test: checked after a frame count while the friend arrives over the relay on real time; waits for it now — green on CI 46098629151 (qafriends green there too: a flake) |
 
 ## Findings + status
 
 ## Left for other branches
+
+- **`ci/doors` (other account, moving: camClip / the camera in trees + houses, 2026-11-28 00:18–00:43):** the on-foot
+  camera in Lakewood's street-tree leaves / a block / a big trunk (qaweekend, unstuck rows above) is theirs — the
+  screenshot `3d-qaweekend-lakewood-foot.png` of run 46085361039 (a screen of leaves at the Feldmans' door) and the
+  positions above are the repro data.
+- **Party / friends checks** (partyplus' claimed minivan on the guest, qaweekend-party's puddles on the host, qafriends'
+  hop-out car jump, partners2's bail on a real-time court clock): `ci/friends` / `ci/oneserver-place` / `ci/fasttests`
+  are all moving in that code — left, listed above.
+- **Note for every sweep:** dispatching "3D full suite" on `main` CANCELS a run already going on `main` (one run per
+  branch). The whole-suite run 46073386320 lost its last two machines (calm + the adhold group) to a 3-file dispatch on
+  main at 00:43. Dispatch targeted groups on your OWN `ci/` branch.
 
 - `ci/fasttests` (other account, moving) is reworking test timing (the fast test clock): timing flakes that its
   clock work covers are left to it — its test fixes not on main yet: unstuck (bc1e2cd), crime2 (7136f90),

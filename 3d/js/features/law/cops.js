@@ -477,7 +477,7 @@ function tickSpawn(dt) {
 }
 export function spawnTrap(sAhead = 240, side = Math.random() < 0.5 ? -1 : 1) {
     const road = ctx.world.road, car = ctx.car;
-    const s = car.s + sAhead, dCop = side * rand(11.5, 13);
+    const s = car.s + (downLap() ? -sAhead : sAhead), dCop = side * rand(11.5, 13);
     const hides = ["bush", "tree"];
     if (models.lawBillboard) hides.push("billboard");
     const hide = pick(hides);
@@ -602,14 +602,18 @@ function trapUnit(t) {
 /** Too fast to be a mistake: on nitro, or way over the limit. */
 function reckless() { return !!(ctx.G && ctx.G.boosting) || ctx.car.speed * MPH > TUNE.recklessMph; }
 
+/** Is she heading down the lap on the open highway (the far carriageway — ci/twoway)? */
+const downLap = () => !!(ctx.world && ctx.world.dir === -1 && !ctx.world.district);
 // ── patrols ──────────────────────────────────────────────────────────────
 export function spawnPatrol(opts = {}) {
     const car = ctx.car;
     const r = Math.random();
     let u;
-    if (opts.oncoming ?? r < 0.45) u = addUnit(car.s + rand(380, 460), pick([-1.75, -5.25]), -1, rand(18, 22), opts);
-    else if (opts.fast ?? r < 0.7) u = addUnit(car.s - rand(60, 80), pick(LANES_OURS), 1, rand(29, 33), opts);
-    else u = addUnit(car.s + rand(300, 360), pick(LANES_OURS), 1, rand(13, 15), opts);
+    // (heading DOWN the lap — ci/twoway: the same three patrols, mirrored — "oncoming" is the one coming toward HER)
+    const D = downLap() ? -1 : 1, mine = D > 0 ? LANES_OURS : [-1.75, -5.25], theirs = D > 0 ? [-1.75, -5.25] : LANES_OURS;
+    if (opts.oncoming ?? r < 0.45) u = addUnit(car.s + D * rand(380, 460), pick(theirs), -D, rand(18, 22), opts);
+    else if (opts.fast ?? r < 0.7) u = addUnit(car.s - D * rand(60, 80), pick(mine), D, rand(29, 33), opts);
+    else u = addUnit(car.s + D * rand(300, 360), pick(mine), D, rand(13, 15), opts);
     if (opts.aggro) { toChase(u, "rear"); u.hunter = true; u.siren = false; }
     return u;
 }
@@ -1155,7 +1159,7 @@ let posterMat = null;
 function spawnPoster() {
     if (!models.lawBillboard) return;
     const road = ctx.world.road, side = Math.random() < 0.5 ? -1 : 1;
-    const s = ctx.car.s + rand(250, 300), d = side * 13.5;
+    const s = ctx.car.s + (downLap() ? -1 : 1) * rand(250, 300), d = side * 13.5;
     road.point(s, d, tmpP);
     const h = road.at(s).h;
     const b = cloneWithColors(models.lawBillboard);

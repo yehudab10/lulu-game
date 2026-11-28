@@ -224,7 +224,7 @@ async function body(t) {
   await t.L(`(() => { const s = JSON.parse(localStorage.getItem("luluSaveV2")); s.mpAutoOff = false; localStorage.setItem("luluSaveV2", JSON.stringify(s)); })()`);
   await t.game(`L3.startRun({ mode: "cruise" })`);
   await t.until(`${S}.connected`, "cruise auto-joins EVERYONE");
-  t.check("cruise auto-joins the EVERYONE lobby", await t.game(`${S}.room === "lobby"`));
+  t.check("cruise auto-joins the EVERYONE lobby", await t.game(`ctx.mp.room === "lobby"`));
   fr.close();
 
   // phone portrait: the Shared Road screen still fits

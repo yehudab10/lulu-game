@@ -464,7 +464,7 @@ server.on("upgrade", (req, socket, head) => {
 
 // --- 🌍 one shared world (world.mjs — the SAME code the worker runs): the clock, reliable events, the budget ---------
 let W = null;
-const worldP = import("./world.mjs").then((m) => { W = m; if (process.env.WORLD_KEEP_MS) m.REL.keepMs = Number(process.env.WORLD_KEEP_MS); return m; });
+const worldP = import("./world.mjs").then((m) => { W = m; if (process.env.WORLD_KEEP_MS) m.REL.keepMs = Number(process.env.WORLD_KEEP_MS); if (process.env.WORLD_PLACE === "0") m.WORLD.place = 0; return m; });
 const roomEvents = new Map();          // room → recent reliable events
 const usage = { day: "", ws: 0, conn: 0, http: 0 };
 function count(kind) { if (!W) return; const d = W.dayOf(Date.now()); if (usage.day !== d) Object.assign(usage, { day: d, ws: 0, conn: 0, http: 0 }); usage[kind]++; }
@@ -506,7 +506,11 @@ function handleConnection(ws) {
     switch (msg.t) {
       case "j": {
         if (joined) return;
-        if (set.size >= MAX_MEMBERS) {
+        // 🌍 step 3: listeners don't count; place rooms ("W…") hold 40
+        const lo = msg.lo === 1;
+        let players = 0, listeners = 0;
+        for (const x of set) if (x._meta && x._meta.id) { if (x._meta.lo) listeners++; else players++; }
+        if (W ? (lo ? listeners >= W.PLACE.listenCap : players >= W.capFor(ws._room, MAX_MEMBERS)) : set.size >= MAX_MEMBERS) {
           try {
             ws.close(CLOSE_ROOM_FULL, "room full");
           } catch (_) {}
@@ -519,11 +523,12 @@ function handleConnection(ws) {
           sk: typeof msg.sk === "string" ? msg.sk.slice(0, 24) : "pink",
           d: null,
         };
+        if (lo) ws._meta.lo = 1;
         set.add(ws);
 
         const peers = [];
         for (const peer of set) {
-          if (peer === ws || !peer._meta || !peer._meta.id) continue;
+          if (peer === ws || !peer._meta || !peer._meta.id || peer._meta.lo) continue;
           const p = { id: peer._meta.id, name: peer._meta.name, sk: peer._meta.sk };
           if (peer._meta.d) p.d = peer._meta.d;
           peers.push(p);
@@ -532,12 +537,12 @@ function handleConnection(ws) {
         const hello = { t: "h", id, peers, st: now };            // 🌍 step 1: the server's clock
         if (W) { const rec = W.recent(roomEvents.get(ws._room) || [], now); if (rec.length) hello.r = rec; }   // 🌍 step 2
         sendJson(ws, hello);
-        broadcast(set, ws, { t: "+", id, name: ws._meta.name, sk: ws._meta.sk });
+        if (!lo) broadcast(set, ws, { t: "+", id, name: ws._meta.name, sk: ws._meta.sk });
         return;
       }
 
       case "s": {
-        if (!joined) return;
+        if (!joined || ws._meta.lo) return;
         if (!allowState(ws)) return;
         const d = msg.d;
         if (d == null || typeof d !== "object") return;
@@ -547,7 +552,7 @@ function handleConnection(ws) {
       }
 
       case "e": {
-        if (!joined) return;
+        if (!joined || ws._meta.lo) return;
         const e = msg.e;
         if (e !== "honk" && e !== "wave") return;
         broadcast(set, ws, { t: "e", id: ws._meta.id, e });
@@ -561,7 +566,7 @@ function handleConnection(ws) {
 
       case "r": {
         // 🌍 step 2: a reliable one-time event (world.mjs)
-        if (!joined || !W) return;
+        if (!joined || !W || ws._meta.lo) return;
         const now = Date.now();
         ws._rel = ws._rel || {};
         if (!W.relAllowed(ws._rel, now)) return;
@@ -583,7 +588,7 @@ function handleConnection(ws) {
   const cleanup = () => {
     if (!set.has(ws)) return;
     set.delete(ws);
-    if (ws._meta && ws._meta.id) broadcast(set, ws, { t: "-", id: ws._meta.id });
+    if (ws._meta && ws._meta.id && !ws._meta.lo) broadcast(set, ws, { t: "-", id: ws._meta.id });
     if (set.size === 0) { rooms.delete(ws._room); roomEvents.delete(ws._room); }
   };
 

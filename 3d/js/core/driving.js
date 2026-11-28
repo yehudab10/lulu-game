@@ -376,6 +376,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     const difficulty = Math.min(1, (car.s - G.startS) / 9000);
     const honk = controlsOn && !!P.honk;
     if (honk) { emit("honk", {}); rumble(0.1, 0.3, 120); }
+    traffic.dir = ctx.world && ctx.world.dir === -1 && !ctx.world.district ? -1 : 1;      // (ci/twoway: spawn the way she's going)
     const events = traffic.update(dt, car, car.s, car.d, difficulty, honk, ctx.time);
     for (const e of events) {
         if (e.type === "crash") {

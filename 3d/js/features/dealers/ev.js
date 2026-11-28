@@ -202,7 +202,7 @@ let pinned = false;
 hook("hud", () => {
     if (pinned || !ctx.pins || !ctx.pins.add) return;
     pinned = true;
-    try { ctx.pins.add({ id: EV.addr, name: EV.full, icon: EV.emoji, cat: "shops", lap: LAP_M, sub: "electric cars · Full Schlep Driving" }); } catch (e) { /* the registry's rules */ }
+    try { ctx.pins.add({ id: EV.addr, name: EV.full, icon: EV.emoji, cat: "shops", lap: LAP_M, d: EV.d, sub: "electric cars · Full Schlep Driving" }); } catch (e) { /* the registry's rules */ }
 });
 
 export const evDebug = { E, EV_AT, nearSpot, padWorld, openTablet, buyHere, subHere, chargerHere, config: configDebug };

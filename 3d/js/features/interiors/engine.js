@@ -325,6 +325,8 @@ export class Room {
         slot.appendChild(this.chip);
         this.extraEl = this.chip.querySelector(".int-extra");
 
+        // (the street's flavour banners stay outside — the town's WELCOME, a shop's title — this room's own are next)
+        if (H.dropBanners) H.dropBanners(b => b.prio <= 1);
         def.build(this);
         // a door hotspot for every interior
         if (this.spots.door && !this.hots.some(h => h.id === "door")) {
@@ -342,7 +344,7 @@ export class Room {
             this.outArmed = false;
         }
         this.updateCamera(0, true);
-        H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200);
+        H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200, { key: "room" });
     }
 
     hintHtml() {
@@ -354,7 +356,16 @@ export class Room {
     spot(name) { return this.spots[name] || null; }
     fx(name) { return this.fxs[name] || null; }
     node(name) { return findNodes(this.root, name)[0] || null; }
-    add(obj) { this.set.add(obj); return obj; }
+    add(obj) { this.set.add(obj); (this.built || (this.built = [])).push(obj); return obj; }
+    /** What the camera's rays see of the room: its model AND everything its def built in code (rt.add — the houses, the
+     *  clothes shop, the lanes… are code-built: before, the lens went through their walls / their front door filled a
+     *  phone with one flat colour, and nothing of theirs ever faded). → [Object3D] */
+    rayRoots() {
+        // (only what's still in the scene: a room that merges its boxes — City Hall's bake() — takes the originals out)
+        if (this.built && this.built.some(o => !o.parent)) this.built = this.built.filter(o => o.parent);
+        RAY.camera = this.set.camera;
+        return this.built && this.built.length ? [this.root, ...this.built] : [this.root];
+    }
     own(...x) { return this.set.own(...x); }
     groundAt(x, z) { return this.def.ground ? this.def.ground(x, z) : 0; }
 
@@ -529,6 +540,7 @@ export class Room {
         if (this.chip) this.chip.remove();
         H.prompt("");
         if (dialogIsOpen()) closeDialog();   // never strand a half-read line on the next screen
+        if (H.dropBanners) H.dropBanners(b => b.key === "room");      // (…nor its title banner in the next place)
         if (this.bubbles) this.bubbles.clear();
         if (this.faded) { for (const [o, f] of this.faded) { o.material = f.m0; for (const m of f.ms) m.dispose(); } this.faded.clear(); }
         if (this.orbiting && ctx.cam && ctx.cam.free) ctx.cam.free.release();      // (outside, the street's rig starts fresh)
@@ -728,7 +740,7 @@ export class Room {
         // …and the room's own walls (its big shell meshes: a set's walls don't always sit on its walking bounds)
         if (this.root && t > 0.6) {
             RAY.set(RV.set(tgt.x, tgt.y, tgt.z), RD.set(dx, dy, dz).normalize()); RAY.near = 0.2; RAY.far = t + 0.3;
-            for (const h of RAY.intersectObject(this.root, true)) {
+            for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
                 if (!h.object.isMesh || (this.fadeable(h.object) && !this.wallLike(h.object))) continue;
                 t = Math.min(t, h.distance - 0.3);
                 break;
@@ -766,7 +778,7 @@ export class Room {
         const far = RD.length() - 0.05;
         if (far > 0.2) {
             RAY.set(RV, RD.normalize()); RAY.near = 0.35; RAY.far = far;
-            for (const h of RAY.intersectObject(this.root, true)) {
+            for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
                 const o = h.object;
                 if (!o.isMesh || hit.has(o)) continue;
                 if (this.fadeable(o)) hit.add(o);        // (the room's shell: never — the camera is clipped to it)
@@ -790,9 +802,13 @@ export class Room {
         RV.copy(cam.position); RD.set(L.x, L.y + 1.0, L.z).sub(RV);
         const far = RD.length() - 0.3;
         RAY.set(RV, RD.normalize()); RAY.near = 0; RAY.far = far;
-        for (const h of RAY.intersectObject(this.root, true)) {
+        for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
             const m = h.object.material, op = Array.isArray(m) ? m[0].opacity : m.opacity;
-            if (h.object.isMesh && h.object.visible && !(op < 0.5)) return `${h.object.name || "mesh"} @${h.distance.toFixed(2)}`;
+            if (h.object.isMesh && h.object.visible && !(op < 0.5)) {
+                const o = h.object; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+                const b = o.geometry.boundingBox, sc = new THREE.Vector3(); o.getWorldScale(sc);
+                return `${o.name || "mesh"} @${h.distance.toFixed(2)} (${[(b.max.x - b.min.x) * sc.x, (b.max.y - b.min.y) * sc.y, (b.max.z - b.min.z) * sc.z].map(v => v.toFixed(1)).join("×")} at ${h.point.toArray().map(v => v.toFixed(1)).join(",")}; fade ${o.userData.fadeOk}, wall ${o.userData.wallLike})`;
+            }
         }
         return "";
     }

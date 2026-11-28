@@ -96,9 +96,12 @@ export class Traffic {
         if (!cfg.enabled) return;
         // (counted in place, no arrays: this runs every frame)
         let ours = 0, onc = 0;
+        // (heading DOWN the lap — the far carriageway, ci/twoway; `dir` set by core/driving.js: the road ahead of her is
+        //  lower s, so the cars come from there: the far side's going her way, ours coming toward her)
+        const D = this.dir === -1 ? -1 : 1;
         for (let i = 0; i < this.cars.length; i++) {
             const c = this.cars[i];
-            if (c.hit || c.ai || c.s <= playerS - 50) continue;
+            if (c.hit || c.ai || (c.s - playerS) * D <= -50) continue;
             if (c.dir > 0) ours++; else if (c.dir < 0) onc++;
         }
         const maxOurs = cfg.ours + Math.floor(difficulty * 4);
@@ -110,11 +113,11 @@ export class Traffic {
         for (const k in mix) { if ((r -= mix[k]) <= 0) { kind = k; break; } }
         if (ours < maxOurs && Math.random() < 0.6) {
             const d = LANES_OURS[Math.floor(Math.random() * 2)];
-            const s = playerS + 320 + Math.random() * 240;
+            const s = D > 0 ? playerS + 320 + Math.random() * 240 : playerS - 460 - Math.random() * 140;
             if (this.laneFree(s, d, 1, 40)) this.add(kind, s, d, 1, (kind === "truck" ? 14 : 16) + Math.random() * 9);
         } else if (onc < maxOnc) {
             const d = LANES_ONCOMING[Math.floor(Math.random() * 2)];
-            const s = playerS + 460 + Math.random() * 140;
+            const s = D > 0 ? playerS + 460 + Math.random() * 140 : playerS - 320 - Math.random() * 240;
             if (this.laneFree(s, d, -1, 45)) this.add(kind, s, d, -1, (kind === "truck" ? 16 : 18) + Math.random() * 8);
         }
     }
@@ -288,7 +291,7 @@ export class Traffic {
         // recycle
         for (let i = this.cars.length - 1; i >= 0; i--) {
             const c = this.cars[i];
-            const rel = c.s - playerS;
+            const rel = (c.s - playerS) * (this.dir === -1 ? -1 : 1);      // (along the way she's going)
             if (!c.keep && (rel < -160 || rel > 900 || (c.hit && c.hitT > 12 && rel < -40))) {
                 this.release(c);
                 this.cars.splice(i, 1);

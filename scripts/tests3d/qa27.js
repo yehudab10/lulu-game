@@ -42,6 +42,9 @@ module.exports = {
           seen: Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95 && v.z < 1, wall: r.debugBlocked ? r.debugBlocked() : "" }; })()`);
     const playing = async () => { if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); } if (await st() !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(3); } };
     const hwAt = async s => {
+      // (the test ends her walk by script — foot.end("test") puts her straight back at the wheel, the chase cam takes over
+      //  from the foot camera at once: the test's own cut, declared BEFORE it, not the game's jump — sweep-health, 46096783229)
+      await t.L(`(window.__qa.cutF = __lulu3d.ctx.frames + 40, window.__qa.last = null, true)`);
       await playing();
       if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
       await W.moved(t);

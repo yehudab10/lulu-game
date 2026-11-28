@@ -178,10 +178,13 @@ export function banner(html, ms = 2200, opts = {}) {
     if (NT.bq.length > 4) NT.bq.length = 4;
     pumpBanners();
 }
+/** Tucked under the chips (free driving / walking — and inside a room: its title + hint chips sit centre stage, a
+ *  full banner there drew under them for its first seconds on a phone) or centre stage (a countdown, a cutscene…). */
+const bannerCompact = () => document.body.classList.contains("in-play") || document.body.classList.contains("lulu-interior");
 function placeBanner() {
     // While driving / walking it tucks under the trip bar (top of the "center" slot) so it
     // never covers the road; elsewhere (countdown, wrecked, interiors…) it stays centre stage.
-    const compact = document.body.classList.contains("in-play");
+    const compact = bannerCompact();
     const home = compact ? hudSlot("center") : el.hud;
     if (el.banner.parentNode !== home) { if (compact) home.prepend(el.banner); else home.insertBefore(el.banner, el.padHint); }
     el.banner.classList.toggle("compact", compact);
@@ -207,6 +210,12 @@ function pumpBanners() {
         if (!cur || nx.prio > cur.prio || (nx.prio === cur.prio && cur.t >= MIN_SHOW)) { NT.bq.shift(); showBanner(nx); }
         break;
     }
+}
+/** Forget the queued banners that match (+ the one on screen): a place's banners don't follow her through a door —
+ *  the town's WELCOME popping up in the shop she walked into, the pizza shop's title in Borough Hall. */
+export function dropBanners(match = () => true) {
+    for (let i = NT.bq.length - 1; i >= 0; i--) if (match(NT.bq[i])) NT.bq.splice(i, 1);
+    if (NT.cur && match(NT.cur)) hideBanner();
 }
 export function hideBanner() {
     NT.cur = null;
@@ -248,7 +257,7 @@ export function notifyTick(dt) {
         cur.t += dt;
         if (cur.ms > 0 && cur.t >= cur.ms / 1000) { NT.cur = null; el.banner.classList.add("hidden"); }
         // driving started / stopped under a banner (GO!) → move it to the right place
-        else if (el.banner.classList.contains("compact") !== document.body.classList.contains("in-play")) placeBanner();
+        else if (el.banner.classList.contains("compact") !== bannerCompact()) placeBanner();
     }
     for (const b of NT.bq) b.age += dt;
     pumpBanners();
