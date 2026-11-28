@@ -53,7 +53,8 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    camera starts behind her, right inside the front door model, and the room's camera only ever looked at a room's
    MODEL — the houses, the clothes shop, the lanes, the shops are built in code, so their walls never stopped the lens
    and their furniture / front door never faded. `interiors/engine.js` rayRoots(): the camera's clip, the fading and
-   the test probe see the code-built pieces too (the door fades, the room shows). — fixed
+   the test probe see the code-built pieces too (the door fades, the room shows). — on the branch, batch 2 (doors'
+   "no wall between the camera and her" now sees a code-built mesh in City Hall: to sort out before landing)
 14. Test artefacts found + fixed in the sweep test itself (not game bugs): the parked car is the foot stub, not
    ctx.car; a teleport needs the watchdog's moved(); street counters (makolet, Bling Bay) open a card on the street;
    the impound gate only opens on an impounded car; carcare's fronts play on the street; a fake house / listing.

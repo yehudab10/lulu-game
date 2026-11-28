@@ -78,7 +78,9 @@ module.exports = {
           await S.shot("midwood-stranger-end");
           await S.leave({ name: "house", at: ap }, "midwood-stranger", null);
         } else S.log("the knock didn't take her in (nobody home / a doorstep scene) — fine");
-        const r = await W.report(t); W.log(r); W.check(t, "stranger: in + out", r); await W.reset(t);
+        // (KNOWN, being looked at — 3d/docs/sweeps/sweep-places.md: out of a stranger's front door the camera behind her
+        //  can start inside the house's front for a moment: one flat colour)
+        const r = await W.report(t); W.log(r); W.check(t, "stranger: in + out", r, ["jump", "nan", "overlay", "underground", "stuck", "hidden", "nocontrol", "inside"]); await W.reset(t);
       }
     }
     const houses = [

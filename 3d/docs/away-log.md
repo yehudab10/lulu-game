@@ -4,6 +4,15 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 02:27 UTC — 🏬 Places, part 1 (walking into buildings in town): speech bubbles from the street ("No car? No
+  problem.", a protester's line) no longer stay frozen on screen inside the shop you just walked into, and neither does
+  the "Find a car to borrow" hint or the town's WELCOME banner. On a phone, a room's speech bubbles are never wider than
+  the screen any more (some filled it in giant letters) and long ones wrap into a few lines; a friend's name tag right
+  by the camera no longer fills the screen. Walking out of East Midwood Lanes no longer drops Lulu on the highway far
+  from Midwood — she comes out of the same front she went in by — and the alley's front now has its own sign instead of
+  COMING SOON. On a controller, ○ / B on a question now picks its "never mind" answer ("Stay a bit", "Not now"…).
+  Shops don't let her hide from the police any more, and three shop doors whose signs contradicted their opening hours
+  say the right thing.
 - 2026-11-27 23:02 UTC — 🪙 Coins and rules, part 1: no more free-coin loops from restarting. The one-time treats inside
   buildings (the precinct's free coffee, the bar's seltzer, the beach ice cream, the school bake sale, the hospital
   snack…) now pay once a DAY — restarting used to refill them. Couch coins in the neighbours' houses really stop for the

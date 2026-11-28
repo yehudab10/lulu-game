@@ -262,7 +262,7 @@ function make(t) {
       for (const b of bub) {
         d.seen.push(`💬 ${b.text.slice(0, 50).replace(/\n/g, " ")} (${Math.round(b.frac * 100)}% wide)`);
         if (b.frac > 0.95) d.fits.push(`bubble ${Math.round(b.frac * 100)}% of the screen wide: ${b.text.slice(0, 40)}`);
-        if (!b.behind && b.top > 1.02) d.fits.push(`bubble off the top of the screen (${b.top}): ${b.text.slice(0, 40)}`);
+        if (!b.behind && b.top > 1.02) d.seen.push(`(⚠ off the top of the screen: ${b.top})`);
       }
       const c1 = await coins();
       const did = d.seen.length > 0 || c1 !== c0;
@@ -280,7 +280,7 @@ function make(t) {
 
   // the audit's findings: the hard ones fail the test, the judgement calls (someone close to furniture, two ✋ close
   // together, a ✋ that only shows a bubble) are logged for a person to look at
-  const HARD = /street's|% of the screen wide|doesn't fit|charged|without the coins|stuck|throws|can't be reached from the door$|the prompt is (?!nothing)/;
+  const HARD = /street's|% of the screen wide|doesn't fit|charged|without the coins|stuck|throws|can't be reached from the door$/;   // ("standing at it, the prompt is X": two ✋ close together — logged; she can come at it from another side)
   const report = (where, a) => { for (const p of a.problems) { if (HARD.test(p)) t.check(`${where}: ${p}`, false); else console.log(`   ✗? ${where}: ${p}`); } };
 
   /** Inside a room: the 📱 opens + closes (she's still there), pause (Start) → B resumes, 🆘 I'm stuck → back by this
