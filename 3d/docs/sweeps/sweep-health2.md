@@ -1,5 +1,7 @@
 # ci/sweep-health2 — keep main green (part 2 of `sweep-health.md`)
 
+Final whole suite: **46173386522** on main a025a083 (dispatched 17:59 UTC) — the table below is replaced when it finishes.
+
 ## FINAL TABLE (first version — from whole suite #2, 46153406621 on main b789aeb0, finished 16:01 UTC; the last run updates it)
 
 194 test files on 16 machines: **11 machines green, 5 red — 5 test files red out of 194**.
