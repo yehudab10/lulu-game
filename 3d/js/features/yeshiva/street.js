@@ -34,6 +34,7 @@ function radius() {
     return r;
 }
 function staring(dt) {
+    stillFor(dt);
     if (!lakewood() || !LIFE.on) { ST.n = 0; return; }
     const p = herPos();
     if (!p) return;
@@ -61,7 +62,7 @@ function staring(dt) {
 }
 const r_pool = p => (shared.get().selectedSkin || "pink") !== "pink" && !(ctx.foot && ctx.foot.active) ? STARE.car : STARE.lulu;
 function nearestStarer() {
-    const p = herPos(); let best = null, bd = 3.4;
+    const p = herPos(); let best = null, bd = 2.6;
     for (const r of LIFE.people) { if (!r.starer) continue; const d = Math.hypot(p.x - r.p.obj.position.x, p.z - r.p.obj.position.z); if (d < bd) { bd = d; best = r; } }
     return best;
 }
@@ -143,7 +144,15 @@ on("boot", () => {
     // Ima's list: the forgotten lunch (an errand — when today's list has it, delivering Yossi's lunch ticks it; the list pays its own small, capped reward)
     if (ctx.day && ctx.day.addItem) ctx.day.addItem("errand", { id: "yeshivaLunch", icon: "🥪", text: "Take Yossi's forgotten lunch to the big yeshiva (row nine)", kind: "event", ev: "yeshiva:lunch" });
 });
-const nearStarerSafe = () => (lakewood() && LIFE.on && herPos() ? nearestStarer() : null);
+// ✋ STARE BACK is the lowest-priority ✋ there is: never near a door (the doors' ✋ must stay the doors'), only when she has been standing still
+const idle = { x: 0, z: 0, t: 0 };
+function stillFor(dt) { const p = herPos(); if (!p) return; if (Math.hypot(p.x - idle.x, p.z - idle.z) > 0.25) { idle.x = p.x; idle.z = p.z; idle.t = 0; } else idle.t += dt; }
+function nearDoor() {
+    const p = herPos(); if (!p || !ctx.foot || !ctx.foot.spots) return false;
+    for (const s of ctx.foot.spots()) { if (!s.door && !s.walkIn) continue; let a = null; try { a = s.pos ? s.pos() : s; } catch (e) { continue; } if (a && Math.hypot(a.x - p.x, a.z - p.z) < 9) return true; }
+    return false;
+}
+const nearStarerSafe = () => (lakewood() && LIFE.on && herPos() && idle.t > 0.8 && !nearDoor() ? nearestStarer() : null);
 // (one actor, driving AND on foot; a run start clears the actor list, so it's re-added — the community / crime pattern)
 let actor = null;
 function ensureActor() {
