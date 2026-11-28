@@ -4,8 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
-- 2026-11-28 19:15 UTC — 🩺 Where the tests stand for your return: on the last full test run of today's game, 11 of
-  the 16 test machines were green and one was still finishing. Of the four reds, one was a real bug (now fixed), one
+- 2026-11-28 19:30 UTC — 🩺 Where the tests stand for your return: on the last full test run of today's game, 12 of
+  the 16 test machines were green. Of the four reds, one was a real bug (now fixed), one
   was a one-off that passed when re-run, and two were the road and camera sweeps' own brand-new tests, left with those
   sweeps. The table is at the top of `3d/docs/sweeps/sweep-health2.md`.
 - 2026-11-28 18:55 UTC — ✋ The hand button, at a door or a parked car: when a neighbour happened to walk past right next to

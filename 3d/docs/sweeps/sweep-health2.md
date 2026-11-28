@@ -2,7 +2,7 @@
 
 ## FINAL TABLE — the last whole suite, 46173386522 on main a025a083 (dispatched 17:59 UTC)
 
-16 machines (194 test files): **11 green, 4 red, 1 still running when written**. Every red below
+16 machines (194 test files): **12 green, 4 red**. Every red below
 is either fixed since (and landed), a one-off that passed when re-run, or another sweep's own new test, left to its owner.
 
 | group (machine) | result | why |
@@ -17,7 +17,7 @@ is either fixed since (and landed), a one-off that passed when re-run, or anothe
 | carcare, playershopsworld, sweepplaces3, partners2, qaseam, partyfoot, world, atmos, worldclock… | ✅ green | |
 | pinroute, sweepphone, yeshiva2, qa18, law, journey, qa2, courts, cityhall3… | ✅ green | |
 | airport | ✅ green | |
-| mpworld, sweepphone5, exits, qa6, cityhall, underworld, realestate, realestateworld, qaweekend-air… | ⏳ still running when this was written | |
+| mpworld, sweepphone5, exits, qa6, cityhall, underworld, realestate, realestateworld, qaweekend-air… | ✅ green | |
 | homes, sweepplaces, crime3, qa15, shul, partners3, parking, qa10, qa8… | ✅ green | |
 | dealersui, schlepnav, sweepplaces4, cameos, partyworld, airport-terminal, crime, phone, unstuck-air… | ✅ green | |
 | install, sweephealth, sweeproad3, heist, friends, qa14, roadevents, roadside, qa17… | ❌ sweeproad3 | **sweeproad3**: a sedan bumping her at 5.2 km + a flat frame on the lap — `ci/sweep-road`'s own test (traffic lane), left to them |
