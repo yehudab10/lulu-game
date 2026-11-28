@@ -88,8 +88,13 @@ export function stopRide(quiet = false, opts = {}) {
     }
     if (rc && rc.shown) {
         // out on the passenger side, rolling at the car's speed
+        // (beside where her seat is drawn — the driver's car + the glide offset her seat still carries after a gap / a
+        //  town line — not beside the driver's newest position: that was up to ~16 m from where the camera was, one-frame
+        //  jump on hopping out moving — qafriends; sweep-health2)
         const rx = -Math.cos(rc.h), rz = Math.sin(rc.h);
-        car.place(rc.x - rx * 3.4, rc.z - rz * 3.4, rc.h);
+        const bx = rc.x + (RIDE.ox || 0), bz = rc.z + (RIDE.oz || 0);
+        car.place(bx - rx * 3.4, bz - rz * 3.4, rc.h);
+        RIDE.ox = RIDE.oz = 0;
         const n = ctx.world.road.nearest(car.pos.x, car.pos.z, car.s, {});
         car.s = n.s; car.d = n.d;
         car.vx = rc.vx; car.vz = rc.vz; car.vF = Math.max(0, rc.speed);

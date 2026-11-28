@@ -1,5 +1,7 @@
 # ci/sweep-health2 — keep main green (part 2 of `sweep-health.md`)
 
+Final whole suite: **46173386522** on main a025a083 (dispatched 17:59 UTC) — the table below is replaced when it finishes.
+
 ## FINAL TABLE (first version — from whole suite #2, 46153406621 on main b789aeb0, finished 16:01 UTC; the last run updates it)
 
 194 test files on 16 machines: **11 machines green, 5 red — 5 test files red out of 194**.
@@ -65,6 +67,8 @@ see the FINAL TABLE at the top.
 | homes — a speeding car: peds scatter (AAH!) | flake: green on the re-run 46169211630 |
 | streets — a cop SAW it → an instant chase (CARJACKING) | flake (red in both whole suites, green on the re-run 46169211630); cops = `ci/sweep-road` — told in the report |
 | sweeproad3, sweepcamera | the other sweeps' own tests — theirs |
+| (final run) qafriends — guest: hop out moving in town: the car moved 15.7 m in one frame | REAL (red on and off since part 1): hopping out moving put her car 3.4 m beside the driver's NEWEST position, while her seat (and the camera) was drawn at the driver's car + the glide offset it carried after a gap / a town line — up to ~12 m apart. Placed beside where her seat is drawn now (`openworld/ride.js` stopRide); `ci/friends` landed + quiet → mine. Green 46176106020 (qafriends, openworld, friends, friendsworld), landed 18:45 |
+| (final run) places — back out of the court (footRun) timed out | flake: green on the re-run 46175555700 |
 
 ## Findings + status
 
