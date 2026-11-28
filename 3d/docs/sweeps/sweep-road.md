@@ -11,6 +11,9 @@ it down the lap, `_KM` / `_FROM` a stretch).
 Not touched (still moving on another branch when this started): `features/fuel` (`ci/fuel`, not landed),
 `features/dealers` (`ci/dealers-ui`, moved minutes before).
 
+**Status: FINISHED 2026-11-28 18:40 UTC** — 32 findings, all landed on main in 9 parts (below); nothing half-done on
+`ci/sweep-road`. What's left is under "Left" and "For other branches".
+
 ## Findings
 
 | # | what the player sees | where | status |
