@@ -47,11 +47,39 @@ both areas are this sweep's now.
    lens to her chest + head (what faces the camera), and two lines (Maison de Gelt's thin rail slipped between).
 5. **Rooms: the shul's merged tables (one big mesh, can't fade) between the lens and her body**: the room's clip also
    looks from her chest to the lens spot.
-6. qa27 "the room went away": the corner shuffle walked her out of the Hatzalah door (the door working — the test's own
-   comment says so); the test notes it instead of failing. (Its "at the door" camera sat in FRONT of her: checking.)
-7. Rest area: the chase cam had no walls in a rest area's lot (backed into its building → one flat white:
+6. **The roadside rooms (Trooper Post 7, the traffic court, the first-aid room, Hatzalah), the pizza shop, the bakery
+   and the clothes shop: she walked in FACING THE DOOR**, the camera inside looking out at the street through the
+   cut-away front, and "up" on the stick walked her straight back out (qa27's "the room went away" in a corner: the
+   shuffle walked her out). Cause: a spot turned 180° reads back as 0° (`rotation.y` from a cloned quaternion spans
+   ±90°; `lanes/room.js` had already worked round it). Her own spots (`lulu`, `door`) now read their true heading
+   (`interiors/engine.js` yawOf); other spots keep the old reading (the sets' people were placed against it — see Left).
+   qa27's corner loop notes a walk-out by the door instead of failing.
+7. **Her see-through in a small room showed her face from behind** (a ghost staring back at the camera: the transparent
+   head let the face show through). A depth-only twin of each faded part, drawn after the room's solids, keeps only her
+   nearest surface (`fadeSelf`).
+8. Rest area: the chase cam had no walls in a rest area's lot (backed into its building → one flat white:
    unstuck's intermittent flat). carClipFn now covers `ctx.exits.inside`.
+9. **Cutscene / scene shots** (`cam.cinematic`: arrests, the crash, the ER, heists, getaways, the climb-out…) in a town
+   could stand inside the houses: they're clipped by the same walls as the chase cam now.
+10. cityhall's ribbon cutting: 36 starts in both towns never stand in a block (sweepcamera › ribbon); CI's "Lulu inside
+    block@-36,95" + the 5.3 m camera move were the test's own teleport (R + n · 1.4) into a block's edge, then the
+    camera coming out — not reproduced by the game's own placement; a glide through a wall is a cut now anyway (item 2).
+11. sweepcamera's "Lakewood City Hall: Lulu moved 62 m in one frame" was the TEST teleporting her from the bank's door
+    to city hall's without declaring it (fixed in the test; every building's walk-out lands at its door: › doorout).
+
+Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbon, doorout, roadside; `SWEEPCAM_PARTS`),
+`scripts/lib/camjunk.js` (the probe: rays from the lens into the real scene — what's within 1.6 m of the lens, what
+stands between the lens and her chest / head; knows the see-through cut).
 
 ## For other branches
+- **✋ "💬 SAY HI" (a homes crowd pedestrian, `homes/crowd.js`) wins over a door / a parked car's HOTWIRE** when a
+  townsperson happens to stand near: life3 "next to a parked car: ✋ HOTWIRE (got SAY HI)", sweepplaces
+  "lakewood-bling: at its door the ✋ is the door", sweepcamera's own door entries (shul, hospital) now and then. Random
+  (where the crowd stands); foot's NEXT_TO rule / the homes crowd — `ci/doors` / homes owners.
 
 ## Left
+- **Spots turned 180° in five Blender sets read as 0°** (airport_terminal 37 spots, heist_bankint 7, interiors_bar 3,
+  interiors_beach 2, places_courtlobby 4 — people / bench spots): the people there may face the wrong way; with
+  faceLulu most turn to her anyway. Fixing it flips them all — a look change for the sets' owners to check, not done.
+- Right at a small room's door the camera sits ~1.4 m behind her (she's see-through, now cleanly): a higher / further
+  camera for small rooms would read better — a rig-tuning change, not tonight.
