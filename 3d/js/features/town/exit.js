@@ -280,8 +280,8 @@ function aimOn(la, out) {
     return hw.point(A.e.s + ua, ua < ACC1 ? onLineD(ua) : 5.25, out);
 }
 hook("copRoute", (c, unit, ch) => {
-    if (!unit || unit.mode !== "chase" || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
-    const car = ctx.car, hw = ctx.world.highway;
+    if (!unit || (unit.mode !== "chase" && unit.mode !== "pull") || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
+    const car = ctx.car, hw = ctx.world.highway, pull = unit.mode === "pull";
     // (SEARCHING — they've lost sight of her: law's own lanes, they fly on up the highway; that's how taking an exit unseen
     //  shakes them — law/index.js town:enter. Only a cruiser that can SEE her follows her down the ramp.)
     if (ch && ch.searching) return null;
@@ -296,7 +296,7 @@ hook("copRoute", (c, unit, ch) => {
     if (!ph.phase && u > ON0 - 6 && u < ACC1 && td > 6.6 && Math.abs(td - onLineD(u)) < 4.5) {
         if (uC > u + 5 || uC < X_IN - 40) return null;
         Object.assign(_co, { e, uC, dC: c.d });
-        return { gap: Math.max(0, (u - uC) + Math.max(0, c.d - ON_D0 - ARC_R)), aim: aimOn };
+        return { gap: Math.max(0, (u - uC) + Math.max(0, c.d - ON_D0 - ARC_R) - (pull ? 7.2 : 0)), aim: aimOn };
     }
     const atT = !ph.phase && u > STOP_OUT - 8 && u < X_IN + 30 && td > D_IN - 12;     // past a stop line, at / on the cross road
     if (!ph.phase && !atT) return null;
@@ -304,8 +304,17 @@ hook("copRoute", (c, unit, ch) => {
     // (her branch; at the T: the branch whose stop line is nearest her)
     const b = ph.branch != null ? e.branches[ph.branch] : e.branches.reduce((m, x) => (Math.abs(td - x.dOf(x.stop)) < Math.abs(td - m.dOf(m.stop)) ? x : m), e.branches[0]);
     const p = look ? hw.point(look.s, look.d, {}) : car.pos;
-    Object.assign(_ca, { e, b, uC, tx: p.x, tz: p.z });
-    return { gap: Math.max(0, ts - c.s), aim: aimRamp };
+    // (a pull-over: it stops 7 m behind her car, on the ramp)
+    const bx = pull ? -Math.sin(car.h) * 7.2 : 0, bz = pull ? -Math.cos(car.h) * 7.2 : 0;
+    Object.assign(_ca, { e, b, uC: pull ? Math.min(uC, u - 7.2) : uC, tx: p.x + bx, tz: p.z + bz });
+    return { gap: Math.max(0, ts - c.s - (pull ? 7.2 : 0)), aim: aimRamp };
+});
+// …and BUSTED on a ramp / at its T / on the on-ramp: she stops right where she is (law's pull-over used to steer her back
+// across the grass to the highway's shoulder, d 7.9) — law's hook "pullOverSpot" (as JFK's roads do)
+hook("pullOverSpot", car => {
+    if ((ctx.town && ctx.town.active) || !car || !(car.d > 9.5)) return null;
+    const e = exitAt(car.s);
+    return e ? { h: car.h } : null;
 });
 
 on("boot", () => { ensureModels(["exits_gantry"]).catch(() => ensureModels(["town_gantry"]).catch(() => {})); });

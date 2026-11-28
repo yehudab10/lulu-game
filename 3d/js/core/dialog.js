@@ -63,8 +63,21 @@ function close() {
     cur = null;
 }
 
+/** Another feature's line / question opens over one still waiting (two things at once — ci/sweep-logic2): the one it
+ *  replaces answers -1 ("closed", as closeDialog does) instead of waiting forever — its feature's `busy` flag / await
+ *  used to stay stuck for the rest of the run. */
+function supersede() {
+    if (!cur) return;
+    const r = cur.resolve;
+    cur = null;
+    S.superseded++;
+    try { if (r) r(-1); } catch (e) { console.error("[dialog] superseded", e); }
+}
+export const S = { superseded: 0 };
+
 /** Show one line; resolves when the player advances. */
 export function say(name, text, opts = {}) {
+    supersede();
     return new Promise(resolve => {
         open(name, text, opts);
         cur = { resolve, options: null, focus: 0, full: text, shown: 0, typing: true, keep: !!opts.keep, auto: opts.auto || 0, t: 0 };
@@ -74,6 +87,7 @@ export function say(name, text, opts = {}) {
 
 /** Ask a question; resolves with the chosen option index. */
 export function choose(name, text, options, opts = {}) {
+    supersede();
     return new Promise(resolve => {
         open(name, text, opts);
         cur = { resolve, options, focus: opts.focus || 0, full: text, shown: 0, typing: true, keep: !!opts.keep, t: 0 };
@@ -92,7 +106,8 @@ export function choose(name, text, options, opts = {}) {
 /** Play a list of [speaker, text, opts?] lines in order. `emoji` maps speaker → emoji. */
 export async function script(lines, { emoji = {}, color = {} } = {}) {
     for (const [who, text, o] of lines) {
-        await say(who, text, Object.assign({ emoji: emoji[who], color: color[who] }, o || {}));
+        // (-1: closed, or another feature's line covered this one — the rest of this script stops; it isn't read anymore)
+        if (await say(who, text, Object.assign({ emoji: emoji[who], color: color[who] }, o || {})) === -1) return -1;
     }
 }
 
@@ -161,6 +176,7 @@ export function dialogUpdate(dt, P) {
         if (P.up || P.navLeft) setFocus(cur.focus - 1);
         else if (P.down || P.navRight) setFocus(cur.focus + 1);
     }
+    if (P.pause) return;            // (☰ / Options / Esc pause the game — app.js — never answer the question)
     if (P.confirm || P.interact || P.start) advance();
     else if (P.back && !P.pause && cur && cur.options && !cur.typing) { const i = cancelIndex(cur.options); if (i >= 0) pickOption(i); }
     else if (cur && cur.auto && !cur.typing && cur.t > cur.auto) advance();

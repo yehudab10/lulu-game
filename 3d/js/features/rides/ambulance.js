@@ -26,6 +26,9 @@ const knobs = { erAhead: null };       // tests: put the ER this far ahead inste
 const PATCH = { id: "patch", emoji: "🩹", label: "PATCH UP", short: "PATCH", ready: true, why: T.PATCH_EMPTY };
 const RUN = { phase: "off", t: 0, s: 0, side: 1, patient: null, by: null, erS: 0, left: 0, T: 0, tip: 0, owT: 0, resv: null, er: null };
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+// (one activity at a time — ci/sweep-logic2: a patient run is a timed mission — no robbery / cameo / job's offer on top of
+//  the ER clock; and dispatch waits while she's in something else, below)
+ctx.addActivity("ride", () => RUN.phase === "pickup" || RUN.phase === "load" || RUN.phase === "rush");
 
 add({
     id: "ambulance", name: "Ambulance", emoji: "🚑", keys: ["foot_ambulance"], vtype: "ambulance",
@@ -133,7 +136,7 @@ function tick(dt, R, playing) {
             if (!playing) return;
             RUN.t -= dt;
             if (RUN.t > 0) return;
-            if (!(live() || partyOn()) || inTown() || (ctx.law && ctx.law.chasing) || !dispatch()) RUN.t = 3;
+            if (!(live() || partyOn()) || inTown() || (ctx.law && ctx.law.chasing) || ctx.engaged("ride") || !dispatch()) RUN.t = 3;
             return;
         }
         case "pickup": {

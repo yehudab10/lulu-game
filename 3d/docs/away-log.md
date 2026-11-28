@@ -4,6 +4,26 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 12:45 UTC — 🔍 Game logic, part 2: one clock — shop doors, the car-care row, the school-zone speed cameras
+  and what's on in the shul / yeshiva now follow the hour the sky (and the 📱) shows, not the device's (a shop said
+  "CLOSED · opens 7 am" under the noon sun). Pressing ☰ in the middle of a question pauses the game instead of picking
+  the highlighted answer, and back from another app ✕ "Resume" no longer answers the question behind the pause card.
+  Nothing new (a robbery to foil, a cameo, a job's offer) starts during an ambulance patient run, a test drive or with
+  the Shomrim on her tail. A hitchhiker doesn't wait in the car through an arrest; riding in a friend's passenger seat
+  never gets her a speed-camera ticket; walking into one of the town's shops ticks Ima's "pop into a shop"; the
+  inspector doesn't wait on her path mid-chase; an arrest no longer freezes mid-cuffs when the cruiser has gone.
+- 2026-11-28 12:40 UTC — 🩺 Tests + small fixes, part 2. Walking around town is a little calmer: Lulu's first
+  "where's a car" grumble waits until the on-foot tip has gone (she used to talk over it, and over the town's own welcome
+  line), the drivers stuck in the Route 9 jam don't yell the same thing twice in a row, and the rain / storm / fog
+  messages on foot are about walking (they told her to "hold the wheel" and put the headlights on). In the shul on a
+  Friday the kid running round the kiddush table no longer brushes through the doorway's low wall. Online, other
+  players' usernames over their cars show again (a name could stay "Pink 56" for ten minutes after crossing between
+  parts of the world). Three tests that had gone stale were brought up to date.
+- 2026-11-28 12:20 UTC — 🚗 On the road, part 3. Pulled over by the police on an exit ramp, in a rest area's car park, at
+  Trooper Post 7 or a dealership's lot, Lulu now stops right where she is and the police car pulls up behind her — before,
+  the game steered her back across the grass to the side of the highway. Driving straight on past an exit, the green
+  "EXIT … NOW" line no longer hangs on for a while after the exit has gone by, and an electric car charging at a rest
+  area's pumps is no longer also told "electric? try a charger".
 - 2026-11-28 08:30 UTC — 📱 Phones, part 5: on a phone, the ✋ button by her car says DRIVE (it said "OWN"), and a few
   lines that told touch players to "press Tap" / "mash Tap (or tap)" say it in plain words.
 - 2026-11-28 08:15 UTC — 📱 Phones, part 4: on a small phone held sideways, the first-drive lesson's card no longer

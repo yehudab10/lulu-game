@@ -121,6 +121,7 @@ export function enter(f) {
     const dr = f.door, n = ctx.world.road.nearest(dr.x, dr.z, ctx.car.s, {});
     const ref = { id: "storefront:" + f.id, s: n.s, d: n.d, side: Math.sign(n.d) || 1 };
     emit("stat", { id: "storefrontVisits", n: 1 });
+    emit("stat", { id: "footInteriors", n: 1 });       // (Ima's list "Pop into a shop on foot" — the town's shops never ticked it: ci/sweep-logic2)
     emit("storefronts:enter", { id: f.id, shop: f.st.shop, town: F.town });
     const exit = () => { if (ctx.foot && ctx.foot.active !== undefined) setState("footRun", { resume: "interior", door: ref }); };
     return reg.enter({ exit, door: ROOM_ID, from: "foot" });
