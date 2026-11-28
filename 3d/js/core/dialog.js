@@ -162,5 +162,13 @@ export function dialogUpdate(dt, P) {
         else if (P.down || P.navRight) setFocus(cur.focus + 1);
     }
     if (P.confirm || P.interact || P.start) advance();
+    else if (P.back && !P.pause && cur && cur.options && !cur.typing) { const i = cancelIndex(cur.options); if (i >= 0) pickOption(i); }
     else if (cur && cur.auto && !cur.typing && cur.t > cur.auto) advance();
+}
+/** ○ / B on a question = its "never mind" answer, when it has one (the last option that reads like one) — a controller
+ *  player's back button does what it says instead of nothing. A question with no such answer still waits for a pick. */
+const CANCEL = /^[^\p{L}]*(not now|not today|never ?mind|maybe later|no,? thanks|just looking|stay a bit|leave it|cancel|nah\b|no$|back$)/iu;
+function cancelIndex(options) {
+    for (let i = options.length - 1; i >= 0; i--) { const o = String(options[i]).replace(/<[^>]*>/g, "").trim(); if (/^(✖|‹|❌)/u.test(o) || CANCEL.test(o)) return i; }
+    return -1;
 }
