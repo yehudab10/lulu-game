@@ -28,7 +28,7 @@ export const CHARGE = {
 
 export const L = {
     // the chip on the objective line (the lowest priority)
-    chip: "🚗 Your car is impounded", chipSub: "City Hall or the precinct · {fee} 💰",
+    chip: "🚗 Your car is impounded", chipSub: "City Hall or {where} · {fee} 💰",
     chipReady: "🚗 Release slip ✓", chipReadySub: "go to the impound gate",
     // the gate
     gateLabel: "🚗 YOUR CAR (IMPOUNDED)", gateReady: "🧾 SHOW THE RELEASE — get your car",

@@ -285,6 +285,8 @@ async function yard(t) {
   const st = await g(`({ held: ctx.impound.held, label: ctx.impound.gateLabel(), where: (ctx.cars.list().find(c => c.key === "purple") || {}).where })`);
   t.check("yard: the car held at the trooper yard is held HERE (its gate's ✋ offers it)", !!st.held && st.held.town === "hw:trooper" && !!st.label, JSON.stringify(st));
   t.check("yard: …the 📱 says where it is (not 'impounded in null')", /Trooper Post 7/.test(st.where || ""), st.where);
+  const chip = await t.L(`(document.querySelector(".impound-chip") || {}).textContent || ""`);
+  t.check("yard: …and the HUD line says where to go", /Trooper Post 7's yard/.test(chip), chip);
   const c0 = await t.L(`__lulu3d.wallet.coins`);
   const paid = await g(`ctx.impound.pay("gate")`);
   const fee = c0 - await t.L(`__lulu3d.wallet.coins`);

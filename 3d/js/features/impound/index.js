@@ -178,10 +178,17 @@ on("phone:close", () => { PH.armed = false; });
 // ── the charge (court lines) ─────────────────────────────────────────────
 on("boot", () => { try { if (ctx.law && ctx.law.addCharge) ctx.law.addCharge(CHARGE); } catch (e) { /* no law */ } });
 
+/** Where the gate is, for the chip: a town's precinct, or a roadside yard by name (ci/roadside). */
+function yardName() {
+    const t = IM.held && String(IM.held.town || "");
+    if (!t.startsWith("hw:")) return "the precinct";
+    const p = lapPlaces().find(q => q.addr === t);
+    return p ? p.name.replace(/ \+ .*/, "") + "'s yard" : "the yard";
+}
 // ── the objective line's lowest slot + the 📱 Map (ctx.pins, when ci/hud has it) ──
 function chipTick() {
     const want = !!IM.held && !ctx.dialogOpen && (ctx.state === "footRun" || ctx.state === "playing");
-    const txt = !want ? "" : IM.released ? `${L.chipReady}<small>${L.chipReadySub}</small>` : `${L.chip}<small>${fill(L.chipSub, { fee: fee() })}</small>`;
+    const txt = !want ? "" : IM.released ? `${L.chipReady}<small>${L.chipReadySub}</small>` : `${L.chip}<small>${fill(L.chipSub, { fee: fee(), where: yardName() })}</small>`;
     if (!IM.chip && want) {
         IM.chip = document.createElement("div"); IM.chip.className = "day-chip impound-chip";
         H.hudSlot("left").appendChild(IM.chip);
