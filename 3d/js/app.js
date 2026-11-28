@@ -25,6 +25,8 @@ import { TC, mode as testMode, afterStep as testAfterStep, beforeStep as testBef
 import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
 import "./features/index.js";
 
+const _rh = {};          // (scratch: the road heading under her, for the world's streaming direction)
+let _backT = 0;          // (s of steady travel down the lap)
 const MPH = 2.23694;
 
 // ── renderer / scene ────────────────────────────────────────────────────
@@ -251,7 +253,21 @@ function step(dt, P) {
 
     const cur = ctx.states[ctx.state] || def;
     if (!ctx.view && ctx.world) {
-        if (cur && cur.world !== false) ctx.world.update(dt, ctx.car.s, camera.position);
+        if (cur && cur.world !== false) {
+            // (which way she's travelling along the road — the world streams its chunks that way: ci/twoway, the far
+            //  carriageway is drivable both ways; a moment's stop keeps the last direction)
+            const w = ctx.world, c = ctx.car;
+            // (down the lap only after 2 s of steady travel that way — reversing in a bay, a ramp's bend or a drift never
+            //  flips it; any real speed up the lap flips it straight back)
+            if (w.road && w.road.at && c && !w.district) {
+                const rh = w.road.at(c.s, _rh).h, v = (c.vx || 0) * Math.sin(rh) + (c.vz || 0) * Math.cos(rh);
+                const facingDown = Math.sin(c.h) * Math.sin(rh) + Math.cos(c.h) * Math.cos(rh) < -0.3;      // (reversing never counts)
+                if (v > 3) { _backT = 0; w.dir = 1; }
+                else if (v < -6 && facingDown) { _backT += dt; if (_backT > 2) w.dir = -1; }
+                else _backT = 0;
+            }
+            w.update(dt, ctx.car.s, camera.position);
+        }
         try { cam.update(dt); } catch (e) { console.error("Lulu3D camera error", e); }
         placeSun(ctx.car.pos);
     }
@@ -328,11 +344,17 @@ function nextPlace(s) {
     let v;
     if (!pts.length) v = { frac: here / LAP, label: "On the highway" };
     else {
-        const ahead = p => { const a = mod(p.s - here); return a < 60 ? a + LAP : a; };      // (one she's passing now: the next lap's)
+        // (heading DOWN the lap — the far carriageway, ci/twoway: the next place is the one behind in lap terms, and its
+        //  exit is on the other side of the road for now)
+        const down = ctx.world && ctx.world.dir === -1;
+        const fwd = p => (down ? mod(here - p.s) : mod(p.s - here)), bwd = p => (down ? mod(p.s - here) : mod(here - p.s));
+        const ahead = p => { const a = fwd(p); return a < 60 ? a + LAP : a; };      // (one she's passing now: the next lap's)
         pts.sort((a, b) => ahead(a) - ahead(b));
-        const nx = pts[0], a = ahead(nx), back = pts.reduce((m, p) => Math.min(m, mod(here - p.s)), LAP), gap = Math.max(1, a + back);
+        const nx = pts[0], a = ahead(nx), back = pts.reduce((m, p) => Math.min(m, bwd(p)), LAP), gap = Math.max(1, a + back);
         const mi = a / 1609, far = mi < 0.1 ? "now" : `in ${mi.toFixed(1)} mi`;
-        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: nx.kind === "rest" ? `🅿️ Rest area ${far}` : `🛣️ ${nx.names.join(" & ")} exit ${far}` };
+        const name = nx.kind === "rest" ? "Rest area" : nx.names.join(" & ");
+        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: down ? `${nx.kind === "rest" ? "🅿️" : "🛣️"} ${name} ${far} · exit on the other side`
+            : nx.kind === "rest" ? `🅿️ Rest area ${far}` : `🛣️ ${name} exit ${far}` };
     }
     NP.t = ctx.time; NP.v = v;
     return v;

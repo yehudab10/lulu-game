@@ -115,12 +115,22 @@ export class Bubbles {
     say(text, at, secs = 2.6, { color = "#2b1b2e", bg = "#ffffff", yOff = 2.1, size = 1 } = {}) {
         // one bubble per anchor
         for (const b of this.list) if (b.at === at) b.t = Math.min(b.t, 0.15);
-        const lines = String(text).split("\n");
-        const W = 640, fs = 44, H = Math.round(fs * 1.25 * lines.length + 52);
+        const W = 640, fs = 44, font = `700 ${fs}px Fredoka, Arial, sans-serif`;
         const c = document.createElement("canvas");
-        c.width = W; c.height = H + 26;
+        c.width = W;
         const g = c.getContext("2d");
-        g.font = `700 ${fs}px Fredoka, Arial, sans-serif`;
+        g.font = font;
+        // (a long line wraps — squeezed onto one line it came out as a thin unreadable strip across a phone)
+        const lines = [];
+        for (const para of String(text).split("\n")) {
+            let cur = "";
+            for (const w of para.split(" ")) { const t = cur ? cur + " " + w : w; if (cur && g.measureText(t).width > W - 96) { lines.push(cur); cur = w; } else cur = t; }
+            lines.push(cur);
+        }
+        text = lines.join("\n");
+        const H = Math.round(fs * 1.25 * lines.length + 52);
+        c.height = H + 26;
+        g.font = font;
         const tw = Math.min(W - 20, Math.max(...lines.map(l => g.measureText(l).width)) + 56);
         const x0 = (W - tw) / 2;
         g.fillStyle = "rgba(0,0,0,0.18)"; roundRect(g, x0 + 4, 8, tw, H - 4, 30); g.fill();
@@ -135,7 +145,21 @@ export class Bubbles {
         sp.scale.set(sw, sw * c.height / W, 1);
         sp.renderOrder = 10;
         this.set.add(sp);
-        this.list.push({ sp, mat, tex, at, t: secs, yOff, life: secs });
+        const b = { sp, mat, tex, at, t: secs, yOff, life: secs, w: sw, h: sw * c.height / W, fill: tw / W, text: String(text).slice(0, 80) };
+        this.list.push(b);
+        const p = at.isVector3 ? at : at.position;
+        sp.position.set(p.x, p.y + yOff, p.z);
+        this.fit(b);
+    }
+    /** (the on-foot camera indoors sits close to the walls — ci/doors — and a phone held upright sees a narrow slice: a
+     *  bubble near the lens filled the screen in giant letters. Never wider than ~90 % of the view / taller than a third
+     *  of it at its distance: the same readable size it has across the room.) */
+    fit(b) {
+        const cam = this.set.camera;
+        if (!cam || !cam.isPerspectiveCamera) return;
+        const d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vh = 2 * d * Math.tan(cam.fov * Math.PI / 360), vw = vh * cam.aspect;
+        const k = Math.min(1, (vw * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
+        b.sp.scale.set(b.w * k, b.h * k, 1);
     }
     update(dt) {
         for (let i = this.list.length - 1; i >= 0; i--) {
@@ -144,6 +168,7 @@ export class Bubbles {
             const p = b.at.isVector3 ? b.at : b.at.position;
             const rise = Math.min(1, (b.life - b.t) * 6);
             b.sp.position.set(p.x, p.y + b.yOff + rise * 0.15, p.z);
+            this.fit(b);
             b.mat.opacity = Math.min(1, b.t * 4) * Math.min(1, rise * 1.5);
             if (b.t <= 0) { this.set.scene.remove(b.sp); b.mat.dispose(); b.tex.dispose(); this.list.splice(i, 1); }
         }

@@ -68,5 +68,6 @@ import "./impound/index.js";      // 🚗 getting an impounded car back: pay the
 import "./cars/index.js";         // 🚗 every car she owns is somewhere: left where she parked it (any lap, a reload, a new day), ✋ get in to swap, 📱 🗺️ Map › Your cars
 import "./carcare/index.js";      // 🧽 the car-care row: the Minivan Wash (dirt), Bumper to Bumper (dents), Tire-d of It (tires), the Muffler shop, Gas & Gossip (one true thing a real hour) — each car's condition saved with ctx.cars
 import "./cameras/index.js";      // 📸 speed cameras: Ocean Parkway (25, fires above 35) + every school block in school hours (15, fires above 25) — the flash + a photo, the ticket comes in the mail at her home, City Hall's ledger, then late fee → summons (Courtroom 2B) → a bench warrant
+import "./yeshiva/index.js";      // 🎓 yeshiva: Beis Medrash Gadol HaMinivan — a parody campus in Lakewood: the reaction wave when Lulu walks in, the bochurim, the parody shiur, L.S.D. (staring) in the streets, the OTD guys
 import "./looktest/index.js";      // 🎨 the LOOK TEST (ci/looktest): an improved car / a skinned Lulu / better light — ONLY with ?look=2 (asleep otherwise)
 import "./install/index.js";      // 📥 install on this PC / phone (optional): the service worker (/sw.js) + one quiet ⚙️ row when the browser offers it

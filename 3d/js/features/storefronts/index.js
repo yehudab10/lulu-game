@@ -98,10 +98,13 @@ function label(f) {
     if (f.st && f.st.bowling) return "🎳 COMING SOON: EAST MIDWOOD LANES";
     return { soon: "🚧 COMING SOON", lease: "🏷️ FOR LEASE", use: `🔧 ${name.toUpperCase()}: BACK IN 5`, office: "🏢 OFFICES UPSTAIRS", dentist: "🦷 UPSTAIRS", gone: "🪧 CLOSED FOR GOOD" }[s] || "🏪";
 }
+const hunted = () => !!((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing));
 function say(text) { const o = ctx.foot && ctx.foot.obj; if (o && ctx.foot.say) ctx.foot.say(o, text, 3.4); }
 function act(f) {
     if (!f) return false;
     const s = stateOf(f), R = rowOf(f);
+    // (every other door in town is shut to her while the police are after her — a shop isn't a hiding place either)
+    if ((s === "open" || s === "claimed") && hunted()) { say("Not with the police right behind her!"); return true; }
     if (s === "open") return enter(f);
     if (s === "claimed") { const c = F.claims.get(f.id); try { return c && c.enter ? c.enter(f) : false; } catch (e) { console.error("[storefronts] claim", e); return false; } }
     if (s === "closed") { say(`"${R.shut || "CLOSED"}"${nextOpen(R.hours) ? " — " + nextOpen(R.hours) : ""}`); return true; }
@@ -126,7 +129,7 @@ const doorSpot = {
     r: 2.6, short: "SHOP",
     pos() { const f = nearFront(); return f ? doorOf(f) : null; },
     get door() { const f = F.near; return !!f && stateOf(f) === "open"; },
-    get walkIn() { const f = F.near; return f && stateOf(f) === "open" ? { id: ROOM_ID } : null; },
+    get walkIn() { const f = F.near; return f && stateOf(f) === "open" && !hunted() ? { id: ROOM_ID } : null; },
     label: () => label(F.near),
     act: () => act(F.near),
 };
@@ -175,7 +178,8 @@ function buildLook() {
         if (!fa) continue;
         const s = f.st ? f.st.state : "use";
         if (s === "open") { quad(fa.x + f.ux * 0.95, 1.55, fa.z + f.uz * 0.95, f.ux, f.uz, f.nx, f.nz, 0.5, 0.5, 0); f.card = pos.length / 3 - 4; }
-        else if (s === "soon") for (const o of [-2.5, 2.5]) quad(fa.x + f.ux * o, 1.45, fa.z + f.uz * o, f.ux, f.uz, f.nx, f.nz, 2.1, 1.7, 2);
+        // (the bowling alley's run: no COMING SOON paper once features/lanes is open)
+        else if (s === "soon" && !(f.st.bowling && ctx.lanes)) for (const o of [-2.5, 2.5]) quad(fa.x + f.ux * o, 1.45, fa.z + f.uz * o, f.ux, f.uz, f.nx, f.nz, 2.1, 1.7, 2);
         else if (s === "lease") quad(fa.x + f.ux * 2.4, 1.5, fa.z + f.uz * 2.4, f.ux, f.uz, f.nx, f.nz, 0.8, 0.8, 3);
         else continue;
         F.look++;

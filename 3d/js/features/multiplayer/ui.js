@@ -105,8 +105,10 @@ function codeSlots() {
         <div class="mp-row" style="margin-top:4px">${btn("mp_reroll", "🎲 new code", "alt")}</div>
         <p class="fine">Share this code with friends — or dial in theirs (2D or 3D).</p>`;
 }
+// (🌍 step 3: a place room — WL0, WTMIDWOOD… — IS the everyone world; never shown as a "room")
+const inEveryone = () => MP.room === "lobby" || MP.roomKind === "place";
 function modeRow() {
-    return `<div class="mp-row">${btn("mp_every", "🌍 EVERYONE", MP.roomKind === "everyone" ? "on-every" : "off")}${btn("mp_friend", "🔑 FRIEND CODE", MP.roomKind === "friend" ? "on-friend" : "off")}</div>`;
+    return `<div class="mp-row">${btn("mp_every", "🌍 EVERYONE", MP.roomKind === "everyone" || MP.roomKind === "place" ? "on-every" : "off")}${btn("mp_friend", "🔑 FRIEND CODE", MP.roomKind === "friend" ? "on-friend" : "off")}</div>`;
 }
 function boardHtml() {
     const list = scoresList();
@@ -165,7 +167,7 @@ function render(focusId) {
     const card = H.showScreen(html, buttons, { onBack: UI.back, focus: focus || 0, wide: true, cls: "mp-card" });
     const on = (id, fn) => { const b = card.querySelector("#" + id); if (b) b.addEventListener("click", () => { sfxSelect(); fn(); }); };
     CURATED_NAMES.forEach((n, i) => on("mp_n" + i, () => { setName(n); render("mp_n" + i); }));
-    on("mp_every", () => { MP.roomKind = "everyone"; render("mp_every"); });
+    on("mp_every", () => { if (MP.roomKind !== "place") MP.roomKind = "everyone"; render("mp_every"); });
     on("mp_friend", () => { MP.roomKind = "friend"; render("mp_friend"); });
     for (let i = 0; i < 4; i++) {
         on("mp_up" + i, () => { MP.codeSlots[i] = (MP.codeSlots[i] + 1) % 26; render("mp_up" + i); });
@@ -188,7 +190,7 @@ export function titleCrewHtml() {
     if (!MP.connected) return "";
     const me = { name: meName() + " (you)", sk: ctx.car ? ctx.car.skinKey : "pink" };
     const crew = [me, ...Object.values(MP.peers).slice(0, 7)];
-    return `<div class="mp-titlebox">👥 YOUR CREW${MP.room !== "lobby" ? " · ROOM " + MP.room.toUpperCase() : ""}</div>
+    return `<div class="mp-titlebox">👥 YOUR CREW${!inEveryone() ? " · ROOM " + MP.room.toUpperCase() : ""}</div>
         <div class="mp-crew">${crew.map(p => `<span><i style="background:${(SKINS[p.sk] || SKINS.pink).body}"></i>${esc(p.name)}</span>`).join("")}</div>`;
 }
 export function titleBoardHtml() {
@@ -205,7 +207,7 @@ export function hudTick() {
     if (!chips) { chips = document.createElement("div"); chips.id = "mpChips"; H.hudSlot("center").appendChild(chips); }
     if (!racePanel) { racePanel = document.createElement("div"); racePanel.id = "mpRace"; H.hudSlot("left").appendChild(racePanel); }
     let h = "";
-    if (MP.connected && (riderCount() > 1 || MP.room !== "lobby")) {   // (alone in EVERYONE: no chip — nothing to nag about)
+    if (MP.connected && (riderCount() > 1 || !inEveryone())) {   // (alone in EVERYONE: no chip — nothing to nag about)
         const n = riderCount();
         h += `<div class="mpc riders${MP.chipPulse > 0.3 ? " pulse" : ""}">🌐 ${n} ${n === 1 ? "rider" : "riders"}</div>`;
         if (MP.convoy.active) h += `<div class="mpc convoy">🚗🚗 ×1.5</div>`;

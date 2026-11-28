@@ -6,8 +6,6 @@ const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "qa7",
-  fast: false,     // (on the fast clock the watchdog flags a flat picture at ONE spot — the camera by her lot's hedge, every run; the
-                   //  old clock never does: a finding to look into — the old clock until then)
   query: "&enable=all",
   save2d: { totalCoins: 300, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" } },

@@ -386,3 +386,14 @@ All additive (`server/world.mjs`, used by both relays). Old clients ignore every
 Client: `features/multiplayer/worldclock.js` → `ctx.worldClock` (`now()`, `synced`, `offset`, `rtt`, `flags`, `resting`);
 `ctx.mp.event(k, d)` → `mp:event` `{ from, peer, k, d, st, late }` on the others. The party's own room gets the same
 `st` / `r` support from the relay (the party client adopts it in `ci/friends`).
+
+### Step 3 — rooms by place (built on `ci/oneserver-place`; switched on only with `place: 1` in /world/config, after the owner moves to the Paid plan)
+
+| | what |
+|---|---|
+| room names | `WL0` … `WL7` (the 16 km lap in 2 km stretches), `WT` + a town id (`WTMIDWOOD`); a full room splits `…X2`, `…X3` (≤ 6) |
+| cap | place rooms hold **40** players; old-style rooms keep 24 |
+| client → `j` | `lo: 1` = a LISTENER: hears everything, isn't announced (`+` / `-`) or listed in hellos, doesn't count toward the cap (≤ 40 listeners); its `s` / `e` / `r` are dropped |
+| state | `d.sid` = a random session tag (8 chars, per page load): the same player across rooms (receivers key her `S:` + sid); `d.pl: 1` on the every-2-s copy in the old `lobby` (the bridge) — new copies ignore it there |
+| the game | `features/multiplayer/place.js` (room naming, the listener + bridge sockets), `net.js` (place mode: peers keyed by room / sid, prune on hello, splits on 4001, the kill switch back to `lobby`); `ctx.mp.room` stays `"lobby"` for the rest of the game, `ctx.mp.placeRoom` names the place room |
+| budget | ≈ +10 % for the lobby bridge (1 message / 2 s) while old copies exist + ≈ +15 % for new connections at highway speed (one per room change, ~3 per 2 km); listening itself is free |

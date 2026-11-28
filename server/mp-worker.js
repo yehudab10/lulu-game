@@ -209,6 +209,8 @@ export class Room {
     // Hibernation-aware accept: the runtime will re-deliver messages to
     // webSocketMessage / webSocketClose even after the DO is evicted.
     this.state.acceptWebSocket(server);
+    // 🌍 step 3: remember which room this is on the socket (it survives hibernation) — place rooms have their own cap
+    try { server.serializeAttachment({ room: sanitizeRoom(new URL(request.url).pathname.split("/")[2]) }); } catch (_) {}
     this.tally("conn");
 
     return new Response(null, { status: 101, webSocket: client });
@@ -238,8 +240,12 @@ export class Room {
     switch (msg.t) {
       case "j": {
         if (joined) return; // already joined, ignore duplicate join
-        // Room-full check counts current members.
-        if (this.members().length >= MAX_MEMBERS) {
+        // Room-full check counts current members (🌍 step 3: listeners don't count; place rooms hold 40)
+        const room = (attach && attach.room) || "";
+        const lo = msg.lo === 1;
+        const all = this.members();
+        const players = all.filter((m) => !m.meta.lo).length, listeners = all.length - players;
+        if (lo ? listeners >= W.PLACE.listenCap : players >= W.capFor(room, MAX_MEMBERS)) {
           try {
             ws.close(CLOSE_ROOM_FULL, "room full");
           } catch (_) {}
@@ -251,13 +257,15 @@ export class Room {
           name: typeof msg.name === "string" ? msg.name.slice(0, 40) : "Player",
           sk: typeof msg.sk === "string" ? msg.sk.slice(0, 24) : "pink",
           d: null, // last known state payload
+          room,
         };
+        if (lo) meta.lo = 1;                  // 🌍 step 3: a listener
         ws.serializeAttachment(meta);
 
         // hello -> the joiner, with a snapshot of existing peers
         const peers = [];
         for (const m of this.members()) {
-          if (m.ws === ws) continue;
+          if (m.ws === ws || m.meta.lo) continue;
           const p = { id: m.meta.id, name: m.meta.name, sk: m.meta.sk };
           if (m.meta.d) p.d = m.meta.d;
           peers.push(p);
@@ -269,13 +277,13 @@ export class Room {
         if (rec.length) hello.r = rec;
         this.send(ws, hello);
 
-        // "+" peer-joined -> everyone else
-        this.broadcast(ws, { t: "+", id, name: meta.name, sk: meta.sk });
+        // "+" peer-joined -> everyone else (a listener is never announced)
+        if (!lo) this.broadcast(ws, { t: "+", id, name: meta.name, sk: meta.sk });
         return;
       }
 
       case "s": {
-        if (!joined) return;
+        if (!joined || attach.lo) return;
         if (!this.allowState(ws)) return; // rate limited
         const d = msg.d;
         if (d == null || typeof d !== "object") return;
@@ -287,7 +295,7 @@ export class Room {
       }
 
       case "e": {
-        if (!joined) return;
+        if (!joined || attach.lo) return;
         const e = msg.e;
         if (e !== "honk" && e !== "wave") return;
         this.broadcast(ws, { t: "e", id: attach.id, e });
@@ -301,7 +309,7 @@ export class Room {
 
       case "r": {
         // 🌍 step 2: a reliable one-time event — passed on once, acknowledged, remembered 20 s for late joiners
-        if (!joined) return;
+        if (!joined || attach.lo) return;
         const now = Date.now();
         const slot = this.relRate.get(ws) || {};
         this.relRate.set(ws, slot);
@@ -343,7 +351,7 @@ export class Room {
     const attach = ws.deserializeAttachment();
     this.rate.delete(ws);
     this.relRate.delete(ws);
-    if (attach && attach.id) {
+    if (attach && attach.id && !attach.lo) {
       // announce departure to remaining members
       this.broadcast(ws, { t: "-", id: attach.id });
     }

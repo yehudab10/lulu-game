@@ -337,12 +337,7 @@ module.exports = {
       } else console.log("   (no building in the rest area)", JSON.stringify(sol));
       await noFalse("rest area", 31);
     }
-    // (the rest area's monkey run: Lulu ends up INSIDE a big woods tree's trunk circle (r 1.4, she's at ~1.2 m) and the
-    //  on-foot camera's trunk check skips a trunk she's already inside → the camera sits in the tree. A real, minor camera
-    //  bug in foot (how she gets in there: a roll / slide / vault under the monkey's random input, most likely) — reported
-    //  to the coordinator 2026-11-27, not unstuck's: logged here, not failed.)
-    { const r = await W.report(t); const tree = r.issues.filter(i => i.kind === "inwall" && /tree/.test(i.msg)); if (tree.length) console.log("   ⚠️ known (foot camera vs a big trunk):", tree.map(i => i.msg).join(" | ").slice(0, 300)); }
-    await seg("ramp + rest area", ["nan", "overlay", "flat", "underground", "hidden", "stuck", "inside", "invisible"]);
+    await seg("ramp + rest area");      // (strict again: ci/doors fixed the camera in a big trunk — 1a83dd66)
 
     // 12 · the highway monkey run
     await noFalse("highway", 11);

@@ -276,9 +276,16 @@ function draftTick(dt) {
 }
 
 // ── the wrong side of the road ────────────────────────────────────────────
+const _rt = {};
 function wrongTick(dt) {
     const car = ctx.car;
-    const on = car.d < TUNE.wrong.d && car.vF > TUNE.wrong.minV && Math.abs(car.d) < 7.2;
+    // (WRONG WAY = against the traffic of the side she's on — the owner, 2026-11-27: "when driving the other way but the
+    //  right way, the pop up still says wrong way". Facing down the lap (−s) on the far carriageway is going WITH it;
+    //  facing up it (+s) there, or down it on our side, is against it.)
+    const road = ctx.world && ctx.world.road, rh = road && road.at ? road.at(car.s, _rt).h : car.h;
+    const up = Math.sin(car.h) * Math.sin(rh) + Math.cos(car.h) * Math.cos(rh) >= 0;
+    const against = up ? car.d < TUNE.wrong.d : car.d > -TUNE.wrong.d;
+    const on = against && car.vF > TUNE.wrong.minV && Math.abs(car.d) < 7.2;
     if (on) {
         W.t += dt;
         keepAlive(0.9);

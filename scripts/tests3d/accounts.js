@@ -142,7 +142,7 @@ async function body(t, pages, keep) {
   };
   await drive(A, 400, 1.75); await drive(B, 420, -1.75);
   await A.until(`ctx.mp._debug.connected && Object.keys(ctx.mp._debug.peers).length >= 1`, "A sees B in the world", 300000);
-  const peerB = `Object.values(ctx.mp._debug.peers)[0]`;
+  const peerB = `Object.values(ctx.mp._debug.peers).filter(p => p.seen)[0]`;   // (the one player she sees)
   t.check("A sees B's USERNAME over B's car (the server's, by ticket)", await A.until(`${peerB}.name === ${JSON.stringify(nameB)}`, "B's name over the car", 120000), await t.game(`${peerB}.name`));
   t.check("B sees A's username", await B.until(`Object.values(ctx.mp._debug.peers)[0].name === ${JSON.stringify(nameA)}`, "A's name on B's screen", 120000));
   // a forged ticket (B's id with a made-up signature) from a raw relay client stays a colour + number
@@ -158,11 +158,11 @@ async function body(t, pages, keep) {
   await t.game(`ctx.accounts.hideNames = false`);
   await A.until(`${peerB}.name === ${JSON.stringify(nameB)}`, "names back on");
   // 🚩 from Nearby
-  const bid = await t.game(`Object.keys(ctx.mp._debug.peers).find(k => ctx.mp._debug.peers[k].name === ${JSON.stringify(nameB)})`);
+  const bid = await t.game(`(Object.values(ctx.mp._debug.peers).find(p => p.name === ${JSON.stringify(nameB)}) || {}).id`);   // (her relay id, as Nearby passes it)
   await t.game(`ctx.phone.openPhone("nearby", { driver: ${JSON.stringify(bid)}, name: ${JSON.stringify(nameB)} })`);
   t.check("Nearby › a named driver has 🚩 Report this name", await A.until(`!!document.getElementById("frRep")`, "the report row", 10000));
   await t.L(`document.getElementById("frRep").click()`);
-  t.check("reported → hidden on A's screen at once", await A.until(`/^[A-Z][a-z]+ \\d+$/.test(ctx.mp._debug.peers[${JSON.stringify(bid)}].name)`, "B hidden for A", 10000));
+  t.check("reported → hidden on A's screen at once", await A.until(`/^[A-Z][a-z]+ \\d+$/.test(ctx.mp.peerById(${JSON.stringify(bid)}).name)`, "B hidden for A", 10000));
   await t.game(`ctx.phone.closePhone && ctx.phone.closePhone()`);
 
   // ── REPORTS: three day-old accounts → B's name is replaced; B's page closed + reopened gets the card ──

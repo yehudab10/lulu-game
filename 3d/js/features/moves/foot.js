@@ -74,9 +74,16 @@ function landPoint(F, t, dx, dz, out) {
         const x = F.pos.x + dx * d, z = F.pos.z + dz * d;
         let inside = false;
         for (const co of t.circles) { const qx = t.x + fx * co, qz = t.z + fz * co; if ((x - qx) ** 2 + (z - qz) ** 2 < (t.r + R + 0.1) ** 2) { inside = true; break; } }
+        // (…and clear of everything solid: a big tree right behind the car took her landing INSIDE its trunk — the camera
+        //  then sat in the tree; ci/qa at the rest area)
         if (!inside && d > 1.2) break;
     }
     out.set(F.pos.x + dx * (d + 0.4), 0, F.pos.z + dz * (d + 0.4));
+    // (the landing spot inside something solid — a big tree right behind the car took her INTO its trunk and the camera
+    //  sat in the tree, ci/qa at the rest area — or anything solid on the way over: no vault, a roll / slide instead)
+    if (solidAt(F, out.x, out.z)) return false;
+    for (let k = 0.5; k < d + 0.4; k += 0.5) if (solidAt(F, F.pos.x + dx * k, F.pos.z + dz * k, true)) return false;
+    return true;
 }
 
 function begin(F) {
@@ -94,10 +101,9 @@ function begin(F) {
     M.baseScale = o.scale.y;
     const running = sp > FOOT.runV || input.boost || (input.device === "gamepad" && input.throttle > 0.5) || (touch() && Math.hypot(input.moveX, input.moveY) > 0.9);
     const vt = vaultTarget(F, dx, dz);
-    if (vt) {
+    if (vt && landPoint(F, vt, dx, dz, _v)) {
         M.kind = "vault"; M.dur = FOOT.vault.dur;
         M.x0 = F.pos.x; M.z0 = F.pos.z;
-        landPoint(F, vt, dx, dz, _v);
         M.x1 = _v.x; M.z1 = _v.z;
     } else if (running) { M.kind = "slide"; M.dur = FOOT.slide.dur; M.v = Math.max(FOOT.slide.speed, sp * 1.3); }
     else { M.kind = "roll"; M.dur = FOOT.roll.dur; M.v = FOOT.roll.speed; }
@@ -107,9 +113,24 @@ function begin(F) {
     rumble(0.15, 0.35, 90);
 }
 
-function pushStatic(p) {
+/** Is (x, z) inside a solid that stands higher than she can step (a trunk, a post, a wall's circle)? */
+function solidAt(F, x, z, tallOnly = false) {
+    const s = F && F.s != null ? F.s : ctx.car.s;
     for (const ch of ctx.world.activeChunks()) {
-        if (Math.abs(ch.s0 + 100 - ctx.car.s) > 220) continue;
+        if (Math.abs(ch.s0 + 100 - s) > 220) continue;
+        for (const c of ch.colliders) {
+            if (c.off || c.kind === "car" || (tallOnly && c.kind !== "tree" && c.r < 0.8)) continue;     // (over: only trunks / big solids)
+            const dx = x - c.x, dz = z - c.z, rr = c.r + R;
+            if (dx * dx + dz * dz < rr * rr) return true;
+        }
+    }
+    return false;
+}
+function pushStatic(p) {
+    // (her own road position, not the car's: on foot far from the car the trees around her were skipped — ci/doors)
+    const s = ctx.foot && ctx.foot.debug && ctx.foot.debug.F && ctx.foot.debug.F.s != null ? ctx.foot.debug.F.s : ctx.car.s;
+    for (const ch of ctx.world.activeChunks()) {
+        if (Math.abs(ch.s0 + 100 - s) > 220) continue;
         for (const c of ch.colliders) {
             if (c.off) continue;
             const dx = p.x - c.x, dz = p.z - c.z, rr = c.r + R;
