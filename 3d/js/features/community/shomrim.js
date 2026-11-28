@@ -22,6 +22,9 @@ import { SHOMRIM } from "./lines.js";
 import { shomrimParty } from "./party.js";
 
 const inTown = () => !!(ctx.town && ctx.town.active);
+// (a passenger in a friend's car: her car rides along at the friend's speed — she's never chased for the driver's
+//  driving, as openworld/ride.js promises; the Shomrim filmed HER for it — ci/sweep-logic2)
+const riding = () => !!(ctx.openworld && ctx.openworld.riding);
 // (one activity at a time — ci/sweep-logic2: the Shomrim on her tail, filming, about to call the cops, is a chase too —
 //  a robbery to foil / a street scene / a job's offer used to start on top of it)
 ctx.addActivity("shomrim", () => !!CM.chase);
@@ -155,7 +158,7 @@ export function tickShomrim(dt) {
 // speeding past a Shomrim car (they're watching. they're ALWAYS watching)
 function watchSpeeding(dt) {
     const cfg = townCfg();
-    if (!cfg || !cfg.orgs.shomrim || !(on() || shomrimParty()) || ctx.state !== "playing" || onFoot() || (ctx.law && ctx.law.chasing)) { CM.speedT = 0; return; }
+    if (!cfg || !cfg.orgs.shomrim || !(on() || shomrimParty()) || ctx.state !== "playing" || onFoot() || (ctx.law && ctx.law.chasing) || riding()) { CM.speedT = 0; return; }
     const lim = (ctx.town.def && ctx.town.def.speedingMph) || 48;
     const mph = ctx.car.speed * MPH;
     if (mph > lim && shomrimSees(45)) {
@@ -166,7 +169,7 @@ function watchSpeeding(dt) {
 
 /** Something happened in town: a Shomrim car that saw it (or a guy "just parked on the corner") starts in. */
 export function witness(reason, r = 55, chance = 0.25) {
-    if (!townCfg() || !(on() || shomrimParty())) return false;
+    if (!townCfg() || !(on() || shomrimParty()) || riding()) return false;
     if (CM.chase) { if (!CM.chase.charges.includes(reason)) CM.chase.charges.push(reason); return true; }
     if (ctx.law && ctx.law.chasing) return false;
     const V = shomrimSees(r);
