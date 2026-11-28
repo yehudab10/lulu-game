@@ -23,6 +23,7 @@ import { ctx } from "../../core/ctx.js";
 import { models, cloneWithColors, findNodes, ensureModels, registerModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
+import { makeDecor, attachToModel, animateDecor, disposeDecor, loadDecor } from "../garage/decor.js";
 import { now, clock, N, fresh } from "./net.js";
 
 const WHEEL_R = 0.34;
@@ -64,6 +65,15 @@ const STYLE_CAR = { bouncy: "cameos_hairBouncy", avigail: "cameos_hairAvigail" }
 registerModels({ cameos_hairBouncy: "cameos_hair_bouncy", cameos_hairAvigail: "cameos_hair_avigail", luluPerson_bouncy: "cameos_lulu_bouncy", luluPerson_avigail: "cameos_lulu_avigail" });
 const styleTried = new Set();
 const tryLoad = k => { if (!models[k] && !styleTried.has(k)) { styleTried.add(k); ensureModels([k]).catch(() => { }); } };
+/** A bling decoration id she may send (garage DECOR ids), or null ("none" / junk). */
+export const decorOk = v => typeof v === "string" && v !== "none" && /^[a-z0-9_]{1,16}$/.test(v) ? v : null;
+let decorTried = false;
+/** Is the decorations' model in (starts the load the first time someone needs it)? */
+export function decorReady() {
+    if (models.garageDecor) return true;
+    if (!decorTried) { decorTried = true; loadDecor().catch(() => { }); }
+    return false;
+}
 /** A style id she may send, or null (the default / junk). */
 export const styleOk = v => typeof v === "string" && Object.prototype.hasOwnProperty.call(STYLE_CAR, v) ? v : null;
 /** The walking Lulu's model key for a style: its own model once loaded (starts the load), else the default. */
@@ -204,6 +214,8 @@ export class CarVisual {
         for (const h of hairs) h.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
         this.styleKey = null;                               // (the salon piece went with the old model: setStyle re-adds it)
         if (this.hairStyle) this.setStyle(this.hairStyle);
+        this.decorKey = null;                               // (her bling too: setDecor re-adds it)
+        if (this.decorId) this.setDecor(this.decorId);
         if (this.hairColor) this.setHair(this.hairColor, true);
         // the waving arm, at her outer shoulder
         const head = findNodes(this.model, "Anchor_head")[0];
@@ -276,6 +288,20 @@ export class CarVisual {
             for (const h of hairs) h.visible = has ? h.name.startsWith("Hair_sheitel") : h === hairs[0];
         }
     }
+    /** Her bling decoration (garage DECOR id; null = none) at its anchor, like her own car. Cheap every frame: it
+     *  rebuilds only when the id changes or the decorations' model finishes loading. */
+    setDecor(id) {
+        const d = decorOk(id), key = d && decorReady() ? d : "";
+        this.decorId = d;
+        if (key === this.decorKey) return;
+        this.decorKey = key;
+        if (this.decorObj) { this.decorObj.removeFromParent(); disposeDecor(this.decorObj); this.decorObj = null; }
+        if (!key) return;
+        const obj = makeDecor(key);
+        if (!obj) return;
+        attachToModel(this.model, obj);
+        if (obj.parent) this.decorObj = obj; else disposeDecor(obj);
+    }
     setHair(color, force) {
         if (!color || (!force && color === this.hairColor)) return;
         this.hairColor = color;
@@ -283,6 +309,7 @@ export class CarVisual {
     }
     /** Per frame: speed (m/s), steer −1..1, flags {brake, boost, wave}, accel/lat for body roll. */
     animate(dt, speed, steer, brake, boost, accel = 0, lat = 0) {
+        if (this.decorObj) animateDecor(this.decorObj, dt, null);     // (the dice sway, the bow wobbles, neon pulses)
         this.steer += (steer - this.steer) * Math.min(1, dt * 10);
         this.roll += speed * dt / WHEEL_R;
         for (const w of this.wheels) {
@@ -310,6 +337,7 @@ export class CarVisual {
         this.root.removeFromParent();
         for (const m of this.taillights) m.dispose();
         this.flameMat.dispose();
+        if (this.decorObj) disposeDecor(this.decorObj);
     }
 }
 const _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0);
@@ -442,6 +470,7 @@ export function updateCars(dt, show, decorate, frameOf) {
         rc.v.setLook(p.x && Array.isArray(p.x.ev) ? p.x.ev : null, p.x && Array.isArray(p.x.cc) ? p.x.cc : null);
         if (p.hc) rc.v.setHair(p.hc);
         rc.v.setStyle(p.hs);
+        rc.v.setDecor(p.dc);
         setForm(rc, p);
         if (emoteFn) { try { emoteFn(rc, p); } catch (e) { console.error("[party] emote", e); } }
         if (rc.emote) { rc.emote.t += dtParty; if (rc.emote.t > rc.emote.dur) rc.emote = null; }

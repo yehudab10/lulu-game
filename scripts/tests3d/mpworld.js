@@ -89,7 +89,7 @@ async function body(t, pages, riders) {
   if (!await A.until(`${S}.connected && ctx.mp.room === "lobby"`, "A: online by default (EVERYONE)")) return;
   t.check("A: online by default — EVERYONE, no code, no lobby screen", await g(`ctx.state === "playing" && !document.querySelector("#screenCard.open, .screen.open")`));
 
-  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend", luluHair: "#8E24AA", luluHairStyle: "bouncy" }, Q(URL));
+  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend", luluHair: "#8E24AA", luluHairStyle: "bouncy", ownedDecor: ["bow"], decor: "bow", ownedHorns: ["beep", "duck"], horn: "duck" }, Q(URL));
   pages.push(B);
   await B.until(`__lulu3d && __lulu3d.state === "title"`, "B boots", 120000);
   await B.game(`(ctx.car.setSkin ? ctx.car.setSkin("gold") : 0, L3.startRun({ mode: "cruise", quick: true }))`);
@@ -117,6 +117,10 @@ async function body(t, pages, riders) {
   // …her salon hairdo too (d.hs): A draws B's car with the bouncy style's hair piece, not the default sheitel
   const styled = await A.until(`ctx.mp.ghostStats().styled >= 1`, "A draws B's salon hairdo", 30000);
   t.check("B's salon hairdo (bouncy) shows on A's screen", styled, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), hs: await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).hs`), B: await B.game(`ctx.mp._debug.me.hs`) }));
+  // …her bling (d.dc: the giant bow on her car) and her horn (d.hn: the rubber duck, played when she honks near A)
+  const decked = await A.until(`ctx.mp.ghostStats().decked >= 1`, "A draws B's bow", 30000);
+  const bHorn = await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).hn`);
+  t.check("B's bling (the bow) on her car + her horn (duck) reach A", decked && bHorn === "duck", JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), bHorn, B: await B.game(`({ dc: ctx.mp._debug.me.dc, hn: ctx.mp._debug.me.hn })`) }));
   await t.shot("dropin");
 
   // 🌍 one sky for everyone online (the world clock): A and B, not friends, see the same time of day + the same weather

@@ -242,6 +242,7 @@ function profileCache() {
     c.at = performance.now();
     c.name = NET.NAMES.includes(s.mpName) ? s.mpName : "";
     c.horn = s.horn || "beep";
+    c.decor = typeof s.decor === "string" && s.decor !== "none" && /^[a-z0-9_]{1,16}$/.test(s.decor) ? s.decor : "";
     c.hair = s.luluHair || "";
     c.style = typeof s.luluHairStyle === "string" && s.luluHairStyle !== "sheitel" && /^[a-z]{1,12}$/.test(s.luluHairStyle) ? s.luluHairStyle : "";
     c.skins = (Array.isArray(s.ownedSkins) && s.ownedSkins.length ? s.ownedSkins : ["pink"]).filter(k => SKINS[k]);
@@ -1456,7 +1457,7 @@ function updateRate() {
 function publish() {
     const st = ctx.state, car = ctx.car, c = profileCache();
     const pr = N.profile;
-    pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.hs = c.style; pr.rd = P.ready ? 1 : 0;
+    pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.hs = c.style; pr.dc = c.decor; pr.rd = P.ready ? 1 : 0;
     let m = N.mode;
     const run = (ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby") || lightRoam();
     const foot = st === "footRun" && run && ctx.foot && ctx.foot.active && !!ctx.foot.pos;

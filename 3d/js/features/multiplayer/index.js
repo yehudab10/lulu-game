@@ -121,6 +121,8 @@ function myPose() {
         me.lookAt = performance.now();
         const s2 = shared.get();
         me.hc = typeof s2.luluHair === "string" && /^#[0-9a-fA-F]{6}$/.test(s2.luluHair) ? s2.luluHair : null;
+        me.dc = typeof s2.decor === "string" && s2.decor !== "none" && /^[a-z0-9_]{1,16}$/.test(s2.decor) ? s2.decor : null;   // (her bling)
+        me.hn = typeof s2.horn === "string" && s2.horn !== "beep" && /^[a-z0-9_]{1,16}$/.test(s2.horn) ? s2.horn : null;      // (her horn)
         me.hs = typeof s2.luluHairStyle === "string" && s2.luluHairStyle !== "sheitel" && /^[a-z]{1,12}$/.test(s2.luluHairStyle) ? s2.luluHairStyle : null;
         let ot = null;
         try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
@@ -277,7 +279,10 @@ hook("update", (dt, P, controlsOn) => {
 on("honk", () => { if (MP.connected && honkCd <= 0) { honkCd = 0.5; N.sendEvent("honk"); } });
 // a peer honks nearby → 📣 + a little two-tone honk
 on("mp:honk", ({ peer }) => {
-    if (peer && peer.onScreen && Math.abs(peer.rel) < 320) { tone(415, 0.18, "square", 0.08); tone(523, 0.18, "square", 0.08); }
+    if (!(peer && peer.onScreen && Math.abs(peer.rel) < 320)) return;
+    // (her own horn — d.hn, the one she bought — the way friends hear it; without the garage: the old two-tone)
+    if (ctx.garage && ctx.garage.playHorn && ctx.garage.playHorn(peer.hn || "beep", 262)) return;
+    tone(415, 0.18, "square", 0.08); tone(523, 0.18, "square", 0.08);
 });
 
 // ── run lifecycle: cruise auto-join, daily leaderboard, wanted board ─────

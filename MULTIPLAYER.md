@@ -361,6 +361,10 @@ OPTIONAL state fields ride in existing messages, and every old client ignores th
   height dm 0..40]` (anim: 1 roll · 2 slide · 3 vault · 4 knocked flat · 5 dance · 6 wave · 7 busy · 8 sit · 9 talk ·
   10 in the air; look: 1 the jumpsuit · 2 old lady · 3 old man). Sent only when not all zero; clamped on receipt;
   played by `party/remote.js` › `poseWalker` for friends and everyone alike.
+- `d.dc` / `d.hn` (Shared Road state) and `dc` (party snapshot, beside `hn`): her **bling decoration** and her **horn**
+  (garage ids; "none" / "beep" are never sent; `[a-z0-9_]` ≤ 16, checked on receipt). Her decoration sits at its anchor
+  on her car (`CarVisual.setDecor` — animated on a friend's car, baked still into a stranger's one mesh); her honk plays
+  her own horn (`ctx.garage.playHorn`) for strangers too, the way friends already heard it.
 - `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
   the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
   `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual

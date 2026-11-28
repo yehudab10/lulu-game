@@ -15,7 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
-import { CarVisual, NameTag, personKey, carHairKey, LOOKS, poseWalker } from "../party/remote.js";
+import { CarVisual, NameTag, personKey, carHairKey, LOOKS, poseWalker, decorOk, decorReady } from "../party/remote.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeGeometry } from "../../merge.js";
 
@@ -34,7 +34,7 @@ const tmp = {}, v = new THREE.Vector3();
 const lookOf = p => p.f ? p.f[1] : 0;
 function kindOf(p) {
     if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (lookOf(p) ? "" : p.ot || "") + ":" + personKey(p.hs) + ":" + lookOf(p);
-    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (carHairKey(p.hs) || "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
+    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (carHairKey(p.hs) || "") + ":" + (decorOk(p.dc) && decorReady() ? p.dc : "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
     if (p.vk === "borrowed") return "borrowed:" + (p.ct || 0) + ":" + (p.co || "");
     if (p.vk === "cop" || EXTRA[p.vk]) return p.vk;
     return "car:" + p.sk;
@@ -110,6 +110,7 @@ function buildGhost(p) {
             const cv = new CarVisual(p.sk);
             if (p.hc) cv.setHair(p.hc);
             cv.setStyle(p.hs);                              // (her salon hairdo, once its piece has loaded)
+            cv.setDecor(p.dc);                              // (her bling, baked in still — the friends' car animates it)
             src = cv.model;
             dressCar(src, p);                               // (her kit — a Tushla in HER configuration — + her dirt)
             const baked = bakedRide(src, key);
@@ -201,7 +202,8 @@ export const ghostStats = () => {
     const hands = Object.values(ghosts).filter(g => g && g.shown && g.person && g.person.obj.userData.hiHand).length;
     const styled = Object.values(ghosts).filter(g => g && g.shown && /cameos_hair|luluPerson_/.test(g.kind)).length;   // (a salon hairdo drawn)
     const feet = Object.keys(ghosts).filter(id => ghosts[id] && ghosts[id].shown && ghosts[id].person).map(id => (MP.peers[id] && MP.peers[id].f) || [0, 0, 0]);   // (their foot codes)
-    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands, styled, feet };
+    const decked = Object.keys(ghosts).filter(id => { const G = ghosts[id], p = MP.peers[id]; return G && G.shown && p && decorOk(p.dc) && G.kind.includes(":" + p.dc + ":"); }).length;   // (her bling drawn)
+    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands, styled, feet, decked };
 };
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */
