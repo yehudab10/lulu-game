@@ -16,7 +16,7 @@
 //   sentence) says how much of today's free allowance is used; when the Durable Objects are over it, /world/usage
 //   answers 503 { resting: 1 } so a game can say "online is resting until midnight UTC" instead of failing silently.
 
-export const WORLD = { v: 1, clock: 1, reliable: 1, place: 0, claims: 0, shops: 1 };   // (shops: ci/playershops' /shops/* — shops.mjs)
+export const WORLD = { v: 1, clock: 1, reliable: 1, place: 1, claims: 0, shops: 1 };   // place: 1 — the owner approved step 3 on the Free plan, 2026-11-27 · shops: ci/playershops' /shops/* (shops.mjs)
 
 export const REL = { maxBytes: 512, perSec: 4, keep: 32, keepMs: 20000 };
 export const FREE = { doRequests: 100000, workerRequests: 100000, wsRatio: 20 };
@@ -77,3 +77,12 @@ export function usageText(u) {
     `(${u.doRequests.toLocaleString("en-US")} of ${u.freeDoRequests.toLocaleString("en-US")} relay requests; ` +
     `about ${u.playerHours} player-hours of online play). It resets in ${h} h ${m} min (midnight UTC).\n`;
 }
+
+// ── STEP 3 — ROOMS BY PLACE (built; NOT to be used on the Free plan — the owner switches to Paid first) ──
+// Place rooms are named "W…" (a lap segment, a town, JFK, a rest area, a building). They hold PLACE.cap players (40,
+// then the game opens "…B"); a join with { lo: 1 } is a LISTENER: it gets everything said in the room, says nothing,
+// isn't announced or listed and doesn't count toward the cap (≤ PLACE.listenCap) — a game near a segment boundary
+// listens to the next one, so crossing it has no blink. Listening costs nothing (messages out are free).
+export const PLACE = { cap: 40, listenCap: 40 };
+export const isPlaceRoom = (room) => /^W[A-Z0-9]{1,11}$/.test(String(room || ""));
+export const capFor = (room, legacyCap) => (isPlaceRoom(room) ? PLACE.cap : legacyCap);

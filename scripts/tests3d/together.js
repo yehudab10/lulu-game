@@ -52,6 +52,8 @@ async function body(t, guests) {
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`);
   guests.push(A);
   if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing"`, "guest joins Free Roam", 240000)) return;
+  // (her join teleport waits for the host's position — on a slow machine it can land AFTER the test places her: wait it out)
+  if (!await A.until(`!ctx.party.joining`, "guest: the join teleport is done", 60000)) return;
   await A.game(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
   const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
   for (const p of [Hp, A]) await p.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);

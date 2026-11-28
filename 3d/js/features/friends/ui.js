@@ -310,8 +310,10 @@ export function driverNote(peerId) {
 export function driverView(el, api, peerId, name, back) {
     const inc = HS.incoming("mp").some(q => q.peer === peerId), out = HS.outgoing("mp", peerId);
     // 🚩 (features/accounts) only for a name the server vouched for — a colour + number has nothing to report
-    const gp = ctx.mp && ctx.mp._debug && ctx.mp._debug.peers ? ctx.mp._debug.peers[peerId] : null;
-    const rep = gp && gp.un && ctx.accounts && ctx.accounts.ghostName(roomPath(), peerId, gp.un, { always: true }) ? { t: gp.un, room: roomPath(), rid: peerId } : null;
+    const gp = ctx.mp && ctx.mp.peerById ? ctx.mp.peerById(peerId) : ctx.mp && ctx.mp._debug && ctx.mp._debug.peers ? ctx.mp._debug.peers[peerId] : null;
+    const gRoom = (gp && gp.room) || roomPath();     // (🌍 place mode: a driver may be heard in the room next door)
+    const rep = gp && gp.un && ctx.accounts && ctx.accounts.ghostName(gRoom, gp.id, gp.un, { always: true }) ? { t: gp.un, room: gRoom, rid: gp.id } : null;
+    const sameRoom = !gp || !gp.room || gp.room === roomPath();   // (the in-person ask only reaches someone in my own room)
 
     let html = `<div class="lp-card ow-head"><span class="lp-av">👻</span><span class="lp-tx"><b>${esc(name)}</b><small>Another player out in the world</small></span></div>`;
     if (!X.live()) html += `<p class="lp-note">Friends need an internet connection.</p>`;
@@ -319,7 +321,7 @@ export function driverView(el, api, peerId, name, back) {
     else if (inc) html += row("frDy", "🤝", "Be friends", "They asked you. Say yes and you're friends.", "✓") + row("frDn", "✋", "No thanks", "They won't be told");
     else if (out) html += `<p class="lp-note">➕ Asked! When they say yes, you're friends.</p>`;
     else if (V.sent && V.sent[peerId]) html += `<p class="lp-note">📨 ${esc(V.sent[peerId])}</p>`;
-    else html += row("frDa", "➕", "Ask to be friends", ST.full() ? `Your list is full (${ST.CAP})` : "They'll see it next to your name in their Nearby", "", "", ST.full());
+    else if (rep || sameRoom) html += row("frDa", "➕", "Ask to be friends", ST.full() ? `Your list is full (${ST.CAP})` : "They'll see it next to your name in their Nearby", "", "", ST.full());
     if (rep) html += row("frRep", "🚩", "Report this name", "If it's rude or mean. You won't see it again.");
     html += row("frBack", "‹", "Back", "");
     el.innerHTML = html;

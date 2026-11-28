@@ -416,7 +416,8 @@ module.exports = {
         await g(`(window.__perfDrive = 22, true)`);
         await guest.evaluate(`import("./js/core/ctx.js").then(m => import("./js/core/driving.js").then(d => m.hook("controls", (ctl, dt) => Object.assign(ctl, d.autoDrive(dt, 1.75, 22)), 1001)))`);
         await t.frames(60);
-        t.check("the friend's car is in my world", await g(`ctx.party.players.length === 2`));
+        // (wait for it: the friend arrives over the relay on REAL time — a frame count alone lost the race once, run 46089441840)
+        t.check("the friend's car is in my world", await t.until(`__lulu3d.ctx.party.players.length === 2`, "the friend in my world", 30000), await g(`ctx.party.players.length`));
         await record("party");
         await g(`(window.__perfDrive = 0, true)`);
       } finally {

@@ -344,11 +344,17 @@ function nextPlace(s) {
     let v;
     if (!pts.length) v = { frac: here / LAP, label: "On the highway" };
     else {
-        const ahead = p => { const a = mod(p.s - here); return a < 60 ? a + LAP : a; };      // (one she's passing now: the next lap's)
+        // (heading DOWN the lap — the far carriageway, ci/twoway: the next place is the one behind in lap terms, and its
+        //  exit is on the other side of the road for now)
+        const down = ctx.world && ctx.world.dir === -1;
+        const fwd = p => (down ? mod(here - p.s) : mod(p.s - here)), bwd = p => (down ? mod(p.s - here) : mod(here - p.s));
+        const ahead = p => { const a = fwd(p); return a < 60 ? a + LAP : a; };      // (one she's passing now: the next lap's)
         pts.sort((a, b) => ahead(a) - ahead(b));
-        const nx = pts[0], a = ahead(nx), back = pts.reduce((m, p) => Math.min(m, mod(here - p.s)), LAP), gap = Math.max(1, a + back);
+        const nx = pts[0], a = ahead(nx), back = pts.reduce((m, p) => Math.min(m, bwd(p)), LAP), gap = Math.max(1, a + back);
         const mi = a / 1609, far = mi < 0.1 ? "now" : `in ${mi.toFixed(1)} mi`;
-        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: nx.kind === "rest" ? `🅿️ Rest area ${far}` : `🛣️ ${nx.names.join(" & ")} exit ${far}` };
+        const name = nx.kind === "rest" ? "Rest area" : nx.names.join(" & ");
+        v = { frac: Math.max(0, Math.min(1, 1 - a / gap)), label: down ? `${nx.kind === "rest" ? "🅿️" : "🛣️"} ${name} ${far} · exit on the other side`
+            : nx.kind === "rest" ? `🅿️ Rest area ${far}` : `🛣️ ${name} exit ${far}` };
     }
     NP.t = ctx.time; NP.v = v;
     return v;
