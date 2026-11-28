@@ -39,8 +39,7 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Left (not fixed yet)
 
-- ci/twoway (moving): driving DOWN the lap (the far carriageway) the trip bar + the exit chip still count to the next exit UP
-  the lap (`app.js` `nextPlace`, `exits/index.js` `nextAhead`) — i.e. behind her. Theirs to decide (exits are on the other side).
+- (ci/twoway handled the trip bar going DOWN the lap itself — `nextPlace` › `down`.)
 
 ## For other branches
 
