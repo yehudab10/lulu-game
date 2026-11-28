@@ -39,6 +39,10 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 23 | 🔋 An EV pulled into a rest area's pump bay: it starts charging (the bay has a charger) AND Yanky's "Electric? Try a charger" joke pops up — two messages that disagree (and it isn't Yanky's station). | `fuel/index.js` `fill` | **fixed** — no joke at a rest area's bay (still at Yanky's Gas 'n' Go) |
 | 20 | Shmuel's chop shop: "his guy brings Lulu's own car round" after a drop-off — even when her car was IMPOUNDED (a free release). | `streets/chop.js` | **fixed** — no chop-shop call while her own car is impounded (a car parked away is still "brought round": his guy's service) |
 
+- (from ci/sweep-health) `schlepnav` "…still self-driving in town": NOT a game bug — on the fast test clock the harness stops on
+  the very frame the town turns active, and the self-drive plans its town route on the next controls frame (10 frames later:
+  on, route "town"). The test now waits for the plan.
+
 ## Left (not fixed yet)
 
 - (ci/twoway handled the trip bar going DOWN the lap itself — `nextPlace` › `down`.)
