@@ -78,6 +78,13 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
    (`interiors/fx.js` fit). — batch 3
 23. Right behind her at a room's door she's fainter now (12 %, was 30 → 20 %): the ghost of her head still covered the
    middle of the screen. — batch 3
+24. **The shoulder camera in a cramped kitchen** — turned 0.45 rad toward a wall, it was squeezed in and rose over her
+   head (a huge bubble, half the room upside down). It takes the side with room, straight on when neither has
+   (`interiors/engine.js` shoulderOff). A bubble slid in from a side / down from the top is sized again where it ends
+   up (nearer the lens it came out wider than the phone), against this frame's camera. — batch 3
+25. **"📜 WEEKLY QUESTS UNLOCKED! Check the title menu."** — they're under 📒 Scrapbook on the title / 📜 Quests in the
+   pause menu: "Find 📜 Quests in the pause menu." Distracted Mode's "also on the title menu" → "in the title's 🚗
+   Garage". — batch 3
 
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
@@ -87,6 +94,9 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 
 - batch 2 → main (item 20 + the tests: the garage / scrapbook cards, every 📱 app on a small phone, a room on its
   side). CI 46112736627 → fixes → run on the merged head (sweepphone2, sweepphone3, meta, core, platform: green).
+- batch 3 → main (items 21–25). CI: 46123381505 (sweepphone2, sweepplaces 1–4, interiors, clothes, realestate, homes,
+  houseitems, doors, qa28, storefronts, lanes, family: green) + 46122900830 (sweepphone, movetouch, qatouch, core,
+  platform, meta, garage, shops: green).
 
 ## For other sweeps
 - for `ci/sweep-health`: on main a5c02a2a (run 46112384329 on a copy of main): `cityhall` › "the ribbon cutting: no jump
