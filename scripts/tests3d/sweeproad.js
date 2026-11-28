@@ -237,6 +237,17 @@ async function ramp(t) {
   await g(`(window.__route = null, true)`);
   t.check("ramp: a cruiser chased her down the ramp", seen.some(n => n > 0), seen.join(","));
   t.check("ramp: …on the decel lane / ramp, never across the gore or the grass", off.length === 0, JSON.stringify(off.slice(0, 8)));
+  // BUSTED on the ramp: she stops where she is (law's pull-over used to steer her back across the grass to the highway's
+  // shoulder) and the cruiser pulls up behind her on the ramp
+  await g(`(window.__route = null, ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" ? L3.setState("playing") : 0, true)`);
+  await t.frames(10);
+  // (law's pull-over asks "pullOverSpot": on the ramp → stop right here; on the highway → law's own shoulder)
+  const po = await t.L(`import("./js/features/law/bust.js").then(B => { const C = __lulu3d.ctx, hw = C.world.highway, car = C.car, E = ${E}, keep = { x: car.pos.x, z: car.pos.z, s: car.s, d: car.d, h: car.h };
+    const at = (u, d) => { const p = hw.point(E + u, d, {}); car.place(p.x, p.z, p.h); car.s = E + u; car.d = d; return !!B.pullOverSpot(car); };
+    const ramp = at(70, C.town.debug.rampRoute(E, 0, 70)[0][1]), hwy = at(-400, 5.25);
+    car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return { ramp, hwy }; })`);
+  await W.moved(t);
+  t.check("ramp: busted ON the ramp she stops where she is (law's pull-over used to steer her back across the grass to the shoulder)", po.ramp && !po.hwy, JSON.stringify(po));
   await g(`(ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), true)`);
   await t.frames(30);
   // ── the same into a REST AREA: down its off-ramp into the drive aisle ──
@@ -262,6 +273,17 @@ async function ramp(t) {
         if (r.st !== "playing" || r.me > 185 || (!r.cops.length && k > 30)) break;
       }
       await g(`(window.__route = null, true)`);
+      const po2 = await t.L(`import("./js/features/law/bust.js").then(B => { const C = __lulu3d.ctx, hw = C.world.highway, car = C.car, keep = { x: car.pos.x, z: car.pos.z, s: car.s, d: car.d, h: car.h };
+        const p = hw.point(${R} + 100, 33, {}); car.place(p.x, p.z, p.h); car.s = ${R} + 100; car.d = 33; const r = !!B.pullOverSpot(car);
+        car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return r; })`);
+      await W.moved(t);
+      t.check("ramp: busted in a rest area's lot she stops where she is", po2, String(po2));
+      // …and anywhere else well off the asphalt (a roadside place's lot, a dealership's)
+      const po3 = await t.L(`import("./js/features/law/bust.js").then(B => { const C = __lulu3d.ctx, hw = C.world.highway, car = C.car, keep = { x: car.pos.x, z: car.pos.z, s: car.s, d: car.d, h: car.h };
+        const s0 = Math.floor(car.s / 16000) * 16000 + 6800, p = hw.point(s0, 26, {}); car.place(p.x, p.z, p.h); car.s = s0; car.d = 26; const r = !!B.pullOverSpot(car);
+        car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return r; })`);
+      await W.moved(t);
+      t.check("ramp: busted in Trooper Post 7's lot she stops where she is", po3, String(po3));
       t.check("ramp: into a rest area too, the cruiser keeps to its ramp + aisle (not across the grass)", seen2.some(n => n > 0) && off2.length === 0, JSON.stringify(off2.slice(0, 8)) + " · " + seen2.slice(0, 20).join(","));
       await g(`(ctx.law.standDown("test"), true)`);
     }
@@ -348,6 +370,15 @@ async function body(t) {
   await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   t.check("body: back in her own car (a new run): her own body again", !(await g(`ctx.car.circles`)));
+  // 🔋 an EV at a rest area's pump bay: it charges there — no "try a charger" joke on top (at Yanky's Gas 'n' Go: the joke)
+  await standstill(t);
+  const ev = await t.L(`Promise.all([import("./js/car.js"), import("./js/features/fuel/index.js"), import("./js/hud.js")]).then(([C, Fu, H]) => {
+    const car = __lulu3d.ctx.car, was = car.skinKey; C.SKINS.__testev = Object.assign({}, C.SKINS.pink, { ev: true }); car.skinKey = "__testev";
+    const has = () => { const n = H.notifyState(); return n.toasts.some(x => /Yanky eyes/.test(x.text)) || n.waiting.some(x => /Yanky eyes/.test(x)); };
+    let rest, gas;
+    try { Fu.fill("exits_pump"); rest = has(); Fu.fill("gas"); gas = has(); } finally { car.skinKey = was; delete C.SKINS.__testev; }
+    return { rest, gas }; })`);
+  t.check("fuel: an EV at a rest area's pump bay gets no 'try a charger' joke (it charges right there); at Yanky's it does", ev.rest === false && ev.gas === true, JSON.stringify(ev));
 }
 
 /** A call-in in Lakewood: the cruiser looks for her; it doesn't know where she is. */

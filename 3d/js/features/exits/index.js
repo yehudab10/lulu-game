@@ -327,12 +327,15 @@ function nextAhead() {
     const T = ctx.town;
     if (T && T.exits) {
         const seen = new Map();
-        for (const e of T.exits) { const a = e.s - car.s; if (a > -120 && a < 1609) { if (!seen.has(e.s)) seen.set(e.s, []); seen.get(e.s).push(e); } }
+        // (past an exit: gone once she's driven on by — it said "EXIT 9 · NOW ↗" for 120 m behind her; kept while she's
+        //  actually down its ramp, off the carriageway)
+        const past = car.d > 7.4 ? -200 : -25;
+        for (const e of T.exits) { const a = e.s - car.s; if (a > past && a < 1609) { if (!seen.has(e.s)) seen.set(e.s, []); seen.get(e.s).push(e); } }
         for (const [s, list] of seen) { const a = s - car.s; if (!best || a < best.a) best = { kind: "exit", a, list }; }
     }
     // ✈ the JFK exit (features/airport): its EXIT 12 boards count down like a town's — so does the chip
     const ap = ctx.airport && ctx.airport.on && ctx.airport.planned;
-    if (ap) { const a = ap.s - car.s; if (a > -120 && a < 1609 && (!best || a < best.a)) best = { kind: "exit", a, list: [{ s: ap.s, id: "airport", no: ap.no, label: "JFK AIRPORT" }] }; }
+    if (ap) { const a = ap.s - car.s; if (a > (car.d > 7.4 ? -200 : -25) && a < 1609 && (!best || a < best.a)) best = { kind: "exit", a, list: [{ s: ap.s, id: "airport", no: ap.no, label: "JFK AIRPORT" }] }; }
     for (const R of RS.list) { const a = R.s - car.s; if (a > -60 && a < 1609 && (!best || a < best.a)) best = { kind: "rest", a, R }; }
     return best;
 }
@@ -361,7 +364,7 @@ function aimRest(la, out) {
     return ctx.world.highway.point(A.R.s + ua, restLine(ua), out);
 }
 hook("copRoute", (c, unit, ch) => {
-    if (!unit || unit.mode !== "chase" || (ch && ch.searching) || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
+    if (!unit || (unit.mode !== "chase" && unit.mode !== "pull") || (ch && ch.searching) || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
     const car = ctx.car;
     if (!(car.d > 6.6)) return null;
     const R = RS.list.find(r => car.s > r.s + LY.TAPER0 && car.s < r.s + LY.ACC1);
@@ -370,8 +373,15 @@ hook("copRoute", (c, unit, ch) => {
     if (!LY.groundAt(uL, car.d)) return null;                    // (not on the rest area's ground: law's own)
     const uC = c.s - R.s;
     if (uC < LY.TAPER0 - 400 || uC > uL + 5) return null;
-    Object.assign(_rc, { R, uC, uL, tx: car.pos.x, tz: car.pos.z });
-    return { gap: Math.max(0, uL - uC), aim: aimRest };
+    const back = unit.mode === "pull" ? 7.2 : 0;           // (a pull-over: it stops 7 m behind her car)
+    Object.assign(_rc, { R, uC, uL: uL - back, tx: car.pos.x - Math.sin(car.h) * back, tz: car.pos.z - Math.cos(car.h) * back });
+    return { gap: Math.max(0, uL - uC - back), aim: aimRest };
+});
+// BUSTED in a rest area (its ramps, the lot): she stops where she is — law's pull-over used to steer her back to the highway
+hook("pullOverSpot", car => {
+    if ((ctx.town && ctx.town.active) || !car || !(car.d > 9.5)) return null;
+    const R = RS.list.find(r => car.s > r.s + LY.TAPER0 && car.s < r.s + LY.ACC1);
+    return R && LY.groundAt(car.s - R.s, car.d) ? { h: car.h } : null;
 });
 
 // ── wiring ───────────────────────────────────────────────────────────────

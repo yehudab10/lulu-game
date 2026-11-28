@@ -4,6 +4,11 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 12:20 UTC — 🚗 On the road, part 3. Pulled over by the police on an exit ramp, in a rest area's car park, at
+  Trooper Post 7 or a dealership's lot, Lulu now stops right where she is and the police car pulls up behind her — before,
+  the game steered her back across the grass to the side of the highway. Driving straight on past an exit, the green
+  "EXIT … NOW" line no longer hangs on for a while after the exit has gone by, and an electric car charging at a rest
+  area's pumps is no longer also told "electric? try a charger".
 - 2026-11-28 08:30 UTC — 📱 Phones, part 5: on a phone, the ✋ button by her car says DRIVE (it said "OWN"), and a few
   lines that told touch players to "press Tap" / "mash Tap (or tap)" say it in plain words.
 - 2026-11-28 08:15 UTC — 📱 Phones, part 4: on a small phone held sideways, the first-drive lesson's card no longer

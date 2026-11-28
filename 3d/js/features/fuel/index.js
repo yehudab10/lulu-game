@@ -108,7 +108,8 @@ hook("update", (dt, P, controlsOn) => {
 export function fill(why = "pump") {
     const k = key();
     if (!k) return { ok: false, why: "none" };
-    if (isEV(k)) { H.toast(L.evAtPump, "", { key: "fuel" }); return { ok: false, why: "ev" }; }       // (an EV charges — charge.js)
+    // (an EV charges — charge.js; a rest area's pump bay HAS a charger: no "try a charger" joke there while it's charging)
+    if (isEV(k)) { if (why !== "exits_pump") H.toast(L.evAtPump, "", { key: "fuel" }); return { ok: false, why: "ev" }; }
     const from = level(k), need = 1 - from;
     if (need < 0.01) { H.toast(L.full, "", { key: "fuel" }); return { ok: false, why: "full" }; }
     const full = price(k);
