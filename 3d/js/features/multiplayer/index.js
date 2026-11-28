@@ -135,6 +135,8 @@ function myPose() {
     // what's in her hand / on her head on foot (features/houseitems) — everyone sees the same props she does
     const HI = foot && ctx.houseitems ? ctx.houseitems : null;
     me.hi = HI ? HI.shown : null; me.hw = HI ? HI.worn : null;
+    // in a police chase: her heat (law's stars) — everyone near her draws the cruisers on her tail (ghosts.js chaseTick)
+    me.ch = ctx.law ? (ctx.law.chasing ? Math.max(1, Math.min(5, ctx.law.wanted | 0)) : 0) : (MP.testHeat | 0);   // (tests without law: MP.testHeat)
     // her foot code — the same one friends get (d.x.f): a roll / slide / vault / dance…, the jumpsuit or a disguise, a jump's
     // height; all zero (a plain walk in her own clothes) isn't sent
     { const F = foot ? ctx.foot : null, f = F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null;

@@ -372,6 +372,10 @@ OPTIONAL state fields ride in existing messages, and every old client ignores th
   players still see the emoji. Receivers play its pose on her walker, its phrase in a bubble and its emoji in the burst
   (`multiplayer/ghosts.js`). In the car online without friends the wheel opens by HOLDING the horn (D-pad ↑ / F fire
   missiles there); on foot and with friends as before. The old 6-emoji wheel stays only without the party feature.
+- `d.ch` (Shared Road state): she's in a **police chase** — her heat 1–5 (law's stars), 0 / missing = no chase. Nobody
+  sends where the cops are: every screen near her draws the cruisers on her tail itself (`multiplayer/ghosts.js` ›
+  `chaseTick`: one ~10 m behind along her recent path, a second ~18 m from 3★, light bars flashing, a quiet wail within
+  60 m; cosmetic, they touch nobody; only the nearest chase is drawn — one baked body each + its glow).
 - `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
   the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
   `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual

@@ -163,6 +163,12 @@ async function body(t, pages, riders) {
   await B.frames(120);                                     // (past A's per-rider emote flood guard)
   const gB = await B.until(`ctx.emotes && ctx.emotes.allowed && (ctx.emotes.debug.resetCool(), ctx.emotes.play("mazel"))`, "B: a gesture to a stranger", 30000);
   const gA = gB && await A.until(`ctx.mp.ghostStats().gestures >= 1 && Object.values(${S}.peers).some(p => p.emG === 6)`, "A: B's gesture on her ghost", 30000);
+  // strangers see a police chase: B at 3★ → two cruisers on B's tail on A's screen (each screen draws them), gone after
+  await B.game(`(ctx.mp._debug.testHeat = 3, true)`);
+  const chased = await A.until(`ctx.mp.ghostStats().chaseCops === 2`, "A: the cops on B's tail", 30000);
+  await B.game(`(ctx.mp._debug.testHeat = 0, true)`);
+  const over = chased && await A.until(`ctx.mp.ghostStats().chaseCops === 0`, "A: B's chase over", 30000);
+  t.check("B's police chase shows on A's screen (2 cruisers at 3★) and ends with it", chased && over, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), ch: await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).ch`) }));
   t.check("one emote system: B's gesture (🥂 Mazel tov!) plays on B's ghost on A's screen", gA, JSON.stringify({ gB, A: await g(`ctx.mp.ghostStats()`), allowed: await B.game(`({ ok: ctx.emotes && ctx.emotes.allowed, social: ctx.mp.social })`) }));
 
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each

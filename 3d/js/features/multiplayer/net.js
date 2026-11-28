@@ -302,6 +302,7 @@ function applyState(id, d, snap, src = LEGACY) {
     p.f = Array.isArray(d.f) && d.f.length === 3 && d.f.every(Number.isFinite)                      // (her foot move / look / height)
         ? [Math.max(0, Math.min(10, d.f[0] | 0)), Math.max(0, Math.min(3, d.f[1] | 0)), Math.max(0, Math.min(40, d.f[2] | 0))] : null;
     p.hs = typeof d.hs === "string" && /^[a-z]{1,12}$/.test(d.hs) ? d.hs : null;              // (her salon hairdo)
+    p.ch = Number.isFinite(d.ch) ? Math.max(0, Math.min(5, d.ch | 0)) : 0;                    // (in a police chase: her heat)
     p.dc = typeof d.dc === "string" && /^[a-z0-9_]{1,16}$/.test(d.dc) ? d.dc : null;          // (her bling decoration)
     p.hn = typeof d.hn === "string" && /^[a-z0-9_]{1,16}$/.test(d.hn) ? d.hn : null;          // (her horn)
     p.ot = typeof d.ot === "string" && d.ot.length <= 160 && /^[a-z0-9_,-]*$/i.test(d.ot) ? d.ot : null;   // (her outfit: ids only)
@@ -473,6 +474,7 @@ function sendState() {
     if (me.hs) d.hs = me.hs;
     if (me.dc) d.dc = me.dc;                          // (her bling decoration / her horn — garage ids; the defaults aren't sent)
     if (me.hn) d.hn = me.hn;
+    if (me.ch) d.ch = me.ch;                          // (a police chase: her heat — the cops on her tail are drawn by each screen)
     if (me.f) d.f = me.f;                             // (on foot: her move / look / height — the friends' foot code, party/remote.js)                          // (her salon hairdo — the default sheitel is never sent)
     if (me.in) d.in = me.in;
     if (me.hi) d.hi = me.hi;                          // (what's in her hand on foot / worn on her head — houseitems ids)
