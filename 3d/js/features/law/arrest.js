@@ -195,7 +195,9 @@ async function script(f) {
     check(f);
     // the perp walk to the cruiser's back door
     UI.caption("🚶‍♀️ Into the cruiser...");
-    const c = u.car;
+    // (the cruiser can be gone by now — recycled, a town swap — as copDoor() already allows: the walk goes to where it
+    //  stood, just behind her car. It used to read u.car.x of null and the arrest froze mid-cuffs — ci/sweep-logic2, qa18)
+    const c = u.car || { x: car.pos.x - Math.sin(car.h) * 6, z: car.pos.z - Math.cos(car.h) * 6, h: car.h };
     const rear = _a.set(c.x + Math.cos(c.h) * 1.3 - Math.sin(c.h) * 0.8, 0, c.z - Math.sin(c.h) * 1.3 - Math.cos(c.h) * 0.8);
     const rx = rear.x, rz = rear.z;
     st.walkers.push({ p: l, x: rx, z: rz, speed: 1.5 });
