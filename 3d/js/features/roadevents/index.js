@@ -101,7 +101,8 @@ function scheduler(dt) {
     if (t > 15 && busN < 1 && T.convoy <= 0 && !busy("schoolBus") && Math.random() < dt * (school ? 0.22 : RATES.schoolBus)) spawn("schoolBus");
     if (T.convoy <= 0 && busN === 0 && t > 40 && Math.random() < dt * (school ? 0.05 : RATES.convoy)) { T.convoy = 6; T.convoyNext = 0; H.toast("🚌 Field-trip convoy!", "gold"); }
     if (T.convoy > 0) { T.convoy -= dt; T.convoyNext -= dt; if (T.convoyNext <= 0 && busN < 4) { T.convoyNext = rnd(0.9, 1.4); spawn("schoolBus"); } }
-    if (!busy("ambulance") && !ctx.traffic.cars.some(c => c.kind === "roadevents_ambulance") && Math.random() < dt * (zone === "hospital" ? 0.5 : RATES.ambulance)) spawn("ambulance");
+    // (not in the middle of an activity — a chase, a road-rager, a job: "pull over for the ambulance" landed on top of it; ci/sweep-logic2's note)
+    if (!busy("ambulance") && !ctx.engaged() && !ctx.traffic.cars.some(c => c.kind === "roadevents_ambulance") && Math.random() < dt * (zone === "hospital" ? 0.5 : RATES.ambulance)) spawn("ambulance");
     if (t > 12) tickFenderBenders(dt);
     // steamrollers trundling by (common in construction, rare elsewhere)
     if ((T.dozer -= dt) <= 0) {
