@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 18:45 UTC — 🩺 Tests + small fixes, part 5. Riding in a friend's car and hopping out while it's
+  moving, Lulu's own car now appears right beside the seat she was in — it could pop up several car-lengths away.
 - 2026-11-28 18:35 UTC — 🚗 On the road, part 9. Someone crossing the road who walks into Lulu's car while she's
   standing still now stops and waits beside it, then walks on — before, they were knocked flying into the car, and if a
   police car was nearby that started a chase for reckless driving.
