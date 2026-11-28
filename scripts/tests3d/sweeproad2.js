@@ -43,6 +43,9 @@ async function survey(t) {
     const r = await t.L(`(() => { const C = __lulu3d.ctx, q = s => { const e = document.querySelector(s); return e && !e.closest(".hidden") ? e.textContent.trim() : ""; };
       return { s: ${s}, state: C.state, town: !!(C.town && C.town.active), trip: q("#tripLabel"), chip: q(".exits-chip") }; })()`);
     seen.push(r);
+    // a picture coming up to each exit (a phone held upright): the boards, the decel lane, the gore
+    const lapM = ((s % 16000) + 16000) % 16000;
+    if (s < s0 + 16000 && [2900, 3500, 5100, 5600, 7700, 8700, 11300, 11900].some(m => Math.abs(lapM - m) < STEP / 2)) await t.shot(`lap-${lapM}`);
     // (boards are collected as she passes: JFK takes its own down once she's gone by)
     await g(`(() => { const M = window.__boards = window.__boards || new Map(); for (const x of ctx.world.signs) if (x.s > ${s} - 300 && x.s < ${s} + 3000) M.set(Math.round(x.s) + "|" + x.lines.join("/"), { s: Math.round(x.s), d: x.d, lines: x.lines, tab: x.tab || null }); return true; })()`);
     if (r.state !== "playing" || r.town) { await g(`(ctx.town && ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" ? L3.setState("playing") : 0, true)`); }
