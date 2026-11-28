@@ -85,6 +85,9 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## Landed
 
+- batch 4 → main (2026-11-28 17:20 UTC): findings 16–17. CI 46169158074 (cityhall 1–3, sweeplogic2, core, platform ✓);
+  sweeplogic2 + cameras locally ✓ with the siren change.
+
 - batch 3 → main (2026-11-28 14:35 UTC): findings 14–15. CI 46151538172 (cameras, sweeplogic2, core, platform, interiors,
   qalaw, cityhall ✓) + 46153891714 (heist, oneact, sweeplogic2, core, platform, skip, ux, qa18, partyheist, underworld,
   streets, roadevents, cameos, crime, crime2 ✓).
