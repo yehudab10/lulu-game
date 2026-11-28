@@ -81,6 +81,7 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## Landed
 
+- batch 5 → main (2026-11-28 17:30 UTC): finding 18. CI 46169869568 (phone, qa26, sweepphone3, core, platform, sweeplogic2 ✓).
 - batch 4 → main (2026-11-28 17:20 UTC): findings 16–17. CI 46169158074 (cityhall 1–3, sweeplogic2, core, platform ✓);
   sweeplogic2 + cameras locally ✓ with the siren change.
 
