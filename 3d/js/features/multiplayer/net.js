@@ -364,7 +364,10 @@ function peerEvent(id, e) {
 }
 
 /** Tell the room I honked / waved. */
-export function sendEvent(e) { if (MP.connected) send({ t: "e", e }); }
+export function sendEvent(e) {
+    if (MP.connected) send({ t: "e", e });
+    if (PS.bridge && PS.bridge.connected && legacyNear()) PS.bridge.send({ t: "e", e });   // (🌍 an old copy in the lobby hears my honk too)
+}
 
 // ── 🌍 step 2: RELIABLE one-time events (ci/oneserver) ────────────────────
 // sendRel(k, d) → the relay passes it on ONCE to everyone else in the room, acks it, and keeps it 20 s for players who
@@ -717,6 +720,8 @@ WC.setBase(MP_URL ? String(MP_URL).replace(/^ws/, "http") : "");   // 🌍 world
 // ── 🌍 STEP 3: rooms by place — the main room follows her, a listener near a boundary, a bridge for old copies ─────
 // (only when the relay's /world/config says place: 1 — off until the owner is on Cloudflare's Paid plan)
 const PS = { at: 0, listen: null, bridge: null, bridgeAt: 0 };
+/** An old copy of the game is in the lobby (heard through the bridge — new copies' bridge states are dropped). */
+function legacyNear() { for (const k in MP.peers) if (k.startsWith("L:")) return true; return false; }
 function placeStop() { if (PS.listen) { PS.listen.close(); PS.listen = null; } if (PS.bridge) { PS.bridge.close(); PS.bridge = null; } }
 /** Forget players heard in rooms we no longer follow (on a main hello). */
 function placePrune() {
@@ -746,7 +751,9 @@ function placeTick(dt) {
     const edge = PL.edgeFor(w);
     if (PS.listen && PS.listen.room !== edge) { PS.listen.close(); PS.listen = null; }
     if (edge && !PS.listen) { PS.listen = placeSub(edge, { listen: true }); PS.listen.src = { prefix: edge + ":", room: edge, main: false }; }
-    // the lobby bridge: old copies of the game still see her (every 2 s — they fade out as copies update) and she sees them
-    if (!PS.bridge) { PS.bridge = placeSub("LOBBY", {}); PS.bridge.src = { prefix: "L:", room: "LOBBY", main: false, bridge: true }; }
-    if (MP.clock - PS.bridgeAt >= 2 && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; PS.bridge.send({ t: "s", d: Object.assign({}, MP.lastD, { pl: 1 }) }); }
+    // the lobby bridge: old copies of the game (the classic 2D game, a 3D copy from before step 3) still see her and she
+    // sees them. With an old copy in the lobby: every 0.5 s (+ her honks) so the ghost moves smoothly on their screen;
+    // with nobody old there: every 10 s, only so the relay's snapshot for a newcomer's hello isn't far off
+    if (!PS.bridge) { PS.bridge = placeSub("LOBBY", {}); PS.bridge.src = { prefix: "L:", room: "LOBBY", main: false, bridge: true }; PS.bridgeAt = -99; }
+    if (MP.clock - PS.bridgeAt >= (legacyNear() ? 0.5 : 10) && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; PS.bridge.send({ t: "s", d: Object.assign({}, MP.lastD, { pl: 1 }) }); }
 }
