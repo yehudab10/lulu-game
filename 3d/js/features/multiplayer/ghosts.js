@@ -15,7 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
-import { CarVisual, NameTag } from "../party/remote.js";
+import { CarVisual, NameTag, personKey, carHairKey } from "../party/remote.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeGeometry } from "../../merge.js";
 
@@ -31,8 +31,8 @@ let self = null;
 const tmp = {}, v = new THREE.Vector3();
 
 function kindOf(p) {
-    if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (p.ot || "");
-    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
+    if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (p.ot || "") + ":" + personKey(p.hs);
+    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (carHairKey(p.hs) || "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
     if (p.vk === "borrowed") return "borrowed:" + (p.ct || 0) + ":" + (p.co || "");
     if (p.vk === "cop" || EXTRA[p.vk]) return p.vk;
     return "car:" + p.sk;
@@ -92,7 +92,7 @@ function buildGhost(p) {
         // her own clothes (features/clothes) + hair; an old client sends neither: a top in her car's colour
         const ot = p.ot && ctx.clothes && ctx.clothes.decode ? p.ot : "";
         const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, ot ? {} : { Top: sk.body });
-        g.person = spawnPerson("luluPerson", { colors, outfit: ot ? ctx.clothes.decode(ot) : false });
+        g.person = spawnPerson(personKey(p.hs), { colors, outfit: ot ? ctx.clothes.decode(ot) : false });
         body = g.person.obj;
     } else {
         let src, key = g.kind;
@@ -106,6 +106,7 @@ function buildGhost(p) {
             // her own car: the friends' car visual (her skin, the shown hairdo, her hair colour), baked solid once per look
             const cv = new CarVisual(p.sk);
             if (p.hc) cv.setHair(p.hc);
+            cv.setStyle(p.hs);                              // (her salon hairdo, once its piece has loaded)
             src = cv.model;
             dressCar(src, p);                               // (her kit — a Tushla in HER configuration — + her dirt)
             const baked = bakedRide(src, key);
@@ -195,7 +196,8 @@ export const ghostStats = () => {
         g.body.traverse(o => { if (o.isMesh && o.visible && o.material && o.material.transparent && o.material.opacity < 0.9 && !/Glass|Flame/i.test(o.material.name || "")) seeThrough++; });
     }
     const hands = Object.values(ghosts).filter(g => g && g.shown && g.person && g.person.obj.userData.hiHand).length;
-    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands };
+    const styled = Object.values(ghosts).filter(g => g && g.shown && /cameos_hair|luluPerson_/.test(g.kind)).length;   // (a salon hairdo drawn)
+    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands, styled };
 };
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */

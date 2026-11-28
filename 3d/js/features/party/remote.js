@@ -20,7 +20,7 @@
 // when their text changes, no per-frame allocations in the update path.
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
-import { models, cloneWithColors, findNodes, ensureModels } from "../../models.js";
+import { models, cloneWithColors, findNodes, ensureModels, registerModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
 import { now, clock, N, fresh } from "./net.js";
@@ -55,6 +55,32 @@ function armParts() {
 }
 
 /** A skin's paint for {Body, BodyLight, BodyDark}. */
+// ── another player's salon hairdo (features/cameos/salon.js: "sheitel" is the default and never sent) ──
+// d.hs (EVERYONE) / the party profile's hs: the style's id. Her car gets the salon's hair piece (car-model space,
+// like car.addHairStyle), her walking Lulu the style's own model; both load the first time someone needs them and
+// show the default until then (whoever draws her rebuilds when the key below changes).
+const STYLE_CAR = { bouncy: "cameos_hairBouncy", avigail: "cameos_hairAvigail" };
+// (the same files the salon registers — here too, so another player's hairdo shows without the salon feature loaded)
+registerModels({ cameos_hairBouncy: "cameos_hair_bouncy", cameos_hairAvigail: "cameos_hair_avigail", luluPerson_bouncy: "cameos_lulu_bouncy", luluPerson_avigail: "cameos_lulu_avigail" });
+const styleTried = new Set();
+const tryLoad = k => { if (!models[k] && !styleTried.has(k)) { styleTried.add(k); ensureModels([k]).catch(() => { }); } };
+/** A style id she may send, or null (the default / junk). */
+export const styleOk = v => typeof v === "string" && Object.prototype.hasOwnProperty.call(STYLE_CAR, v) ? v : null;
+/** The walking Lulu's model key for a style: its own model once loaded (starts the load), else the default. */
+export function personKey(style) {
+    const s = styleOk(style);
+    if (!s) return "luluPerson";
+    const k = "luluPerson_" + s;
+    tryLoad(k);
+    return models[k] ? k : "luluPerson";
+}
+/** The car's hair piece for a style once loaded (starts the load), else null (the default sheitel shows). */
+export function carHairKey(style) {
+    const s = styleOk(style);
+    if (!s) return null;
+    tryLoad(STYLE_CAR[s]);
+    return models[STYLE_CAR[s]] ? STYLE_CAR[s] : null;
+}
 export function skinColors(key) { const s = SKINS[key] || SKINS.pink; return { Body: s.body, BodyLight: s.light, BodyDark: s.dark }; }
 export function skinHex(key) { return (SKINS[key] || SKINS.pink).body; }
 
@@ -170,12 +196,14 @@ export class CarVisual {
         this.swBase = this.sw ? this.sw.quaternion.clone() : null;
         this.taillights = [];
         this.model.traverse(o => { if (o.isMesh && o.material.name === "Taillight") { o.material = o.material.clone(); this.taillights.push(o.material); } });
-        // only the default hairdo shows (salon styles are per-device add-ons)
+        // the default hairdo (setStyle below swaps in her salon style)
         const hairs = findNodes(this.model, "Hair_");
         const has = hairs.some(h => h.name.startsWith("Hair_sheitel"));
         for (const h of hairs) h.visible = has ? h.name.startsWith("Hair_sheitel") : h === hairs[0];
         this.hairMats = [];
         for (const h of hairs) h.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
+        this.styleKey = null;                               // (the salon piece went with the old model: setStyle re-adds it)
+        if (this.hairStyle) this.setStyle(this.hairStyle);
         if (this.hairColor) this.setHair(this.hairColor, true);
         // the waving arm, at her outer shoulder
         const head = findNodes(this.model, "Anchor_head")[0];
@@ -225,6 +253,28 @@ export class CarVisual {
             } catch (e) { console.warn("[party] kit", sk.kit, e); }
         }
         if (C && (C[0] || C[1]) && ctx.carcare && ctx.carcare.dressOther) ctx.carcare.dressOther(this.model, C[0], C[1]);
+    }
+    /** Her salon hairdo (styleOk ids; null = the default sheitel). Cheap to call every frame: it rebuilds only when the
+     *  style changes or its hair piece finishes loading. */
+    setStyle(style) {
+        const s = styleOk(style), hk = carHairKey(s), key = hk || "";
+        this.hairStyle = s;
+        if (key === this.styleKey) return;
+        this.styleKey = key;
+        if (this.styleObj) { this.styleObj.removeFromParent(); this.styleObj = null; }
+        const hairs = findNodes(this.model, "Hair_");
+        if (hk) {
+            const obj = models[hk].clone(true);
+            obj.name = "Hair_" + s;
+            obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
+            this.model.add(obj);
+            this.styleObj = obj;
+            for (const h of hairs) h.visible = false;
+            if (this.hairColor) this.setHair(this.hairColor, true);
+        } else {
+            const has = hairs.some(h => h.name.startsWith("Hair_sheitel"));
+            for (const h of hairs) h.visible = has ? h.name.startsWith("Hair_sheitel") : h === hairs[0];
+        }
     }
     setHair(color, force) {
         if (!color || (!force && color === this.hairColor)) return;
@@ -391,6 +441,7 @@ export function updateCars(dt, show, decorate, frameOf) {
         if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
         rc.v.setLook(p.x && Array.isArray(p.x.ev) ? p.x.ev : null, p.x && Array.isArray(p.x.cc) ? p.x.cc : null);
         if (p.hc) rc.v.setHair(p.hc);
+        rc.v.setStyle(p.hs);
         setForm(rc, p);
         if (emoteFn) { try { emoteFn(rc, p); } catch (e) { console.error("[party] emote", e); } }
         if (rc.emote) { rc.emote.t += dtParty; if (rc.emote.t > rc.emote.dur) rc.emote = null; }
@@ -516,11 +567,11 @@ function setForm(rc, p) {
     const foot = !!f && !!models.luluPerson;
     if (foot) {
         const ot = !look0(f) || !ctx.clothes ? "" : (p.x && typeof p.x.ot === "string" ? p.x.ot.slice(0, 160) : "");
-        const look = Math.max(0, Math.min(3, f[1] | 0)), key = look + "|" + (p.hc || "") + "|" + ot;
+        const look = Math.max(0, Math.min(3, f[1] | 0)), pk = personKey(p.hs), key = look + "|" + (p.hc || "") + "|" + ot + "|" + pk;
         if (!rc.walker || rc.walkerKey !== key) {
             if (rc.walker) rc.walker.obj.removeFromParent();
             const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, LOOKS[look]);
-            rc.walker = spawnPerson("luluPerson", { colors, outfit: ot ? ctx.clothes.decode(ot) : false });   // (her outfit: features/clothes)
+            rc.walker = spawnPerson(pk, { colors, outfit: ot ? ctx.clothes.decode(ot) : false });   // (her outfit: features/clothes)
             rc.walker.obj.rotation.order = "YXZ";
             rc.walker.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
             rc.walkerKey = key;

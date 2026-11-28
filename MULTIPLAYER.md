@@ -353,6 +353,10 @@ OPTIONAL state fields ride in existing messages, and every old client ignores th
   the way friends do — `hc` her hair colour (`#rrggbb`), `ot` her outfit's compact form (`ctx.clothes.encode`: piece ids
   and commas only, ≤ 160 chars; checked on receipt). Sent only when set; 2D and older 3D clients ignore them (a 3D
   receiver without them draws a top in her car's colour).
+- `d.hs` (Shared Road state) / `hs` (party snapshot, beside `hc`): her **salon hairdo** (`bouncy` / `avigail`; the
+  default sheitel is never sent; lowercase letters only, checked on receipt). Receivers show the style's hair piece on
+  her car and its walking model on foot (`party/remote.js` › `personKey` / `carHairKey`, loaded the first time it's
+  needed; the default until then). Old clients ignore it and draw the sheitel.
 - `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
   the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
   `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual

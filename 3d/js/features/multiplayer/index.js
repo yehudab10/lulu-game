@@ -121,6 +121,7 @@ function myPose() {
         me.lookAt = performance.now();
         const s2 = shared.get();
         me.hc = typeof s2.luluHair === "string" && /^#[0-9a-fA-F]{6}$/.test(s2.luluHair) ? s2.luluHair : null;
+        me.hs = typeof s2.luluHairStyle === "string" && s2.luluHairStyle !== "sheitel" && /^[a-z]{1,12}$/.test(s2.luluHairStyle) ? s2.luluHairStyle : null;
         let ot = null;
         try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
         me.ot = ot;

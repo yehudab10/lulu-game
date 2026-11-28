@@ -80,7 +80,7 @@ export const N = {
     bcNonce: rint(1, 1e6), bcast: [],
     seen: {}, acks: {},          // host: processed nonces per uid
     replies: [],                 // host: clock replies to send
-    profile: { n: "", sk: "pink", hn: "beep", hc: "", rd: 0 },
+    profile: { n: "", sk: "pink", hn: "beep", hc: "", hs: "", rd: 0 },
     mode: 0, flags: 0, pose: null, extra: null,
     xk: {},                      // per-feature extras (presence, foot pose, parked car, cops…) merged into d.x with `extra`
     full: false, lost: false, hostSince: 0,
@@ -208,6 +208,7 @@ function applySnap(rid, d, hello) {
     if (typeof d.sk === "string") p.sk = d.sk.slice(0, 16);
     if (typeof d.hn === "string") p.hn = d.hn.slice(0, 16);
     if (typeof d.hc === "string") p.hc = d.hc.slice(0, 9);
+    p.hs = typeof d.hs === "string" && /^[a-z]{1,12}$/.test(d.hs) ? d.hs : null;   // (her salon hairdo; none = the default)
     p.rd = d.rd ? 1 : 0;
     p.m = d.m | 0; p.f = d.f | 0;
     p.aid = d.a | 0;
@@ -461,6 +462,7 @@ function sendSnap(t) {
     const d = { pv: PV, u: N.uid, si: N.si, q: ++N.seq, t: Math.round(clock()), cs: C.synced ? 1 : 0,
         n: pr.n || myName(), sk: pr.sk, hn: pr.hn, m: N.mode, f: N.flags, a: N.A.id | 0 };
     if (pr.hc) d.hc = pr.hc;
+    if (pr.hs) d.hs = pr.hs;
     if (pr.rd) d.rd = 1;
     if (N.pose) d.p = N.pose;
     const xk = N.xk;
