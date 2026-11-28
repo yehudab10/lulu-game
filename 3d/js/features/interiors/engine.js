@@ -619,8 +619,10 @@ export class Room {
             if (!tm.gate || ctx.enabled("interiors")) { try { tm.fn(this); } catch (e) { console.error("[interiors timer]", e); } }
         }
         this.particles.update(dt);
-        this.bubbles.update(dt);
+        // (the camera first: the bubbles size themselves to the camera's view — fitted against last frame's camera, a
+        //  bubble by the till came out 110–120 % of a phone's width while the camera swung in for the purchase)
         this.updateCamera(dt, false);
+        this.bubbles.update(dt);
     }
 
     /** ci/doors stage 2: walking out through the room's door = leaving (no question, no fade). */
