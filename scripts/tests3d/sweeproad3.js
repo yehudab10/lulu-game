@@ -56,6 +56,7 @@ async function drive(t) {
   const s0 = await g(`Math.round(ctx.car.s)`), goal = s0 + 16000 + 400;
   await g(`(window.__drv.on = true, ctx.G.invT = 0, true)`);
   let nextShot = s0 + 300, lastS = s0, stall = 0, arrested = 0;
+  const waits = [];
   const trips = new Set();
   for (let k = 0; k < 4000; k++) {
     await t.frames(30);
@@ -73,11 +74,22 @@ async function drive(t) {
     if (st.hearts <= 1) await g(`(ctx.G.hearts = ctx.G.maxHearts, true)`);
     if (st.chase) await g(`(ctx.law.standDown("test"), true)`);
     if (st.s >= nextShot) { await t.shot(`lap-${Math.round((st.s - s0) / 100) / 10}km`); nextShot += 1500; }
-    if (st.s - lastS < 20) { if (++stall > 6) { t.check("drive: she keeps moving up the highway", false, `stuck at s ${st.s}`); break; } } else stall = 0;
+    // (a stopped school bus, a toll, a train: the road's own reasons to wait — the test driver only follows its lane, so after
+    //  ~25 s it's carried 80 m on, noted; a real stuck car would show up as the same spot again and again)
+    if (st.s - lastS < 20) {
+      if (++stall > 25) {
+        waits.push(st.s); stall = 0;
+        if (waits.filter(x => Math.abs(x - st.s) < 30).length > 2) { t.check("drive: she keeps moving up the highway", false, `stuck at s ${st.s}`); break; }
+        await W.pause(t, false);
+        await g(`(() => { ctx.traffic.clear(); const hw = ctx.world.highway, s = ctx.car.s + 80, p = hw.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+        await t.frames(3); await W.pause(t, true); await W.moved(t);
+      }
+    } else stall = 0;
     lastS = Math.max(lastS, st.s);
     if (st.s >= goal) break;
   }
   const D = await g(`(() => { const D = window.__drv; D.on = false; return { bumps: D.bumps, sunk: D.sunk, crashes: D.crashes, f: D.f, maxY: +D.maxY.toFixed(2), minY: +D.minY.toFixed(2) }; })()`);
+  if (waits.length) console.log(`    · waited (carried on) at s ${waits.join(", ")}`);
   console.log(`    · ${D.f} frames driven, ${D.crashes.length} crashes, y ${D.minY}…${D.maxY}, trips: ${[...trips].slice(0, 12).join(" | ")}`);
   if (D.crashes.length) console.log(`    · crashes: ${JSON.stringify(D.crashes.slice(0, 12))}`);
   t.check("drive: she drove the whole lap", lastS >= goal - 50, `${lastS - s0} m of ${goal - s0}`);
