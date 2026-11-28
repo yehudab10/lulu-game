@@ -132,5 +132,18 @@ async function lot(t) {
     t.check("lot: a car she owns that's AT HOME can still be driven off the lot", b2.some(x => /Drive it off the lot/.test(x)), b2.join(" | "));
     await t.tap(1); await t.frames(10);
   }
+  // the title's 🚗 Car switch: the same rule (it cycled every car she owns, wherever it was)
+  await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await t.frames(10);
+  await g(`(ctx.cars.leaveAt("purple", { kind: "impound", town: "midwood" }), true)`);
+  const k0 = await g(`ctx.car.skinKey`);
+  await t.click(/Car:/);
+  await t.frames(4);
+  const after = await g(`({ skin: ctx.car.skinKey, purple: ctx.cars.where("purple").kind })`);
+  t.check("title: the 🚗 Car switch skips a car that's impounded (it stays impounded)", after.skin === k0 && after.purple === "impound", JSON.stringify(after));
+  await g(`(ctx.cars.leaveAt("purple", { kind: "home" }), true)`);
+  await t.click(/Car:/);
+  await t.frames(4);
+  t.check("title: …and still switches to a car at home", (await g(`ctx.car.skinKey`)) === "purple");
   await W.pause(t, true);
 }
