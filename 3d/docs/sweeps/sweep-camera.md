@@ -81,6 +81,11 @@ both areas are this sweep's now.
   places, qa28: green; sweepcamera red on a too-strict room bar, fixed); earlier 46143410334 (perf green). Main's Smoke
   test green after both pushes.
 
+- batch 2 → main (~18:10 UTC): tests + notes only — sweepcamera runs at a frozen clear noon (an evening CI run's night
+  street read as "one flat colour", 46169174266), `SWEEPCAM_LAND=1` (1280 × 720: every part green locally),
+  `SWEEPCAM_SPOT` (a debug picture). CI 46172828152 (sweepcamera, cityhall, foot, qa7: green), 46169174266 (core,
+  platform, qa27, qaweekend, unstuck: green).
+
 Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbon, doorout, roadside, airport, rest; `SWEEPCAM_PARTS`),
 `scripts/lib/camjunk.js` (the probe: rays from the lens into the real scene — what's within 1.6 m of the lens, what
 stands between the lens and her chest / head; knows the see-through cut).
