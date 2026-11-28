@@ -125,6 +125,11 @@ async function body(t, pages, riders) {
   t.check("world sky: the same time of day on two strangers' screens", dcw < 0.01, JSON.stringify({ skyA, skyB }));
   t.check("world sky: the same weather (from the world clock)", skyA.w === skyB.w && skyA.w === skyA.want, JSON.stringify({ skyA, skyB }));
 
+  // 🌍 an emote is a reliable one-time event (the relay's r): A gets B's 😱 once, as an event — not only from B's state
+  await g(`(window.__emr = [], import("./js/core/ctx.js").then(m => m.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); })), true)`);
+  await B.game(`(ctx.mp.emote(2), true)`);
+  t.check("an emote arrives as a reliable event (r) and shows once", await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`), JSON.stringify(await g(`window.__emr`)));
+
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
   // draws the other in the hall, in her own look; out again, both are back on the road
   for (const P of [{ g, until: (c, w, ms) => A.until(c, w, ms) }, { g: c => B.game(c), until: (c, w, ms) => B.until(c, w, ms) }]) {

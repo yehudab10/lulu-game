@@ -495,6 +495,9 @@ export function sendEmote(idx) {
     if (idx === 6) { sendEvent("wave"); MP.myBurst = { emoji: "👋", t: 1.1 }; tone(700, 0.1, "triangle", 0.14, 950); return; }
     MP.emoteNonce++;
     MP.myEmote = { n: MP.emoteNonce, idx, at: MP.clock };
+    // (🌍 a reliable one-time event where the relay has them — it can't be lost in a dropped packet; the state's d.em
+    //  stays for old clients, and carries the same nonce so nobody sees it twice)
+    sendRel("em", { n: MP.emoteNonce, i: idx });
     if (MP.forceSends < 2) MP.forceSends = 2;
     MP.myBurst = { emoji: EMOTES[idx] || "❤️", t: 1.1 };
     tone(660, 0.1, "triangle", 0.16, 900);

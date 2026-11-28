@@ -348,6 +348,16 @@ on("world:resting", e => {
     H.toast(`🌙 Online play is resting until ${t}. You can keep playing.`, "", { prio: 1, key: "worldResting" });
 });
 ctx.mp.event = (k, d) => N.sendRel(k, d);
+// an emote as a reliable event (net.js sendEmote): shown once, with the same flood guard as the state's d.em; one that
+// arrives late (a newcomer catching up on the last 20 s) is old news — not shown
+on("mp:event", e => {
+    if (!e || e.k !== "em" || e.late || !e.peer || !e.d) return;
+    const p = e.peer, n = e.d.n, i = e.d.i | 0;
+    if (typeof n !== "number" || p.emNonce === n) return;
+    p.emNonce = n;
+    if (!N.friendRoom() && MP.clock - (p.emAt || -9) < 1.5) { MP.recv++; return; }
+    p.emAt = MP.clock; p.emT = 1.1; p.emEmoji = N.EMOTES[i] || "❤️";
+});
 // 🌍 step 3: a player by her relay id (Nearby / a tap pass that; in place mode MP.peers is keyed by room / session tag) —
 // the one in my own room first
 ctx.mp.peerById = id => { if (MP.peers[id]) return MP.peers[id]; let best = null; for (const k in MP.peers) { const p = MP.peers[k]; if (p.id === id) { if (!p.room || p.room === N.roomPath()) return p; best = best || p; } } return best; };          // 🌍 step 2: a reliable one-time event to the room (→ mp:event on the others)
