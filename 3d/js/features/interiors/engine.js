@@ -208,7 +208,7 @@ const V = new THREE.Vector3(), V2 = new THREE.Vector3();
  */
 const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.6, fadeTo: 0.18 };
 // her own see-through when the lens is close: [solid from (m), faded from (m)] per screen shape, and how faded (ci/sweep-phone)
-const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.2 };
+const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.12 };
 // …and in a chat / at someone's ✋ the camera sits this far (rad) off straight-behind, so she doesn't hide them
 const SHOULDER = 0.45;
 const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();

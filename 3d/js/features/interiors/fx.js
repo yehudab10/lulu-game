@@ -164,6 +164,12 @@ export class Bubbles {
         //  cut — it comes down until its top is on screen)
         TMP.set(b.sp.position.x, b.sp.position.y + b.h * k / 2, b.sp.position.z).project(cam);
         if (TMP.z < 1 && TMP.y > 0.9) b.sp.position.y -= (TMP.y - 0.9) * vh / 2;
+        // (…nor off a side: someone at the edge of a phone held upright had the start of their line cut — it slides in
+        //  along the camera's right until both ends are on screen; ci/sweep-phone)
+        if (TMP.z < 1) {
+            const half = (b.w * b.fill * k) / vw, over = TMP.x - half < -0.96 ? -0.96 - (TMP.x - half) : TMP.x + half > 0.96 ? 0.96 - (TMP.x + half) : 0;
+            if (over) { SC.setFromMatrixColumn(cam.matrixWorld, 0); b.sp.position.addScaledVector(SC, over * vw / 2); }
+        }
     }
     update(dt) {
         for (let i = this.list.length - 1; i >= 0; i--) {
