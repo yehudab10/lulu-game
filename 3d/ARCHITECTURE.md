@@ -491,7 +491,7 @@ no "…"; before / after pictures in `3d/docs/hud/`), `hudfit.js`, and `calm` (o
 **One activity at a time (`ci/hud`):** `ctx.engaged(except)` (core/ctx.js) → the activity she's in ("" = free): `chase`
 (law / a foot chase), `job` (a side job, the Fixer's too), `heist` (a robbery to foil, a snatcher, her own heist),
 `parking`, `shabbos` (the rush), `underworld` (a bad-guy encounter), + whatever a feature adds with `ctx.addActivity(id,
-fn)`. Every scheduler that STARTS or OFFERS something new asks it, passing its own family as `except`, and stays quiet
+fn)` (`ride` — a 🚑 patient run, `testdrive` — Uncle Refael's, `shomrim` — the Shomrim on her tail). Every scheduler that STARTS or OFFERS something new asks it, passing its own family as `except`, and stays quiet
 while she's busy. That covers robberies, snatchers, the heist tip, bad-guy cars, the Fixer, payphones / the job phone,
 cameos, drive-thru / ice cream, the town's street scenes and crimes, the chop shop and the Shabbos call. A player's own
 choice (📱 Jobs, a booth) isn't blocked. Test `oneact`. **Speech bubbles on a phone:** Lulu's line docks in the left
@@ -538,7 +538,8 @@ themselves … this could clutter the map … done smartly"):** every shopfront 
 Lakewood 19) has ONE state, decided as the town builds: the engine asks `town/fronts.js`' namer (set by
 `storefronts/assign.js`) in build order — deterministic, the same for everyone. The first front showing a named shop IS
 that shop; every later copy becomes its street's next NEW shop (`data.js` › SHOPS rows with a `list`), then a cycle of
-non-shops — so no name shows twice in a town. States: **open** (a one-joke walk-in, `hours` on the device's clock + the
+non-shops — so no name shows twice in a town. States: **open** (a one-joke walk-in, `hours` on the world's clock — `hours.js` `worldNow()`: the sky's hour in a
+Cruise day, as the 📱 shows it; the car-care row, the school-zone cameras and the shul / yeshiva use it too — + the real
 weekday; Shabbos / Yom Tov from `ctx.seasons.day()` shut everything) · **closed** (outside its hours: a red card on the
 door, ✋ reads its joke + "opens 6:30 am") · **soon** (papered windows + a sign that changes each real week; Midwood's east
 end of Avenue M is kept as one long front for East Midwood Lanes, the bowling alley) · **lease** (FOR LEASE —
