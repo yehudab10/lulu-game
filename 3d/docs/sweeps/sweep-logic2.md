@@ -17,6 +17,7 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 | 8 | Riding in a friend's passenger seat past a speed camera: her own (hidden) car rides along at the friend's speed, and the camera flashed HER — a ticket in the mail for the friend's driving (the ride promises "she's never ticketed or chased for the driver's driving"). | `cameras/index.js` `noTicket` | **fixed** — no ticket while riding |
 | 9 | 📝 Ima's list "🚪 Pop into a shop on foot" never ticked in the town's shops — the one-joke walk-ins (most shopfronts in Midwood + Lakewood) entered without the stat the list counts; only the pizza shop / bakery / clothes / the lanes / the highway's rooms counted. | `storefronts/index.js` `enter` | **fixed** — a walk-in counts |
 | 10 | An arrest froze mid-cuffs (seen in qa18's random play, a page error "[law flow] … reading 'x'"): the perp walk read the cruiser's position after the cruiser had been taken out of the traffic (recycled / a town swap) — the scene stopped there, only ⏭ got her out. `copDoor()` already allowed for it; the walk didn't. | `law/arrest.js` | **fixed** — the walk goes to where the cruiser stood |
+| 11 | Paused with a line / a question still open (☰, ❚❚, another app) → ⌂ Title screen or ↺ Restart: the question came along — on the title (or at the porch of the new run) it took every ✕ / Enter / A press itself, and the menu got nothing; a controller player was stuck. Nothing closed a dialog on a state / run change. | `core/dialog.js` | **fixed** — the title and a new run close it (answers -1). Batch 2 |
 | 4 | Two features' lines at once: a second `say` / `choose` opening over one still waiting replaced it without answering it — the first feature's `await` hung forever (its "busy" flag stuck for the run). | `core/dialog.js` | **fixed (defensive)** — the covered line / question answers -1 ("closed", like `closeDialog`); `script()` stops at a -1 (a closed / covered line), so an old conversation doesn't keep talking over the new one |
 
 ## Checked and fine
@@ -65,5 +66,13 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   could read it too. Not edited here (the phone is that sweep's).
 
 ## Landed
+
+- batch 1 → main 9266f5a8 (2026-11-28 12:45 UTC): findings 1–10. CI: 46127664691 (the whole affected suite on the batch-1
+  head) + 46143946043 (the later fixes: core, platform, skip, ux, sweeplogic2, oneact, day, qa18, rides, roadevents, cameras,
+  gadgets, schlepnav, dealers, dealersui, shops, community, streets, shul, yeshiva, yeshiva2, storefronts, carcare,
+  cityhall 1–3, law, qalaw, lawstruck, places ✓). Reds judged not this branch's (red on plain main, checked locally):
+  fuel, movement, parking, qa27; sweepphone2's stranger-house bubbles (rooms' camera / bubbles), qaweekend inwall,
+  accounts / qafriends / partyworld (party, known), sweeproad3 (sweep-road's), airport's LOW-vs-MEDIUM draw calls; streets
+  (green locally + on 46143946043); qa18's page error = finding 10.
 
 ## What's left
