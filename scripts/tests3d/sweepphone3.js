@@ -11,6 +11,9 @@ const CARD_FIT = `(() => { const c = document.getElementById("screenCard"); if (
   for (const b of c.querySelectorAll("button")) { if (b.offsetParent === null) continue; const q = b.getBoundingClientRect(); if (q.width < 2) continue;
     if (q.height < 40) bad.push("small " + Math.round(q.width) + "×" + Math.round(q.height) + " " + b.textContent.trim().slice(0, 24));
     if (q.right > innerWidth + 1 || q.left < -1) bad.push("off the side " + b.textContent.trim().slice(0, 24)); }
+  for (const e of c.querySelectorAll("*")) { if (e.children.length || !e.textContent.trim() || e.offsetParent === null) continue; const q = e.getBoundingClientRect();
+    const box = e.closest("button") ? e.closest("button").getBoundingClientRect() : r;
+    if (q.width && (q.right > box.right + 1 || q.left < box.left - 1)) bad.push("text past its box: " + e.textContent.trim().slice(0, 30)); }
   const sc = [c, ...c.querySelectorAll("*")].find(e => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY));
   const cut = c.scrollHeight > c.clientHeight + 4 && !sc;
   if (cut) bad.push("taller than the screen and doesn't scroll");
@@ -34,6 +37,8 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "footRun"`, "PLAY: on foot at home", 30000)) return;
     await g(`(ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.law.hold(99999), true)`);
     await t.frames(30);
+    // a long username (16 characters, the widest letters) — it shows in ⚙️ 🪪 Your name + 👯 Friends
+    await g(`(ctx.player.setName("WWWWWWWWWWWWWWWW"), true)`);
     // ❚❚ pause (the corner button on foot is the 📱: the pause menu through the game's own pause)
     const pb = await S.box("pauseBtn");
     S.log("❚❚ button: " + JSON.stringify(pb));
@@ -91,6 +96,14 @@ module.exports = {
     await g(`ctx.phone.openPhone()`);
     await t.frames(12);
     await S.shot("13-phone-small");
+    await g(`(ctx.phone._dbg.openApp("friends"), true)`);
+    await t.frames(8);
+    await S.shot("13b-phone-friends-longname");
+    await S.badText("👯 Friends with a 16-letter name", { touch: true, w: 375 });
+    const fr = await t.L(`(() => { const c = document.querySelector("#screenCard.lphone .lp-scr"); if (!c) return "no phone"; const r = c.getBoundingClientRect(); const out = [...c.querySelectorAll("*")].filter(e => !e.children.length && e.textContent.trim() && e.offsetParent !== null).filter(e => { const q = e.getBoundingClientRect(); return q.width && q.right > r.right + 1; }).map(e => e.textContent.trim().slice(0, 30)); return out.join(" | "); })()`);
+    t.check("👯 Friends: a 16-letter name stays inside the handset", !fr, fr);
+    await g(`(ctx.phone.closePhone(), true)`); await t.frames(4);
+    await g(`ctx.phone.openPhone()`); await t.frames(8);
     const hs = () => t.L(`(() => { const c = document.querySelector("#screenCard.lphone"); if (!c) return null; const r = c.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), W: innerWidth, H: innerHeight }; })()`);
     const in1 = await hs();
     t.check("📱 small phone upright: the handset is on the screen", in1 && in1.t >= -1 && in1.b <= in1.H + 1 && in1.l >= -1 && in1.r <= in1.W + 1, JSON.stringify(in1));

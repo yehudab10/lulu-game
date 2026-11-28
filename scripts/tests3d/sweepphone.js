@@ -56,8 +56,14 @@ module.exports = {
     // GAS: out of the driveway → the first-drive tutorial's cards
     await t.L(`(() => { const e = document.getElementById("tGas"); e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", pointerId: 11 })); return 0; })()`);
     await t.until(`__lulu3d.state === "playing"`, "pulled out → playing", 30000);
+    let both = 0;
+    for (let i = 0; i < 4; i++) {
+      await t.frames(90); await S.shot(`06-tut-${i}`);
+      const all = await S.dump(`tutorial ${i}`);
+      if (all.some(x => /metaTutBox/.test(x.id)) && all.some(x => /Lulu's phone/.test(x.tx))) both++;
+    }
     await t.L(`(() => { const e = document.getElementById("tGas"); e.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "touch", pointerId: 11 })); return 0; })()`);
-    for (let i = 0; i < 4; i++) { await t.frames(90); await S.shot(`06-tut-${i}`); await S.dump(`tutorial ${i}`); }
+    t.check("the first drive: the tutorial's card and the 📱 phone's intro banner never on screen together", both === 0, `${both} of 4 looks`);
     await S.badText("first drive", { touch: true, w: 390 });
     S.log("state " + await g(`L3.state`) + " tutorial " + await g(`JSON.stringify(ctx.meta && ctx.meta.tutorial ? ctx.meta.tutorial : null)`));
   },

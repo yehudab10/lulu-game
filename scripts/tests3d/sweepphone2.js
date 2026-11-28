@@ -55,6 +55,10 @@ module.exports = {
       await S.shot(`${where}-by-${who.id}`);
       S.log(`${where} by ${who.id}: ${JSON.stringify(c1)}`);
       t.check(`${where}: beside ${who.id} she covers ≤ 35 % of the phone (or is see-through)`, c1 && (c1.cover <= 0.35 || c1.a < 0.6), JSON.stringify(c1));
+      const nr = await S.room(`(() => { const L = r.lulu.obj.position, ry = r.lulu.obj.rotation.y; return { near: r.near ? r.near.id : null, all: r.hots.filter(h => !h.enabled || h.enabled(r)).map(h => { const w = h.track && h.who && r.byId[h.who], x = w ? w.p.obj.position.x : h.x, z = w ? w.p.obj.position.z : h.z, d = Math.hypot(x - L.x, z - L.z);
+        return d <= h.r ? h.id + "@" + d.toFixed(2) + "/" + ((x - L.x) * Math.sin(ry) / Math.max(d, 0.01) + (z - L.z) * Math.cos(ry) / Math.max(d, 0.01)).toFixed(2) : null; }).filter(Boolean) }; })()`);
+      S.log(`${where} ✋ by ${who.id}: ${JSON.stringify(nr)}`);
+      t.check(`${where}: beside ${who.id}, facing them, the ✋ is theirs`, nr && nr.near === who.id, JSON.stringify(nr));
     };
     const out = async where => {
       await g(`(window.__interiors && __interiors.room ? __interiors.room.leave() : 0, true)`);
@@ -100,6 +104,7 @@ module.exports = {
     const front = await g(`(() => { const SF = ctx.storefronts; if (!SF) return null; const f = SF.debug.F.list.find(f => f.door && SF.stateOf(f) === "open"); return f ? { name: f.name, at: { x: f.door.x, z: f.door.z, nx: f.nx, nz: f.nz } } : null; })()`);
     if (front) {
       await S.onFoot();
+      await W.moved(t);
       await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(front.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); return true; })()`);
       await t.frames(8);
       const i = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr && pr.ent ? ctx.foot.spots().indexOf(pr.ent) : -1; })()`);

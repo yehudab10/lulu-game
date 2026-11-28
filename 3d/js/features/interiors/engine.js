@@ -14,7 +14,7 @@
 //   build(rt), tick?(rt, dt), beforeLeave?(rt) → Promise (e.g. the precinct sneak-out)
 // }
 import * as THREE from "three";
-import { ctx, registerState, setState, emit, on, css } from "../../core/ctx.js";
+import { ctx, registerState, setState, emit, on, css, wrapAngle } from "../../core/ctx.js";
 import { makeSet } from "../../core/sets.js";
 import { store, saveSoon, shared, wallet, save3d } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
@@ -208,7 +208,9 @@ const V = new THREE.Vector3(), V2 = new THREE.Vector3();
  */
 const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.6, fadeTo: 0.18 };
 // her own see-through when the lens is close: [solid from (m), faded from (m)] per screen shape, and how faded (ci/sweep-phone)
-const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.3 };
+const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.2 };
+// …and in a chat / at someone's ✋ the camera sits this far (rad) off straight-behind, so she doesn't hide them
+const SHOULDER = 0.45;
 const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();
 
 export class Room {
@@ -830,7 +832,15 @@ export class Room {
         let auto = null, dist = C.orbitDist || ORBIT.dist;
         const who = this.active && this.active.who && this.byId[this.active.who];
         const at = this.focusAt || (who ? who.p.obj.position : this.active ? this.active : null);
-        if (at && Math.hypot(at.x - L.x, at.z - L.z) > 0.3) { auto = { yaw: Math.atan2(at.x - L.x, at.z - L.z), k: 3 }; dist *= 0.85; }
+        // (standing at someone's ✋ — she walked up to them — the camera eases over her shoulder too: straight behind her,
+        //  on a phone held upright her head + back hid the shopkeeper / the mom she's facing; ci/sweep-phone)
+        const nw = !at && this.near && this.near.who && this.byId[this.near.who];
+        const at2 = at || (nw ? nw.p.obj.position : null);
+        if (at2 && Math.hypot(at2.x - L.x, at2.z - L.z) > 0.3) {
+            const to = Math.atan2(at2.x - L.x, at2.z - L.z), side = Math.sign(wrapAngle(F.yaw - to)) || 1;
+            auto = { yaw: to + side * SHOULDER, k: 3 };
+            if (at) dist *= 0.85;
+        }
         ctx.cam.orbit(this.lulu.obj, { camera: cam, dist, look: ORBIT.look, fov: this.def.fov || ORBIT.fov, auto,
             clip: (tgt, dx, dy, dz, D) => this.camClip(tgt, dx, dy, dz, D) }, snap ? 0 : dt);
         this.fadeOccluders();

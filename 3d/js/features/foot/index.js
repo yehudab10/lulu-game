@@ -99,6 +99,7 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #tx_foot_exit { width: 84px; height: 64px; font-size: 26px; background: rgba(126, 87, 194, 0.85); }
 .foot-chip { background: var(--glass); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 15px; box-shadow: var(--shadow); white-space: nowrap; }
 .foot-chip small { opacity: .65; font-size: 12px; }
+body.lulu-interior .foot-chip { display: none; }   /* (inside a room it said ON FOOT over the room's own chips — ci/sweep-phone) */
 .foot-chase { background: rgba(183, 28, 28, .9); color: #fff; border-radius: 16px; padding: 6px 14px; font-weight: 700; text-align: center; min-width: 230px; box-shadow: var(--shadow); }
 .foot-chase .meter { height: 8px; background: rgba(0,0,0,.35); border-radius: 99px; margin-top: 5px; overflow: hidden; }
 .foot-chase .meter i { display: block; height: 100%; border-radius: 99px; transition: width .1s; }
