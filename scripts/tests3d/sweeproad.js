@@ -431,6 +431,16 @@ async function downLap(t) {
     window.__route = { pts: P, v: 16, r: 6 }; return s; })()`);
   await W.moved(t);
   await t.frames(40);
+  // traffic going her way: a car catching up behind her in her lane doesn't flash its brights + honk at her (it took her
+  // for an oncoming car); a HONK moves the slow car ahead of her out of her lane (it only looked up the lap)
+  await g(`(() => { const T = ctx.traffic; T.clear(); window.__tA = T.add("sedan", ctx.car.s + 40, -1.75, -1, 19); window.__tB = T.add("sedan", ctx.car.s - 48, -1.75, -1, 9); return true; })()`);
+  await t.frames(30);
+  await t.tap(4);
+  await t.frames(30);
+  const tf = await g(`(() => { const A = window.__tA, B = window.__tB; return { aFlash: +A.flash.toFixed(2), aHonked: !!A.honked, aBehind: Math.round(A.s - ctx.car.s), bLane: B.dTarget, bAhead: Math.round(ctx.car.s - B.s) }; })()`);
+  t.check("downlap: a car behind her, going her way, doesn't flash + honk at her", !tf.aHonked && tf.aFlash === 0, JSON.stringify(tf));
+  t.check("downlap: a honk moves the slow car ahead of her (her way) into the other lane", tf.bLane === -5.25, JSON.stringify(tf));
+  await g(`(ctx.traffic.clear(), true)`);
   // a speed trap + a wanted poster up ahead of her (down the lap): they stay until she's passed them (both were dropped the frame they spawned)
   await g(`(ctx.law._dbg.spawnTrap(600), true)`);
   await t.frames(15);

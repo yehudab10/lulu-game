@@ -177,16 +177,18 @@ export class Traffic {
         if (this.spawnT <= 0) { this.spawn(playerS, difficulty); this.spawnT = 0.35; }
 
         // honk: the car ahead in Lulu's lane gets out of the way
+        // (heading DOWN the lap — the far carriageway, ci/twoway: the car ahead is a far-side one, at lower s)
         if (honked && this.config.honkMoves) {
+            const D = this.dir === -1 ? -1 : 1;
             let best = null, bestGap = 55;
             for (const c of this.cars) {
-                if (c.hit || c.dir < 0 || c.ai || c.laneCooldown > 3.5) continue;   // already swerving for this honk
-                const gap = c.s - playerS;
+                if (c.hit || c.dir !== D || c.ai || c.laneCooldown > 3.5) continue;   // already swerving for this honk
+                const gap = (c.s - playerS) * D;
                 if (gap > 2 && gap < bestGap && Math.abs(c.d - playerD) < 2.2) { best = c; bestGap = gap; }
             }
             if (best) {
-                const other = LANES_OURS.find(l => Math.abs(l - best.dTarget) > 1);
-                if (other !== undefined && this.laneFree(best.s, other, 1, 14)) {
+                const other = (D > 0 ? LANES_OURS : LANES_ONCOMING).find(l => Math.abs(l - best.dTarget) > 1);
+                if (other !== undefined && this.laneFree(best.s, other, D, 14)) {
                     best.dTarget = other; best.laneCooldown = 4;
                     events.push({ type: "moved" });
                 } else {
@@ -260,9 +262,11 @@ export class Traffic {
                 this.place(c, dt);
 
                 // oncoming car sees Lulu in its lane: flash the brights and honk
+                // (not when she's driving its way — down the lap on the far carriageway: the cars behind her flashed + honked)
                 if (c.dir < 0) {
                     const dist = c.s - playerS;
-                    const inLane = Math.abs(playerD - c.d) < 2.4;
+                    const withIt = typeof player.vF === "number" && (player.vx || 0) * Math.sin(c.h) + (player.vz || 0) * Math.cos(c.h) > 1;
+                    const inLane = Math.abs(playerD - c.d) < 2.4 && !withIt;
                     if (inLane && dist > 10 && dist < 90) {
                         c.flash = 1;
                         if (!c.honked && dist < 75) { c.honked = true; events.push({ type: "oncomingHonk", dist }); }
