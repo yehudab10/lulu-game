@@ -67,7 +67,21 @@ both areas are this sweep's now.
 11. sweepcamera's "Lakewood City Hall: Lulu moved 62 m in one frame" was the TEST teleporting her from the bank's door
     to city hall's without declaring it (fixed in the test; every building's walk-out lands at its door: › doorout).
 
-Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbon, doorout, roadside; `SWEEPCAM_PARTS`),
+12. **A rest area's big building: backed up to it, the chase cam sat in its wall — one dark flat screen** (the
+    intermittent "flat" in unstuck's rest area). Its 40 × 12 m box is two rows of r 3.4 collision circles; the corners
+    and the wall between two circles stand ~0.6 m outside them. The camera keeps a wider berth (0.95 m) of circles
+    ≥ 3 m (`foot/jump.js` CAM_PAD_BIG) — 1dbfa38a. sweepcamera › rest: 8 buildings × 3 sides, 0 bad.
+13. JFK: the on-foot camera only knew the terminal's collision circles; it now also uses the airport's terminal + tower
+    boxes the chase cam had (`foot/index.js` clipCam). sweepcamera › airport: 15 views along the front, 0 bad.
+
+## Landed
+- batch 1 → main 66409a8c (14:10 UTC; items 1–11, 13) + 1dbfa38a (item 12). CI on the branch before landing: 46148271061
+  (core, platform, hudfit, foot, footbounds, interiors, qa7, doors, town, gfx, qaweekend, sweepplaces 1–4, sweepphone
+  1–5, qa27, cityhall, unstuck, life3, airport, clothes, storefronts, lanes, shul, homes, decor, family, realestate,
+  places, qa28: green; sweepcamera red on a too-strict room bar, fixed); earlier 46143410334 (perf green). Main's Smoke
+  test green after both pushes.
+
+Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbon, doorout, roadside, airport, rest; `SWEEPCAM_PARTS`),
 `scripts/lib/camjunk.js` (the probe: rays from the lens into the real scene — what's within 1.6 m of the lens, what
 stands between the lens and her chest / head; knows the see-through cut).
 
@@ -78,8 +92,16 @@ stands between the lens and her chest / head; knows the see-through cut).
   (where the crowd stands); foot's NEXT_TO rule / the homes crowd — `ci/doors` / homes owners.
 
 ## Left
+- Not reproduced: "the camera inside a big tree trunk r1.4 two frames after a rescue" (unstuck, Lakewood) — camClip's
+  trunk rule looks right for every case I could build; the see-through now also cuts trunks along the line.
 - **Spots turned 180° in five Blender sets read as 0°** (airport_terminal 37 spots, heist_bankint 7, interiors_bar 3,
   interiors_beach 2, places_courtlobby 4 — people / bench spots): the people there may face the wrong way; with
   faceLulu most turn to her anyway. Fixing it flips them all — a look change for the sets' owners to check, not done.
+- **Tried + backed out (batch 2):** a room's camera rising over her head sooner (from 2.3 m instead of 1.5 m) so a small
+  shop on a phone shows the room over her shoulders, not her see-through head. In the shul it rose into the merged
+  furniture (one big mesh that can't fade: the lens 0.1 m from it at the ✋ shelf). Needs the room clip to know about the
+  lifted spot; not tonight.
+- Houses: in a doorway between two rooms the wall above the opening can fill the top ~40 % of an upright phone (she and
+  whoever she talks to stay in view) — the room clip looks along her line, not above the lens.
 - Right at a small room's door the camera sits ~1.4 m behind her (she's see-through, now cleanly): a higher / further
   camera for small rooms would read better — a rig-tuning change, not tonight.
