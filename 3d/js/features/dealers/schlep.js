@@ -82,6 +82,7 @@ function blocker() {
     if (ctx.foot && ctx.foot.active) return "foot";
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted > 0)) return "chase";
     if (ctx.hustle && ctx.hustle.job) return "job";
+    if (ctx.fuel && ctx.fuel.dry && ctx.fuel.dry()) return "dry";
     if (ctx.car && zoneAhead(ctx.car.s, 150)) return "construction";
     return "";
 }
@@ -92,6 +93,7 @@ const BACK = {
     lost: "🤷 The car got confused. Your turn.", stuck: "🚧 Something's in the way and the car won't argue with it. Your turn.",
     near: "📍 Almost there — the pull-off's yours.", noping: "📍 No destination. Your turn.",
     street: "🛣️ Point it down a street first — then it'll take it from there.",
+    dry: "🔋 Out of charge. The car has feelings about it. You coast.",
     foot: "", state: "", crash: "💥 Bump! The car gave the wheel back. Sulking.", lapsed: "⚡ The subscription ended. You drive.", car: "", dina: "",
 };
 function chime(up) {
@@ -106,7 +108,7 @@ export function engage() {
         return false;
     }
     const d = ctx.car.d;
-    SD.route = null; SD.replans = 0; SD.noPass = false;
+    SD.route = null; SD.replans = 0; SD.noPass = false; SD.lowPinged = false;
     SD.on = true; SD.lane = d > 0 && Math.abs(d - LANES_OURS[1]) < Math.abs(d - LANES_OURS[0]) ? 1 : 0;
     SD.changeT = 2; SD.quirkT = 25 + Math.random() * 40; SD.brakeT = 0;
     ctx.G.selfDriving = true;
@@ -180,6 +182,12 @@ function navTick(dt) {
         handBack("lost"); return false;
     }
     if (SD.route) SD.route = null;
+    // low battery and nowhere to go: ping the nearest charger once and drive there (features/fuel)
+    if (!SD.lowPinged && ctx.fuel && ctx.fuel.level() < 0.15 && !(ctx.pins && ctx.pins.current)) {
+        SD.lowPinged = true;
+        const id = ctx.fuel.nearestPump && ctx.fuel.nearestPump(true);
+        if (id && ctx.pins.ping(id, { from: "schlep" })) { H.toast("⚡ Low battery — heading to the nearest charger. (Clear the 📍 ping to stop it.)", "", { key: "schlep" }); note("lowCharge", { to: id }); }
+    }
     // a ping in a town: its exit, when it's next and close enough to make
     const p = pinged();
     SD.noPass = false;
