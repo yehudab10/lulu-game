@@ -106,5 +106,31 @@ module.exports = {
       t.check("ends: a passenger in a friend's car isn't flashed for the friend's speeding (her own driving still is)", cam.own === "" && cam.ride === "riding", JSON.stringify(cam));
       t.check("ends: arrested with a hitchhiker in the car → they're gone (and the 2× with them); a job's own rider stays", h.before === 2 && h.t0 > 0 && h.after.join() === "kept" && h.t1 === 0, JSON.stringify(h));
     });
+
+    // ════ 5. names / numbers that disagree: Ima's "Pop into a shop on foot" and the town's shops ════
+    await step("ima's list", async () => {
+      await setDate("2026-11-24T11:00");
+      await g(`(ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), true)`);
+      if (await g(`ctx.foot && ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(6); }
+      if (await g(`__lulu3d.state`) !== "playing") { await g(`(L3.setState("playing"), true)`); await t.frames(4); }
+      await g(`(ctx.town.load("midwood"), true)`);
+      if (!await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "midwood loads", 90000)) return;
+      await g(`ctx.town.enter({ town: "midwood", speed: 0 })`);
+      await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.storefronts.fronts().length > 0`, "into midwood", 30000);
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun" && !!__lulu3d.ctx.foot.debug.F`, "on foot", 8000);
+      const r = await t.L(`import("./js/core/ctx.js").then(m => { const C = __lulu3d.ctx; window.__st = []; m.on("stat", e => { if (e && e.id === "footInteriors") window.__st.push(e.n); });
+        const f = C.storefronts.fronts().find(f => C.storefronts.stateOf(f) === "open");
+        if (!f) return { none: true };
+        const F = C.foot.debug.F; F.pos.set(f.door.x + (f.nx || 0) * 0.8, 0.05, f.door.z + (f.nz || 0) * 0.8); F.phase = "walk";
+        return { ok: C.storefronts.enter(f), name: f.name }; })`);
+      await t.until(`__lulu3d.state === "interior"`, "into the shop", 30000);
+      const n = await g(`window.__st.length`);
+      t.check("Ima's list: walking into one of the town's shops counts for \"Pop into a shop on foot\"", r.ok && n >= 1, JSON.stringify(r) + " stats " + n);
+      await g(`(window.__interiors && window.__interiors.room && window.__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "back out", 30000);
+      await setDate(null);
+      await g(`(ctx.atmos.debug.freeze(false), true)`);
+    });
   },
 };

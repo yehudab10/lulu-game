@@ -15,6 +15,7 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 | 6 | Arrested (or taken to the ER) with a hitchhiker / a parade marcher / Dina in the passenger seat: they sat through the booking, the cell and court, and she drove out of jail with them still there — the 2× coins still to come. (Getting out on foot already let them go; Avigail's ride ends on foot too.) | `roadevents/passengers.js` | **fixed** — they're let go (quietly) at the arrest / the ER; a job's own rider (`keep`) stays |
 | 7 | (with #1) Inside the shul / the yeshiva, what's on (davening, kiddush, the shiur) followed the device's hour while the 📱 showed the sky's. | `shul/room.js`, `yeshiva/room.js` `plan()` | **fixed** — the same `worldNow()` hour |
 | 8 | Riding in a friend's passenger seat past a speed camera: her own (hidden) car rides along at the friend's speed, and the camera flashed HER — a ticket in the mail for the friend's driving (the ride promises "she's never ticketed or chased for the driver's driving"). | `cameras/index.js` `noTicket` | **fixed** — no ticket while riding |
+| 9 | 📝 Ima's list "🚪 Pop into a shop on foot" never ticked in the town's shops — the one-joke walk-ins (most shopfronts in Midwood + Lakewood) entered without the stat the list counts; only the pizza shop / bakery / clothes / the lanes / the highway's rooms counted. | `storefronts/index.js` `enter` | **fixed** — a walk-in counts |
 | 4 | Two features' lines at once: a second `say` / `choose` opening over one still waiting replaced it without answering it — the first feature's `await` hung forever (its "busy" flag stuck for the run). | `core/dialog.js` | **fixed (defensive)** — the covered line / question answers -1 ("closed", like `closeDialog`); `script()` stops at a -1 (a closed / covered line), so an old conversation doesn't keep talking over the new one |
 
 ## Checked and fine
@@ -34,6 +35,10 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## Owner may want to decide
 
+- The road's 🚑 "Ambulance coming up behind you!" (pull over → "Good citizen! +50") still starts during an activity (seen in
+  an `enable=all` highway run: mid road-rager encounter). It's traffic, not an offer card — left; gating it with
+  `ctx.engaged()` like the drive-thru / ice-cream van would be one line in `roadevents/index.js` (the `ambulance` spawn).
+
 - **The town's EVENTS still run on the real clock**: City Hall's protests (`PROTEST_HOURS`, e.g. lunchtime), the
   "wrong address" picket (lunchtime) and public comment night (evenings), the "back in 5 minutes" window (changes each
   real hour) and the 24 HR Gas & Gossip (a new tip each real hour, quoting those hours). Everything the player can SEE the
@@ -44,6 +49,11 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   day), or lengthen the sky's day, or make the events' hours sky-hours with longer spans.
 
 ## For other branches
+
+- for `ci/sweep-phone` (the 📱): the handset's clock (`phone/ui.js` `clock()`) shows the sky's hour only when
+  `G.mode === "cruise"`; in a 🎉 party run the sky is the party's (atmos `mode` "cruise") but the 📱 shows the device's time.
+  `storefronts/hours.js` `worldNow()` is the one clock now (the sky's hour whenever atmos runs the Cruise day) — the 📱
+  could read it too. Not edited here (the phone is that sweep's).
 
 ## Landed
 
