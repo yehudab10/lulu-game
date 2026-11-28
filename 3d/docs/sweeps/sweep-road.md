@@ -33,6 +33,16 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 17 | The dealerships' "🔑 Drive this one" (Mazelati card, Tushla's tablet + configurator): the same free release / teleport as #5. | `dealers/lux.js`, `ev.js`, `config.js` | **fixed** — one helper `garage/buy.js` `carAway(id)`; the button says where the car is |
 | 18 | The impound HUD line said "City Hall or the precinct" for a car held at a roadside yard. | `impound/index.js` | **fixed** — "City Hall or Trooper Post 7's yard" |
 
+| 19 | Arrested anywhere, the haul's progress bar and the booking caption said "PRECINCT 18½" (Lakewood's) — also when she was taken to Midwood's 70½th Precinct or Trooper Post 7; and places' `names()` used the town she was IN, not the one she was taken to. | `law/arrest.js`, `law/jail.js`, `law/ui.js`, `places/index.js` | **fixed** — `UI.precinctName()` from `ctx.civic.names()` (which now follows `STAY.place`) |
+
+## Left (not fixed yet)
+
+- Shmuel's chop shop (`streets/chop.js` `deliver`): "his guy brings Lulu's own car round" — `foot.drive({ own: true })` brings
+  her selected car even when it's IMPOUNDED (or parked across the map): a free release. Rare (a chop job while her car is
+  impounded). Needs a choice of what happens instead (she's left on foot by the drop-off? Shmuel's loaner?) — left.
+- ci/twoway (moving): driving DOWN the lap (the far carriageway) the trip bar + the exit chip still count to the next exit UP
+  the lap (`app.js` `nextPlace`, `exits/index.js` `nextAhead`) — i.e. behind her. Theirs to decide (exits are on the other side).
+
 ## For other branches
 
 - **ci/sweep-health**: `partyworld` "paused in a party (the 📱 phone): the car stops and never rolls backwards" is flaky on
