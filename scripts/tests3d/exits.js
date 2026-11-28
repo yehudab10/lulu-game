@@ -8,6 +8,7 @@
 //   • perf (busy Cruise vs. the rest area), screenshots (desktop / TV / phone portrait + landscape), party turns it on (seeded; partyplus tests it)
 module.exports = {
   name: "exits",
+  fast: false,     // (it measures draw calls + triangles per frame: the old clock)
   viewport: { width: 1280, height: 720 },
   query: "&enable=exits,town,world,foot,atmos",
   save2d: { totalCoins: 3000, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [], missiles: 0, shields: 0, pepperSpray: 0 },

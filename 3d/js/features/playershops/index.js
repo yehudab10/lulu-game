@@ -19,13 +19,14 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { SKINS } from "../../car.js";
 import { CAP, TOTAL, FOR_LEASE, LEASE, BUY, BUY_TERMS, BUY_DOWN, SELL_FEE, PERMIT_KIND, TAX_RATE, EDICT, KINDS, LICENCES, GOODS,
-    BAND, DEPOT, CARRY, HANDS, SHELF, STOCKROOM, ID } from "./data.js";
+    BAND, DEPOT, CARRY, HANDS, SHELF, STOCKROOM, ID, HEARING } from "./data.js";
 import { addressAt } from "../realestate/market.js";
 import * as MG from "../realestate/mortgage.js";
 import { bindRoom, enterShop, ROOM } from "./room.js";
 import { depotSpot, depotTick, bindDepot, depotTalk, DEPOT_STATE } from "./depot.js";
 import { publish, friendShops, SHOP_PARTY, bindParty } from "./party.js";
 import * as SVR from "./server.js";
+import * as HR from "./hearing.js";
 
 export const S = store(ID, { shops: {}, car: [], home: [], met: {}, day: null, log: [] });
 if (!S.shops || typeof S.shops !== "object") S.shops = {};
@@ -153,7 +154,18 @@ async function landlord(f) {
         const town = f.town, E = EDICT[town] || EDICT.lakewood;
         await say(LANDLORD.who, `${f.address}. A lovely shop. The last tenant sold umbrellas. In a drought. Lease it or buy the building.`, o);
         const why = capBlock(town);
-        if (why) { await say(LANDLORD.who, why, o); return; }
+        if (why) {
+            await say(LANDLORD.who, why, o);
+            // (Midwood's one-shop edict: she can appeal it in Courtroom 2B — stage 4, hearing.js)
+            if (town === "midwood" && inTown(town).length >= capOf(town) && mine().length < TOTAL && !HR.struck()) {
+                if (HR.filed()) { await say(LANDLORD.who, "Your appeal's on the docket. Courtroom 2B, the Midwood courthouse. Go! Argue! Win!", o); return; }
+                const wait = HR.fileBlock();
+                if (wait) { await say(LANDLORD.who, wait, o); return; }
+                const k = await choose(LANDLORD.who, "Unless… you take the edict to court. People have won. People have also lost. It's a court.", [HEARING.file, "✖ Not today"], o);
+                if (k === 0 && HR.file()) await say(LANDLORD.who, HEARING.filed, o);
+            }
+            return;
+        }
         const price = BUY[town] || BUY.lakewood;
         const i = await choose(LANDLORD.who, `Lease: ${fmt(LEASE.deposit)} deposit now, then ${LEASE.perDay} a day you play. Buy: ${fmt(price)} for the whole building.`,
             [`📝 Lease it — ${fmt(LEASE.deposit)} 💰 now`, `🏦 Buy the building — ${fmt(price)} 💰`, "✖ Not today"], o);
@@ -551,6 +563,7 @@ function serverTick() {
 // ── the API ──────────────────────────────────────────────────────────────────────────────────────────────────────
 bindRoom({ S, shelve, unshelve, band, bakeDone, release, permitted, today, SVR });
 bindParty(S);
+HR.bindHearing({ S, today, log });
 bindDepot({ mine, carBoxes, carCap, loadCar });
 ctx.playershops = {
     mine, owns, others, fronts, leasable, licencesLeft, capBlock, capOf, carCap, carBoxes, taxed, permitted,
@@ -561,7 +574,7 @@ ctx.playershops = {
         const fs = others().find(x => x.id === id); if (fs) return { state: "player", name: fs.name, kind: fs.kind, owner: fs.uid || "player" };
         return W.forLease.has(id) ? { state: "lease" } : null;
     },
-    debug: { S, W, CL, syncClaims, helloNow, SVR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
+    debug: { S, W, CL, syncClaims, helloNow, SVR, HR, others, visitShop, fronts, landlord, enterShop, depotTalk, DEPOT_STATE, capOf, open, release, loadCar, carryIn, shelve, unshelve, bakeDone, band, dayTick, layout, ROOM, today, frontById, SHOP_PARTY, clear() { S.shops = {}; S.car = []; S.home = []; S.day = null; saveSoon(); W.built = ""; return true; } },
 };
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) for (const sp of [leaseSpot, shopSpot, friendSpot, depotSpot]) ctx.foot.addSpot(sp);
