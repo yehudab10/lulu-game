@@ -52,7 +52,8 @@ models.world_uturn = models.world_uturn || paint();
 
 // one place definition, a copy before every exit on every lap (cruise / party: the lap's fixed places)
 addPlace({
-    id: "uturn", kind: "uturn", name: "U-turn", icon: "↺", verb: "",
+    // (listed: false — paint, not a place: the exits / the airport don't plan round it, no app lists it)
+    id: "uturn", kind: "uturn", name: "U-turn", icon: "↺", verb: "", listed: false,
     where: mode => {
         if (mode !== "cruise" && mode !== "party") return [];
         const out = [];
