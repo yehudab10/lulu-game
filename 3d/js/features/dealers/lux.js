@@ -11,7 +11,7 @@ import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { SKINS } from "../../car.js";
 import { inv, syncInv, STAT_ROWS } from "../garage/data.js";
-import { owns, equipSkin } from "../garage/buy.js";
+import { owns, equipSkin, carAway } from "../garage/buy.js";
 import { LUX_CARS, LUX_IDS, OPTIONS, BUILT_IN, LUX } from "./data.js";
 import { perksOf } from "./perks.js";
 
@@ -99,7 +99,8 @@ function paint(focus = null) {
     const card = H.showScreen(html(id), [
         { label: "◀", cls: "lux-arrow", id: "luxPrev", action: () => flip(-1) },
         { label: "▶", cls: "lux-arrow", id: "luxNext", action: () => flip(1) },
-        own ? { label: inv.selectedSkin === id ? "✓ Driving it" : "🔑 Drive this one", cls: "lux-go", id: "luxAct", action: () => { if (equipSkin(id)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); paint(); } } }
+        own ? (inv.selectedSkin !== id && carAway(id) ? { label: `📍 It's ${carAway(id)}`, cls: "lux-go", id: "luxAct", action: () => paint() }      // (an impounded / parked-away car isn't here to drive)
+            : { label: inv.selectedSkin === id ? "✓ Driving it" : "🔑 Drive this one", cls: "lux-go", id: "luxAct", action: () => { if (equipSkin(id)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); paint(); } } })
             : { label: "🤵 Talk to Sal — make an offer", cls: "lux-go", id: "luxAct", action: () => talk(id) },
         { label: `Close ${glyph("back")}`, cls: "secondary", id: "luxClose", action: () => close() },
     ], { onBack: () => close(), onTab: d => flip(d), focus: keep, cls: "lux-card" });

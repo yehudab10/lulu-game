@@ -16,7 +16,7 @@ import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { SKINS } from "../../car.js";
 import { inv, syncInv, STAT_ROWS } from "../garage/data.js";
-import { owns, equipSkin, buyCar, buyExtra } from "../garage/buy.js";
+import { owns, equipSkin, buyCar, buyExtra, carAway } from "../garage/buy.js";
 import { EV_CARS, EV_IDS, EV_CONFIG, SUB, ZEV, EV } from "./data.js";
 import { DS } from "./perks.js";
 import { schlep } from "./schlep.js";
@@ -190,6 +190,7 @@ function homeCharger() {
 // ── order → delivery ──
 export function order() {
     const id = CF.id, own = owns("car", id), L = lines(), tot = L.reduce((a, l) => a + l.price, 0);
+    if (own && !tot && inv.selectedSkin !== id && carAway(id)) { CF.msg = `Yours — but it's ${carAway(id)}. Go get it.`; paint("tslOrder"); return { ok: false, why: "away" }; }
     if (own && !tot) { if (inv.selectedSkin !== id && equipSkin(id)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); CF.msg = "It's out front. It unlocked when it sensed you. Probably."; } paint("tslOrder"); return { ok: true, price: 0 }; }
     if (wallet.coins < tot) { CF.msg = `Insufficient funds — ${fmt(tot - wallet.coins)} 💰 short. The screen says it very calmly.`; CF.armed = false; paint("tslOrder"); return { ok: false, why: "poor" }; }
     if (!CF.armed) { CF.armed = true; CF.msg = "One more tap. (That's the whole sales process.)"; paint("tslOrder"); return { ok: false, why: "armed" }; }

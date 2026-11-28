@@ -150,6 +150,9 @@ async function lot(t) {
   const said = await t.L(`(document.getElementById("screenCard") || {}).textContent || ""`);
   t.check("lot: …the card says where it is instead", /impounded in Midwood/i.test(said), said.slice(0, 300));
   t.check("lot: …and it's still impounded", (await g(`ctx.cars.where("purple").kind`)) === "impound");
+  // the same rule for the dealerships' "🔑 Drive this one" (Mazelati / Tushla): garage/buy.js carAway
+  const away = await t.L(`import("./js/features/garage/buy.js").then(m => [m.carAway("purple"), m.carAway("pink")])`);
+  t.check("lot: carAway says where an impounded car is (the dealerships' Drive-this-one asks it) — '' for the one she has", /impounded in Midwood/.test(away[0]) && away[1] === "", JSON.stringify(away));
   await t.tap(1); await t.frames(10);
   // at home: the old way still works
   await g(`(ctx.cars.leaveAt("purple", { kind: "home" }), true)`);

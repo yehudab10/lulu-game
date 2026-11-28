@@ -15,7 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS } from "../../car.js";
 import * as H from "../../hud.js";
 import { SKIN_SHOP, STAT_ROWS, statFill, skinClass, inv, syncInv } from "../garage/data.js";
-import { buyCar, owns, equipSkin } from "../garage/buy.js";
+import { buyCar, owns, equipSkin, carAway } from "../garage/buy.js";
 import { hideTagged } from "../town/kit.js";
 import { kerbAt } from "../places/out.js";
 import { LOT, LOT_GAP } from "./lot.js";
@@ -162,12 +162,7 @@ function canTest() {
 /** features/cars: a car she owns that ISN'T at home (impounded, parked in a town, on a dealer's lot) can't be "brought round"
  *  from here — it used to be: 🔑 Drive it off the lot set it "with" her, so an impounded car came out free (no release fee)
  *  and a car parked across the map jumped here. → where it is ("impounded in Lakewood") or "". */
-function away(k) {
-    const C = ctx.cars;
-    if (!C || !ctx.enabled("cars") || C.atHome(k)) return "";
-    const w = C.list().find(c => c.key === k);
-    return w ? w.where : "somewhere else";
-}
+const away = k => carAway(k);
 const awayLine = k => `Yours — but your <b>${SKINS[k].name}</b> isn't here: it's ${away(k)}. Go get it! <small>(📱 🗺️ Map)</small>`;
 function tiles() {
     return LOT.map(k => ({
