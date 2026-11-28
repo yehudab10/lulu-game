@@ -160,10 +160,6 @@ export class Bubbles {
         const d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vh = 2 * d * Math.tan(cam.fov * Math.PI / 360), vw = vh * cam.aspect;
         const k = Math.min(1, (vw * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
         b.sp.scale.set(b.w * k, b.h * k, 1);
-        // (…and never off the top of the screen: a bubble over someone near the lens rose past the edge, its first lines
-        //  cut — it comes down until its top is on screen)
-        TMP.set(b.sp.position.x, b.sp.position.y + b.h * k / 2, b.sp.position.z).project(cam);
-        if (TMP.z < 1 && TMP.y > 0.9) b.sp.position.y -= (TMP.y - 0.9) * vh / 2;
     }
     update(dt) {
         for (let i = this.list.length - 1; i >= 0; i--) {
