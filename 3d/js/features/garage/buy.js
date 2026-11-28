@@ -46,6 +46,15 @@ function pay(price) {
 }
 
 /** Put a car she owns in the driveway / under her (the shared save's selectedSkin + the 3D car). */
+/** features/cars: where car `id` is when it ISN'T at home or with her ("impounded in Midwood", "parked in Lakewood") —
+ *  "" when it's at hand. A showroom / a menu can't "bring round" a car that's away (an impounded one came out free, a parked
+ *  one jumped across the map). */
+export function carAway(id) {
+    const C = ctx.cars;
+    if (!C || !C.atHome || !ctx.enabled("cars") || C.atHome(id)) return "";
+    const w = C.list().find(c => c.key === id);
+    return w ? w.where : "somewhere else";
+}
 export function equipSkin(id) {
     if (!SKINS[id]) return false;
     writeShared(s => { s.selectedSkin = id; });

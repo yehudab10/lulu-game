@@ -268,18 +268,22 @@ function playSub() {
 }
 addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶ PLAY ${glyph("confirm")}`, sub: playSub, action: () => { const go = () => startRun({ mode: "cruise" }); if (ctx.playGate) ctx.playGate(go); else go(); } });
 addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
-    sub: () => { const n = ownedSkins().length; return n > 1 ? `You have ${n} cars. ${glyph("confirm")} to switch.` : "Buy more at Uncle Refael's in town"; }, action: cycleSkin });
+    sub: () => { const n = ownedSkins().length, m = ownedSkins(true).length;
+        return n > 1 ? (m > 1 ? `You have ${n} cars. ${glyph("confirm")} to switch.` : `You have ${n} cars — the others aren't at home (📱 🗺️ Map)`) : "Buy more at Uncle Refael's in town"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
 addMenuItem("title", { id: "settings", order: 80, group: "more", label: "⚙️ Settings", sub: "Sound, graphics and the screen", action: () => showSettings(() => showTitle(true)) });
 addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "Classic 2D", label: "🕹️ Classic 2D", sub: "The original game, with the same coins and cars", action: () => { location.href = "../classic.html"; } });
 
-function ownedSkins() {
-    const owned = (shared.get().ownedSkins || ["pink"]).filter(k => SKINS[k]);
+/** The cars she owns; here = only the ones she can switch to from the title — features/cars: the one she has + the ones AT
+ *  HOME (an impounded car used to come out free this way, and one parked across the map jumped home). */
+function ownedSkins(here = false) {
+    let owned = (shared.get().ownedSkins || ["pink"]).filter(k => SKINS[k]);
+    if (here && ctx.cars && ctx.cars.atHome && ctx.enabled("cars")) owned = owned.filter(k => k === ctx.car.skinKey || ctx.cars.atHome(k));
     return owned.length ? owned : ["pink"];
 }
-/** Cycle through the skins you OWN (shared with the 2D shop). */
+/** Cycle through the skins you OWN (shared with the 2D shop) — and have at hand (features/cars). */
 function cycleSkin() {
-    const list = ownedSkins();
+    const list = ownedSkins(true);
     const next = list[(list.indexOf(ctx.car.skinKey) + 1) % list.length];
     ctx.car.setSkin(next);
     shared.update(s => { s.selectedSkin = next; });

@@ -310,7 +310,8 @@ function onCopCrash(u, e) {
         u.downed = true;
         UI.say("💥 COP DOWN!", "gold");
         addScore(250, "copDown");
-        if (L.chase && !L.chase.charges.includes("DESTROYING A POLICE CRUISER")) L.chase.charges.push("DESTROYING A POLICE CRUISER");
+        // (the charge only when SHE drove into it — a cruiser that rammed her and spun out is on them: traffic.js e.fault)
+        if (L.chase && e.fault !== "them" && !L.chase.charges.includes("DESTROYING A POLICE CRUISER")) L.chase.charges.push("DESTROYING A POLICE CRUISER");
     }
     return e.impact > 8 ? undefined : false;
 }
@@ -370,10 +371,14 @@ function steerUnit(dt, c, u) {
     // in a town the chase goes round corners: its street graph gives the route and the real gap — and once they've
     // lost her, the route goes where they THINK she is (on to where she was heading, then crossing to crossing)
     const inTown = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute;
-    const prowling = inTown && ch && ch.searching && ch.last && !u.bolo && !!ctx.town.searchPoint;
+    // a CALL-IN's cruiser in town doesn't know where she is either: it prowls round where the call came from (or where it
+    // first came into town after her) — it used to drive the street grid straight to her car (AGENTS §7 known issue)
+    const B = u.bolo && L.bolo && !ch && inTown && ctx.town.searchPoint ? L.bolo : null;
+    if (B && !B.last) B.last = { s: car.s, d: car.d, h: car.h, v: 0, t: ctx.time };
+    const prowling = inTown && ((ch && ch.searching && ch.last && !u.bolo) || !!B) && !!ctx.town.searchPoint;
     if (!prowling) u.prowl = null;
     const route = !inTown ? ((u.mode === "chase" || u.mode === "pull") && !(ctx.town && ctx.town.active) ? placeRoute(c, u, ch) : null)
-        : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
+        : prowling ? prowlRoute(c, u, B || ch) : ctx.town.copRoute(c, u);
     // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
     // (pull off and stop out of sight, and they fly right past)
     if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
@@ -381,7 +386,7 @@ function steerUnit(dt, c, u) {
     }
     if (u.bolo) {                               // a call-in: one unlit cruiser prowls up the road looking for her car
         tD = c.d > 3.5 ? 5.25 : 1.75; vT = TUNE.boloSpeed; u.vmax = route ? 14 : TUNE.boloSpeed;
-        if (route) { const err = route.gap - 6; vT = clamp(lv + err * 0.9, 0, 14); }
+        if (route) { const err = route.gap - 6; vT = B ? clamp(4 + route.gap * 0.5, 4, TUNE.prowl) : clamp(lv + err * 0.9, 0, 14); }
     } else if (u.mode === "chase") {
         u.pitT -= dt;
         let want = -7;             // where it wants to sit, relative to Lulu along the road
@@ -409,7 +414,9 @@ function steerUnit(dt, c, u) {
     } else if (u.mode === "haul") {             // drive Lulu downtown
         tD = 1.75; vT = 30; u.vmax = 32;
     } else if (u.mode === "giveup") {
-        tD = ctx.town && ctx.town.active ? c.d : clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
+        // (off the highway's asphalt — a ramp, a cross road, JFK's roads — it stops where it is: it used to cut back across
+        //  the grass to the highway's shoulder)
+        tD = (ctx.town && ctx.town.active) || Math.abs(c.d) > 9.5 ? c.d : clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
     } else if (u.mode === "park") { vT = 0; u.vmax = 0; }
 
     // traffic in the way: pass (cops will use any lane) or slow down; bang into it if we can't
@@ -780,6 +787,8 @@ function updateBolo(dt, controlsOn) {
             : addUnit(car.s - rand(170, 220), pick(LANES_OURS), 1, clamp(car.speed * 0.9, 18, TUNE.boloSpeed), { mode: "chase" });
         u.bolo = true; u.hunter = true; u.siren = false;
         b.unit = u; b.phase = "looking";
+        // (in town: where the caller saw her — the cruiser prowls round there, it doesn't know where she's gone since)
+        if (tp) b.last = { s: car.s, d: car.d, h: car.h, v: 0, t: ctx.time };
         H.toast("🚓 A cruiser's out looking for your car…", "red", { key: "law:bolo" });
         return;
     }
@@ -923,6 +932,9 @@ function updateChase(dt, controlsOn) {
     const why = ch.searching && !hide ? notHiddenHint() : "";
     ch.exposedT = why ? (ch.exposedT || 0) + dt : 0;
     if (why && ch.exposedT > 1.5 && L.hint2 < 1) { L.hint2 = (L.hint2 || 0) + 1; H.toast(why, "red", { key: "law:hint" }); }
+    // …and once she IS tucked away, the "not hidden" / "pull off" advice goes (it used to linger, saying she wasn't)
+    if (ch.hiding && !ch.hidSaid) { ch.hidSaid = true; if (H.dropToast) H.dropToast("law:hint"); }
+    else if (!ch.hiding) ch.hidSaid = false;
     const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
     if (ch.searching) ch.evade = clamp(ch.evade + dt / need * (hide ? TUNE.hideMul : 1), 0, 1);
     else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));

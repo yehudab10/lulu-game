@@ -7,6 +7,7 @@ import { models, cloneWithColors, findNodes } from "./models.js";
 import { LANES_OURS, LANES_ONCOMING } from "./world.js";
 import { CAR_CIRCLES, CAR_RADIUS, CAR_HALF_W } from "./car.js";
 import { farLod, shadowProxy } from "./lod.js";
+import { ctx } from "./core/ctx.js";
 
 const PAINTS = ["#42A5F5", "#FFFFFF", "#FFCA28", "#66BB6A", "#EF5350", "#8D6E63", "#9E9E9E", "#26C6DA", "#263238", "#FF8A65", "#BA68C8"];
 const KINDS = {
@@ -23,6 +24,13 @@ const KINDS = {
  */
 export function registerKind(name, spec) { KINDS[name] = Object.assign({ circles: [0], r: 1, mass: 1.2, paint: false }, spec); }
 export function kindSpec(name) { return KINDS[name]; }
+/** The kind whose body is model `key` (a ride's shell is named by its model: "foot_bus" → the city bus) — or a kind named so. */
+export function specOfModel(key) {
+    if (!key) return null;
+    if (KINDS[key]) return KINDS[key];
+    for (const k in KINDS) if (KINDS[k].model === key) return KINDS[k];
+    return null;
+}
 
 export class Traffic {
     constructor(scene, world) {
@@ -78,6 +86,9 @@ export class Traffic {
             if (c.hit || c.dir !== dir) continue;
             if (Math.abs(c.d - d) < 2 && Math.abs(c.s - s) < gap) return false;
         }
+        // …and HER car (update() notes where she is): a car pulling out to pass used to swerve into her side
+        const me = this.me;
+        if (me && Math.abs(me.d - d) < 2.6 && Math.abs(me.s - s) < gap + 4) return false;
         return true;
     }
 
@@ -158,6 +169,10 @@ export class Traffic {
     /** Main update. Returns events: [{type:"nearMiss"}...] */
     update(dt, player, playerS, playerD, difficulty, honked, time) {
         const events = [];
+        // (laneFree: her car's lane — not on foot: foot's PROXY has no vF)
+        // (not in a 🎉 party: its traffic is the SHARED, seeded one — every screen must see the same cars do the same thing)
+        const solo = !(ctx.party && ctx.party.active);
+        if (solo && typeof player.vF === "number") { const m = this._me || (this._me = { s: 0, d: 0 }); m.s = playerS; m.d = playerD; this.me = m; } else this.me = null;
         this.spawnT -= dt;
         if (this.spawnT <= 0) { this.spawn(playerS, difficulty); this.spawnT = 0.35; }
 
@@ -213,6 +228,16 @@ export class Traffic {
                     if (o.dir !== c.dir || Math.abs(o.d - c.d) > 2.2) continue;
                     const g = (o.s - c.s) * c.dir;
                     if (g > 0 && g < gap) { gap = g; ahead = o; }
+                }
+                // …and LULU herself, when she's in its lane ahead of it (our direction): a car she just passed used to plough
+                // into her the moment she braked or stopped ("Tailgating doesn't pay" — for being rear-ended). Her CAR only
+                // (it has a vF): on foot (foot's PROXY) the drivers' own rules apply (foot/index.js: footAttn / the beep)
+                // (2.6 m, not a lane's 2.2: a car pulling out to pass her keeps braking until its side clears hers)
+                // (an ONCOMING car only when she's going its way — the far carriageway down the lap; one she's facing
+                //  head-on keeps coming: chicken is her choice, and its near misses her bonus)
+                if (this.me && Math.abs(playerD - c.d) < 2.6) {
+                    const g = (playerS - c.s) * c.dir, along = (player.vx || 0) * Math.sin(c.h) + (player.vz || 0) * Math.cos(c.h);
+                    if (g > 0 && g < gap && (c.dir > 0 || along > 1)) { gap = g; ahead = { speed: Math.max(0, c.dir > 0 ? player.vF || 0 : along), hit: false }; }
                 }
                 let target = c.want;
                 if (ahead && gap < 26) {
@@ -284,16 +309,19 @@ export class Traffic {
         const cfx = Math.sin(c.h), cfz = Math.cos(c.h);
         // quick reject
         const dx0 = c.x - player.pos.x, dz0 = c.z - player.pos.z;
-        if (dx0 * dx0 + dz0 * dz0 > 100) return null;
+        if (dx0 * dx0 + dz0 * dz0 > (player.circles ? 225 : 100)) return null;
         const cvx = c.hit ? c.vx : cfx * c.speed;
         const cvz = c.hit ? c.vz : cfz * c.speed;
         let best = null;
-        for (const po of CAR_CIRCLES) {
+        // (her body: her car's two circles — or a longer ride's own, features/rides: a bus no longer passes through traffic
+        //  with its back half)
+        const pc = player.circles || CAR_CIRCLES, pr = player.radius || CAR_RADIUS;
+        for (const po of pc) {
             const px = player.pos.x + pfx * po, pz = player.pos.z + pfz * po;
             for (const co of c.spec.circles) {
                 const qx = c.x + cfx * co, qz = c.z + cfz * co;
                 const dx = px - qx, dz = pz - qz;
-                const rr = CAR_RADIUS + c.spec.r;
+                const rr = pr + c.spec.r;
                 const d2 = dx * dx + dz * dz;
                 if (d2 < rr * rr && d2 > 1e-6) {
                     const d = Math.sqrt(d2);
@@ -324,6 +352,13 @@ export class Traffic {
         } else if (!c.hit) {
             c.speed = Math.max(0, c.speed - impact);
         }
-        return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, car: c, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
+        // who was moving into whom (along the contact line, n points from them to her): a car that drove into a slower Lulu
+        // (a rear-end, a cruiser ramming her) is THEIR fault — law + the crash lines read it
+        const herIn = -(player.vx * nx + player.vz * nz), theirIn = cvx * nx + cvz * nz;
+        // (an oncoming car hit on ITS side of the road: she's the one in the wrong lane, however slow she was)
+        //  (…heading against it: driving down the far carriageway WITH its traffic is her side too)
+        const wrongSide = c.dir < 0 && Number.isFinite(player.d) && player.d * c.d > 0 && player.vx * cfx + player.vz * cfz < 0;
+        const fault = theirIn > herIn + 1 && !wrongSide ? "them" : "lulu";
+        return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, fault, car: c, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
     }
 }
