@@ -23,6 +23,11 @@ function base() {
 const me = () => (ctx.player && ctx.player.id && ctx.player.secret ? { pid: ctx.player.id(), sec: ctx.player.secret() } : null);
 function log(ev, d = {}) { SV.log.push(Object.assign({ at: Date.now(), ev }, d)); if (SV.log.length > 40) SV.log.shift(); }
 async function req(path, body) {
+    const r = await req1(path, body);
+    if (r.st === 429 && body) { await new Promise(res => setTimeout(res, 900)); return req1(path, body); }   // (a write a moment too soon: once more)
+    return r;
+}
+async function req1(path, body) {
     const b = SV.base || base();
     if (!b) throw new Error("off");
     const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -51,7 +56,7 @@ export async function list(town) {
         const r = await req(`/shops/list?town=${encodeURIComponent(town)}`);
         if (r.st === 200 && r.j && Array.isArray(r.j.list)) {
             const next = new Map();
-            for (const x of r.j.list.slice(0, 400)) if (x && typeof x.id === "string" && x.id.startsWith(town + ":")) next.set("shop:" + x.id, { k: x.k, n: String(x.n || "").slice(0, 24), o: String(x.o || "").slice(0, 24), z: !!x.z, t: x.t | 0 });
+            for (const x of r.j.list.slice(0, 400)) if (x && typeof x.id === "string" && x.id.startsWith(town + ":")) next.set("shop:" + x.id, { k: x.k, n: String(x.n || "").slice(0, 24), o: String(x.o || "").slice(0, 24), z: !!x.z, t: x.t | 0, op: x.op == null ? true : !!x.op, at: !!x.at, c: !!x.c });
             SV.list = next;
             emit("playershops:list", { town, n: next.size });
         } else if (r.st === 503) SV.on = false;
@@ -63,8 +68,7 @@ const wire = id => String(id).replace(/^shop:/, "");
 export async function claim(id, kind, edictStruck) {
     if (!SV.on) return { ok: true, local: true };
     try {
-        let r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck });
-        if (r.st === 429) { await new Promise(res => setTimeout(res, 900)); r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck }); }   // (too quick: once more)
+        const r = await req("/shops/claim", { id: wire(id), kind, edictStruck: !!edictStruck });
         if (r.st === 200 && r.j) return r.j.ok || r.j.why === "mine" ? { ok: true } : { ok: false, why: r.j.why, o: r.j.o };
         return r.st === 429 ? { ok: false, why: "rate" } : { ok: true, local: true };
     } catch (e) { return { ok: true, local: true }; }
@@ -85,11 +89,11 @@ export async function pushTick(S) {
 /** Now and then out in the world: say hello (her shops stay hers), see what sold, bring the till home. → { coins, sold } */
 export async function hello(S) {
     SV.helloAt = now();
-    if (!SV.on || !Object.keys(S.shops).length) return { coins: 0, sold: 0 };
+    if (!SV.on || !Object.keys(S.shops).length) { log("hello", { skip: !SV.on ? "off" : "no shops" }); return { coins: 0, sold: 0 }; }
     let coins = 0, sold = 0;
     try {
         const r = await req("/shops/hello", {});
-        if (!(r.st === 200 && r.j)) return { coins: 0, sold: 0 };
+        if (!(r.st === 200 && r.j)) { log("hello", { st: r.st, why: r.j && (r.j.why || r.j.error) }); return { coins: 0, sold: 0 }; }
         for (const id of Object.keys(S.shops)) {
             const v = await view(id);
             if (!v || !v.ok) continue;
@@ -109,10 +113,18 @@ export async function hello(S) {
 /** A shop's shelf on the relay. → { ok, shop, shelf: [{ s, g, n, p, st, so }], soldOut } | null */
 export async function view(id) { try { const r = await req(`/shops/view?id=${encodeURIComponent(wire(id))}`); SV.lastView = { id, st: r.st, j: r.j }; return r.st === 200 ? r.j : null; } catch (e) { return null; } }
 /** Buy one from spot `slot` at the price she saw. → { ok, why, g, st, p } */
-export async function buy(id, slot, p) {
+export async function buy(id, slot, p, tip = 0) {
     if (!SV.on) return { ok: false, why: "off" };
-    try { const r = await req("/shops/buy", { id: wire(id), slot, p }); return r.j || { ok: false, why: r.st === 429 ? "rate" : "error" }; } catch (e) { return { ok: false, why: "offline" }; }
+    try {
+        const r = await req("/shops/buy", { id: wire(id), slot, p, tip });
+        SV.lastBuy = { st: r.st, j: r.j };
+        return r.j || { ok: false, why: r.st === 429 ? "rate" : "error" };
+    } catch (e) { return { ok: false, why: "offline" }; }
 }
+/** Stage 3: hire / let go of the clerk (she sells while the owner's away, for 10 % of each sale). */
+export async function clerk(id, on) { if (!SV.on) return { ok: false, why: "off" }; try { const r = await req("/shops/clerk", { id: wire(id), on: !!on }); return r.j || { ok: false }; } catch (e) { return { ok: false, why: "offline" }; } }
+/** Stage 3: she's at her own counter (a visitor can tip her) — pinged while she's inside her shop; off when she leaves. */
+export async function counter(id, off = false) { if (!SV.on) return false; try { const r = await req("/shops/counter", { id: wire(id), off: !!off }); return !!(r.j && r.j.ok); } catch (e) { return false; } }
 export async function thumb(id) { try { const r = await req("/shops/thumb", { id: wire(id) }); return !!(r.j && r.j.ok); } catch (e) { return false; } }
 export async function report(id) { try { const r = await req("/shops/report", { id: wire(id) }); return !!(r.j && r.j.ok); } catch (e) { return false; } }
 export async function rename(id, name) { try { const r = await req("/shops/name", { id: wire(id), name }); return r.j || { ok: false }; } catch (e) { return { ok: false, why: "offline" }; } }

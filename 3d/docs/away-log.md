@@ -14,6 +14,12 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 02:15 UTC (tests) — The speed check at the Lakewood exit compared it with a bare stretch of fields with no
+  trees; it now compares it with the same kind of countryside, and the exit is well within budget (nothing changed in
+  the game).
+- 2026-11-28 00:40 UTC (tests) — Standing right beside her own car after getting out, the ✋ button now says GET BACK IN
+  even when a shop's door is a few steps away — before, the shop door won and she walked into the shop instead of her
+  car. Two more automatic checks that had gone out of date were fixed.
 - 2026-11-27 22:20 UTC (tests) — Hitting a pothole on the highway no longer pops up a "🕳️ POTHOLE!" message on top of
   whatever Lulu says about it: the jolt, the thud and her line already say it (one less pop-up while driving). Two
   automatic checks that had gone out of date were brought up to date.

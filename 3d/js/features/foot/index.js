@@ -1656,7 +1656,15 @@ function interactables() {
     if (F.car && F.car.stub && ctx.traffic.cars.includes(F.car.stub)) {
         const c = F.car.stub;
         const ripLabel = F.car.key === "lulu" ? "💀 RIP, little pink car" : "💀 That one's had it";
+        const n0 = out.length;
         consider(F.car.drivable ? "own" : "rip", c, F.car.drivable ? (F.reason === "home" ? "🚗 GET IN — let's go!" : "🚗 GET BACK IN") : ripLabel, c.x, c.z, 3.3);
+        // (her own car counts as "right next to her" by its BODY, not its centre: beside its door she's ~1 m from it though
+        //  2 m from the middle — else a shop door's wide zone a few metres on won (sweep-health: qa4 got 🏘️ ENTER REALTY))
+        if (out.length > n0 && F.car.drivable) {
+            const fx = Math.sin(c.h), fz = Math.cos(c.h), dx = p.x - c.x, dz = p.z - c.z;
+            const lon = Math.abs(dx * fx + dz * fz), lat = Math.abs(dx * -fz + dz * fx);
+            out[n0].d = Math.hypot(Math.max(0, lon - 2.1), Math.max(0, lat - 0.95));
+        }
     }
     for (const ped of F.peds) consider("talk", ped, "💬 TALK", ped.p.obj.position.x, ped.p.obj.position.z, 2.1);
     for (const a of F.animals) consider("pet", a, "🐾 PET", a.p.obj.position.x, a.p.obj.position.z, a.key === "foot_ostrich" ? 2.4 : 1.9);

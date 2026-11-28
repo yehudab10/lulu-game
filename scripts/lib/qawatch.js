@@ -85,6 +85,7 @@ const SRC = String.raw`
   const px = new Uint8Array(4);
   function flatFrame() {
     const g = gl(); if (!g) return null;
+    if (L3.fast && L3.drawNow) L3.drawNow();     // (the fast test clock draws every few frames: draw this one to read it)
     const cv = ctx.renderer.domElement, w = g.drawingBufferWidth, h = g.drawingBufferHeight;
     const prev = g.getParameter(g.FRAMEBUFFER_BINDING);
     g.bindFramebuffer(g.FRAMEBUFFER, null);

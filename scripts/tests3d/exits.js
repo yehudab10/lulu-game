@@ -8,6 +8,7 @@
 //   • perf (busy Cruise vs. the rest area), screenshots (desktop / TV / phone portrait + landscape), party turns it on (seeded; partyplus tests it)
 module.exports = {
   name: "exits",
+  fast: false,     // (it measures draw calls + triangles per frame: the old clock)
   viewport: { width: 1280, height: 720 },
   query: "&enable=exits,town,world,foot,atmos",
   save2d: { totalCoins: 3000, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [], missiles: 0, shields: 0, pepperSpray: 0 },
@@ -156,8 +157,15 @@ module.exports = {
       t.check("no sign, prop, rail or collider overlaps the interchange's lanes (decel / ramps / gores / cross roads / on-ramp / accel)", !scan.bad.length && scan.cols > 20, JSON.stringify(scan).slice(0, 400));
       t.check("the exit-number tab rides on the advance signs", await g(`ctx.world.signs.some(s => s.tab === "EXIT 91")`));
       // the views + perf (a highway baseline on the same stretch first)
-      await place(E - 2600, 5.25, 0); await t.frames(20);
+      // (the baseline stands in the SAME scenery region as the interchange — the trip's regions change every few km: a stretch
+      //  of open fields has no trees at all, so "2.6 km back" measured 85k against the T's forest 242k — sweep-health)
+      const baseS = await g(`(() => { const w = ctx.world, b0 = w.biomeAt(${E} + 128), sp = ctx.exits.spans();
+        for (let u = 900; u <= 6000; u += 100) { const s = ${E} - u; if (w.biomeAt(s) !== b0 || w.biomeAt(s + 640) !== b0) continue;
+          if (sp.some(o => o.b > s - 200 && o.a < s + 700) || ctx.town.debug.X.exits.some(e => Math.abs(e.s - s) < 1000)) continue; return s; }
+        return ${E} - 2600; })()`);
+      await place(baseS, 5.25, 0); await t.frames(20);
       const base = await perf(60);
+      console.log("   PERF baseline at", Math.round(E - baseS), "m before the exit (same region:", baseS !== E - 2600, ")");
       for (const [label, u, dx] of [["exit-taper", -280, "5.25"], ["exit-gore", -70, "9.1"], ["exit-ramp", 40, "m.rampD(40)"], ["exit-tee-lakewood", 128, "m.rampD(128)"], ["exit-onramp", 196, "m.onD(196)"]]) {
         // (the views only: a parked car past COMMIT mustn't start the fade into town)
         const d = await t.L(`import("./js/features/town/exit.js").then(m => ${dx})`);

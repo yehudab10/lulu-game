@@ -37,6 +37,9 @@ export const CONFIG = {
   bandMin: 1.2, bandMax: 1.8, salesTax: 0.15, slots: 24, perSlot: 4,
   ownerDayProfit: 300, buyerPerOwner: 150, buysPerShop: 3, minDays: 3,
   idleDays: 14, holdDays: 7, reportsToReset: 3,
+  // stage 3: who minds the shop — the owner (seen in the game within mindMs) or a hired clerk (clerkShare of each sale she
+  // sells while the owner isn't at the counter); the owner AT the counter (counterMs after her last ping) can be tipped
+  mindMs: 10 * 60000, clerkShare: 0.10, counterMs: 90000, tips: [5, 10],
   writeGapMs: 600, ipGapMs: 200, sweepGapMs: 60 * 1000, maxShops: 2000,
 };
 export const GOODS = { kugel: 12, kugelSweet: 14, cake: 14, rugelach: 10, sushi: 22, pan: 30, seltzer: 12, pillow: 18, blower: 40, balloon: 6, chicken: 10, giftbox: 20, washToken: 15, airFresh: 8 };
@@ -64,6 +67,7 @@ export function createShops(q, opts = {}) {
     q("CREATE TABLE IF NOT EXISTS shop_stock (id TEXT, slot INTEGER, good TEXT, n INTEGER, price INTEGER, stars INTEGER, PRIMARY KEY (id, slot))");
     q("CREATE TABLE IF NOT EXISTS shop_day (day INTEGER, k TEXT, v INTEGER, PRIMARY KEY (day, k))");
     q("CREATE TABLE IF NOT EXISTS shop_till (owner TEXT PRIMARY KEY, coins INTEGER)");
+    for (const col of ["clerk INTEGER DEFAULT 0", "counter INTEGER DEFAULT 0"]) { try { q(`ALTER TABLE shops ADD COLUMN ${col}`); } catch (e) { /* already there */ } }   // (stage 3)
     ready = true;
   }
   function rate(key, gap, now) {
@@ -91,7 +95,9 @@ export function createShops(q, opts = {}) {
     if (opts.nameOf && !opts.nameOf(body.pid)) return null;          // (an account with a username)
     return body.pid;
   }
-  const pub = (r) => ({ id: r.id, k: r.kind, n: r.name || "", o: (opts.nameOf && opts.nameOf(r.owner)) || "", z: r.seized ? 1 : 0, t: r.thumbs | 0 });
+  const minded = (r, now) => !!(r.clerk || r.seen > now - cfg.mindMs);
+  const pub = (r, now = clock()) => ({ id: r.id, k: r.kind, n: r.name || "", o: (opts.nameOf && opts.nameOf(r.owner)) || "", z: r.seized ? 1 : 0, t: r.thumbs | 0,
+    c: r.clerk ? 1 : 0, op: minded(r, now) ? 1 : 0, at: r.counter > now ? 1 : 0 });
   const shelf = (id) => q("SELECT slot, good, n, price, stars FROM shop_stock WHERE id = ? AND n > 0 ORDER BY slot", id).map((r) => ({ s: r.slot, g: r.good, n: r.n, p: r.price, st: r.stars }));
   const ok = (b) => ({ status: 200, body: b });
   const no = (why, extra = {}) => ok(Object.assign({ ok: false, why }, extra));
@@ -103,11 +109,11 @@ export function createShops(q, opts = {}) {
     const on = opts.on ? !!opts.on() : true;
     if (method === "GET" && path === "/shops/config" && !on) return ok({ v: cfg.v, off: 1 });
     if (!on) return { status: 503, body: { ok: false, why: "off" } };
-    if (method === "GET" && path === "/shops/config") return ok({ v: cfg.v, cfg: { cap: cfg.cap, total: cfg.total, licences: cfg.licences, ownerDayProfit: cfg.ownerDayProfit, buyerPerOwner: cfg.buyerPerOwner, buysPerShop: cfg.buysPerShop, salesTax: cfg.salesTax } });
+    if (method === "GET" && path === "/shops/config") return ok({ v: cfg.v, cfg: { cap: cfg.cap, total: cfg.total, licences: cfg.licences, ownerDayProfit: cfg.ownerDayProfit, buyerPerOwner: cfg.buyerPerOwner, buysPerShop: cfg.buysPerShop, salesTax: cfg.salesTax, clerkShare: cfg.clerkShare, tips: cfg.tips, mindMin: Math.round(cfg.mindMs / 60000) } });
     if (method === "GET" && path === "/shops/list") {
       const town = String(query.town || "");
       if (!cfg.cap[town]) return { status: 400, body: { error: "bad town" } };
-      return ok({ list: q("SELECT * FROM shops WHERE town = ? LIMIT 400", town).map(pub) });
+      return ok({ list: q("SELECT * FROM shops WHERE town = ? LIMIT 400", town).map((r) => pub(r, now)) });
     }
     if (method === "GET" && path === "/shops/view") {
       const id = String(query.id || ""), r = SHOP_RE.test(id) ? q("SELECT * FROM shops WHERE id = ?", id)[0] : null;
@@ -115,7 +121,7 @@ export function createShops(q, opts = {}) {
       // (a spot is sold out for today when one more would take the owner past her day's profit cap)
       const op = getC(day, "op:" + r.owner), out = (x) => op + Math.max(0, Math.floor(x.p * (1 - cfg.salesTax)) - GOODS[x.g]) > cfg.ownerDayProfit;
       const sh = r.seized ? [] : shelf(id).map((x) => Object.assign(x, out(x) ? { so: 1 } : {}));
-      return ok({ ok: true, shop: pub(r), shelf: sh, soldOut: sh.length > 0 && sh.every((x) => x.so) });
+      return ok({ ok: true, shop: pub(r, now), shelf: sh, soldOut: sh.length > 0 && sh.every((x) => x.so) });
     }
     if (method !== "POST") return { status: 404, body: { error: "not found" } };
     const pid = await auth(body);
@@ -128,12 +134,12 @@ export function createShops(q, opts = {}) {
 
     if (path === "/shops/hello") {
       const till = (q("SELECT coins FROM shop_till WHERE owner = ?", pid)[0] || {}).coins || 0;
-      return ok({ mine: q("SELECT * FROM shops WHERE owner = ?", pid).map(pub), till });
+      return ok({ mine: q("SELECT * FROM shops WHERE owner = ?", pid).map((r) => pub(r, now)), till });
     }
     if (path === "/shops/claim") {
       const kind = String(body.kind || ""), town = id.split(":")[0];
       if (!SHOP_RE.test(id) || !KIND_GOODS[kind]) return { status: 400, body: { error: "bad shop" } };
-      if (row) return no(row.owner === pid ? "mine" : "taken", { o: pub(row).o });
+      if (row) return no(row.owner === pid ? "mine" : "taken", { o: pub(row, now).o });
       const have = q("SELECT town FROM shops WHERE owner = ?", pid);
       const capTown = (cfg.cap[town] || 1) + (town === "midwood" && body.edictStruck === true ? 1 : 0);
       if (have.length >= cfg.total) return no("cap");
@@ -170,21 +176,36 @@ export function createShops(q, opts = {}) {
       // (everything below is synchronous — no other request runs in between: the Durable Object / one Node thread)
       if (!row || row.seized) return no("closed");
       if (row.owner === pid) return no("yours");
+      if (!minded(row, now)) return no("unminded");                         // (nobody minding the shop: no owner around, no clerk)
       const made = opts.madeOf ? opts.madeOf(pid) : 0;
       if (!made || now - made < cfg.minDays * DAY) return no("new");
       const slot = Number.isInteger(body.slot) ? body.slot : -1;
       const it = q("SELECT good, n, price, stars FROM shop_stock WHERE id = ? AND slot = ?", id, slot)[0];
       if (!it || it.n < 1) return no("gone");
       if (body.p !== it.price) return no("price", { p: it.price });         // (she saw an old price: show the new one)
+      const atCounter = row.counter > now;
+      const tip = atCounter && cfg.tips.includes(body.tip) ? body.tip : 0;    // (a tip only to the owner herself, at the counter)
+      const paid = it.price + tip;
       const kBO = `bo:${pid}:${row.owner}`, kBS = `bs:${pid}:${id}`, kOP = `op:${row.owner}`;
       if (getC(day, kBS) >= cfg.buysPerShop) return no("buys");
-      if (getC(day, kBO) + it.price > cfg.buyerPerOwner) return no("spent");
-      const share = Math.floor(it.price * (1 - cfg.salesTax)), margin = Math.max(0, share - GOODS[it.good]);
+      if (getC(day, kBO) + paid > cfg.buyerPerOwner) return no("spent");
+      const clerk = row.clerk && !atCounter ? Math.floor(it.price * cfg.clerkShare) : 0;   // (the clerk's pay comes out of the sale)
+      const share = Math.floor(it.price * (1 - cfg.salesTax)) - clerk + tip, margin = Math.max(0, share - GOODS[it.good]);
       if (getC(day, kOP) + margin > cfg.ownerDayProfit) return no("soldout");
       q("UPDATE shop_stock SET n = n - 1 WHERE id = ? AND slot = ?", id, slot);
-      addC(day, kBO, it.price); addC(day, kBS, 1); addC(day, kOP, margin);
+      addC(day, kBO, paid); addC(day, kBS, 1); addC(day, kOP, margin);
       q("INSERT INTO shop_till (owner, coins) VALUES (?, ?) ON CONFLICT (owner) DO UPDATE SET coins = coins + excluded.coins", row.owner, share);
-      return ok({ ok: true, g: it.good, st: it.stars, p: it.price, left: it.n - 1 });
+      return ok({ ok: true, g: it.good, st: it.stars, p: paid, tip, clerk, left: it.n - 1 });
+    }
+    if (path === "/shops/clerk") {
+      if (!mineRow) return no("not yours");
+      q("UPDATE shops SET clerk = ? WHERE id = ?", body.on ? 1 : 0, id);
+      return ok({ ok: true, c: body.on ? 1 : 0 });
+    }
+    if (path === "/shops/counter") {
+      if (!mineRow) return no("not yours");
+      q("UPDATE shops SET counter = ? WHERE id = ?", body.off ? 0 : now + cfg.counterMs, id);
+      return ok({ ok: true });
     }
     if (path === "/shops/collect") {
       const coins = (q("SELECT coins FROM shop_till WHERE owner = ?", pid)[0] || {}).coins || 0;

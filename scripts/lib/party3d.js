@@ -6,6 +6,7 @@
 // Date.now() then failed a correct test ("same code failed twice then passed"). A wall-clock cap (3× ms, at
 // least 20 min) still catches a page that has stopped drawing altogether.
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const FW = require("./fastwait.js");     // (the fast test clock: gate-based waits — a no-op fallback on a slow page)
 const FPS = 30;
 let WALL_MIN = 20 * 60000;
 /** A test can lower the wall-clock floor of every wait (it then fails within minutes when a page stops drawing). */
@@ -18,6 +19,7 @@ async function waitOn(page, code, ms = 90000) {
   let f0 = await frames();
   const maxFrames = Math.ceil(ms / 1000 * FPS);
   const cap = Date.now() + Math.max(ms * 3, WALL_MIN);
+  if (f0 >= 0) { const r = await FW.untilGate(page, code, maxFrames, cap, true); if (r === true) return true; }
   for (;;) {
     const ok = await evalT(page, `(() => { try { const L3 = window.__lulu3d, ctx = L3 && L3.ctx; return !!(${code}); } catch (e) { return false; } })()`, false);
     if (ok) return true;
@@ -29,6 +31,7 @@ async function waitOn(page, code, ms = 90000) {
 }
 /** Wait about `n` frames of `page` (a real-time sleep can be 0 frames or 300 on a CI runner). */
 async function framesOn(page, n) {
+  if ((n | 0) > 0 && await FW.framesGate(page, n)) return true;
   const f0 = await page.evaluate(`window.__lulu3d ? __lulu3d.frames : 0`).catch(() => 0);
   const cap = Date.now() + Math.max(60000, n * 2000);
   while (Date.now() < cap) {
