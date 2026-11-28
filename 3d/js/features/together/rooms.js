@@ -22,6 +22,7 @@ import { spawnPerson } from "../../core/people.js";
 import { current } from "../interiors/engine.js";
 import { tone } from "../interiors/fx.js";
 import { EMOTES } from "../party/emotes.js";
+import { personKey } from "../party/remote.js";
 import { friends, friendHex, zoneOf } from "./where.js";
 import { SKINS } from "../../car.js";
 
@@ -29,7 +30,7 @@ import { SKINS } from "../../car.js";
 const otOf = p => (p && p.x && typeof p.x.ot === "string" ? p.x.ot.slice(0, 160) : "");
 
 /** Another player (multiplayer's EVERYONE peer) seen the way the room's Mate reads a friend: her hair, outfit, spot. */
-const mpView = p => ({ hc: p.hc || "", x: { in: p.in, ot: p.ot || "", e: null } });
+const mpView = p => ({ hc: p.hc || "", hs: p.hs || null, x: { in: p.in, ot: p.ot || "", e: null } });
 const skinHexOf = sk => (SKINS[sk] || SKINS.pink).body;
 /** Which rooms friends share, and how two copies of a room are told apart. */
 export const SHARED = {
@@ -107,7 +108,8 @@ class Mate {
         this.uid = uid; this.rt = rt; this.buf = []; this.leaving = 0; this.gone = false; this.emKey = ""; this.em = null; this.key = "";
         const colors = p.hc ? { Hair: p.hc } : null;
         this.ot = otOf(p);
-        this.person = spawnPerson("luluPerson", { colors, outfit: this.ot && ctx.clothes ? ctx.clothes.decode(this.ot) : false });
+        this.pk = personKey(p.hs);                          // (her salon hairdo: its own walking model)
+        this.person = spawnPerson(this.pk, { colors, outfit: this.ot && ctx.clothes ? ctx.clothes.decode(this.ot) : false });
         this.person.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
         rt.set.add(this.person.obj);
         const NT = ctx.party && ctx.party.visuals && ctx.party.visuals.NameTag;
@@ -125,6 +127,16 @@ class Mate {
         if (this.buf.length > 12) this.buf.shift();
     }
     update(dt, p) {
+        // (a new hairdo — or its model just finished loading: the same Lulu, rebuilt in place)
+        const pk = personKey(p && p.hs);
+        if (pk !== this.pk) {
+            const old = this.person.obj, q = spawnPerson(pk, { colors: p && p.hc ? { Hair: p.hc } : null, outfit: this.ot && ctx.clothes ? ctx.clothes.decode(this.ot) : false });
+            q.obj.position.copy(old.position); q.obj.rotation.copy(old.rotation); q.obj.scale.copy(old.scale);
+            q.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
+            old.removeFromParent();
+            this.rt.set.add(q.obj);
+            this.person = q; this.pk = pk;
+        }
         const o = this.person.obj, rt = this.rt;
         // (she changed in the fitting room while I watched: her new outfit, in place)
         const ot = otOf(p);

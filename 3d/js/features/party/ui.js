@@ -198,25 +198,37 @@ export function openWheel(byHold) {
     wheel.classList.add("open");
     document.body.classList.add("emote-wheel");        // (ci/move: no free-look while the right stick aims the wheel)
 }
-export function closeWheel() { if (!W.open) return; W.open = false; wheel.classList.remove("open"); wheel.innerHTML = ""; W.byHold = false; document.body.classList.remove("emote-wheel"); }
+export function closeWheel() {
+    if (!W.open) return;
+    W.open = false; wheel.classList.remove("open"); wheel.innerHTML = ""; W.byHold = false; document.body.classList.remove("emote-wheel");
+    if (W.hushed) { W.hushed = false; if (ctx.G) ctx.G.customHorn = W.savedHorn; }
+}
 export const wheelOpen = () => W.open;
 /** The button that holds the wheel open: ci/move's EMOTE slot on foot (△ / Y, keyboard B: input.emoteHeld) once
  *  the input has it, and D-pad ↑ / F (fire: never a missile with friends, unused on foot) everywhere. */
 export function emoteGlyph() {
     const set = glyphSet && glyphSet("keyboard");
+    if (W.honk) return glyph("honk");
     return set && set.emote && W.foot ? glyph("emote") : glyph("fire");
 }
-/** Per frame. on = emotes allowed right now (with friends in the car · on foot). foot = she's walking. */
-export function wheelTick(dt, on, foot = false) {
-    W.foot = !!foot;
+/** Per frame. on = emotes allowed right now (with friends in the car · on foot · online with players around). foot = she's
+ *  walking. byHonk = in the car online without friends: there D-pad ↑ / F fires a missile, so HOLDING the horn opens the
+ *  wheel (a tap is still just a honk; the horn is hushed while she chooses). */
+export function wheelTick(dt, on, foot = false, byHonk = false) {
+    W.foot = !!foot; W.honk = !!byHonk;
     if (!on) { W.holdT = 0; W.armed = false; closeWheel(); return; }
-    if (input.fireHeld || (foot && input.emoteHeld)) {
+    const held = byHonk ? input.honkHeld && !(ctx.rides && ctx.rides.holdsHorn) : input.fireHeld || (foot && input.emoteHeld);
+    const T = byHonk ? 0.35 : 0.18;
+    if (held) {
         if (!W.holdT) W.armed = !W.open;
         W.holdT += dt;
-        if (W.holdT > 0.18 && !W.open && input.device !== "touch") openWheel(true);
+        if (W.holdT > T && !W.open && input.device !== "touch") {
+            openWheel(true);
+            if (byHonk && ctx.G) { W.savedHorn = ctx.G.customHorn; ctx.G.customHorn = true; W.hushed = true; }
+        }
     } else {
         if (W.open && W.byHold) { if (W.hot >= 0) pick(W.hot); else closeWheel(); }
-        else if (W.holdT > 0 && W.holdT <= 0.18 && W.armed && !W.open && W.onTap) W.onTap();   // a quick tap: 👋
+        else if (!byHonk && W.holdT > 0 && W.holdT <= T && W.armed && !W.open && W.onTap) W.onTap();   // a quick tap: 👋
         W.holdT = 0; W.armed = false;
     }
     if (!W.open) return;

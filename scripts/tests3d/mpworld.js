@@ -89,7 +89,7 @@ async function body(t, pages, riders) {
   if (!await A.until(`${S}.connected && ctx.mp.room === "lobby"`, "A: online by default (EVERYONE)")) return;
   t.check("A: online by default — EVERYONE, no code, no lobby screen", await g(`ctx.state === "playing" && !document.querySelector("#screenCard.open, .screen.open")`));
 
-  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend", luluHair: "#8E24AA" }, Q(URL));
+  const B = await guestPage(t, "B", { totalCoins: 0, ownedSkins: ["pink", "gold"], selectedSkin: "gold", mpName: "Latke Legend", luluHair: "#8E24AA", luluHairStyle: "bouncy", ownedDecor: ["bow"], decor: "bow", ownedHorns: ["beep", "duck"], horn: "duck" }, Q(URL));
   pages.push(B);
   await B.until(`__lulu3d && __lulu3d.state === "title"`, "B boots", 120000);
   await B.game(`(ctx.car.setSkin ? ctx.car.setSkin("gold") : 0, L3.startRun({ mode: "cruise", quick: true }))`);
@@ -114,6 +114,13 @@ async function body(t, pages, riders) {
   const look = await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Latke Legend"); return p ? { hc: p.hc, ot: p.ot } : null; })()`);
   const bLook = await B.game(`({ hc: ctx.mp._debug.me ? ctx.mp._debug.me.hc : null, ot: ctx.mp._debug.me ? ctx.mp._debug.me.ot : null })`);
   t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && !!bLook.hc && !!bLook.ot && look.hc === bLook.hc && look.ot === bLook.ot, JSON.stringify({ look, bLook }));
+  // …her salon hairdo too (d.hs): A draws B's car with the bouncy style's hair piece, not the default sheitel
+  const styled = await A.until(`ctx.mp.ghostStats().styled >= 1`, "A draws B's salon hairdo", 30000);
+  t.check("B's salon hairdo (bouncy) shows on A's screen", styled, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), hs: await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).hs`), B: await B.game(`ctx.mp._debug.me.hs`) }));
+  // …her bling (d.dc: the giant bow on her car) and her horn (d.hn: the rubber duck, played when she honks near A)
+  const decked = await A.until(`ctx.mp.ghostStats().decked >= 1`, "A draws B's bow", 30000);
+  const bHorn = await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).hn`);
+  t.check("B's bling (the bow) on her car + her horn (duck) reach A", decked && bHorn === "duck", JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), bHorn, B: await B.game(`({ dc: ctx.mp._debug.me.dc, hn: ctx.mp._debug.me.hn })`) }));
   await t.shot("dropin");
 
   // 🌍 one sky for everyone online (the world clock): A and B, not friends, see the same time of day + the same weather
@@ -131,6 +138,11 @@ async function body(t, pages, riders) {
     await B.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "B walks", 60000);
     const held = await A.until(`ctx.mp.ghostStats().hands >= 1`, "A sees B holding something", 30000);
     t.check("B's hand item shows on A's screen (the rolling pin in her hand)", held, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), B: await B.game(`({ shown: ctx.houseitems.shown, hi: ctx.mp._debug.me.hi })`) }));
+    // …and her foot code (d.f, the friends' one): B in the old-lady disguise, busking → A's B dances in the disguise
+    await B.game(`(() => { const F = ctx.foot.debug.F; F.disguise = "oldLady"; F.buskT = 60; return true; })()`);
+    const moved = await A.until(`ctx.mp.ghostStats().feet.some(f => f[0] === 5 && f[1] === 2)`, "A sees B dancing in a disguise", 30000);
+    t.check("B's foot move + disguise show on A's screen (dancing, as the old lady)", moved, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), B: await B.game(`ctx.mp._debug.me.f`) }));
+    await B.game(`(() => { const F = ctx.foot.debug.F; F.disguise = null; F.buskT = 0; return true; })()`);
     await B.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
     await B.until(`ctx.state === "playing"`, "B back in her car", 30000);
     await B.game(HOLD); await B.game(PLACE(425, -1.75));
@@ -147,6 +159,17 @@ async function body(t, pages, riders) {
   const emOk = await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`);
   if (!emOk) console.log("   EMDIAG", JSON.stringify({ B: await B.game(`({ flags: ctx.worldClock.flags, out: ctx.mp._debug.relOut ? ctx.mp._debug.relOut.size : -1, room: ctx.mp.room, conn: ctx.mp._debug.connected })`), A: await g(`({ seen: ctx.mp._debug.relSeen ? ctx.mp._debug.relSeen.size : -1, room: ctx.mp.room, emr: window.__emr })`) }));
   t.check("an emote arrives as a reliable event (r) and shows once", emOk, JSON.stringify(await g(`window.__emr`)));
+  // one emote system: B's 8-gesture wheel (party/emotes.js) works for strangers — 🥂 Mazel tov! plays on B's ghost on A's screen
+  await B.frames(120);                                     // (past A's per-rider emote flood guard)
+  const gB = await B.until(`ctx.emotes && ctx.emotes.allowed && (ctx.emotes.debug.resetCool(), ctx.emotes.play("mazel"))`, "B: a gesture to a stranger", 30000);
+  const gA = gB && await A.until(`ctx.mp.ghostStats().gestures >= 1 && Object.values(${S}.peers).some(p => p.emG === 6)`, "A: B's gesture on her ghost", 30000);
+  // strangers see a police chase: B at 3★ → two cruisers on B's tail on A's screen (each screen draws them), gone after
+  await B.game(`(ctx.mp._debug.testHeat = 3, true)`);
+  const chased = await A.until(`ctx.mp.ghostStats().chaseCops === 2`, "A: the cops on B's tail", 30000);
+  await B.game(`(ctx.mp._debug.testHeat = 0, true)`);
+  const over = chased && await A.until(`ctx.mp.ghostStats().chaseCops === 0`, "A: B's chase over", 30000);
+  t.check("B's police chase shows on A's screen (2 cruisers at 3★) and ends with it", chased && over, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), ch: await g(`(Object.values(${S}.peers).find(p => p.raw === "Latke Legend") || {}).ch`) }));
+  t.check("one emote system: B's gesture (🥂 Mazel tov!) plays on B's ghost on A's screen", gA, JSON.stringify({ gB, A: await g(`ctx.mp.ghostStats()`), allowed: await B.game(`({ ok: ctx.emotes && ctx.emotes.allowed, social: ctx.mp.social })`) }));
 
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
   // draws the other in the hall, in her own look; out again, both are back on the road
@@ -197,8 +220,9 @@ async function body(t, pages, riders) {
     mv.keep(() => { const s = s0 + 12 * (Date.now() - t0) / 1000; return { di: Math.round(s * 56000 / 4800), x: 240, sp: Math.round(12 * 56000 / 4800), w: ["", Math.round(s * 10) / 10, -1.75, 0] }; }, 200);
     await A.until(`Object.values(${S}.peers).some(p => p.raw === "Kugel Kid" && p.w && p.w.buf && p.w.buf.length >= 3)`, "A: the mover's timestamped updates", 30000);
     const xs = [], ts = [];
-    for (let i = 0; i < 24; i++) { xs.push(await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? +p.w.ca.toFixed(2) : null; })()`)); ts.push(Date.now()); await A.frames(3); }
-    // (the samples are seconds apart on a slow page: judge each step against the real time between them — 12 m/s ± a little)
+    for (let i = 0; i < 24; i++) { const r = await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? [+p.w.ca.toFixed(2), p.w.T || 0] : null; })()`); xs.push(r && r[0]); ts.push(r && r[1]); await A.frames(3); }
+    // (judge each step against the world-clock time of the FRAME that drew it — W.T — not when the test read it: a slow page
+    //  can sit a second or more between frames, and the value only moves when a frame runs; 12 m/s ± a little)
     const bad = xs.slice(1).map((x, i) => ({ d: x - xs[i], want: 12 * (ts[i + 1] - ts[i]) / 1000 })).filter(o => o.d < -0.05 || Math.abs(o.d - o.want) > 6 + o.want * 0.25);
     t.check("drawn between real updates: the mover glides forward at her real speed (never back, no jumps)", xs.every(x => x != null) && !bad.length, JSON.stringify({ xs, bad: bad.slice(0, 4) }));
     mv.close(); riders.splice(riders.indexOf(mv), 1);

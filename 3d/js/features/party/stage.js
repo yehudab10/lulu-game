@@ -193,6 +193,7 @@ export function layout(list) {
         }
         if (c.v.skin !== e.sk) c.v.setSkin(e.sk);
         if (e.hc) c.v.setHair(e.hc);
+        c.v.setStyle(e.hs);
         c.tag.set(e.name, skinHex(e.sk), { host: e.host, ready: e.ready, status: e.status, me: e.me });
         if (S.mode === "podium" && e.rank != null && e.rank < 3) {
             const p = S.podTops[e.rank];
