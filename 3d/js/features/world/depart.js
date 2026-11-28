@@ -36,7 +36,7 @@ const IMA = {
         "Call Bubbe from the road! Hands-FREE!"],
     story: ["Bubbe's expecting you for Shabbos! Don't make her wait!", "Give Bubbe a kiss from me! And DRIVE SAFE!"],
     shabbos: ["Lulu! Candle-lighting is SOON! GO, GO, GO! 🕯️", "The cholent won't wait and neither will the sun! GO!"],
-    nudge: ["The CAR, Lulu! It's not going to drive ITSELF!", "Mamele, the car. Over there. The pink one. 🚗", "Nu? You're waiting for an engraved invitation?"],
+    nudge: ["The CAR, Lulu! It's not going to drive ITSELF!", "Mamele, the car. Over there. In the driveway. 🚗", "Nu? You're waiting for an engraved invitation?"],
 };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 /** Friday's ask, turned down: she walks away from the car instead of getting in (once a day). [Lulu, Ima] */
@@ -289,9 +289,16 @@ const PO = { yaw: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), v: new
 registerState("worldPullOut", {
     hud: true, touch: true, pausable: true, driving: true,
     enter() { PO.yaw = ctx.world.road.at(ctx.car.s).h; PO.snap = true; },
+    exit() { if (PO.hint && ctx.G && ctx.G.hint === PO.hint) ctx.G.hint = null; PO.hint = null; },
     update(dt, P) {
         updateDriving(dt, P, true);
         const car = ctx.car, rh = ctx.world.road.at(car.s).h;
+        // (sitting still in the driveway: the one thing to do — a first-time player sat at 0 MPH with nothing on screen
+        //  until the state gave up after 15 s; ci/sweep-phone)
+        const G = ctx.G, still = ctx.stateT > 2 && car.speed < 1;
+        const want = still ? (input.device === "touch" ? "Hold GAS to pull out 🚗" : `Hold ${glyph("gas")} to pull out 🚗`) : null;
+        if (want && !G.hint) { G.hint = want; PO.hint = want; }
+        else if (!want && PO.hint && G.hint === PO.hint) { G.hint = null; PO.hint = null; }
         const lined = Math.abs(wrapAngle(car.h - rh)) < 0.7;
         const edge = homeEdge(), P0 = home.park, gone = Math.hypot(car.pos.x - P0.x, car.pos.z - P0.z);
         const onRoad = Math.abs(car.d) < edge + 0.6;
@@ -300,6 +307,8 @@ registerState("worldPullOut", {
             if (st) { st.yaw = PO.yaw; st.pos.copy(ctx.camera.position); st.snap = false; }
             // (lined up along the road, the chase cam is where this one already is; at an angle, glide over)
             if ((!lined || home.site === "town") && ctx.cam && ctx.cam.blend) ctx.cam.blend(home.site === "town" ? 1.0 : 0.8);
+            if (PO.hint && G.hint === PO.hint) G.hint = null;
+            PO.hint = null;
             setState("playing");
         }
     },

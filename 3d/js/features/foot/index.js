@@ -2118,7 +2118,10 @@ function hud() {
     if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "foot-chip"; H.hudSlot("left").appendChild(chipEl); chipText = ""; }
     const f = frac(F), best = Math.max(shared.get().footRunHigh || 0, F.maxFrac);
     const label = ctx.G.mode === "story" && ctx.trip ? "trip" : "🏡";
-    const t = `🚶‍♀️ ON FOOT <small>· ${label} ${Math.round(f * 100)}% · best ${Math.round(best * 100)}%</small>${F.coins ? ` <small>· 💰+${F.coins}</small>` : ""}${B.chip(F)}`;
+    // (the "🏡 %" was the old walk-to-Bubbe's run's progress: in the open world it read "🏡 100% · best 100%" in every town
+    //  and room and meant nothing to a player — only a story trip, where it's the trip's progress, shows it; ci/sweep-phone)
+    const prog = label === "trip" ? ` <small>· trip ${Math.round(f * 100)}% · best ${Math.round(best * 100)}%</small>` : "";
+    const t = `🚶‍♀️ ON FOOT${prog}${F.coins ? ` <small>· 💰+${F.coins}</small>` : ""}${B.chip(F)}`;
     if (t !== chipText) { chipText = t; chipEl.innerHTML = t; }
     const ch = F.chase;
     if (ch && !ch.giveUp) {

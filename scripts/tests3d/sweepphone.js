@@ -30,6 +30,9 @@ module.exports = {
       if (i === 1 || i === 3 || i === 7) { await S.shot(`02-home-${i + 1}s`); await S.dump(`home ${i + 1}s`); }
     }
     await S.badText("at home", { touch: true, w: 390 });
+    const home8 = await S.texts();
+    t.check("at home: ONE hint at a time (the walk-to-the-car line, no moves coach under it)", !home8.some(x => /JUMP ·|tap JUMP/.test(x.tx) && /prompt/.test(x.cls)), home8.filter(x => /prompt|padHint/.test(x.cls + x.id)).map(x => x.tx).join(" | "));
+    t.check("at home: the 🔥 streak card waits for the drive (not on top of Ima's line)", !home8.some(x => /streak/.test(x.tx)));
     // where's her car? (on screen, so "drag the WALK pad to your car" means something)
     const carView = () => g(`(() => { const c = ctx.foot.parkedCar, cam = ctx.camera; if (!c) return null; const v = new cam.position.constructor(c.x, 1, c.z).project(cam);
       const F = ctx.foot.debug.F; return { sx: Math.round((v.x + 1) * innerWidth / 2), sy: Math.round((1 - v.y) * innerHeight / 2), front: v.z < 1, d: +Math.hypot(c.x - F.pos.x, c.z - F.pos.z).toFixed(1) }; })()`);
@@ -46,7 +49,15 @@ module.exports = {
     t.check("at her car the HAND button / prompt says how to get in", hand.some(x => /GET IN|hop in|DRIVE/i.test(x.tx)), hand.filter(x => /tx_foot_hand|prompt/.test(x.id + x.cls)).map(x => x.tx).join(" | "));
     await S.tapEl("tx_foot_hand");
     await t.until(`!__lulu3d.ctx.foot.active`, "in the car", 20000);
-    for (let i = 0; i < 6; i++) { await t.frames(60); await S.shot(`05-drive-${(i + 1) * 2}s`); await S.dump(`drive ${(i + 1) * 2}s`); }
+    let gasHint = false, streak = false;
+    for (let i = 0; i < 4; i++) { await t.frames(60); await S.shot(`05-drive-${(i + 1) * 2}s`); const all = await S.dump(`drive ${(i + 1) * 2}s`); gasHint = gasHint || all.some(x => /Hold GAS to pull out/.test(x.tx)); streak = streak || all.some(x => /streak/.test(x.tx)); }
+    t.check("in the driveway, still: \"Hold GAS to pull out\"", gasHint);
+    t.check("the 🔥 streak card shows once she's in the car", streak);
+    // GAS: out of the driveway → the first-drive tutorial's cards
+    await t.L(`(() => { const e = document.getElementById("tGas"); e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", pointerId: 11 })); return 0; })()`);
+    await t.until(`__lulu3d.state === "playing"`, "pulled out → playing", 30000);
+    await t.L(`(() => { const e = document.getElementById("tGas"); e.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "touch", pointerId: 11 })); return 0; })()`);
+    for (let i = 0; i < 4; i++) { await t.frames(90); await S.shot(`06-tut-${i}`); await S.dump(`tutorial ${i}`); }
     await S.badText("first drive", { touch: true, w: 390 });
     S.log("state " + await g(`L3.state`) + " tutorial " + await g(`JSON.stringify(ctx.meta && ctx.meta.tutorial ? ctx.meta.tutorial : null)`));
   },

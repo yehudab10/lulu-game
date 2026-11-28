@@ -80,6 +80,9 @@ module.exports = {
       t.check(`⚙️ ${r ? r.l : id} survives a reload (${v} → ${r && r.v})`, same);
     }
     await t.click(/Done/); await t.frames(4);
+    // (back to the usual screen for the rest: TV mode off, the HUD at 100 %, FULL)
+    await t.L(`import("./js/core/save.js").then(m => { Object.assign(m.save3d.settings, { tv: "auto", hud: 1, hudMode: "full" }); return true; })`);
+    await g(`(ctx.applySettings(), true)`);
     // the 📱 on a small phone, then turned on its side while it's open
     await t.click(/PLAY/);
     if (!await t.until(`__lulu3d.state === "footRun"`, "PLAY again", 30000)) return;

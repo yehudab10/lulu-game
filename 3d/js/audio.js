@@ -335,6 +335,9 @@ export function musicPlaying() { return { canFade, fading: fadeOuts.size, playin
 /** The music track playing now (its url as passed to setMusic) or null. */
 export function musicSrc() { return music ? music.dataset.src : null; }
 
+/** Music on / off to match the save (⚙️ 🎵 Music OFF came back ON after a reload — nothing read it back; ci/sweep-phone). */
+export function setMusicOn(on) { if (!!on !== musicOn) toggleMusic(); return musicOn; }
+
 export function toggleMusic() {
     musicOn = !musicOn;
     for (const el of fadeOuts) el.pause();
