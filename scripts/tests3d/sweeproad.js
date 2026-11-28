@@ -181,6 +181,10 @@ async function lot(t) {
   await t.click(/Car:/);
   await t.frames(4);
   t.check("title: …and still switches to a car at home", (await g(`ctx.car.skinKey`)) === "purple");
+  // 🔧 Shmuel doesn't offer a chop job while her own car is impounded ("his guy brings your car round" = a free release)
+  const chop = await g(`(() => { const k = ctx.car.skinKey; ctx.cars.leaveAt(k, { kind: "impound", town: "midwood" }); const a = !!ctx.streets.chop.request({ instant: true });
+    ctx.cars.leaveAt(k, { kind: "with" }); const b = !!ctx.streets.chop.request({ instant: true }); ctx.streets.debug.CHOP.job = null; return { a, b }; })()`);
+  t.check("chop: no chop-shop job while her own car is impounded (one when it isn't)", !chop.a && chop.b, JSON.stringify(chop));
   await W.pause(t, true);
 }
 

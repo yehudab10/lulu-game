@@ -35,11 +35,10 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 | 19 | Arrested anywhere, the haul's progress bar and the booking caption said "PRECINCT 18½" (Lakewood's) — also when she was taken to Midwood's 70½th Precinct or Trooper Post 7; and places' `names()` used the town she was IN, not the one she was taken to. | `law/arrest.js`, `law/jail.js`, `law/ui.js`, `places/index.js` | **fixed** — `UI.precinctName()` from `ctx.civic.names()` (which now follows `STAY.place`) |
 
+| 20 | Shmuel's chop shop: "his guy brings Lulu's own car round" after a drop-off — even when her car was IMPOUNDED (a free release). | `streets/chop.js` | **fixed** — no chop-shop call while her own car is impounded (a car parked away is still "brought round": his guy's service) |
+
 ## Left (not fixed yet)
 
-- Shmuel's chop shop (`streets/chop.js` `deliver`): "his guy brings Lulu's own car round" — `foot.drive({ own: true })` brings
-  her selected car even when it's IMPOUNDED (or parked across the map): a free release. Rare (a chop job while her car is
-  impounded). Needs a choice of what happens instead (she's left on foot by the drop-off? Shmuel's loaner?) — left.
 - ci/twoway (moving): driving DOWN the lap (the far carriageway) the trip bar + the exit chip still count to the next exit UP
   the lap (`app.js` `nextPlace`, `exits/index.js` `nextAhead`) — i.e. behind her. Theirs to decide (exits are on the other side).
 
