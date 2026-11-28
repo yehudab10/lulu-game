@@ -21,7 +21,12 @@ import { worldMaterials, canvasTex } from "../world.js";
 // ── 🌳 wind sway ─────────────────────────────────────────────────────────
 const WIND = { uTime: { value: 0 }, uSway: { value: 1 }, uWind: { value: new THREE.Vector2(1, 0.4) } };
 function addSway(m) {
-    m.onBeforeCompile = sh => {
+    if (m.userData.sway) return;
+    m.userData.sway = true;
+    // (composes with another patch — core/seethrough.js cuts the leaves along the camera's line of sight)
+    const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
+    m.onBeforeCompile = function (sh, r) {
+        if (prev) prev.call(this, sh, r);
         sh.uniforms.uTime = WIND.uTime; sh.uniforms.uSway = WIND.uSway; sh.uniforms.uWind = WIND.uWind;
         sh.vertexShader = "attribute float sway;\nuniform float uTime;\nuniform float uSway;\nuniform vec2 uWind;\n" + sh.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
             {   // (merged scenery is in world space: its position is a free per-tree phase)
@@ -31,7 +36,7 @@ function addSway(m) {
                 transformed.xz += uWind * d;
             }`);
     };
-    m.customProgramCacheKey = () => "leafSway1";
+    m.customProgramCacheKey = function () { return (prevKey ? prevKey.call(this) : "") + "|leafSway1"; };
     m.needsUpdate = true;
 }
 lookHooks.leaf = addSway;

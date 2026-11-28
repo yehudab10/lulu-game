@@ -211,6 +211,8 @@ const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.
 const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.12 };
 // …and in a chat / at someone's ✋ the camera sits this far (rad) off straight-behind, so she doesn't hide them
 const SHOULDER = 0.45;
+// the heights over her feet (m) the fading looks from toward the lens: her chest, her head
+const FADE_AT = [0.95, 1.5];
 const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();
 
 export class Room {
@@ -784,10 +786,13 @@ export class Room {
         if (!this.root || (this.fadeTick = (this.fadeTick || 0) + 1) % 2) return;
         const cam = this.set.camera, L = this.lulu.obj.position;
         const faded = this.faded || (this.faded = new Map()), hit = new Set();
-        RV.set(L.x, L.y + 1.1, L.z);
-        RD.copy(cam.position).sub(RV);
-        const far = RD.length() - 0.05;
-        if (far > 0.2) {
+        // (two lines: her chest AND her head — one line at chest height slipped just under a thin clothes rail 1.2 m from
+        //  the lens in JFK's Maison de Gelt, left solid across her face; ci/sweep-camera)
+        for (const hy of FADE_AT) {
+            RV.set(L.x, L.y + hy, L.z);
+            RD.copy(cam.position).sub(RV);
+            const far = RD.length() - 0.05;
+            if (far <= 0.2) continue;
             RAY.set(RV, RD.normalize()); RAY.near = 0.35; RAY.far = far;
             for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
                 const o = h.object;
