@@ -55,6 +55,8 @@ const TEXT_CAR_YELLS = ["BRB — wait, MY CAR?!", "I was MID-TEXT!! Rude!", "Hol
     "I'll TWEET about this!!", "That's going on my STORY.", "K so anyway— MY CAR IS TOTALED?!"];
 const COP_CAR_YELLS = ["That's a CITY vehicle, ma'am!", "You're under ARREST! ...probably.", "RECKLESS DRIVING! Pull o— oh.", "I just WAXED this cruiser!!",
     "Do you KNOW who I am?!", "License and registration. NOW.", "That'll be a VERY big ticket."];
+// (the cruiser drove into HER — traffic.js fault "them": no arrest, an embarrassed officer)
+const COP_OOPS_YELLS = ["Okay… that one's on me.", "Let's… not put this in the report.", "My sergeant is gonna KILL me.", "I was reading my coffee. I mean— drinking it."];
 const SCARED_YELLS = ["P-PLEASE don't hurt me!!", "MY HANDS ARE SHAKING!!", "I— I've NEVER crashed before!", "Is everyone OKAY?! oh no—",
     "I'm calling my MOM!!", "Do we... do we EXCHANGE info?!", "I think I might FAINT...", "AAH! my life FLASHED by!!"];
 const SAD_YELLS = ["...my car. my beautiful car. 😢", "I just GOT it washed... *sniff*", "why does this ALWAYS happen...", "I can't afford this... again. 💧",
@@ -108,7 +110,7 @@ export function classify(ld = lastDamage) {
     if (e && e.car && !ANIMAL_RE.test(e.kind || "")) {
         const c = e.car;
         const behavior = (c.data && c.data.behavior) || c.kind;
-        return { kind: "car", car: c, carKind: c.kind, behavior, cop: c.kind === "cop" || behavior === "patrol",
+        return { kind: "car", car: c, carKind: c.kind, behavior, cop: c.kind === "cop" || behavior === "patrol", theirFault: e.fault === "them",
             luluSpeed: e.__luluMph || Math.round(ctx.car.speed * MPH), otherSpeed: e.__otherMph || 0,
             oncoming: !!e.oncoming || c.dir < 0, otherAhead: c.s > ctx.car.s - 0.5, distracted: !!(G.distracted || G.distractedMode) };
     }
@@ -365,7 +367,7 @@ async function carScene(s) {
     man.target = new THREE.Vector3(tgt.x, 0, tgt.z);
     man.mode = "run";
     s.focus = man; s.shot = "two"; s.camSide = -Math.sign(td - car.d) || 1;
-    const yell = c.cop ? pick(COP_CAR_YELLS) : /drunk/.test(c.behavior) ? pick(DRUNK_CAR_YELLS) : /texting/.test(c.behavior) ? pick(TEXT_CAR_YELLS)
+    const yell = c.cop ? pick(c.theirFault ? COP_OOPS_YELLS : COP_CAR_YELLS) : /drunk/.test(c.behavior) ? pick(DRUNK_CAR_YELLS) : /texting/.test(c.behavior) ? pick(TEXT_CAR_YELLS)
         : mood === "scared" ? pick(SCARED_YELLS) : mood === "sad" ? pick(SAD_YELLS) : pick(type ? type.yells : CAR_YELLS);
     s.quote = `"${yell}" — ${c.cop ? "the officer 👮" : "the other driver"}`;
     if (!await until(s, () => man.mode === "arrived", 6)) return;
@@ -447,6 +449,7 @@ async function reprieveScene(s, kind) {
         let f = 0.5;
         if (c.otherAhead) f += 0.22; else f -= 0.22;
         if (c.oncoming) f -= 0.12;
+        if (c.theirFault) f -= 0.25;      // the physics saw them drive into her (traffic.js e.fault)
         if (c.distracted) f += 0.18;
         if (c.luluSpeed > c.otherSpeed + 14) f += 0.15;
         if (/drunk|texting/.test(c.behavior)) f -= 0.30;
@@ -666,7 +669,7 @@ async function animalScene(s) {
 // ── the aftermath fork: the ER (~30%) or back on her feet ─────────────────
 function aftermath(s) {
     const c = s.cause;
-    if (c.cop && ctx.law && ctx.law.arrest) { endScene(s, "arrest"); return; }
+    if (c.cop && !c.theirFault && ctx.law && ctx.law.arrest) { endScene(s, "arrest"); return; }
     const er = s.force.er !== undefined ? !!s.force.er : Math.random() < 0.3;
     endScene(s, er && ctx.er ? "er" : "ko");
 }

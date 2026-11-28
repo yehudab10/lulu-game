@@ -28,12 +28,12 @@ export const CHARGE = {
 
 export const L = {
     // the chip on the objective line (the lowest priority)
-    chip: "🚗 Your car is impounded", chipSub: "City Hall or the precinct · {fee} 💰",
+    chip: "🚗 Your car is impounded", chipSub: "City Hall or {where} · {fee} 💰",
     chipReady: "🚗 Release slip ✓", chipReadySub: "go to the impound gate",
     // the gate
     gateLabel: "🚗 YOUR CAR (IMPOUNDED)", gateReady: "🧾 SHOW THE RELEASE — get your car",
     gateWho: "THE IMPOUND WINDOW", gateEmoji: "🪟",
-    gateAsk: "Name? …Pink convertible. Yeah, it's here. Release fee's {fee}. Or get it stamped at City Hall, same price, longer line.",
+    gateAsk: "Name? …{car}. Yeah, it's here. Release fee's {fee}. Or get it stamped at City Hall, same price, longer line.",
     gatePay: "💰 Pay the release — {fee}", gateCityHall: "🏛️ I'll go to City Hall", gateLeave: "👋 Not now",
     broke: "You need {fee} coins and you have {have}. Don't worry — it'll be back at your house by tomorrow. We're not monsters. We're a tow yard.",
     paid: "Stamped, signed, copied in triplicate. Here's your car. Try not to see us again.",

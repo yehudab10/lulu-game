@@ -6,6 +6,20 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
 - 2026-11-28 07:20 UTC — 📱 Phones, part 2: on a small phone the Scrapbook's longer badge names ("Neighbourhood Hero")
   stay inside their spot instead of running into the next one.
+- 2026-11-28 07:20 UTC — 🚗 On the road, part 1. A police car that rear-ends Lulu is now the police car's fault — on
+  her last heart it used to get HER arrested for "destroying a police cruiser". Cars she has just passed no longer plough
+  into her when she slows down or stops (they brake and go round her), and a car pulling out to pass doesn't swerve into
+  her lane. Cops chasing her down an exit ramp or into a rest area now drive the ramp instead of cutting across the grass
+  and the barriers; a cruiser that's given up stops where it is; the "you're not hidden" tip goes away once she IS hidden;
+  and a cruiser sent after a phoned-in report in town has to look for her instead of driving straight to her. A car
+  impounded at Trooper Post 7 or the Weigh Station can now actually be collected there (its gate never opened before —
+  the car was stuck for good), and it rolls out into the yard, not onto the highway. Her other cars can't be "brought
+  round" any more from Uncle Refael's lot, a dealership or the title's Car button while they're impounded or parked
+  across the map (that let an impounded car out for free). Driving a borrowed car, a ride or Ima's minivan no longer uses
+  up her own car's gas. The trip bar and the exit chip now count down to the JFK exit too; the "½ mile" and "1 mile"
+  boards before an exit or a rest area stand about that far away (some were much closer); a long ride like the box truck
+  is solid along its whole length. Small text fixes: the impound window names her car (not always "pink convertible"),
+  the impound line names the highway yard, and a Lakewood speed-camera ticket comes from Lakewood, not Midwood.
 - 2026-11-28 05:30 UTC — 📱 Phones, part 1 (what a player on a phone sees): a brand-new player at the porch gets ONE
   thing to do — "drag the WALK pad to your car", and the camera now looks at the car (on a phone held upright it was off
   the edge of the screen), so pushing up walks straight to it; the "tap JUMP" tip and the Day-1 streak card no longer
@@ -45,6 +59,9 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 07:20 UTC (fixes) — The shop and street signs in Lakewood and Midwood are a little sharper: their pictures are
+  packed together more tightly, so each one gets more pixels (the new yeshiva's signs had made Lakewood's slightly
+  blurrier). Test screenshots inside buildings no longer come out as a plain blue picture.
 - 2026-11-28 05:15 UTC (fixes) — 🗺️ On the phone's Map, tapping the place Lulu is already standing at (say, Ima's house
   while she's on the porch) used to close the phone and do nothing; now the phone stays open and the place says
   "📍 you're here!". ✈️ At the JFK kerb, a police car that wrecked itself ramming her could keep sliding right through her

@@ -32,8 +32,9 @@ export const CHARGE = {
 export const L = {
     flash: ["…was that a FLASH?", "Did that pole just take my PICTURE?", "Oh no. That was a camera."],
     sign: { pkwy: ["SPEED LIMIT 25", "PHOTO ENFORCED"], school: ["SCHOOL ZONE · 15", "WHEN FLASHING · PHOTO ENFORCED"] },
-    mailFrom: "Borough of Midwood",
-    mailMsg: "📬 Mail from the Borough of Midwood. It's in your mailbox.",
+    // (who writes: the town whose camera flashed — Lakewood's school zones are the City of Lakewood's, not Midwood's borough)
+    mailFrom: town => (town === "lakewood" ? "City of Lakewood" : "Borough of Midwood"),
+    mailMsg: town => `📬 Mail from the ${town === "lakewood" ? "City of Lakewood" : "Borough of Midwood"}. It's in your mailbox.`,
     ima: "Lulu. There's MAIL for you. From the CITY.",
     chip: "📬 You have mail",
     mailbox: "📬 MAIL FROM THE CITY",
@@ -46,7 +47,7 @@ export const L = {
     pin: "Pay tickets here",
     court: {
         counsel: { name: "THE BOROUGH ATTORNEY", emoji: "📸", color: "#455A64" },
-        title: t => `THE BOROUGH v. LULU — SPEED CAMERA, ${t.where.toUpperCase()}`,
+        title: t => `THE ${t.town === "lakewood" ? "CITY" : "BOROUGH"} v. LULU — SPEED CAMERA, ${t.where.toUpperCase()}`,
         label: "⚖️ Fight your speed-camera ticket",
         docket: t => `📋 NOW: The Borough v. Lulu — ${t.mph} mph on ${t.where}`,
         open: t => `Case 2B: the speed camera on ${t.where} says ${t.mph} in a ${t.limit}. Exhibit A: the photograph.`,

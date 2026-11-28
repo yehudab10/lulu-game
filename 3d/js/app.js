@@ -201,7 +201,9 @@ async function testFrame(dt) {
     if (m === "idle") { const r = testRealNow(); if (r - TC.idleAt < TC.idleMs) return; TC.idleAt = r; }
     stepping = true;
     try {
-        if (TC.restore) TC.restore();   // (a full-size picture drawn for a check / a screenshot: back to the small canvas)
+        // (a full-size picture drawn for a check: back to the small canvas — but NOT while a screenshot is being taken: the resize
+        //  clears the canvas and this frame may not draw, so a shot came out one flat sky-blue in rooms; afterShot() restores)
+        if (TC.restore && !TC.shooting) TC.restore();
         testBeforeStep();               // (the page's clock: one frame later)
         const P = frameInput(dt);
         if (skipping()) { await fastForward(P); TC.drawn = ctx.frames; }
@@ -228,6 +230,7 @@ function realFrame() {
     if (sc !== 1) renderer.setPixelRatio(gfx.pixelRatio);
     present(0);
     if (sc !== 1) TC.restore = () => { renderer.setPixelRatio(gfx.pixelRatio * TC.scale); TC.restore = null; };
+    TC.shooting = true;             // (until afterShot: the harness's screenshot reads this picture)
     return true;
 }
 
@@ -342,6 +345,8 @@ function nextPlace(s) {
     try { const T = ctx.town; if (T && T.exits) for (const e of T.exits) { const k = mod(e.s); const p = pts.find(q => Math.abs(q.s - k) < 5);
         if (p) { if (!p.names.includes(e.name)) p.names.push(e.name); } else pts.push({ s: k, names: [e.name], kind: "exit" }); } } catch (e) { /* no towns */ }
     try { if (ctx.exits && ctx.exits.rests) for (const r of ctx.exits.rests) pts.push({ s: mod(r.s), kind: "rest" }); } catch (e) { /* no rest areas */ }
+    // ✈ the JFK exit (features/airport — its own EXIT 12 boards count down to it: the trip bar used to skip it)
+    try { const ap = ctx.airport && ctx.airport.on && ctx.airport.planned; if (ap) pts.push({ s: mod(ap.s), names: [ap.name], kind: "exit" }); } catch (e) { /* no airport */ }
     let v;
     if (!pts.length) v = { frac: here / LAP, label: "On the highway" };
     else {
@@ -454,7 +459,7 @@ window.__lulu3d = {
         return true;
     },
     get drawnFrame() { return TC.drawn; },
-    afterShot() { if (TC.restore) TC.restore(); return true; },
+    afterShot() { TC.shooting = false; if (TC.restore) TC.restore(); return true; },
 };
 
 boot();

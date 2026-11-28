@@ -12,7 +12,7 @@ import { models, cloneWithColors, findNodes } from "../../models.js";
 import * as H from "../../hud.js";
 import { wallet } from "../../core/save.js";
 import { SKIN_SHOP, SKIN_KEYS, STAT_ROWS, inv, syncInv } from "../garage/data.js";
-import { owns, equipSkin, buyCar } from "../garage/buy.js";
+import { owns, equipSkin, buyCar, carAway } from "../garage/buy.js";
 import { addPlace, local } from "../world/places.js";
 import { openCard, cardTick, cardOpen, closeCard, cardSay, repaint } from "../shops/card.js";
 import { EV, EV_CARS, EV_IDS, LAP_M, ZEV, SUB } from "./data.js";
@@ -158,6 +158,7 @@ export function openTabletCard(focus) {
 }
 function buyHere(k) {
     const c = EV_CARS[k];
+    if (owns("car", k) && inv.selectedSkin !== k && carAway(k)) { cardSay(`Yours — but it's ${carAway(k)}. The tablet can't summon it. (Yet.)`); return; }
     if (owns("car", k)) { if (equipSkin(k)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); cardSay("It's out front. It'll unlock when it senses you. Eventually."); repaint(); } return; }
     if (wallet.coins < c.price) { cardSay(`The tablet says: <b>insufficient funds</b>. It says it very calmly. (${fmt(c.price - wallet.coins)} 💰 short)`); return; }
     if (E.armed !== k) { E.armed = k; cardSay(`Tap again to buy the ${c.name} for ${fmt(c.price)} 💰.`); repaint(); return; }

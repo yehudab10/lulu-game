@@ -212,16 +212,22 @@ export class Atlas {
         const nrm = _v.set(0, 0, 1).applyMatrix3(_n.setFromMatrix4(m)).normalize();
         this.quads.push({ cell, pos, n: [nrm.x, nrm.y, nrm.z] });
     }
-    /** Shelf-pack every cell (tallest first) at `scale`; false if they don't fit. */
+    /** Shelf-pack every cell (tallest first, each into the FIRST shelf with room left — a short sign fills the end of an
+     *  earlier, taller shelf instead of opening a new one) at `scale`; false if they don't fit. (Plain "next shelf" packing
+     *  left Lakewood at 0.578 once the yeshiva's signs went up; first-fit packs the same cells at 0.589, Midwood 0.528 → 0.549.) */
     pack(scale) {
-        const pad = 4, S = this.size;
-        let x = 0, y = 0, row = 0;
+        const pad = 4, S = this.size, shelves = [];
+        let y = 0;
         for (const c of [...this.cells].sort((a, b) => b.h - a.h)) {
             const w = Math.ceil(c.w * scale), h = Math.ceil(c.h * scale);
-            if (x + w > S) { x = 0; y += row + pad; row = 0; }
-            if (y + h > S) return false;
-            Object.assign(c, { x, y, pw: w, ph: h });
-            x += w + pad; row = Math.max(row, h);
+            let sh = null;
+            for (const s of shelves) if (h <= s.h && s.x + w <= S) { sh = s; break; }
+            if (!sh) {
+                if (y + h > S || w > S) return false;
+                sh = { y, h, x: 0 }; shelves.push(sh); y += h + pad;
+            }
+            Object.assign(c, { x: sh.x, y: sh.y, pw: w, ph: h });
+            sh.x += w + pad;
         }
         return true;
     }
