@@ -40,6 +40,10 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 ## Left (not fixed yet)
 
 - (ci/twoway handled the trip bar going DOWN the lap itself — `nextPlace` › `down`.)
+- ci/twoway: a chase / a pull-over while she drives DOWN the lap (the far carriageway) — law's chase + pull-over still
+  assume +s: `spawnChaser` puts cruisers at `car.s − back`, the pull-over's `pullDAt` is the RIGHT shoulder (7.9) and
+  `stopS = car.s − 7.2`, and bust.js `autoLulu` aims at `car.s + 12` — busted going down the lap she'd be steered across both
+  carriageways. (Traps + patrols already mirror with `downLap()`.) Not touched: it's that branch's model.
 
 ## For other branches
 
