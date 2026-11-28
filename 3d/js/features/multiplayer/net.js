@@ -53,7 +53,7 @@ export const MP = {
     sock: null, want: false, connected: false, ever: false, room: "lobby", roomKind: "everyone",
     myId: null, peers: {}, clock: 0, sendT: 0, pingT: 0, reconnectAt: 0, reconnectDelay: 1, wantSince: 0,
     sid: Math.random().toString(36).slice(2, 10).padEnd(8, "0"), alias: {},
-    piN: 0, piWall: 0, quickPings: 0, quickAt: 0, gotHello: false, failRun: 0, relOut: new Map(), relSeen: new Set(),   // 🌍 ci/oneserver
+    piN: 0, piWall: 0, quickPings: 0, quickAt: 0, gotHello: false, failRun: 0, relOut: new Map(), relSeen: new Set(), pend: {},   // 🌍 ci/oneserver
     switchTo: null, forceSends: 0,
     codeSlots: [0, 0, 0, 0].map(() => Math.floor(Math.random() * 26)),
     race: null, raceSeq: Math.floor(Math.random() * 1e6) + 1,
@@ -98,7 +98,7 @@ export function labelFor(p) {
     const un = p.un && ctx.accounts && ctx.accounts.ghostName ? ctx.accounts.ghostName(p.room || roomPath(), p.id, p.un) : null;
     if (un) return un;
     if (MP.roomKind === "friend" && CURATED_NAMES.includes(p.raw)) return p.raw;
-    return strangerLabel(p.id, p.sk);
+    return strangerLabel(p.sid || p.id, p.sk);
 }
 /** Labels again (features/friends learnt which ghost a friend is). */
 export function relabel() { for (const id in MP.peers) MP.peers[id].name = labelFor(MP.peers[id]); }
@@ -221,7 +221,7 @@ function handle(msg, src) {
         for (const pp of msg.peers || []) { if (!src.prefix || pp.d) addPeer(pp.id, pp.name, pp.sk, src); if (pp.d) applyState(pp.id, pp.d, true, src); }
         if (src.main) emit("mp:status", { connected: true });
         if (Array.isArray(msg.r)) for (const e of msg.r.slice(-32)) relIn(e, true, src);    // 🌍 step 2: what happened just before I came
-    } else if (msg.t === "+") { if (!src.prefix) addPeer(msg.id, msg.name, msg.sk, src); }
+    } else if (msg.t === "+") { if (!src.prefix) addPeer(msg.id, msg.name, msg.sk, src); else pendSet(src.prefix + msg.id, msg.name, msg.sk); }
     else if (msg.t === "s") { applyState(msg.id, msg.d, false, src); const p = MP.peers[key(msg.id)]; if (p && typeof msg.st === "number") p.st = msg.st; }   // 🌍 st: when the relay got it
     else if (msg.t === "r") relIn(msg, false, src);
     else if (msg.t === "ra") { if (src.main) MP.relOut.delete(msg.id); }
@@ -256,8 +256,12 @@ function addPeer(id, name, sk, src = LEGACY) {
     return p;
 }
 
+// (place mode: what a "+" said — her name + car colour — until her first state says who she is)
+function pendSet(k, name, sk) { MP.pend[k] = [name, sk]; const ks = Object.keys(MP.pend); if (ks.length > 120) delete MP.pend[ks[0]]; }
 function applyState(id, d, snap, src = LEGACY) {
     if (!id || (src.main && id === MP.myId) || !d) return;
+    // 🌍 my own state heard through a room I only listen to (I've just crossed into it, or it's the one I'm leaving): that's me
+    if (src.prefix && d.sid && d.sid === MP.sid) { delete MP.peers[src.prefix + id]; return; }
     if (src.bridge && d.pl) { delete MP.peers[src.prefix + id]; return; }   // 🌍 a new copy in the lobby bridge: we see her in her place room
     if (src.prefix && !src.bridge && typeof d.sid === "string" && SID_RE.test(d.sid)) {
         const raw = src.prefix + id, sk = "S:" + d.sid;
@@ -270,8 +274,11 @@ function applyState(id, d, snap, src = LEGACY) {
         const q = MP.peers[sk];
         if (q) { q.id = id; q.room = src.room; q.left = false; if (q.un && q.unRoom !== src.room) { q.un = null; } q.unRoom = src.room; }
     }
-    const p = MP.peers[pkey(src, id)] || addPeer(id, null, null, src);
+    let p = MP.peers[pkey(src, id)];
+    if (!p) { const pe = MP.pend[src.prefix + id]; p = addPeer(id, pe ? pe[0] : null, pe ? pe[1] : null, src); }
     if (!p) return;
+    if (src.prefix) delete MP.pend[src.prefix + id];
+    if (src.prefix && !src.bridge && typeof d.sid === "string" && SID_RE.test(d.sid) && p.sid !== d.sid) { p.sid = d.sid; p.name = labelFor(p); }   // (her stranger label stays the same in every room)
     p.lastPacket = MP.clock; p.dropping = false;
     if (d.m === 0 || d.m === 1) p.m = d.m;
     const x = fin(d.x, 0, 480); if (x !== null) p.tx = x;
@@ -725,6 +732,7 @@ function placeSub(room, opts) {
 function placeTick(dt) {
     if ((PS.at -= dt) > 0) return;
     PS.at = 0.5;
+    if (!WC.flags && MP.connected) WC.config();       // (the kill switches never arrived — offline at boot: ask again, every 15 s at most)
     const on = WC.flag("place") && MP.want && (MP.roomKind === "place" || (MP.roomKind === "everyone" && MP.room === "lobby"));
     if (!on) {
         if (MP.roomKind === "place" && MP.want) switchRoom("lobby", "everyone");     // (the kill switch went off: back to the lobby)

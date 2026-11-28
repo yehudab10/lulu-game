@@ -254,7 +254,7 @@ ctx.mp.ghostAt = ghostAt;
 ctx.mp.tagOnScreen = id => { const p = MP.peers[id] ? null : ctx.mp.peerById && ctx.mp.peerById(id); return tagOnScreen(p && p.key ? p.key : id); };   // (a relay id or a key)
 const TAP = { x: 0, y: 0, t: 0, id: -1 };
 function tapOk(e) {
-    if (!MP.connected || MP.room !== "lobby" || !ctx.friends || !ctx.friends.ui) return false;
+    if (!MP.connected || !(MP.room === "lobby" || MP.roomKind === "place") || !ctx.friends || !ctx.friends.ui) return false;
     if (!(ctx.state === "playing" || ctx.state === "footRun") || ctx.dialogOpen || (ctx.phone && ctx.phone.isOpen)) return false;
     const t = e.target;
     return !(t && t.closest && t.closest("button, a, input, select, .btn, #lpPhone, .lp-phone, .toast, #banner"));
