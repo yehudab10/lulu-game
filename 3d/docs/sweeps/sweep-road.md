@@ -2,8 +2,11 @@
 
 Sweep started 2026-11-27 23:55 UTC (rules: `RULES.md`). Scope: the lap + exits, the cars, traffic + crashes, cops +
 chases, car care / dealers / impound / cameras, getting in + out, touch driving. Tests: `scripts/tests3d/sweeproad.js`
-(crash fairness, Refael's lot + the title's car switch), `sweeproad2.js` (a lap survey on a phone: every board, the trip
-bar, the exit chip), `sweeproad3.js` (a whole lap DRIVEN with traffic, a controller at 1280×720, the watchdog on).
+(parts: crash fairness, long-ride bodies + fuel, ramps / rest areas, DOWN the lap (chase, traps, K9, call-in, traffic
+honks, the flavour pull-over), the call-in in town, roadside impound yards, Refael's lot + the title's car switch, the
+ambulance; `SWEEPROAD_PART=`), `sweeproad2.js` (a lap survey on a phone: every board, the trip bar, the exit chip),
+`sweeproad3.js` (a whole lap DRIVEN with traffic, a controller at 1280×720, the watchdog on; `SWEEPROAD3_DOWN=1` drives
+it down the lap, `_KM` / `_FROM` a stretch).
 
 Not touched (still moving on another branch when this started): `features/fuel` (`ci/fuel`, not landed),
 `features/dealers` (`ci/dealers-ui`, moved minutes before).
@@ -41,6 +44,9 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 25 | A chase while she drives DOWN the lap (ci/twoway's far carriageway, landed): the cruisers spawned ahead of her facing up the lap, aimed up the lap and fell behind for good (never a real chase); the pull-over aimed her up the lap at the RIGHT shoulder (across both carriageways). | `law/cops.js` steerUnit, spawnChaser, pullDAt, scriptedCruiser · `law/bust.js` | **fixed** — `travelDir()` (±1): chasers spawn behind HER and drive her way, the gaps / look-ahead / the pull-over's stop + shoulder / the camera mirror with it |
 | 26 | Still DOWN the lap: a hidden speed trap and a WANTED poster were placed ahead of her (ci/twoway mirrored that) but their "keep me" test still read +s — both were thrown away the frame they spawned (no speed traps at all on the far carriageway); a K9 / a missile was loosed BEHIND her running away; the BOLO cruiser came from ahead facing the wrong way. | `law/cops.js` traps, poster, K9, missile, BOLO | **fixed** — all read `travelDir()`; checks in `sweeproad` › downlap |
 | 27 | Driving DOWN the lap with the traffic on the far carriageway: every car catching up behind her in her lane flashed its brights and honked at her (it took her for a car coming at it), and a HONK never moved the slow car in front (honk-to-pass only looked up the lap). Found with sweeproad3's new down-the-lap drive (`SWEEPROAD3_DOWN=1`). | `traffic.js` update | **fixed** — no flash / honk when she's going its way; the honk works her way (`traffic.dir`) |
+| 28 | The road's 🚑 "Pull aside for the ambulance!" started in the middle of a police chase, a road-rager, a side job (ci/sweep-logic2 flagged it for this sweep). | `roadevents/index.js` scheduler | **fixed** — waits for `ctx.engaged()` to be free, like the drive-thru / the ice-cream van; `sweeproad` › amb |
+| 29 | Down the lap, "somebody else gets pulled over" (law's flavour scene) picked a car BEHIND her on the other carriageway — she never saw it, and the cruiser + the car stayed kept (never recycled) for the rest of the run. | `law/cops.js` startFlavour | **fixed** — a car up ahead of her, her way, pulled to her side's shoulder |
+| 30 | Down the lap, a road-rager / gang car was still sent — spawned "behind" her up the lap (i.e. AHEAD of her) driving up the lap in her carriageway: head-on. Its whole AI is written for the up-the-lap side. | `underworld/index.js` `why` | **fixed (gate)** — no bad-guy car while she's heading down the lap ("downlap"); mirroring their AI left to ci/twoway's owner |
 | 20 | Shmuel's chop shop: "his guy brings Lulu's own car round" after a drop-off — even when her car was IMPOUNDED (a free release). | `streets/chop.js` | **fixed** — no chop-shop call while her own car is impounded (a car parked away is still "brought round": his guy's service) |
 
 - (from ci/sweep-health) `schlepnav` "…still self-driving in town": NOT a game bug — on the fast test clock the harness stops on
@@ -48,6 +54,12 @@ Not touched (still moving on another branch when this started): `features/fuel` 
   on, route "town"). The test now waits for the plan.
 
 ## Left (not fixed yet)
+
+- sweeproad3's down-the-lap drive (`SWEEPROAD3_DOWN=1`, 16 km, ~22 min locally): she left the road a few times and hit a
+  pole / trees — explained: Ima's call rings, "let it ring to pick up" answers it, and the call FLIPS the steering (by
+  design); the test driver now flips back. A few "their fault" hits from drunk / texting cars weaving into her (by
+  design, both carriageways) remain in that run's log; not a down-the-lap bug. The full down-the-lap drive wasn't re-run
+  after the driver fix (the local browser was busy, and CI can't pass the env switch).
 
 - A long ride's (truck / bus) own hit circles: driven nose-first across a town street into a parked car's side, the truck
   ends up overlapping it — but a 7.5 m truck turned across a ~9 m street also touches the parked car BEHIND it, and the two
@@ -66,6 +78,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
   `carS() + 420` / `builtEnd()`), i.e. behind her, where she never meets them; their "keep me" tests (`car.s < s + 250`)
   stay true for as long as she drives on, so each one stays `busy` and no other of its kind spawns. Nothing breaks — the
   far carriageway just has no set pieces. Mirroring them is a per-piece job (each is built for one direction); not done here.
+  The same goes for atmos' roadside life (`atmos/life.js`, `car.s + 110…190`), cameos placed `car.s + …` and the
+  underworld's road-ragers / gang cars (`underworld/badguys.js`, all `car.s − …`; gated off down the lap here, #30).
 
 - **ci/sweep-health**: `partyworld` "paused in a party (the 📱 phone): the car stops and never rolls backwards" is flaky on
   plain main (a shared, clock-driven party car rams her stopped car — they can't stop for her; seen again in CI
@@ -78,6 +92,12 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 17:35 UTC — part 7 on main: a given-up cruiser is let go 170 m on her way (down the lap too); the `amb`
+  check no longer races the chase; sweeproad3's driver flips back for Ima's call (the down-the-lap "veers"). CI 46170331613
+  (core, platform, sweeproad, law, lawstruck, qalaw ✓).
+- 2026-11-28 17:30 UTC — part 6 on main: findings 28–30 (the ambulance waits for an activity to end; down the lap the
+  flavour pull-over ahead of her; no bad-guy cars down the lap). CI 46169171987 (core, platform, sweeproad, law, oneact,
+  underworld, roadevents, lawstruck, qacar ✓). Main's Smoke after part 5: 46151341698 ✓.
 - 2026-11-28 13:50 UTC — part 5 on main: findings 25–27 (down the lap: chases, the pull-over, traps, posters, K9 / missiles,
   the call-in cruiser, traffic flashing + the honk) + sweeproad3's down-the-lap drive. CI 46149112139 (core, platform, sweeproad,
   law, qalaw, lawstruck, town, qacar, heist, crime ✓), 46150503359 (core, platform, sweeproad, qacar, atmos, moves, pinroute,

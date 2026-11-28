@@ -22,6 +22,9 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 | 13 | (with #8) Riding in a friend's passenger seat through a town: the 🔦 Shomrim's speed watch / witness saw HER car (riding along at the friend's speed) and started a pursuit + called the cops on her for the friend's driving. | `community/shomrim.js` | **fixed** — not while she rides (by reading; the ride needs two players) |
 | 14 | A speed-camera bench warrant paid off at the precinct's fines window ("On file: UNPAID SPEED CAMERA TICKETS. Settle up for 💰90?"): the law's file was cleared, but the tickets stayed owed in the 📬 / City Hall's ledger (pay twice), and the camera feature still thought a warrant was out (so it never issued another). | `cameras/index.js` | **fixed** — settling the file serves it like an arrest does (the tickets are closed). Batch 3 |
 | 15 | 🔍 Case the vault → a heist PLANNED ("💰 THE JOB · pull up out front of the bank") counted as an activity for `ctx.engaged()` — it has no clock and no way to call it off but a new run, so until she robbed the bank the whole world went quiet: no robbery to foil, snatcher, cameo, drive-thru, payphone / job offer, the Fixer, street scenes, porch pirates… for the rest of the run. | `core/ctx.js` ACTIVITIES, `heist/index.js` `busy("plan")` | **fixed** — a plan isn't an activity (the job itself is, from the moment she pulls up); heist's own events still wait for it. Batch 3 |
+| 16 | (with #5) City Hall's ribbon cutting (a mayor + a crowd up her sidewalk, asking her to cut it) started in the middle of an activity (a robbery tackle on foot, the Shomrim on her tail, a pickpocket) — it only checked the police. | `cityhall/ribbon.js` | **fixed** — waits while `ctx.engaged()` |
+| 17 | (with #5) Rushing a 🚑 patient to the ER (siren on) past a school / along Ocean Parkway: a speed-camera ticket came in the mail for it. | `cameras/index.js` `noTicket` | **fixed** — no ticket for a ride with its siren on (ambulance / cop car) |
+| 18 | (with #1) In a 🎉 party run the sky is the party's shared day (and the shop doors follow it), but the 📱's clock showed the device's time. | `phone/ui.js` `clock()` | **fixed** — the sky's hour whenever the Cruise sky runs (ci/sweep-phone is done; the note for it is withdrawn) |
 | 4 | Two features' lines at once: a second `say` / `choose` opening over one still waiting replaced it without answering it — the first feature's `await` hung forever (its "busy" flag stuck for the run). | `core/dialog.js` | **fixed (defensive)** — the covered line / question answers -1 ("closed", like `closeDialog`); `script()` stops at a -1 (a closed / covered line), so an old conversation doesn't keep talking over the new one |
 
 ## Checked and fine
@@ -76,12 +79,11 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   no wall" — red locally on plain main too (rooms / camera: ci/sweep-camera's area now).
   Also `parking` › "level 1 pays 1×25 + 15 per ★ to the shared wallet" (500 → 500 with 3 ★) — red locally on plain main too.
 
-- for `ci/sweep-phone` (the 📱): the handset's clock (`phone/ui.js` `clock()`) shows the sky's hour only when
-  `G.mode === "cruise"`; in a 🎉 party run the sky is the party's (atmos `mode` "cruise") but the 📱 shows the device's time.
-  `storefronts/hours.js` `worldNow()` is the one clock now (the sky's hour whenever atmos runs the Cruise day) — the 📱
-  could read it too. Not edited here (the phone is that sweep's).
-
 ## Landed
+
+- batch 5 → main (2026-11-28 17:30 UTC): finding 18. CI 46169869568 (phone, qa26, sweepphone3, core, platform, sweeplogic2 ✓).
+- batch 4 → main (2026-11-28 17:20 UTC): findings 16–17. CI 46169158074 (cityhall 1–3, sweeplogic2, core, platform ✓);
+  sweeplogic2 + cameras locally ✓ with the siren change.
 
 - batch 3 → main (2026-11-28 14:35 UTC): findings 14–15. CI 46151538172 (cameras, sweeplogic2, core, platform, interiors,
   qalaw, cityhall ✓) + 46153891714 (heist, oneact, sweeplogic2, core, platform, skip, ux, qa18, partyheist, underworld,
