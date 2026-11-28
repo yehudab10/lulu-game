@@ -62,6 +62,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 12:25 UTC — part 3 on main: findings 21–23 + the schlepnav test wait. CI 46124201678 (core, platform,
+  sweeproad, law, town, roadside, qaplaces, qalaw, lawstruck, airport, exits ✓) + local after the merge (core, sweeproad, qalaw ✓).
 - 2026-11-28 08:05 UTC — part 2 on main: findings 19–20. CI 46121235380 (core, platform, sweeproad, law, places, roadside,
   qaplaces, interiors, partners, streets, nocalls ✓); main's Smoke test after part 1: 46120263706 ✓.
 - 2026-11-28 07:25 UTC — part 1 on main (e7241646, fast-forward): findings 1–18. CI 3D full suite run 46110858388 on the branch (core, platform,
