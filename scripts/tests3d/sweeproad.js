@@ -162,6 +162,14 @@ async function ramp(t) {
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await t.until(`__lulu3d.state === "playing"`, "ramp: a cruise starts", 120000);
   }
+  // the cops' "not hidden" tip (key law:hint) can be taken down once it stops being true (hud.dropToast)
+  await t.L(`import("./js/hud.js").then(H => { H.toast("🚨 TEST: you're not hidden", "red", { key: "law:hint" }); return true; })`);
+  await t.frames(6);
+  const up = await t.L(`[...document.querySelectorAll(".toast")].some(e => /TEST: you're not hidden/.test(e.textContent) && !e.classList.contains("out"))`);
+  await t.L(`import("./js/hud.js").then(H => (H.dropToast("law:hint"), true))`);
+  await t.frames(20);
+  const gone = await t.L(`![...document.querySelectorAll(".toast")].some(e => /TEST: you're not hidden/.test(e.textContent) && !e.classList.contains("out"))`);
+  t.check("hud: a toast whose words stopped being true can be taken down (the cops' 'not hidden' tip once she hides)", up && gone, JSON.stringify({ up, gone }));
   await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.town.load("lakewood"), true)`);
   await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "ramp: Lakewood's models load", 120000);
   const E = await g(`ctx.town.debug.exitAhead(900)`);
