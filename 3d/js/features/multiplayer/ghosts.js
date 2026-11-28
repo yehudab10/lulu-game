@@ -15,7 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
-import { CarVisual } from "../party/remote.js";
+import { CarVisual, NameTag } from "../party/remote.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeGeometry } from "../../merge.js";
 
@@ -102,7 +102,10 @@ function buildGhost(p) {
     }
     g.obj.add(body);
     g.body = body;
-    g.tag = nameSprite(p.name || "Rider", 2.6);
+    // (stage 3: the same name tag friends get — a dark pill with a dot in her car's colour)
+    g.nt = new NameTag();
+    g.nt.set(p.name || "Rider", sk.body, {});
+    g.tag = g.nt.sp;
     g.tag.position.y = p.m === 1 ? 2.35 : EXTRA[p.vk] ? 3.9 : 2.75;
     g.obj.add(g.tag);
     g.tagName = p.name;
@@ -119,7 +122,7 @@ function buildGhost(p) {
 
 function disposeGhost(g) {
     ctx.scene.remove(g.obj);
-    g.tag.userData.dispose();
+    g.nt.dispose();
     g.ring.geometry.dispose(); g.ring.material.dispose();
     if (g.burst) disposeBurst(g.burst);
 }
@@ -230,7 +233,7 @@ export function updateGhosts(dt, me, show) {
         if (g && g.kind !== kindOf(p)) { disposeGhost(g); g = ghosts[id] = null; }
         if (!g) g = ghosts[id] = buildGhost(p);
         g.seenAt = MP.clock; g.mark = true;
-        if (g.tagName !== p.name) { g.tag.removeFromParent(); g.tag.userData.dispose(); g.tag = nameSprite(p.name, 2.6); g.tag.position.y = p.m === 1 ? 2.35 : 2.75; g.obj.add(g.tag); g.tagName = p.name; }
+        if (g.tagName !== p.name) { g.nt.set(p.name || "Rider", (SKINS[p.sk] || SKINS.pink).body, {}); g.tagName = p.name; }
         g.obj.visible = true; g.shown = true; p.onScreen = true; shown++;
         g.obj.position.set(at.x, 0, at.z);
         g.obj.rotation.y = at.h;
@@ -243,7 +246,7 @@ export function updateGhosts(dt, me, show) {
         // nametag stays readable at distance
         const dist = v.copy(g.obj.position).distanceTo(camPos);
         const k = Math.max(1, Math.min(6, dist / 15));
-        g.tag.scale.set(2.6 * k, 2.6 * k * 96 / 512, 1);
+        g.tag.scale.set(2.7 * k, 2.7 * k * 112 / 512, 1);
         g.tag.material.opacity = p.vis;
         // emoji bursts: emote > honk > wave
         const em = p.emT > 0 ? [p.emEmoji || "❤️", p.emT] : p.honkT > 0 ? ["📣", p.honkT] : p.waveT > 0 ? ["👋", p.waveT] : null;
