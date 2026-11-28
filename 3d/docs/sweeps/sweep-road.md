@@ -74,6 +74,12 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## For other branches
 
+- **ci/sweep-health**: `community` is red on current main without this sweep's change too (locally, twice: "Hatzalah is
+  there (lights, siren) before she hangs up" times out; once "boxed in again" / "the cops come"; CI 46171804000 also
+  "Chaverim pull up behind her").
+- **ci/twoway's owner**: driving DOWN the lap from near the start of the world, the road ends at s = 0 (the lap is periodic
+  only going up): sweeproad3's down-the-lap drive reached s 0 and left the road there (`d` growing to 48 with `s` stuck at 0).
+
 - **ci/twoway's owner (the town-engine agent)**: going DOWN the lap, roadevents' set pieces (toll, train crossing, school
   bus stop, work zones, the steamroller…) still place themselves up the lap (`roadevents/common.js` `claimSlot`:
   `carS() + 420` / `builtEnd()`), i.e. behind her, where she never meets them; their "keep me" tests (`car.s < s + 250`)
@@ -93,6 +99,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 18:10 UTC — part 8 on main: finding 31 (town crash fairness). CI 46171804000 (town, midwood, lawstruck, qalaw,
+  core, platform, sweeproad ✓; community ✗ — fails the same way locally with this change taken out, see For other branches).
 - 2026-11-28 17:35 UTC — part 7 on main: a given-up cruiser is let go 170 m on her way (down the lap too); the `amb`
   check no longer races the chase; sweeproad3's driver flips back for Ima's call (the down-the-lap "veers"). CI 46170331613
   (core, platform, sweeproad, law, lawstruck, qalaw ✓).
