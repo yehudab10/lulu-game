@@ -633,7 +633,7 @@ function updatePatrols(dt, controlsOn) {
             c.hit = false; c.speed = 0; c.free = true; c.h = c.obj.rotation.y; u.downed = false;
             if (!c.ai) c.ai = (d, cc) => driveUnit(d, cc, u);
         }
-        if (u.mode === "giveup" && (u.t > 22 || car.s - c.s > 170)) { c.keep = false; }
+        if (u.mode === "giveup" && (u.t > 22 || (car.s - c.s) * travelDir() > 170)) { c.keep = false; }
         if (u.flavour) updateFlavourUnit(dt, u);
         if ((u.mode !== "patrol" && !u.hunter) || u.bolo) continue;
         if (!controlsOn || !canPounce()) { u.spot = Math.max(0, u.spot - dt); continue; }
