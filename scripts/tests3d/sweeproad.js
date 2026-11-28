@@ -5,13 +5,15 @@
 //           still is; a car she just passed brakes for her when she stops instead of ploughing into her
 //   ramp    a chase down Lakewood's off-ramp: the cruiser on her tail drives the ramp (decel lane → ramp → its branch),
 //           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
+//   yard    a car impounded at a ROADSIDE yard (Trooper Post 7): its gate takes the fee and gives it back (it was keyed
+//           to no town, so the gate never opened and the car stayed in for good); the 📱 says where it is
 //   lot     Uncle Refael's lot: "🔑 Drive it off the lot" for a car she owns is only offered while that car is at home —
 //           an IMPOUNDED one used to come out free (no release fee) and one parked across the map jumped to the lot
 const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "ramp", "lot"],
+  parts: ["crash", "ramp", "yard", "lot"],
   query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
@@ -21,6 +23,7 @@ module.exports = {
     try {
       if (PART.includes("crash")) await step("crash", () => crash(t));
       if (PART.includes("ramp")) await step("ramp", () => ramp(t));
+      if (PART.includes("yard")) await step("yard", () => yard(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
     } finally { W.dropRelayErrors(t); }
   },
@@ -201,6 +204,43 @@ async function ramp(t) {
   t.check("ramp: a cruiser chased her down the ramp", seen.some(n => n > 0), seen.join(","));
   t.check("ramp: …on the decel lane / ramp, never across the gore or the grass", off.length === 0, JSON.stringify(off.slice(0, 8)));
   await g(`(ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await t.frames(6);
+  await W.pause(t, true);
+}
+
+/** A car held at Trooper Post 7's impound yard (the highway, ci/roadside): the gate there releases it. */
+async function yard(t) {
+  const g = t.game;
+  await W.pause(t, false);
+  if (await g(`ctx.foot && ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  if (await g(`ctx.town && ctx.town.active`)) await g(`(ctx.town.leave("reset"), true)`);
+  if (await g(`L3.state !== "playing"`)) {
+    await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "yard: a cruise starts", 120000);
+  }
+  // by Trooper Post 7 (lap metre 6800) on this lap, on foot at its impound gate
+  await g(`(() => { ctx.traffic.config.enabled = false; ctx.traffic.clear(); const L = 16000, s = Math.floor(ctx.car.s / L) * L + 6800 + (ctx.car.s % L > 6800 ? L : 0) - 30;
+    const p = ctx.world.highway.point(s, 9, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 9; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+  await t.frames(10);
+  await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+  await t.until(`__lulu3d.state === "footRun"`, "yard: out on foot", 10000);
+  const sp = await g(`(() => { const sp = ctx.civic.spot("impound"); return sp ? { hw: sp.hw, x: sp.x, z: sp.z, nx: sp.nx, nz: sp.nz } : null; })()`);
+  if (!t.check("yard: Trooper Post 7's impound yard is there", !!sp && sp.hw === "trooper", JSON.stringify(sp))) return;
+  await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${sp.x} + ${sp.nx} * 0.8, 0.05, ${sp.z} + ${sp.nz} * 0.8); F.phase = "walk"; return true; })()`);
+  await g(`(ctx.cars.leaveAt("purple", { kind: "impound", town: "hw:trooper", why: "arrest" }), true)`);
+  await t.frames(20);
+  const st = await g(`({ held: ctx.impound.held, label: ctx.impound.gateLabel(), where: (ctx.cars.list().find(c => c.key === "purple") || {}).where })`);
+  t.check("yard: the car held at the trooper yard is held HERE (its gate's ✋ offers it)", !!st.held && st.held.town === "hw:trooper" && !!st.label, JSON.stringify(st));
+  t.check("yard: …the 📱 says where it is (not 'impounded in null')", /Trooper Post 7/.test(st.where || ""), st.where);
+  const c0 = await t.L(`__lulu3d.wallet.coins`);
+  const paid = await g(`ctx.impound.pay("gate")`);
+  const fee = c0 - await t.L(`__lulu3d.wallet.coins`);
+  t.check("yard: paying at its gate takes the fee shown", paid === "paid" && fee === await g(`ctx.impound.fee()`) || (paid === "paid" && fee > 0), JSON.stringify({ paid, fee }));
+  await g(`ctx.impound.release("gate")`);
+  await t.frames(20);
+  t.check("yard: …and the gate gives the car back (it's with her)", (await g(`ctx.cars.where("purple").kind`)) === "with" && !(await g(`ctx.impound.held`)));
+  await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
 }

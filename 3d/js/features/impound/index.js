@@ -33,6 +33,7 @@ import { ID, FEE, CHARGE, L } from "./data.js";
 import { BR, breakTick, breakReset, panelSpot, startBreakIn } from "./breakin.js";
 import { TOW_FEE, L as CL } from "../cars/data.js";
 import { SKINS } from "../../car.js";
+import { lapPlaces } from "../world/lapmap.js";
 
 export const SAVE = store(ID, { paid: 0, breakDay: "", breaks: 0, clean: 0, slip: null });
 /** Per run: where her car is held + whether the release is paid. */
@@ -46,9 +47,16 @@ export const fee = () => (IM.held && IM.held.why === "tow" ? TOW_FEE : SAVE.paid
 /** features/cars keeps where every car is: then the impound holds whichever cars ctx.cars says (any number, kept across
  *  runs and reloads — no auto-return), a paid slip is saved per car, and a tow (not an arrest) costs TOW_FEE. */
 const carsOn = () => !!(ctx.cars && ctx.cars.held && ctx.enabled("cars"));
+/** Where she is, as an impound's key: the town's id, or (on the highway, by a roadside place's yard — ci/roadside's Trooper
+ *  Post 7 / the Weigh Station) "hw:<its id>" — the same key a car impounded there is held under. */
+function hereKey() {
+    if (inTown()) return ctx.town.id;
+    const sp = ctx.civic && ctx.civic.spot ? ctx.civic.spot("impound") : null;
+    return sp && sp.hw ? "hw:" + sp.hw : null;
+}
 function syncHeld() {
     if (!carsOn()) return;
-    const h = ctx.cars.held(inTown() ? ctx.town.id : null) || ctx.cars.held(null);
+    const h = ctx.cars.held(hereKey()) || ctx.cars.held(null);
     if (!h) { IM.held = null; IM.released = false; return; }
     if (!IM.held || IM.held.key !== h.key || IM.held.town !== h.town) {
         IM.held = { town: h.town, key: h.key, why: h.why, at: ctx.time };
@@ -58,22 +66,24 @@ function syncHeld() {
 }
 const brokeLine = () => fill(carsOn() ? CL.brokeKeep : L.broke, { fee: fee(), have: wallet.coins });
 const carObj = () => (ctx.civic && ctx.civic.impound ? ctx.civic.impound.car() : null);
-/** Is her car held in the town she's in (behind ITS fence)? */
-const heldHere = () => !!(IM.held && inTown() && ctx.town.id === IM.held.town);
+/** Is her car held where she is (behind THIS fence — a town's, or a roadside yard's)? (A roadside yard's used to be keyed
+ *  null and never matched: its gate never opened — the car stayed in for good.) */
+const heldHere = () => !!(IM.held && IM.held.town && hereKey() === IM.held.town);
 const live = () => ctx.enabled(ID);
 
 // ── when she's walked out on foot and her car stays behind the fence ────
 on("places:out", e => {
     if (!live() || !e || e.car || !(ctx.foot && ctx.foot.ownCar === "gone") || !carObj()) return;
+    const where = e.town || (e.hw ? "hw:" + e.hw : null);          // (a roadside place's yard: "hw:trooper" / "hw:weigh")
     if (carsOn()) {
         // (the car she was using; in a borrowed ride her own cars are wherever they are — nothing to hold)
-        ctx.cars.impounded(e.town); IM.held = null; syncHeld();
-        if (IM.held && IM.held.town === e.town) log("held", { town: e.town, key: IM.held.key });
+        ctx.cars.impounded(where); IM.held = null; syncHeld();
+        if (IM.held && IM.held.town === where) log("held", { town: where, key: IM.held.key });
         else if (!heldHere() && ctx.civic.impound) ctx.civic.impound.show(false);
         return;
     }
-    IM.held = { town: e.town, at: ctx.time }; IM.released = false;
-    log("held", { town: e.town });
+    IM.held = { town: where, at: ctx.time }; IM.released = false;
+    log("held", { town: where });
 });
 on("run:start", () => { breakReset(); if (carsOn()) { IM.held = null; syncHeld(); return; } IM.held = null; IM.released = false; });   // (without features/cars: a new run = the car is home again)
 on("title", () => { breakReset(); if (carsOn()) return; IM.held = null; IM.released = false; });
@@ -181,7 +191,10 @@ function chipTick() {
     // the 📱 Map: a pin at the lot holding her car (ci/hud's registry — skipped until it exists)
     try {
         const P = ctx.pins;
-        if (P && P.add && IM.held && !IM.pinRm) IM.pinRm = P.add({ id: "impound", icon: "🚗", label: "Your impounded car", town: IM.held.town, spot: "impound" });
+        if (P && P.add && IM.held && !IM.pinRm) {
+            const hw = String(IM.held.town || "").startsWith("hw:") ? lapPlaces().find(q => q.addr === IM.held.town) : null;
+            IM.pinRm = P.add(hw ? { id: "impound", icon: "🚗", label: "Your impounded car", lap: hw.m, group: "highway" } : { id: "impound", icon: "🚗", label: "Your impounded car", town: IM.held.town, spot: "impound" });
+        }
         else if (IM.pinRm && !IM.held) { if (typeof IM.pinRm === "function") IM.pinRm(); else if (P && P.remove) P.remove("impound"); IM.pinRm = null; }
     } catch (e) { /* no pins */ }
 }
@@ -190,7 +203,8 @@ hook("hud", dt => { if ((acc += dt) < 0.25) return; acc = 0; try { syncHeld(); c
 on("state", ({ to }) => { if (to === "footRun" || to === "playing") return; if (IM.chip && IM.chipTxt) { IM.chipTxt = ""; IM.chip.innerHTML = ""; IM.chip.classList.add("hidden"); } });
 
 // ── the break-in's per-frame tick (on foot, in the town that holds her car) ──
-hook("hud", dt => { try { breakTick(dt, live() && heldHere() && onFoot()); } catch (e) { console.error("[impound] break-in", e); } });
+// (towns only: the loose panel + Bruno are built round a town lot — a roadside yard is paid at its gate)
+hook("hud", dt => { try { breakTick(dt, live() && inTown() && heldHere() && onFoot()); } catch (e) { console.error("[impound] break-in", e); } });
 
 ctx.impound = {
     get held() { return IM.held ? Object.assign({}, IM.held) : null; },

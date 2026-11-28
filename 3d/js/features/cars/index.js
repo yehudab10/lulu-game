@@ -35,6 +35,7 @@ import { inv, syncInv } from "../garage/data.js";
 import { equipSkin } from "../garage/buy.js";
 import { MAP_EXTRAS } from "../phone/apps.js";
 import { lapPlaces, myLapM, ahead, miles } from "../world/lapmap.js";
+import { BY_ID as ROAD_BY_ID } from "../places/roadside.js";
 import { ID, TUNE, L, TOW_FEE, MINIVAN } from "./data.js";
 
 export const SAVE = store(ID, { v: 1, cars: {}, pend: null, slots: null, care: {} });
@@ -47,7 +48,11 @@ const T = () => ctx.traffic;
 const footF = () => (ctx.foot && ctx.foot.debug ? ctx.foot.debug.F : null);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const nameOf = k => (SKINS[k] ? SKINS[k].name : k);
-const townName = id => { const d = ctx.town && ctx.town.towns && ctx.town.towns[id]; return d ? d.name : id; };
+const townName = id => {
+    // (a roadside place's impound yard: "hw:trooper" → Trooper Post 7)
+    if (String(id || "").startsWith("hw:")) { const R = ROAD_BY_ID[String(id).slice(3)]; return R ? R.name : "the highway"; }
+    const d = ctx.town && ctx.town.towns && ctx.town.towns[id]; return d ? d.name : id;
+};
 const sel = () => (ctx.car && SKINS[ctx.car.skinKey] ? ctx.car.skinKey : inv.selectedSkin);
 const owned = () => (inv.ownedSkins || ["pink"]).filter(k => SKINS[k]);
 
@@ -554,7 +559,7 @@ function distLine(k) {
     if (r.hw && !w) return miles(ahead(r.hw.ls, myLapM()));
     if (w && me) { const m = Math.hypot(w.x - me.x, w.z - me.z); return m < 1000 ? fill(L.here, { m: Math.round(m / 10) * 10 }) : `${(m / 1000).toFixed(1)} km`; }
     if (ctx.town && ctx.town.active && ctx.town.id === r.town) return "";
-    const t = lapPlaces().find(p => p.addr === "hw:exit:" + r.town);
+    const t = lapPlaces().find(p => p.addr === "hw:exit:" + r.town || p.addr === r.town);
     return t ? miles(ahead(t.m, myLapM())) : L.up;
 }
 MAP_EXTRAS.push({
