@@ -25,11 +25,18 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 10 | A car impounded at a ROADSIDE yard (Trooper Post 7 / the Weigh Station, ci/roadside): held under no town, so the yard's gate never offered it (paying at City Hall gave a slip no gate took) and the 📱 said "impounded in null" — the car was gone for good. | `impound/index.js` `heldHere`, `cars/index.js` `townName` | **fixed** — held under the yard's address (`hw:trooper` / `hw:weigh`); its gate takes the fee (the one shown) and gives it back; the 📱 names the yard; the Map pin is at its lap metre. (The break-in stays a town-lot thing.) |
 | 11 | Driving a long ride (the box truck, a bus, the ambulance): her hit circles were always her own 4.6 m car's — traffic and walls passed through the back half of a 10 m bus. | `traffic.js` collide, `car.js` collideStatic, `rides/index.js` | **fixed** — a ride's shell gives her its kind's circles + radius (`specOfModel`); her own car: unchanged |
 
+| 12 | A roadside yard's released car rolled out INTO a highway lane (the town kerb rule). | `impound/index.js` release | **fixed** — the yard's own stalls (`sp.kerbAt`) |
+| 13 | A town's "NEXT EXIT ½ MI" board stood 420 m out (≈ ¼ mi); a rest area's "1 MI" at 0.66 mi, "½ MI" at 0.26 mi — a busy spot slid the board TOWARD the exit. | `town/exit.js` `add`, `exits/index.js` `sign` | **fixed** — the advance boards slide back, away from the exit (the lap survey checks every board's distance, the trip bar and the chip — `sweeproad2`) |
+| 14 | A car pulling out to pass a slow car swerved into the lane she was in (`laneFree` only looked at other traffic) — seen on the lap drive. | `traffic.js` | **fixed** — `laneFree` sees her car |
+| 15 | ⛽ Driving anything that isn't her car but wasn't CARJACKED — a hotwired parked car, a ride, Ima's minivan (no gauge by design) — drained HER car's tank, and a pump filled hers. | `fuel/index.js` `key()` | **fixed** — any borrowed shell has its own tank (Ima's minivan: none); a new shell = a new tank |
+| 16 | A call-in (BOLO) cruiser in town drove the street grid straight to her car, wherever she'd gone (AGENTS §7 known issue). | `law/cops.js` steerUnit | **fixed** — it prowls round where the call came from (town's searchPoint / prowlPoint), slow, until it sees her |
+| 17 | The dealerships' "🔑 Drive this one" (Mazelati card, Tushla's tablet + configurator): the same free release / teleport as #5. | `dealers/lux.js`, `ev.js`, `config.js` | **fixed** — one helper `garage/buy.js` `carAway(id)`; the button says where the car is |
+| 18 | The impound HUD line said "City Hall or the precinct" for a car held at a roadside yard. | `impound/index.js` | **fixed** — "City Hall or Trooper Post 7's yard" |
+
 ## For other branches
 
-- **ci/dealers-ui** (`features/dealers`): the same as #5 at Mazelati (`lux.js` "🔑 Drive this one") and Tushla (`ev.js`
-  `buyHere`, `config.js` `order`) — `equipSkin(id)` for a car she owns, wherever it is (impounded → out free). Gate it on
-  `ctx.cars.atHome(id)` like `shops/dealer.js` `away()` now does.
+- **ci/sweep-health / ci/fasttests**: on the fast test clock a test's `t.shot()` comes out as flat sky blue (the HUD drawn
+  over it) — `sweeproad2` / `sweeproad3` pictures; with `SMOKE3D_FAST=0` they're right. Screenshots someone looks at need the old clock.
 
 ## Landed
 
