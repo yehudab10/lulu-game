@@ -85,6 +85,9 @@ export class Traffic {
             if (c.hit || c.dir !== dir) continue;
             if (Math.abs(c.d - d) < 2 && Math.abs(c.s - s) < gap) return false;
         }
+        // …and HER car (update() notes where she is): a car pulling out to pass used to swerve into her side
+        const me = this.me;
+        if (me && Math.abs(me.d - d) < 2.6 && Math.abs(me.s - s) < gap + 4) return false;
         return true;
     }
 
@@ -162,6 +165,8 @@ export class Traffic {
     /** Main update. Returns events: [{type:"nearMiss"}...] */
     update(dt, player, playerS, playerD, difficulty, honked, time) {
         const events = [];
+        // (laneFree: her car's lane — not on foot: foot's PROXY has no vF)
+        if (typeof player.vF === "number") { const m = this._me || (this._me = { s: 0, d: 0 }); m.s = playerS; m.d = playerD; this.me = m; } else this.me = null;
         this.spawnT -= dt;
         if (this.spawnT <= 0) { this.spawn(playerS, difficulty); this.spawnT = 0.35; }
 
