@@ -159,6 +159,11 @@ async function body(t, pages, riders) {
   const emOk = await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`);
   if (!emOk) console.log("   EMDIAG", JSON.stringify({ B: await B.game(`({ flags: ctx.worldClock.flags, out: ctx.mp._debug.relOut ? ctx.mp._debug.relOut.size : -1, room: ctx.mp.room, conn: ctx.mp._debug.connected })`), A: await g(`({ seen: ctx.mp._debug.relSeen ? ctx.mp._debug.relSeen.size : -1, room: ctx.mp.room, emr: window.__emr })`) }));
   t.check("an emote arrives as a reliable event (r) and shows once", emOk, JSON.stringify(await g(`window.__emr`)));
+  // one emote system: B's 8-gesture wheel (party/emotes.js) works for strangers — 🥂 Mazel tov! plays on B's ghost on A's screen
+  await B.frames(120);                                     // (past A's per-rider emote flood guard)
+  const gB = await B.until(`ctx.emotes && ctx.emotes.allowed && (ctx.emotes.debug.resetCool(), ctx.emotes.play("mazel"))`, "B: a gesture to a stranger", 30000);
+  const gA = gB && await A.until(`ctx.mp.ghostStats().gestures >= 1 && Object.values(${S}.peers).some(p => p.emG === 6)`, "A: B's gesture on her ghost", 30000);
+  t.check("one emote system: B's gesture (🥂 Mazel tov!) plays on B's ghost on A's screen", gA, JSON.stringify({ gB, A: await g(`ctx.mp.ghostStats()`), allowed: await B.game(`({ ok: ctx.emotes && ctx.emotes.allowed, social: ctx.mp.social })`) }));
 
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
   // draws the other in the hall, in her own look; out again, both are back on the road

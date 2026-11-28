@@ -365,6 +365,13 @@ OPTIONAL state fields ride in existing messages, and every old client ignores th
   (garage ids; "none" / "beep" are never sent; `[a-z0-9_]` ≤ 16, checked on receipt). Her decoration sits at its anchor
   on her car (`CarVisual.setDecor` — animated on a friend's car, baked still into a stranger's one mesh); her honk plays
   her own horn (`ctx.garage.playHorn`) for strangers too, the way friends already heard it.
+- **One emote system** (`d.eg` on the Shared Road state; `g` in the reliable `em` event): the party's 8 gestures
+  (`party/emotes.js` — 👋 Hi! · 👉 Follow me! · ✋ Wait up! · 🙌 Woohoo! · 💃 · 🤦 Oy vey! · 🥂 Mazel tov! · 👏 GG!; fixed
+  phrases only, no free text) are the wheel for everyone. To strangers a gesture is the SAME message an emote always was
+  (one `em` event + `d.em` for ~2 s in the state), with the gesture's number beside the nearest old emoji — 2D / older 3D
+  players still see the emoji. Receivers play its pose on her walker, its phrase in a bubble and its emoji in the burst
+  (`multiplayer/ghosts.js`). In the car online without friends the wheel opens by HOLDING the horn (D-pad ↑ / F fire
+  missiles there); on foot and with friends as before. The old 6-emoji wheel stays only without the party feature.
 - `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
   the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
   `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual

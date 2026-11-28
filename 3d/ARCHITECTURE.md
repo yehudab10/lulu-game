@@ -2415,7 +2415,9 @@ there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs frien
 walking in her own outfit (`d.hc` / `d.ot` in the EVERYONE state; an old client without them: a top in her car's colour) and
 her salon hairdo (`d.hs` / the party's `hs`: the style's hair piece on her car, its walking model on foot) and her moves on foot —
 rolls, slides, vaults, dancing, the jumpsuit and disguises (`d.f`, the friends' foot code, one `poseWalker`), her bling on her
-car and her own horn when she honks (`d.dc` / `d.hn`; the party's `dc` / `hn`); one
+car and her own horn when she honks (`d.dc` / `d.hn`; the party's `dc` / `hn`); ONE emote system — the party's 8-gesture wheel
+with its fixed phrases for strangers too (`party/emotes.js` → `ctx.mp.gesture`, the same `em` event as before + `d.eg`; in the car
+online without friends: hold the horn); one
 bump rule (one harmless bounce, then she drives through for a moment — `index.js` › `strangerBump`); the friends' name tag
 (the label: "Gold 72" or her signed username; a friend's is her name with the 👑 / presence chips); other players inside
 PUBLIC rooms (`d.in`, `together/rooms.js` › `publicRoom` — houses friends-only, Ima's private). **The world clock's client

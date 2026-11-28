@@ -15,7 +15,7 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
-import { CarVisual, NameTag, personKey, carHairKey, LOOKS, poseWalker, decorOk, decorReady } from "../party/remote.js";
+import { CarVisual, NameTag, Bubble, personKey, carHairKey, LOOKS, poseWalker, decorOk, decorReady } from "../party/remote.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeGeometry } from "../../merge.js";
 
@@ -147,6 +147,7 @@ function disposeGhost(g) {
     g.nt.dispose();
     g.ring.geometry.dispose(); g.ring.material.dispose();
     if (g.burst) disposeBurst(g.burst);
+    if (g.bub) g.bub.dispose();
 }
 
 // ── emoji bursts (canvas sprite, redrawn only when the emoji changes) ──────
@@ -202,8 +203,9 @@ export const ghostStats = () => {
     const hands = Object.values(ghosts).filter(g => g && g.shown && g.person && g.person.obj.userData.hiHand).length;
     const styled = Object.values(ghosts).filter(g => g && g.shown && /cameos_hair|luluPerson_/.test(g.kind)).length;   // (a salon hairdo drawn)
     const feet = Object.keys(ghosts).filter(id => ghosts[id] && ghosts[id].shown && ghosts[id].person).map(id => (MP.peers[id] && MP.peers[id].f) || [0, 0, 0]);   // (their foot codes)
+    const gestures = Object.values(ghosts).reduce((n, g) => n + ((g && g.gestures) || 0), 0);   // (strangers' gestures played)
     const decked = Object.keys(ghosts).filter(id => { const G = ghosts[id], p = MP.peers[id]; return G && G.shown && p && decorOk(p.dc) && G.kind.includes(":" + p.dc + ":"); }).length;   // (her bling drawn)
-    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands, styled, feet, decked };
+    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands, styled, feet, decked, gestures };
 };
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */
@@ -266,6 +268,22 @@ export function updateGhosts(dt, me, show) {
         g.obj.rotation.y = at.h;
         p.ws = at.x; p.wd = at.z;
         const mps = at.mps;
+        // one emote system: a gesture (p.emG — the party's 8, party/emotes.js) → her walker plays its pose, its FIXED phrase
+        // pops over her (car or foot), its emoji in the burst; an older client's plain emoji just bursts
+        if (g.emSeq !== p.emSeq) {
+            const fresh = g.emSeq !== undefined || p.emT > 0;
+            g.emSeq = p.emSeq;
+            const E = fresh && p.emG >= 0 && ctx.emotes && ctx.emotes.EMOTES ? ctx.emotes.EMOTES[p.emG] : null;
+            if (E) {
+                p.emEmoji = E.e;
+                if (g.person) g.emote = { i: p.emG, t: 0, dur: E.dur || 2.6, pose: E.pose, hop: E.hop || 0 };
+                if (!g.bub) { g.bub = new Bubble(); g.obj.add(g.bub.sp); }
+                g.bub.show(E.say === E.e ? E.e : E.say);
+                g.gestures = (g.gestures || 0) + 1;
+            }
+        }
+        if (g.emote) { g.emote.t += dt; if (g.emote.t > g.emote.dur || (p.f && p.f[0])) g.emote = null; }
+        if (g.bub) g.bub.update(dt, g.person ? 2.6 : 3.3);
         if (g.person) {
             // her move (a roll, a slide, a vault, dancing…) the way friends see it — party/remote.js poseWalker
             const f = p.f;

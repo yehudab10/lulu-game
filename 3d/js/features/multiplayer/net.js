@@ -32,6 +32,11 @@ export const CURATED_NAMES = [
     "Sheitel Slayer", "Dreidel Daredevil", "Latke Legend", "Schmaltz Speedster",
 ];
 export const EMOTES = ["😂", "❤️", "😱", "🏁", "🐢", "🔥"];
+// one emote system: the party's 8 gestures (party/emotes.js: hi · follow · wait · cheer · dance · facepalm · mazel · gg) ride
+// the same emote event + d.em, with the gesture's number beside the nearest old emoji (2D / older 3D players see that)
+const GESTURE_EMOJI = [1, 3, 4, 5, 5, 2, 1, 0];
+/** A gesture number she may send (0–7), or -1. */
+export const gestureOf = g => Number.isInteger(g) && g >= 0 && g < GESTURE_EMOJI.length ? g : -1;
 export const RING = 60000;
 export const DI_PER_M = 56000 / 4800;
 export const X_PER_M = 20, X_MID = 240;
@@ -316,7 +321,7 @@ function applyState(id, d, snap, src = LEGACY) {
             if (snap) p.emNonce = d.em[0];
             else if (p.emNonce !== d.em[0]) {
                 p.emNonce = d.em[0];
-                if (MP.clock - p.emAt >= 1.5) { p.emAt = MP.clock; p.emT = 1.1; p.emEmoji = EMOTES[d.em[1] | 0] || "❤️"; } else MP.recv++;
+                if (MP.clock - p.emAt >= 1.5) { p.emAt = MP.clock; p.emT = 1.1; p.emEmoji = EMOTES[d.em[1] | 0] || "❤️"; p.emG = gestureOf(d.eg); p.emSeq = (p.emSeq || 0) + 1; } else MP.recv++;
             }
         }
         if (d.pb && d.pb.length === 2 && typeof d.pb[0] === "number") {
@@ -343,7 +348,7 @@ function applyState(id, d, snap, src = LEGACY) {
     }
     if (d.em && d.em.length === 2 && typeof d.em[0] === "number") {
         if (snap) p.emNonce = d.em[0];
-        else if (p.emNonce !== d.em[0]) { p.emNonce = d.em[0]; p.emT = 1.1; p.emEmoji = EMOTES[d.em[1]] || "❤️"; }
+        else if (p.emNonce !== d.em[0]) { p.emNonce = d.em[0]; p.emT = 1.1; p.emEmoji = EMOTES[d.em[1]] || "❤️"; p.emG = gestureOf(d.eg); p.emSeq = (p.emSeq || 0) + 1; }
     }
     if (d.it && d.it.length === 2 && typeof d.it[0] === "number" && !snap) tagApplyMarker(id, d.it[0], d.it[1]);
     if (typeof d.tgo === "number" && !snap) tagLearn(id, d.tgo);
@@ -487,7 +492,7 @@ function sendState() {
         if (MP.race.state === "done" && MP.race.winner === "me") d.rw = MP.race.id;
     }
     if (MP.myRecord && MP.clock - MP.recordAt < 4) d.pb = [MP.myRecord.n, MP.myRecord.v];
-    if (MP.myEmote && MP.clock - MP.myEmote.at < 2) d.em = [MP.myEmote.n, MP.myEmote.idx];
+    if (MP.myEmote && MP.clock - MP.myEmote.at < 2) { d.em = [MP.myEmote.n, MP.myEmote.idx]; if (MP.myEmote.g != null) d.eg = MP.myEmote.g; }
     if (MP.tag) {
         if (MP.tag.itIsMe && !MP.tag.over) d.it = [MP.tag.n, MP.tag.gid];
         if (!MP.tag.over && MP.clock - MP.tag.tgoAt < 4) d.tgo = MP.tag.gid;
@@ -520,6 +525,16 @@ export function sendEmote(idx) {
     if (MP.forceSends < 2) MP.forceSends = 2;
     MP.myBurst = { emoji: EMOTES[idx] || "❤️", t: 1.1 };
     tone(660, 0.1, "triangle", 0.16, 900);
+}
+
+/** One of the party's 8 gestures to the room (the wheel is party/emotes.js; it shows her own bubble + pose). */
+export function sendGesture(g) {
+    g = gestureOf(g);
+    if (g < 0) return;
+    MP.emoteNonce++;
+    MP.myEmote = { n: MP.emoteNonce, idx: GESTURE_EMOJI[g], g, at: MP.clock };
+    sendRel("em", { n: MP.emoteNonce, i: GESTURE_EMOJI[g], g });
+    if (MP.forceSends < 2) MP.forceSends = 2;
 }
 
 // ── FRIEND RACE ──────────────────────────────────────────────────────────

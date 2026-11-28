@@ -37,6 +37,10 @@ ctx.mp = {
     connect: (room = "lobby") => N.connect(room, room === "lobby" ? "everyone" : "friend"),
     disconnect: () => N.disconnect(true),
     emote: idx => N.sendEmote(idx),
+    /** One of the party's 8 gestures (party/emotes.js) to everyone around — on the emote event already sent. */
+    gesture: g => N.sendGesture(g),
+    /** Other players around and she's out in the world (the emote wheel's for them). */
+    get social() { return !!(me.social && me.inWorld); },
     get connected() { return MP.connected; },
     get riders() { return N.riderCount(); },
     get room() { return MP.roomKind === "place" ? "lobby" : MP.room; },   // (🌍 a place room is "the everyone world" to the rest of the game)
@@ -169,8 +173,11 @@ function frame() {
         // (in a 🎉 party the party's own wheel is the emote system — strangers just see your ghost)
         const social = !(ctx.party && ctx.party.active) && (N.friendRoom() || Object.values(MP.peers).some(p => p.onScreen));
         me.social = social;
-        U.wheelTick(dt, inRun && social && !ctx.paused && !ctx.dialogOpen);
-        U.setKeyInRun(inRun && social && !ctx.paused);
+        // (one emote system: with the party feature its 8-gesture wheel is the wheel for strangers too — party/emotes.js;
+        //  the old 6-emoji wheel only without it)
+        const own = !ctx.emotes;
+        U.wheelTick(dt, own && inRun && social && !ctx.paused && !ctx.dialogOpen);
+        U.setKeyInRun(own && inRun && social && !ctx.paused);
         titleRefresh();
     } catch (e) { console.error("[mp] frame", e); }
 }
@@ -383,6 +390,7 @@ on("mp:event", e => {
     p.emNonce = n;
     if (!N.friendRoom() && MP.clock - (p.emAt || -9) < 1.5) { MP.recv++; return; }
     p.emAt = MP.clock; p.emT = 1.1; p.emEmoji = N.EMOTES[i] || "❤️";
+    p.emG = N.gestureOf(e.d.g); p.emSeq = (p.emSeq || 0) + 1;     // (a gesture: her ghost plays it + its fixed phrase — ghosts.js)
 });
 // 🌍 step 3: a player by her relay id (Nearby / a tap pass that; in place mode MP.peers is keyed by room / session tag) —
 // the one in my own room first
@@ -407,7 +415,7 @@ addMenuItem("pause", { id: "sharedroad", order: 40, label: "🕹️ Classic 2D f
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });
-addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => MP.connected && me.social && me.inWorld });
+addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => !ctx.emotes && MP.connected && me.social && me.inWorld });
 hook("update", (dt, P) => { if (P.mpEmote) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); } }, -6);
 
 // tidy up ghosts when leaving a session
