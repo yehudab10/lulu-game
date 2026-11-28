@@ -7,6 +7,10 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 - 2026-11-28 19:00 UTC — 🩺 Where the tests stand for your return: the last full test run on today's game — 13 of 16
   test machines green when written; the two reds were a real bug (fixed and landed at 18:45) and a one-off that passed
   when re-run; the rest were still finishing. The table is at the top of `3d/docs/sweeps/sweep-health2.md`.
+- 2026-11-28 18:55 UTC — ✋ The hand button, at a door or a parked car: when a neighbour happened to walk past right next to
+  Lulu, the ✋ button switched to "💬 SAY HI" to them instead of opening the shop / the hospital / the shul she was standing
+  at, or hotwiring the car beside her. A passer-by now only gets the hand when there's nothing of hers in reach (in the
+  middle of the street she can still say hi).
 - 2026-11-28 18:45 UTC — 🩺 Tests + small fixes, part 5. Riding in a friend's car and hopping out while it's
   moving, Lulu's own car now appears right beside the seat she was in — it could pop up several car-lengths away.
 - 2026-11-28 18:35 UTC — 🚗 On the road, part 9. Someone crossing the road who walks into Lulu's car while she's
