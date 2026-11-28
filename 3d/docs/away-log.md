@@ -4,6 +4,13 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 04:16 UTC — 🏬 Places, part 3: coming out of a front door (a neighbour's house, Lakewood's shul) the camera
+  no longer starts inside the building — the screen used to be one flat colour until she walked away; now you see her
+  on the pavement right away.
+- 2026-11-28 03:30 UTC — 🏬 Places, part 2: walking into a house on a phone (a neighbour's, Ima's, a home for sale)
+  no longer shows one flat grey screen — the camera was stuck inside the front door; now the door goes see-through and
+  you see the room. The camera inside the newer buildings (houses, shops, City Hall, the bowling alley) also stops at
+  their walls instead of going through them, and a speech bubble never rises off the top of the screen.
 - 2026-11-28 02:27 UTC — 🏬 Places, part 1 (walking into buildings in town): speech bubbles from the street ("No car? No
   problem.", a protester's line) no longer stay frozen on screen inside the shop you just walked into, and neither does
   the "Find a car to borrow" hint or the town's WELCOME banner. On a phone, a room's speech bubbles are never wider than
@@ -23,6 +30,11 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
   out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
   now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 05:15 UTC (fixes) — 🗺️ On the phone's Map, tapping the place Lulu is already standing at (say, Ima's house
+  while she's on the porch) used to close the phone and do nothing; now the phone stays open and the place says
+  "📍 you're here!". ✈️ At the JFK kerb, a police car that wrecked itself ramming her could keep sliding right through her
+  car; the wreck now stops against her car like a solid thing. Two automatic checks that timed things on the wrong clock
+  were fixed.
 - 2026-11-28 02:15 UTC (tests) — The speed check at the Lakewood exit compared it with a bare stretch of fields with no
   trees; it now compares it with the same kind of countryside, and the exit is well within budget (nothing changed in
   the game).
