@@ -91,6 +91,8 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 27. **Controller words on a phone, in text**: serving a sentence said "mash [Tap] (or tap) to do your time", the
    garage "Press [Tap] again to buy", the empty photo album "press [Tap] to snap one" — touch has its own words now
    (`law/jail.js`, `garage/shop.js`, `play/photo.js`). — batch 5
+28. **The ✋ touch button said "OWN" at her own car** (and "RIP" at a wrecked one, "AVIGAIL" by Avigail) — the kinds'
+   internal names. DRIVE / LOOK / CHAT now (`foot/index.js` HAND_WORD). — batch 5
 
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
