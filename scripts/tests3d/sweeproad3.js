@@ -53,6 +53,19 @@ async function drive(t) {
   await g(`L3.startRun({ mode: "cruise", quick: true })`);
   if (!await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 180000)) return;
   await W.reset(t);
+  // 🔧 Velvel buys a "borrowed" ride — but not while her own car is impounded ("your car's brought round" = a free release)
+  if (await g(`!!(ctx.rides && ctx.rides.debug && ctx.cars)`)) {
+    await g(`(ctx.rides.debug.board("truck"), true)`);
+    if (await t.until(`__lulu3d.ctx.rides.id === "truck" && __lulu3d.state === "playing"`, "velvel: boards the box truck", 30000)) {
+      const v = await t.L(`import("./js/features/underworld/mechanic.js").then(M => { const C = __lulu3d.ctx, k = C.car.skinKey, was = C.cars.where(k);
+        const a = !!M.rideNow(); C.cars.leaveAt(k, { kind: "impound", town: "midwood" }); const b = !!M.rideNow(); C.cars.leaveAt(k, Object.assign({}, was)); return { a, b }; })`);
+      t.check("velvel: he'd buy the truck she's in — not while her own car is impounded", v.a && !v.b, JSON.stringify(v));
+    }
+    await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "a cruise starts again", 120000);
+    await W.reset(t);
+  }
   const s0 = await g(`Math.round(ctx.car.s)`), goal = s0 + 16000 + 400;
   await g(`(window.__drv.on = true, ctx.G.invT = 0, true)`);
   let nextShot = s0 + 300, lastS = s0, stall = 0, arrested = 0;
