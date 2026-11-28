@@ -13,7 +13,7 @@
 // keeps the trees, houses and poles off the ramps and cross roads, slid clear of pull-in places, rest areas
 // (features/exits) and reserved stretches (the coast's ocean, a family's house), and built in chunk:build like every
 // other set piece (same chunk → same ramps).
-import { ctx, on } from "../../core/ctx.js";
+import { ctx, on, hook } from "../../core/ctx.js";
 import { registerModels, ensureModels } from "../../models.js";
 import { paved } from "../../core/driving.js";
 import { INTERCHANGE, fillLine } from "./towns/index.js";
@@ -246,14 +246,45 @@ export function onRampSpot(exitS, u = ON0 + 22) {
     return { s: exitS + u, d, x: p.x, z: p.z, h: p.h - Math.atan(slope) };
 }
 
+/** The line a car drives off exit e onto branch b at u: the right lane → the decel lane → the ramp → the branch (d). */
+export function exitLineD(b, u) {
+    return u < TAPER0 + 10 ? 5.25 : u < TAPER1 + 15 ? 5.25 + (u - TAPER0 - 10) / (TAPER1 - TAPER0 + 5) * (RAMP_D0 - 5.25) : u < RAMP0 ? RAMP_D0 : b.dOf(u);
+}
 /** Test / debug: a driving line (u, d pairs) from the right lane down the decel lane onto branch k, to its stop line. */
 export function rampRoute(e, k = 0, from = -300) {
     const b = e.branches[k] || e.branches[0], pts = [];
-    for (let u = from; u <= b.stop - 4; u += 10) {
-        const d = u < TAPER0 + 10 ? 5.25 : u < TAPER1 + 15 ? 5.25 + (u - TAPER0 - 10) / (TAPER1 - TAPER0 + 5) * (RAMP_D0 - 5.25) : u < RAMP0 ? RAMP_D0 : b.dOf(u);
-        pts.push([u, +d.toFixed(2)]);
-    }
+    for (let u = from; u <= b.stop - 4; u += 10) pts.push([u, +exitLineD(b, u).toFixed(2)]);
     return pts;
 }
+
+// ── a chase down the off-ramp (law's hook "copRoute", as JFK's chase.js does for the airport's roads) ──
+// Law's own steering aims a cruiser at her lateral offset off the highway: on a curving ramp that cut straight across the
+// painted gore, the grass and the guardrails. While she's on a town exit's decel lane / ramp / branch / at its T (the town
+// not entered yet), a chasing cruiser behind her drives the ramp's own line instead, and straight at her once past its end.
+const _cr = {}, _ca = { e: null, b: null, uC: 0, tx: 0, tz: 0 };
+function aimRamp(la, out) {
+    const A = _ca, b = A.b, ua = A.uC + la;
+    if (ua >= b.stop - 4) { out.x = A.tx; out.z = A.tz; return out; }
+    return ctx.world.highway.point(A.e.s + ua, exitLineD(b, ua), out);
+}
+hook("copRoute", (c, unit, ch) => {
+    if (!unit || unit.mode !== "chase" || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
+    const car = ctx.car, hw = ctx.world.highway;
+    // where they're heading: her car, or (searching) where they last saw her
+    const look = ch && ch.searching && ch.last ? ch.last : null;
+    const ts = look ? look.s : car.s, td = look ? look.d : car.d;
+    const e = exitAt(ts);
+    if (!e) return null;
+    const ph = rampPhase(e, ts, td, _cr), u = ts - e.s;
+    const atT = !ph.phase && u > STOP_OUT - 8 && u < X_IN + 30 && td > D_IN - 12;     // past a stop line, at / on the cross road
+    if (!ph.phase && !atT) return null;
+    const uC = c.s - e.s;
+    if (uC < TAPER0 - 400 || uC > u + 5) return null;        // (far back on the highway: law's lanes; level with / past her: its own)
+    // (her branch; at the T: the branch whose stop line is nearest her)
+    const b = ph.branch != null ? e.branches[ph.branch] : e.branches.reduce((m, x) => (Math.abs(td - x.dOf(x.stop)) < Math.abs(td - m.dOf(m.stop)) ? x : m), e.branches[0]);
+    const p = look ? hw.point(look.s, look.d, {}) : car.pos;
+    Object.assign(_ca, { e, b, uC, tx: p.x, tz: p.z });
+    return { gap: Math.max(0, ts - c.s), aim: aimRamp };
+});
 
 on("boot", () => { ensureModels(["exits_gantry"]).catch(() => ensureModels(["town_gantry"]).catch(() => {})); });

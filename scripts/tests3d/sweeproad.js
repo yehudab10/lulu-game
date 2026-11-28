@@ -3,13 +3,15 @@
 //   crash   who was moving into whom: a cruiser in traffic that rear-ends HER on her last heart is not her
 //           "DESTROYING A POLICE CRUISER" (law's wreck hook, the cameos' crash scene); her ramming a stopped cruiser
 //           still is; a car she just passed brakes for her when she stops instead of ploughing into her
+//   ramp    a chase down Lakewood's off-ramp: the cruiser on her tail drives the ramp (decel lane → ramp → its branch),
+//           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
 //   lot     Uncle Refael's lot: "🔑 Drive it off the lot" for a car she owns is only offered while that car is at home —
 //           an IMPOUNDED one used to come out free (no release fee) and one parked across the map jumped to the lot
 const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "lot"],
+  parts: ["crash", "ramp", "lot"],
   query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
@@ -18,6 +20,7 @@ module.exports = {
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 400)); } };
     try {
       if (PART.includes("crash")) await step("crash", () => crash(t));
+      if (PART.includes("ramp")) await step("ramp", () => ramp(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
     } finally { W.dropRelayErrors(t); }
   },
@@ -145,5 +148,51 @@ async function lot(t) {
   await t.click(/Car:/);
   await t.frames(4);
   t.check("title: …and still switches to a car at home", (await g(`ctx.car.skinKey`)) === "purple");
+  await W.pause(t, true);
+}
+
+/** A chase down a town exit's off-ramp: where does the cruiser drive? */
+async function ramp(t) {
+  const g = t.game;
+  await W.pause(t, false);
+  if (await g(`ctx.foot && ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  if (await g(`ctx.town && ctx.town.active`)) await g(`(ctx.town.leave("reset"), true)`);
+  if (await g(`L3.state !== "playing"`)) {
+    await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "ramp: a cruise starts", 120000);
+  }
+  await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.town.load("lakewood"), true)`);
+  await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "ramp: Lakewood's models load", 120000);
+  const E = await g(`ctx.town.debug.exitAhead(900)`);
+  if (!t.check("ramp: Lakewood's exit planned ahead", E > 0, String(E))) return;
+  // the test driver (a controls hook: the player's own steering) down the ramp to the stop line
+  await t.L(`import("./js/core/ctx.js").then(m => { if (window.__rdrv) return; window.__rdrv = true; m.hook("controls", (ctl, dt) => { const W = window.__route; if (!W || !W.pts.length) return; const car = m.ctx.car;
+      const p = W.pts[0]; if (Math.hypot(p.x - car.pos.x, p.z - car.pos.z) < (W.r || 4)) { W.pts.shift(); if (!W.pts.length) return; }
+      const q = W.pts[0], want = Math.atan2(q.x - car.pos.x, q.z - car.pos.z); let d = want - car.h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      ctl.steer = Math.max(-1, Math.min(1, -d * 2.6)); ctl.throttle = car.speed < (W.v || 9) ? 0.7 : 0; ctl.brake = car.speed > (W.v || 9) + 3 ? 0.4 : 0; ctl.handbrake = false; ctl.analog = true; }, 1000); })`);
+  await g(`(() => { const s = ${E} - 520, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
+    ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.car.vF = 20; ctx.world.prebuild(s); ctx.cam.snap(); ctx.G.invT = 99; return true; })()`);
+  await W.moved(t);
+  await g(`(window.__route = { pts: ctx.town.debug.rampRoute(${E}, 0, -500).map(([u, d]) => ctx.world.highway.point(${E} + u, d, {})).map(p => ({ x: p.x, z: p.z })), v: 17, r: 5 }, true)`);
+  await g(`(ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
+  // every few frames: where is each chasing cruiser? (on the highway's asphalt, or on a paved exit lane)
+  const off = [], seen = [];
+  for (let k = 0; k < 90; k++) {
+    await t.frames(5);
+    const r = await t.L(`import("./js/world.js").then(m => { const C = __lulu3d.ctx, hw = C.world.highway, out = [];
+      for (const u of C.law._dbg.L.units) { if (!u.car || u.mode !== "chase" || u.car.hit) continue; const n = hw.nearest(u.car.x, u.car.z, u.car.s, {});
+        const uu = n.s - ${E}; out.push({ u: Math.round(uu), d: +n.d.toFixed(1), ok: Math.abs(n.d) <= 8.8 || m.pavedAt(n.s, n.d) >= 2 }); }
+      return { me: Math.round(C.car.s - ${E}), town: C.town.active, st: C.state, cops: out }; })`);
+    seen.push(r.cops.length);
+    for (const c of r.cops) if (!c.ok && c.u > -240 && c.u < 175) off.push(c);
+    if (r.town || r.st !== "playing" || (!r.cops.length && k > 30)) break;
+    if (r.me > 150 && k % 6 === 0) await t.shot("ramp-chase-" + r.me);
+  }
+  await g(`(window.__route = null, true)`);
+  t.check("ramp: a cruiser chased her down the ramp", seen.some(n => n > 0), seen.join(","));
+  t.check("ramp: …on the decel lane / ramp, never across the gore or the grass", off.length === 0, JSON.stringify(off.slice(0, 8)));
+  await g(`(ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await t.frames(6);
   await W.pause(t, true);
 }
