@@ -4,6 +4,14 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 12:45 UTC — 🔍 Game logic, part 2: one clock — shop doors, the car-care row, the school-zone speed cameras
+  and what's on in the shul / yeshiva now follow the hour the sky (and the 📱) shows, not the device's (a shop said
+  "CLOSED · opens 7 am" under the noon sun). Pressing ☰ in the middle of a question pauses the game instead of picking
+  the highlighted answer, and back from another app ✕ "Resume" no longer answers the question behind the pause card.
+  Nothing new (a robbery to foil, a cameo, a job's offer) starts during an ambulance patient run, a test drive or with
+  the Shomrim on her tail. A hitchhiker doesn't wait in the car through an arrest; riding in a friend's passenger seat
+  never gets her a speed-camera ticket; walking into one of the town's shops ticks Ima's "pop into a shop"; the
+  inspector doesn't wait on her path mid-chase; an arrest no longer freezes mid-cuffs when the cruiser has gone.
 - 2026-11-28 12:40 UTC — 🩺 Tests + small fixes, part 2. Walking around town is a little calmer: Lulu's first
   "where's a car" grumble waits until the on-foot tip has gone (she used to talk over it, and over the town's own welcome
   line), the drivers stuck in the Route 9 jam don't yell the same thing twice in a row, and the rain / storm / fog
