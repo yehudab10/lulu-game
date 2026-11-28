@@ -8,6 +8,7 @@ const SETTINGS = { quality: "auto", vibration: true, invertLook: false, steerSen
 
 module.exports = {
   name: "gfx",
+  fast: false,     // (it measures draws / pictures per frame: the old clock — scripts/smoke3d.js › THE FAST TEST CLOCK)
   viewport: { width: 1280, height: 720 },
   query: "&enable=atmos,bloom",
   save2d: { totalCoins: 100, ownedSkins: ["pink"], selectedSkin: "pink" },

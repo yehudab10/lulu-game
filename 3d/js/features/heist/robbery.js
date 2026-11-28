@@ -16,6 +16,7 @@
 import * as THREE from "three";
 import { ctx, on, hook, emit, addActor, wrapAngle } from "../../core/ctx.js";
 import { addCoins } from "../../core/driving.js";
+import { store, saveSoon } from "../../core/save.js";
 import { registerKind } from "../../traffic.js";
 import { spawnPerson } from "../../core/people.js";
 import { facingRoad } from "../../world.js";
@@ -32,6 +33,10 @@ const T = TUNE.robbery;
 const TOWN_SPOTS = ["bank", "pizza", "bakery", "hall"];
 
 export const R = { nextT: rand(T.first[0], T.first[1]), ev: null, store: null, log: [], footN: 0 };
+/** Walking robberies started today (device-local date, saved): T.footDay a REAL day on top of T.footMax a run — a new run
+ *  (↺ Restart, a reload) zeroes footN, so the run cap alone was still a ~120-coin tackle every couple of minutes. */
+const FD = store("heistFoot", { d: "", n: 0 });
+function footToday() { const d = new Date(), k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; if (FD.d !== k || !(FD.n >= 0)) { FD.d = k; FD.n = 0; } return FD.n; }
 
 /** Lulu's top speed WITHOUT nitro (what drag lets the engine reach) — the same sum law uses. */
 export function luluTop() {
@@ -485,11 +490,11 @@ function sched(dt, force = false) {
     if (pty && (!partyFree() || !inTown() || PR.friendRobbery())) return false;     // (with friends: Free Roam towns only, one robbery at a time across the party)
     if ((!pty && G.mode !== "cruise") || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery")) || ctx.engaged("heist")) return false;
     // (walking: at most T.footMax a run — an easy tackle by the door must not be a coin tap)
-    if (foot && (!inTown() || ctx.dialogOpen || ctx.foot.chasing || R.footN >= T.footMax)) return false;
+    if (foot && (!inTown() || ctx.dialogOpen || ctx.foot.chasing || R.footN >= T.footMax || footToday() >= (T.footDay || 4))) return false;
     R.nextT -= dt;
     if (R.nextT > 0) return false;
     R.nextT = foot ? rand(6, 10) : rand(20, 35);     // (try again soon if nothing fits right now)
-    if (inTown()) { const ok = stage({ where: "town" }); if (ok && foot) R.footN++; return ok; }
+    if (inTown()) { const ok = stage({ where: "town" }); if (ok && foot) { R.footN++; footToday(); FD.n++; saveSoon(); } return ok; }
     if (!foot && !(ctx.exits && ctx.exits.inside)) return stage({ where: "highway" });
     return false;
 }

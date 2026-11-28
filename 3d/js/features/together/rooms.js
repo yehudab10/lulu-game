@@ -32,11 +32,13 @@ export const SHARED = {
     home: () => (ctx.homes && ctx.homes.house ? ctx.homes.house.key : null),       // a house in town: its door
     bar: () => "", school: () => "", hospital: () => "", police: () => "", beach: () => "",       // the roadside doors: by the door (d.x.dr)
     courthouse: () => "",                                       // (places: the town's precinct / hospital reuse police / hospital — the door tells them apart)
+    yeshiva: () => "",                                          // (features/yeshiva: the big yeshiva — one in town, the door tells copies apart)
     shul: () => "",                                             // (features/shul: the town's shul — the door tells two copies apart)
     bank: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),     // the town's bank (heist): one lobby per town
     shopsPizza: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null), shopsBakery: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),   // (features/shops: the walk-in shops, one per town)
     terminal: () => "jfk",                                      // ✈️ the JFK terminal (features/airport): one hall
     clothesShop: () => (ctx.clothes && ctx.clothes.shopNow ? ctx.clothes.shopNow() : null),   // 👗 features/clothes: one per town (+ JFK's luxury house)
+    lanes: () => "midwood",                                     // 🎳 features/lanes: East Midwood Lanes (one alley — its games are shared, net.js)
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
 export const NOT_SHARED = {

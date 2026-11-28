@@ -30,7 +30,8 @@ module.exports = {
     await t.frames(4);
     t.check("parking: the stopped car's pedal says REVERSE", await t.L(`document.getElementById("tBrake").textContent`) === "REVERSE", await t.L(`document.getElementById("tBrake").textContent`));
     const hint = await t.L(`document.querySelector("#slot-bottom .prompt").textContent`);
-    t.check("parking: the hint names reverse (not 'BRAKE to move')", /reverse/i.test(hint) && !/BRAKE to move/.test(hint), hint);
+    // (the hint speaks the device's own words since fb51215: touch says REVERSE, a controller its trigger — "LT goes back")
+    t.check("parking: the hint names the way back (not 'BRAKE to move')", /reverse|goes back/i.test(hint) && !/BRAKE to move/.test(hint), hint);
     await t.shot("parking-reverse");
     await t.game(`L3.setState("title")`);
     await t.until(`__lulu3d.state === "title"`, "back to the title");

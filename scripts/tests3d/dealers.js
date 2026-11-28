@@ -83,9 +83,23 @@ module.exports = {
       await g(`(ctx.dealers.open("geltspyder"), true)`);
       await t.frames(4);
       const card = await t.L(`(document.querySelector("#screenCard") || {}).textContent || ""`);
-      t.check("the card: the car, its stats, its perks, the sticker", /Mazelati/.test(card) && /Gelt Spyder/.test(card) && /TOP SPEED/.test(card) && /Launch control/.test(card) && /12,000/.test(card), card.slice(0, 200));
+      t.check("the card: the car, its stats (numbers + her car to compare), its perks, the sticker", /Mazelati/.test(card) && /Gelt Spyder/.test(card) && /Top speed/i.test(card) && /what you drive now/.test(card) && /Launch control/.test(card) && /12,000/.test(card) && /Talk to Sal/.test(card), card.slice(0, 240));
       await t.shot("card");
-      await t.L(`import("./js/features/shops/card.js").then(m => m.closeCard(true))`);
+      // BROWSE FIRST: ▶ / RB / LB flip through every car on the floor — and Sal never comes in on his own
+      const shown = () => t.L(`(document.querySelector("#screenCard .lux") || {}).dataset ? document.querySelector("#screenCard .lux").dataset.lux : ""`);
+      const noSal = () => g(`!ctx.dialogOpen && !ctx.dealers.debug.D.busy`);
+      await t.tap(5); await t.frames(3);
+      const a1 = await shown();
+      await t.L(`document.getElementById("luxNext").click()`); await t.frames(3);
+      const a2 = await shown();
+      await t.tap(4); await t.tap(4); await t.frames(3);
+      const a3 = await shown();
+      t.check("RB / ▶ / LB flip between the cars on the floor (no salesman)", a1 === "kvetchtoria" && a2 === "machatunim" && a3 === "geltspyder" && await noSal() && !await g(`ctx.dealers.debug.D.busy`), `${a1} → ${a2} → ${a3}`);
+      // Sal only on his button
+      await g(`(ctx.dealers.debug.lux.V.talk = id => { window.__talked = id; }, true)`);
+      await t.L(`document.getElementById("luxAct").click()`);
+      await t.until(`!!window.__talked`, "the button calls Sal", 3000);
+      t.check("🤵 Sal comes in only on \"Talk to Sal — make an offer\" (for the car on screen)", await t.L(`window.__talked`) === "geltspyder" && !await g(`ctx.dealers.debug.lux.V.open`), String(await t.L(`window.__talked`)));
       await t.frames(3);
     });
 
@@ -122,9 +136,9 @@ module.exports = {
       await pick(/How about 10,800/);
       t.check("two counters: he meets her halfway each time", /Deal — 11,100/.test((await optsNow())[0]), (await optsNow())[0]);
       await pick(/Deal/);
-      // the F&I office: tank ✅, massage ❌, fridge ✅, concierge ❌, undercoating ✅, then skip the rest
+      // the F&I office: tank ✅, massage ❌, fridge ✅, concierge ❌, cruise ❌, undercoating ✅, then skip the rest
       const fni = [];
-      for (const want of [/Add it/, /No thanks/, /Add it/, /No thanks/, /Sure/, /Skip the rest/]) fni.push(await pick(want));
+      for (const want of [/Add it/, /No thanks/, /Add it/, /No thanks/, /No thanks/, /Sure/, /Skip the rest/]) fni.push(await pick(want));
       const r = await result();
       t.check("the deal goes through below the sticker", r.ok === true && r.price === 11100, JSON.stringify(r));
       t.check("F&I: every option + package was offered one card at a time", fni.every(Boolean), JSON.stringify(fni));
@@ -167,10 +181,7 @@ module.exports = {
       await W.pause(t, true); await W.moved(t);
       t.check("🚀 launch control: from a stop, floor it → a rocket start", (await evs(/dealers:perk.*launch/)).length >= 1 && sp > 5, `${sp.toFixed(2)} m/s`);
       // (brake to a real stop first: the fridge pours only while she's standing still)
-      // (holding the brake past zero REVERSES: wait until she's stopped or just starting back, let go, and settle — the
-      //  speed check alone missed the moment between the two on a slower frame, ci/twoway)
-      await t.hold(6, 1); await t.until(`__lulu3d.ctx.car.speed < 0.3 || (__lulu3d.ctx.car.vF || 0) < 0`, "stopped", 6000); await t.hold(6, 0);
-      await g(`(() => { const c = ctx.car; if (c.speed < 2) { c.vx = c.vz = 0; c.vF = 0; } return true; })()`); await t.frames(4);
+      await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, true)`); await t.hold(6, 1); await t.frames(15); await t.hold(6, 0); await g(`(ctx.car.vx = ctx.car.vz = 0, ctx.car.vF = 0, true)`); await t.frames(4);
       await t.frames(10);
       const b0 = await g(`ctx.G.boost`);
       await g(`(ctx.dealers.debug.perks.R.stopT = 9, true)`);
@@ -180,6 +191,23 @@ module.exports = {
       await t.frames(4);
       t.check("…only once", (await evs(/dealers:perk.*fridge/)).length === 1);
       t.check("no coins from any perk", await coins() === cP, `${cP} → ${await coins()}`);
+    });
+    // ── ⏱️ cruise control (the Kvetchtoria has it built in; the poor step bought one) ──
+    await step("cruise", async () => {
+      await t.L(`import("./js/features/garage/buy.js").then(m => m.equipSkin("kvetchtoria"))`);
+      await W.pause(t, false);
+      await g(`(() => { ctx.traffic.clear(); const s = ctx.car.s + 200, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); return true; })()`);
+      await t.frames(10);
+      t.check("❚❚ offers ⏱️ Cruise control in the Kvetchtoria", await t.L(`import("./js/core/ctx.js").then(m => m.menuItems("pause").some(i => i.id === "cruise"))`));
+      t.check("set: it holds the speed she's doing", await g(`ctx.dealers.debug.perks.cruiseOn()`) === true);
+      const v0 = await g(`ctx.dealers.debug.perks.CC.v`);
+      await t.frames(120);
+      const v1 = await g(`ctx.car.speed`);
+      t.check("…hands off the pedals for 4 s: still within 1.5 m/s of it (she steers; it isn't self-driving)", Math.abs(v1 - v0) < 1.5 && !await g(`ctx.G.selfDriving`), `${v0.toFixed(1)} → ${v1.toFixed(1)}`);
+      const cc1 = await g(`({ on: ctx.dealers.debug.perks.CC.on, off: ctx.dealers.debug.perks.CC.off })`);
+      await t.hold(6, 1); await t.frames(8); await t.hold(6, 0);
+      t.check("braking cancels it", !await g(`ctx.dealers.debug.perks.CC.on`) && await g(`ctx.dealers.debug.perks.CC.off`) === "brake", `${JSON.stringify(cc1)} → ${JSON.stringify(await g(`({ on: ctx.dealers.debug.perks.CC.on, off: ctx.dealers.debug.perks.CC.off, st: L3.state })`))}`);
+      await W.pause(t, true); await W.moved(t);
     });
     { const r = await W.report(t); W.log(r); W.check(t, "Mazelati (the showroom, the haggle, the perks)", r); await W.reset(t); }
 
@@ -198,20 +226,45 @@ module.exports = {
       await t.shot("tushla");
       await g(`(ctx.dealers.tablet("tushla_nu"), true)`); await t.frames(4);
       const card = await t.L(`(document.querySelector("#screenCard") || {}).textContent || ""`);
-      t.check("the tablet card: the cars + ⚡ Full Schlep Driving", /Tushla Motors/.test(card) && /Tushla Nu/.test(card) && /Full Schlep Driving/.test(card), card.slice(0, 200));
+      t.check("the tablet: the configurator — the model, paint, wheels, interior, horn, ⚡ Full Schlep Driving, the price", /T U S H L A/.test(card) && /Tushla Nu/.test(card) && /Paint/.test(card) && /Wheels/.test(card) && /Interior/.test(card) && /Horn/.test(card) && /Full Schlep Driving/.test(card) && /Order — 4,000/.test(card), card.slice(0, 240));
       await t.shot("tablet");
+      await g(`(ctx.dealers.debug.ev.config.close(), true)`); await t.frames(2);
       const c0 = await coins();
       await g(`ctx.dealers.debug.ev.buyHere("tushla_nu")`);
       t.check("one tap doesn't buy (the price is the price — two taps)", await coins() === c0 && !(await save()).ownedSkins.includes("tushla_nu"));
       await g(`ctx.dealers.debug.ev.buyHere("tushla_nu")`);
       t.check("…the second buys it: 4,000, no haggling", c0 - await coins() === 4000 && (await save()).ownedSkins.includes("tushla_nu") && await g(`ctx.car.skinKey`) === "tushla_nu");
       t.check("its acceleration beats every Mazelati", await t.L(`import("./js/car.js").then(m => m.SKINS.tushla_nu.acc > m.SKINS.machatunim.acc)`));
+      // ⚡ the configurator: another model, Challah Gold + Shabbos Chrome → the price updates live → ORDER (two taps) → delivery
+      const C = `ctx.dealers.debug.ev.config`;
+      await g(`(ctx.dealers.tablet("tushla_oy"), true)`); await t.frames(3);
+      await g(`(${C}.choose("paint", "challah"), ${C}.choose("wheels", "chrome"), true)`); await t.frames(2);
+      const live = await t.L(`(document.querySelector("#tslOrder") || {}).textContent || ""`);
+      t.check("pick paint + wheels: the price updates live (9,000 + 600 + 800)", /10,400/.test(live), live);
+      await t.shot("configurator");
+      const c1 = await coins();
+      await g(`${C}.order()`);
+      t.check("one tap doesn't order", await coins() === c1);
+      const ord = await g(`${C}.order()`);
+      t.check("…the second does: a fixed price, no haggling — the car + its options", ord.ok && c1 - await coins() === 10400 && (await save()).ownedSkins.includes("tushla_oy"), JSON.stringify(ord));
+      t.check("…a delivery: it rolls out of the showroom by itself", await g(`!!${C}.CF.roll`));
+      await t.frames(12);
+      t.check("her Tushla wears what she picked (Challah Gold)", await g(`(() => { let hex = ""; ctx.car.model.traverse(o => { if (!hex && o.isMesh && o.material && o.material.name === "Body") hex = o.material.color.getHexString(); }); return ctx.car.skinKey === "tushla_oy" && hex === "c9a227"; })()`));
+      // 🔑 a test drive from the screen: seated in it; when the time's up, an "over-the-air update" makes it her car again
+      t.check("🔑 test drive from the screen (the Tushla Shh)", await g(`${C}.testDrive("tushla_shh")`));
+      await t.until(`__lulu3d.state === "playing" && __lulu3d.ctx.car.skinKey === "tushla_shh"`, "seated in the test car", 8000);
+      await g(`(${C}.CF.td.t = 999, true)`); await t.frames(6);
+      t.check("…time's up: it's her own car again (no ownership changed)", await g(`ctx.car.skinKey === "tushla_oy" && !${C}.CF.td`) && !(await save()).ownedSkins.includes("tushla_shh"));
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`); await t.until(`__lulu3d.state === "footRun"`, "back on foot", 8000);
+      await g(`(ctx.screens && ctx.screens.closeCard ? ctx.screens.closeCard() : 0, true)`);
     });
     await step("sub", async () => {
       const c0 = await coins();
       await g(`ctx.dealers.debug.ev.subHere()`); await g(`ctx.dealers.debug.ev.subHere()`);
       t.check("subscribe: 100 coins, 30 days", c0 - await coins() === 100 && await g(`ctx.dealers.schlep.active() && ctx.dealers.schlep.daysLeft() === 30`));
-      t.check("the card says 'renews in 30 days'", /renews in 30 days/.test(await t.L(`document.querySelector("#screenCard").textContent`)) || /30 days left/.test(await t.L(`document.querySelector("#screenCard").textContent`)));
+      await g(`(ctx.dealers.tablet("tushla_nu"), true)`); await t.frames(3);
+      t.check("the screen says 'renews in 30 days'", /renews in 30 days/.test(await t.L(`document.querySelector("#screenCard").textContent`)), (await t.L(`document.querySelector("#screenCard").textContent`)).slice(0, 160));
+      await g(`(ctx.dealers.debug.ev.config.close(), true)`); await t.frames(2);
       await g(`ctx.dealers.debug.ev.subHere()`); await g(`ctx.dealers.debug.ev.subHere()`);
       t.check("cancel: still works to the end of what she paid", await g(`ctx.dealers.debug.DS.sub.cancelled === true && ctx.dealers.schlep.active()`));
       await g(`(ctx.schlepNow = () => Date.now() + 31 * 86400000, ctx.dealers.schlep.renewCheck(), true)`);
@@ -227,6 +280,18 @@ module.exports = {
     await step("selfdrive", async () => {
       await W.pause(t, false); await playing(); await W.pause(t, true); await W.moved(t);
       t.check("back in the car", await g(`L3.state === "playing" && !ctx.foot.active`));
+      // ⚡ no nitro in an electric car: no bar, no button, the boost button does nothing
+      // (the watchdog off: the camera is still swinging back to the car she just got into — the drive below re-arms it)
+      await W.pause(t, false);
+      await t.frames(4);
+      const ev = await t.L(`(() => { const b = document.querySelector("#hud .boost"), tb = document.getElementById("tBoost"); return { cls: document.body.classList.contains("ev-car"), bar: b ? getComputedStyle(b).display : "none", btn: tb ? getComputedStyle(tb).display : "none", ev: __lulu3d.ctx.G.evCar }; })()`);
+      t.check("⚡ a Tushla has no nitro: the bar + the button are gone", ev.cls && ev.ev && ev.bar === "none" && ev.btn === "none", JSON.stringify(ev));
+      await g(`(ctx.G.boost = 1, true)`); await t.hold(5, 1); await t.frames(10);
+      t.check("…and the nitro button does nothing", !await g(`ctx.G.boosting`));
+      await t.hold(5, 0); await t.frames(2);
+      await g(`(ctx.dealers.schlep.setMode("meshuga"), true)`);
+      t.check("🌶️ Meshuga drives OVER the limit (it can get tickets — that's the price)", await g(`ctx.dealers.schlep.targetSpeed() * 2.23694`) > 75, String(await g(`ctx.dealers.schlep.targetSpeed() * 2.23694`)));
+      await g(`(ctx.dealers.schlep.setMode("normal"), true)`);
       await W.pause(t, false);
       await g(`(() => { const s = ctx.car.s + 300, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await t.frames(6); await W.pause(t, true); await W.moved(t);
@@ -240,7 +305,8 @@ module.exports = {
         if (!await g(`ctx.dealers.schlep.on`)) break;
       }
       const SDv = await t.L(`window.__sd`);
-      t.check("it drives itself down our side, in a lane", await g(`ctx.dealers.schlep.on`) && await g(`ctx.car.s`) - s0 > 150 && SDv.dev < 1.4 && await g(`ctx.car.d > 0`), `${JSON.stringify(SDv)} · ${(await g(`ctx.car.s`) - s0).toFixed(0)} m · last ${await g(`ctx.dealers.schlep.debug.last`)}`);
+      // (dev = the farthest it got from the nearer lane centre: a lane change passes the line between them, half a lane — 1.75 m)
+      t.check("it drives itself down our side, in a lane", await g(`ctx.dealers.schlep.on`) && await g(`ctx.car.s`) - s0 > 150 && SDv.dev < 1.8 && await g(`ctx.car.d > 0`), `${JSON.stringify(SDv)} · ${(await g(`ctx.car.s`) - s0).toFixed(0)} m · last ${await g(`ctx.dealers.schlep.debug.last`)}`);
       t.check("it never goes over the limit (70 mph)", SDv.max <= 70.5 && SDv.max > 40, SDv.max.toFixed(1));
       t.check("…no close-call bonus, no coins", await g(`ctx.G.closeCalls`) === cc0 && await coins() === c0);
       await g(`(ctx.dealers.schlep.setMode("bubbe"), true)`); await t.frames(200);
@@ -249,9 +315,21 @@ module.exports = {
       await t.stick(0.8); await t.frames(4); await t.stick(0); await t.frames(2);
       t.check("steering takes the wheel back (a chime)", !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "you" && !await g(`ctx.G.selfDriving`));
       await t.frames(10);
-      await g(`ctx.dealers.schlep.engage()`); await t.frames(20);
+      // (it may decline to start for a reason of its own — a work zone just ahead: move on up the road and try once more;
+      //  the traffic cleared, so a bump straight after the takeover can't hand it back before the chase does)
+      await g(`(ctx.traffic.clear(), true)`);
+      let eng = await g(`ctx.dealers.schlep.engage()`), why = await g(`ctx.dealers.schlep.debug.why`);
+      if (!eng) {
+        await W.pause(t, false);
+        await g(`(() => { const s = ctx.car.s + 600, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+        await t.frames(6); await W.pause(t, true); await W.moved(t);
+        eng = await g(`ctx.dealers.schlep.engage()`);
+      }
+      await t.frames(20);
+      const onBefore = await g(`ctx.dealers.schlep.on`);
       await g(`(ctx.law.startChase("SPEEDING"), true)`); await t.frames(6);
-      t.check("a chase hands the wheel back", !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "chase");
+      t.check("a chase hands the wheel back", onBefore && !await g(`ctx.dealers.schlep.on`) && await g(`ctx.dealers.schlep.debug.last`) === "chase",
+        `engaged ${eng} (first try: ${why || "ok"}) · on before ${onBefore} · last ${await g(`ctx.dealers.schlep.debug.last`)} · chasing ${await g(`!!ctx.law.chasing`)}`);
       t.check("…and it won't start again while she's wanted", !await g(`ctx.dealers.schlep.engage()`));
       await g(`(ctx.law.lose && ctx.law.lose("lost"), true)`);
     });

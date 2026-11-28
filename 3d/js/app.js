@@ -21,6 +21,7 @@ import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
 import { updateLods, LOD, installShadowProxies } from "./lod.js";
 import { gfxFrame } from "./core/gfx.js";
 import { Post } from "./core/post.js";
+import { TC, mode as testMode, afterStep as testAfterStep, beforeStep as testBeforeStep, timers as testTimers, idle as testIdle, realNow as testRealNow, runAdd, setGate, gateHit, clearGate } from "./core/testclock.js";
 import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
 import "./features/index.js";
 
@@ -63,7 +64,7 @@ ctx.lights = { hemi, sun, sunOffset: new THREE.Vector3(-38, 70, -26) };
 let post = null;
 function applyGraphics() {
     const T = resolveTier(renderer, platform).T;
-    renderer.setPixelRatio(gfx.pixelRatio);
+    renderer.setPixelRatio(gfx.pixelRatio * TC.scale);     // (TC.scale: 1, or a test's smaller canvas — core/testclock.js)
     if (renderer.shadowMap.enabled !== T.shadows) {
         renderer.shadowMap.enabled = T.shadows;
         scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });   // (shadow code in / out of the shaders)
@@ -162,23 +163,71 @@ function loop(now) {
     last = now;
     // An AD is on screen (iOS app — features/native/ads.js sets ctx.hold): the whole game stands still — no game time,
     // no state update (scripts waiting on game time wait), no traffic, no world, no render — and picks up exactly here.
-    if (ctx.hold) return;
+    if (ctx.hold) { if (TC.on) testIdle(); return; }
     if (dt > 0.05) dt = 0.05;           // below 20 fps the game slows down rather than tunnelling
     if (ctx.TEST) dt = 1 / 30;          // smoke test: deterministic game time per frame
     if (dt <= 0) return;
-    ctx.frames++;
+    if (TC.on) { testFrame(dt); return; }   // (?test + the harness's fast clock only — core/testclock.js)
 
-    updateInput(dt);
-    const P = input.pressed;
-    if ((P.confirm || P.start || P.honk) && !A.audio.ready) A.unlockAudio();
-    if (P.music) { save3d.music = A.toggleMusic(); H.toast(save3d.music ? "🎵 Music on" : "🔇 Music off"); }
-
-    skipInput(dt);                      // the ⏭ pill (hold ○/B, Backspace, or click it)
+    const P = frameInput(dt);
     if (skipping()) { fastForward(P); return; }
     applyGfxPending();                  // (AUTO graphics: a new resolution / tier, right before this frame is drawn)
     step(dt, P);
     present(dt);
     if (!ctx.TEST && !ctx.paused && !document.hidden) adaptQuality(interval, performance.now() - t0);
+}
+
+/** The start of every frame: count it, read the controls, the 🎵 key, the ⏭ pill. */
+function frameInput(dt) {
+    ctx.frames++;
+    updateInput(dt);
+    const P = input.pressed;
+    if ((P.confirm || P.start || P.honk) && !A.audio.ready) A.unlockAudio();
+    if (P.music) { save3d.music = A.toggleMusic(); H.toast(save3d.music ? "🎵 Music on" : "🔇 Music off"); }
+    skipInput(dt);                      // the ⏭ pill (hold ○/B, Backspace, or click it)
+    return P;
+}
+
+/** ?test's FAST TEST CLOCK (core/testclock.js). Still ONE fixed 1/30 s step per browser frame (so every rAF, timer and
+ *  microtask lands where it always did), but: the picture is drawn only every TC.every-th frame (on a small canvas),
+ *  between the harness's waits the game keeps the old clock's pace (one step per TC.idleMs of real time), and a
+ *  harness gate that has been hit holds the game still until the harness lets go. */
+let stepping = false;
+async function testFrame(dt) {
+    if (stepping) return;
+    const m = testMode();
+    if (m === "hold") return;
+    if (m === "idle") { const r = testRealNow(); if (r - TC.idleAt < TC.idleMs) return; TC.idleAt = r; }
+    stepping = true;
+    try {
+        if (TC.restore) TC.restore();   // (a full-size picture drawn for a check / a screenshot: back to the small canvas)
+        testBeforeStep();               // (the page's clock: one frame later)
+        const P = frameInput(dt);
+        if (skipping()) { await fastForward(P); TC.drawn = ctx.frames; }
+        else {
+            applyGfxPending();
+            step(dt, P);
+            const draw = ++TC.k >= TC.every;
+            if (draw) { TC.k = 0; TC.drawn = ctx.frames; TC.renders++; }
+            present(dt, draw);
+        }
+        for (let k = 0; k < 8; k++) await null;
+        await testTimers();             // (the page's timers that came due this frame)
+        testAfterStep();                // (after the scripts' microtasks: the same settled state a poll between frames saw)
+    } catch (e) {
+        console.error("Lulu3D frame error", e);
+    } finally {
+        stepping = false;
+    }
+}
+/** Tests: one full-size picture right now (screenshots / visual checks under the fast clock), then back. */
+function realFrame() {
+    if (!ctx.world || !ctx.car) return false;
+    const sc = TC.scale;
+    if (sc !== 1) renderer.setPixelRatio(gfx.pixelRatio);
+    present(0);
+    if (sc !== 1) TC.restore = () => { renderer.setPixelRatio(gfx.pixelRatio * TC.scale); TC.restore = null; };
+    return true;
 }
 
 /** One step of game time: input → the current state → world + camera → HUD. */
@@ -242,10 +291,12 @@ function placeSun(p) {
     sun.target.position.copy(_sp);
 }
 
-function present(dt) {
+/** Draw the frame. `draw` false (only ?test's fast clock, core/testclock.js): everything a frame does but the draw
+ *  call itself — the LODs, the prerender hooks, gfx, audio, the touch buttons. */
+function present(dt, draw = true) {
     refreshTouchButtons();
     const v = ctx.view;
-    if (v) (post || renderer).render(v.scene, v.camera);
+    if (v) { if (draw) (post || renderer).render(v.scene, v.camera); }
     else {
         updateLods(camera);
         runHooks("prerender", dt, camera);   // (features that pack what's in view right before the draw: atmos' street lamps)
@@ -253,9 +304,11 @@ function present(dt) {
         // LOW pulls the fog in to match its shorter draw distance (whoever set the fog this frame keeps their numbers)
         const fog = scene.fog, k = gfx.T.draw;
         let fn = 0, ff = 0;
-        if (fog && k < 1) { fn = fog.near; ff = fog.far; fog.near = fn * k; fog.far = ff * k; }
-        (post || renderer).render(scene, camera);
-        if (fog && k < 1) { fog.near = fn; fog.far = ff; }
+        if (draw) {
+            if (fog && k < 1) { fn = fog.near; ff = fog.far; fog.near = fn * k; fog.far = ff * k; }
+            (post || renderer).render(scene, camera);
+            if (fog && k < 1) { fog.near = fn; fog.far = ff; }
+        }
     }
     // positional audio follows the camera that just rendered (silent behind a set, paused or skipping)
     A.spatial.update(dt, camera, ctx.car ? ctx.car.pos : null, !v && !ctx.paused && !ctx.skipping);
@@ -354,7 +407,7 @@ function applyGfxPending() {
     const r = gfxPending;
     if (!r) return;
     gfxPending = null;
-    if (r === "res") { renderer.setPixelRatio(gfx.pixelRatio); resize(); }
+    if (r === "res") { renderer.setPixelRatio(gfx.pixelRatio * TC.scale); resize(); }
     else applySettings();
 }
 /** Tests: AUTO asked for a change ("res" / "tier") — it lands at the top of the next frame. */
@@ -381,6 +434,20 @@ window.__lulu3d = {
     // menus: reach any title / pause item, even one tucked into a sub-menu
     openMenuItem, revealMenuItem, titleLabels, openView, get titleView() { return titleView(); }, H,
     renderer, gfx,
+    // the fast test clock (core/testclock.js): is it on · gates · one real frame for a screenshot (then restore)
+    get fast() { return TC.on; }, TC, setGate, gateHit, clearGate, runAdd, realFrame,
+    /** fast clock: draw the frame now, for a check that reads the picture right after (always: a frame drawn in an
+     *  earlier browser frame has been shown, and a shown WebGL picture is gone from the canvas's buffer) */
+    drawNow() {
+        if (!ctx.world || !ctx.car) return true;
+        // (at FULL size: on the small canvas a close wall loses its texture and reads as one flat colour — qa7's flat
+        //  check. Back to the small canvas on the next frame)
+        if (TC.scale !== 1 && !TC.restore) { renderer.setPixelRatio(gfx.pixelRatio); TC.restore = () => { renderer.setPixelRatio(gfx.pixelRatio * TC.scale); TC.restore = null; }; }
+        present(0, true); TC.drawn = ctx.frames;
+        return true;
+    },
+    get drawnFrame() { return TC.drawn; },
+    afterShot() { if (TC.restore) TC.restore(); return true; },
 };
 
 boot();
