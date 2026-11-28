@@ -14,7 +14,7 @@
 //   build(rt), tick?(rt, dt), beforeLeave?(rt) → Promise (e.g. the precinct sneak-out)
 // }
 import * as THREE from "three";
-import { ctx, registerState, setState, emit, on, css } from "../../core/ctx.js";
+import { ctx, registerState, setState, emit, on, css, wrapAngle } from "../../core/ctx.js";
 import { makeSet } from "../../core/sets.js";
 import { store, saveSoon, shared, wallet, save3d } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
@@ -207,6 +207,10 @@ const V = new THREE.Vector3(), V2 = new THREE.Vector3();
  *   • a mini-game (rt.mode) and `def.cam.fixed` keep the old from-above follow (their framing is part of the game).
  */
 const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.6, fadeTo: 0.18 };
+// her own see-through when the lens is close: [solid from (m), faded from (m)] per screen shape, and how faded (ci/sweep-phone)
+const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.2 };
+// …and in a chat / at someone's ✋ the camera sits this far (rad) off straight-behind, so she doesn't hide them
+const SHOULDER = 0.45;
 const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();
 
 export class Room {
@@ -543,6 +547,7 @@ export class Room {
         if (H.dropBanners) H.dropBanners(b => b.key === "room");      // (…nor its title banner in the next place)
         if (this.bubbles) this.bubbles.clear();
         if (this.faded) { for (const [o, f] of this.faded) { o.material = f.m0; for (const m of f.ms) m.dispose(); } this.faded.clear(); }
+        this.fadeSelf(1, true);
         if (this.orbiting && ctx.cam && ctx.cam.free) ctx.cam.free.release();      // (outside, the street's rig starts fresh)
         if (this.set) {
             this.set.scene.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
@@ -614,8 +619,10 @@ export class Room {
             if (!tm.gate || ctx.enabled("interiors")) { try { tm.fn(this); } catch (e) { console.error("[interiors timer]", e); } }
         }
         this.particles.update(dt);
-        this.bubbles.update(dt);
+        // (the camera first: the bubbles size themselves to the camera's view — fitted against last frame's camera, a
+        //  bubble by the till came out 110–120 % of a phone's width while the camera swung in for the purchase)
         this.updateCamera(dt, false);
+        this.bubbles.update(dt);
     }
 
     /** ci/doors stage 2: walking out through the room's door = leaving (no question, no fade). */
@@ -651,7 +658,11 @@ export class Room {
             const dx = x - L.x, dz = z - L.z, d = Math.hypot(dx, dz);
             if (d > h.r) continue;
             const facing = d > 0.01 ? (dx * fx + dz * fz) / d : 1;
-            const score = d - facing * 0.6;
+            // (the one she FACES wins over one just beside her: two ✋ a step apart — a house's leaf blower + its broom —
+            //  standing at one and facing it, the prompt was the other; ci/sweep-phone)
+            // (…and a PERSON a little over a thing: the mom behind the seltzer bottle on her counter — facing both, the
+            //  prompt was the bottle; stepping right up to the bottle still picks the bottle)
+            const score = d - facing * 1.0 - (h.who ? 0.3 : 0);
             if (score < bs) { bs = score; best = h; }
         }
         return best;
@@ -825,14 +836,53 @@ export class Room {
         let auto = null, dist = C.orbitDist || ORBIT.dist;
         const who = this.active && this.active.who && this.byId[this.active.who];
         const at = this.focusAt || (who ? who.p.obj.position : this.active ? this.active : null);
-        if (at && Math.hypot(at.x - L.x, at.z - L.z) > 0.3) { auto = { yaw: Math.atan2(at.x - L.x, at.z - L.z), k: 3 }; dist *= 0.85; }
+        // (standing at someone's ✋ — she walked up to them — the camera eases over her shoulder too: straight behind her,
+        //  on a phone held upright her head + back hid the shopkeeper / the mom she's facing; ci/sweep-phone)
+        const nw = !at && this.near && this.near.who && this.byId[this.near.who];
+        const at2 = at || (nw ? nw.p.obj.position : null);
+        if (at2 && Math.hypot(at2.x - L.x, at2.z - L.z) > 0.3) {
+            const to = Math.atan2(at2.x - L.x, at2.z - L.z), side = Math.sign(wrapAngle(F.yaw - to)) || 1;
+            // (a person: over the shoulder; a thing — a rack, a focus point — straight on, as before)
+            auto = { yaw: to + (who && !this.focusAt || nw ? side * SHOULDER : 0), k: 3 };
+            if (at) dist *= 0.85;
+        }
         ctx.cam.orbit(this.lulu.obj, { camera: cam, dist, look: ORBIT.look, fov: this.def.fov || ORBIT.fov, auto,
             clip: (tgt, dx, dy, dz, D) => this.camClip(tgt, dx, dy, dz, D) }, snap ? 0 : dt);
         this.fadeOccluders();
+        // 📱 a phone held upright in a small room (a shopfront, a stranger's hallway): the walls pull the lens in right behind
+        // her and her head + back filled half the screen, hiding who she talks to — close in, she turns see-through
+        // (ci/sweep-phone). Landscape / a big room: the camera sits far enough back, she stays solid.
+        const P = cam.position, d = Math.hypot(P.x - L.x, P.z - L.z, (P.y - L.y - 1.2) * 0.5);
+        const [far, near] = cam.aspect < 1 ? SELF_FADE.portrait : SELF_FADE.land;
+        const want = d >= far ? 1 : d <= near ? SELF_FADE.to : SELF_FADE.to + (1 - SELF_FADE.to) * (d - near) / (far - near);
+        this.selfA = this.selfA == null ? 1 : this.selfA + (want - this.selfA) * (snap ? 1 : Math.min(1, dt * 8));
+        this.fadeSelf(this.selfA);
+    }
+    /** Lulu herself see-through (a < 1) or solid again (her own materials back; `drop`: the room is going). */
+    fadeSelf(a, drop = false) {
+        const o = this.lulu && this.lulu.obj;
+        if (!o) return;
+        const solid = drop || a > 0.985;
+        if (solid && !this.selfFaded) return;
+        this.selfFaded = !solid;
+        o.traverse(m => {
+            if (!m.isMesh) return;
+            let f = m.userData.selfFade;
+            // (her clothes changed under it — the fitting room re-dresses her: start again from what she wears now)
+            if (f && m.material !== f.mat) { for (const c of f.ms) c.dispose(); f = m.userData.selfFade = null; }
+            if (solid) { if (f) { m.material = f.m0; for (const c of f.ms) c.dispose(); m.userData.selfFade = null; } return; }
+            if (!f) {
+                const m0 = m.material, ms = (Array.isArray(m0) ? m0 : [m0]).map(x => { const c = x.clone(); c.transparent = true; c.depthWrite = false; return c; });
+                f = m.userData.selfFade = { m0, ms, mat: Array.isArray(m0) ? ms : ms[0] };
+                m.material = f.mat;
+            }
+            for (const c of f.ms) c.opacity = a;
+        });
     }
 
     updateCamera(dt, snap) {
         if (this.orbitOn()) return this.orbitCamera(dt, snap);
+        if (this.selfFaded) { this.selfA = 1; this.fadeSelf(1); }      // (a mini-game's / a fixed camera's shot: she's solid)
         if (this.orbiting) { this.orbiting = false; if (ctx.cam && ctx.cam.free) ctx.cam.free.release(); }
         const cam = this.set.camera, L = this.lulu.obj.position, C = this.def.cam || {};
         const aspect = window.innerWidth / Math.max(1, window.innerHeight);

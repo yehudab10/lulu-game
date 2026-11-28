@@ -95,14 +95,23 @@ async function body(t) {
   t.check("title shows YOUR CREW", await t.L(`/YOUR CREW/.test(document.querySelector("#screenCard").textContent)`));
 
   // ── drive: my state arrives in the 2D format ──
+  // (▶ PLAY waits for the home start — her street built, the home town's models in; a slow machine takes a while: start
+  //  the run once it's ready, like the title's gate does, so nothing about the home start lands after we've moved her)
+  await t.until(`(() => { const ctx = __lulu3d.ctx; return !ctx.playGateInfo || !ctx.playGateInfo().applies || ctx.playGateInfo().ready; })()`, "the home start is ready (when one applies)", 180000);
   await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
-  if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
+  if (!await t.until(`["playing", "footRun"].includes(__lulu3d.state)`, "cruise starts")) return;
+  await t.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
+  if (!await t.until(`__lulu3d.state === "playing"`, "in her car")) return;
+  // (diag: every car.place from here on, with who called it — if something puts her back home, the log names it)
+  await t.game(`(() => { const c = ctx.car; if (!c.__pl) { c.__pl = []; const o = c.place.bind(c); c.place = (x, z, h) => { c.__pl.push([L3.frames, Math.round(x), Math.round(z), ctx.state, (new Error().stack || "").split("\\n").slice(2, 6).map(l => l.trim().replace(/^at /, "").replace(/\\(.*\\/js\\//, "(").slice(0, 70)).join(" < ")]); return o(x, z, h); }; } return true; })()`);
   await t.game(`(() => { ctx.traffic.clear(); ctx.traffic.config.enabled = false; const r = ctx.world.road, p = r.point(400, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 400; })()`);
-  await peer.pump(2500);
+  // (a slow runner's page sends a state every couple of seconds at ~1 fps: keep pumping until the move has arrived)
+  for (let i = 0; i < 40; i++) { await peer.pump(500); const L = peer.last; if (L && typeof L.di === "number" && Math.abs(L.di - 400 * 56000 / 4800) < 60) break; }
   const last = peer.last || {};
   t.check("3D state relayed in 2D format (m, x, di, sp, vk)", last.m === 0 && typeof last.di === "number" && last.vk === "car" && Math.abs(last.x - 275) <= 3,
     JSON.stringify(last));
   t.check("di = s × 56000/4800", Math.abs(last.di - 400 * 56000 / 4800) < 60, `${last.di}`);
+  if (Math.abs(last.di - 400 * 56000 / 4800) >= 60) console.log("   PLACEDIAG", JSON.stringify(await t.game(`({ st: ctx.state, s: Math.round(ctx.car.s), foot: ctx.foot.active, gate: ctx.playGateInfo && ctx.playGateInfo(), pl: (ctx.car.__pl || []).slice(-8) })`)));
 
   // ── a 2D ghost on the 3D road ──
   const myDi = last.di;

@@ -22,7 +22,7 @@ const NAMES = { top: "Top speed", acc: "Acceleration", grip: "Handling", brake: 
 export const V = { open: false, i: 0, ids: LUX_IDS, talk: null, sx: null, log: [] };
 
 css("dealers-lux", `
-#screenCard.card.lux-card { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; padding: 18px 22px 14px;
+#screenCard.card.lux-card { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px 22px 14px;
   background: radial-gradient(120% 90% at 50% 0%, #2A2418 0%, #14110C 60%, #0B0907 100%); color: #F3E9D2; border: 1px solid #6B5A2E;
   box-shadow: 0 18px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(201,162,39,.25); }
 .lux { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
