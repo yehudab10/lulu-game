@@ -387,6 +387,25 @@ Client: `features/multiplayer/worldclock.js` → `ctx.worldClock` (`now()`, `syn
 `ctx.mp.event(k, d)` → `mp:event` `{ from, peer, k, d, st, late }` on the others. The party's own room gets the same
 `st` / `r` support from the relay (the party client adopts it in `ci/friends`).
 
+### What the game does with the world clock (client half, `ci/friends`)
+
+Only while she's really online — connected, the clock measured, the relay's `clock` switch on (`ctx.mp.worldSky.on()`);
+offline, or on an old relay, everything below falls back to how it was.
+
+- **One sky:** a Cruise outside a group takes its time of day + weather from `ctx.worldClock` and one world seed
+  (`ctx.mp.worldSky.clock()` / `.weather()`, `features/atmos`) — every player on the road sees the same hour and the same
+  rain. Her own saved day waits and comes back when she's offline. A group keeps the party's sky.
+- **Drawn ~150 ms in the past:** every state with the relay's `st` goes into a short track per player (`net.js` ›
+  `trackAt`); she's drawn between her two real updates at `worldClock.now() − 150`, extrapolated ≤ 0.3 s past the newest.
+  Without `st` (an old relay, a hello snapshot) the old chase-the-estimate smoothing is used.
+- **Reliable one-time events:** an emote also goes out as `r` `em` `{ n, i }` (the state's `d.em` stays for old clients,
+  same nonce → shown once; a late replay isn't shown). A claimed / taken town loop minivan is `r` `tcl` `{ a: [key, T0,
+  L×10, dS×10, hail] }` / `tj` `{ a: [key] }`.
+- **The world's town loops:** online, no group, in a town → openworld's seeded right-turn block loops run on the world
+  clock with one world seed (`ctx.openworld.worldTowns()`), the same minivans in the same places on every screen; each
+  screen keeps its own extra town drivers. She can stop / flag / ram / jack one exactly like in a group (party's claim
+  code, `worldClaims()`), and everyone in the place sees it pull over.
+
 ### Step 3 — rooms by place (built on `ci/oneserver-place`; switched on only with `place: 1` in /world/config, after the owner moves to the Paid plan)
 
 | | what |

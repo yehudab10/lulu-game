@@ -15,7 +15,7 @@ const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.
 let relay = null;
 const PORT = 27000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone,streets&mpurl=${encodeURIComponent(url)}`;
 const S = `ctx.mp._debug`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -116,6 +116,22 @@ async function body(t, pages, riders) {
   t.check("stage 3: B's look (hair colour, outfit) reaches A as B sends it", !!look && !!bLook.hc && !!bLook.ot && look.hc === bLook.hc && look.ot === bLook.ot, JSON.stringify({ look, bLook }));
   await t.shot("dropin");
 
+  // 🌍 one sky for everyone online (the world clock): A and B, not friends, see the same time of day + the same weather
+  await A.until(`ctx.mp.worldSky && ctx.mp.worldSky.on()`, "A: the world sky is on (clock measured)", 60000);
+  await B.until(`ctx.mp.worldSky && ctx.mp.worldSky.on()`, "B: the world sky is on", 60000);
+  await A.frames(10); await B.frames(10);
+  const skyA = await g(`({ c: ctx.atmos.clock, w: ctx.atmos.weather, want: ctx.mp.worldSky.weather().kind })`), skyB = await B.game(`({ c: ctx.atmos.clock, w: ctx.atmos.weather })`);
+  const dc = Math.abs(skyA.c - skyB.c), dcw = Math.min(dc, 1 - dc);
+  t.check("world sky: the same time of day on two strangers' screens", dcw < 0.01, JSON.stringify({ skyA, skyB }));
+  t.check("world sky: the same weather (from the world clock)", skyA.w === skyB.w && skyA.w === skyA.want, JSON.stringify({ skyA, skyB }));
+
+  // 🌍 an emote is a reliable one-time event (the relay's r): A gets B's 😱 once, as an event — not only from B's state
+  await g(`(window.__emr = [], L3.on("mp:event", e => { if (e.k === "em") window.__emr.push(e.d); }), true)`);
+  await B.game(`(ctx.mp.emote(2), true)`);
+  const emOk = await A.until(`(window.__emr || []).length >= 1 && window.__emr[0].i === 2`, "A: B's emote event", 30000) && await g(`window.__emr.length === 1`);
+  if (!emOk) console.log("   EMDIAG", JSON.stringify({ B: await B.game(`({ flags: ctx.worldClock.flags, out: ctx.mp._debug.relOut ? ctx.mp._debug.relOut.size : -1, room: ctx.mp.room, conn: ctx.mp._debug.connected })`), A: await g(`({ seen: ctx.mp._debug.relSeen ? ctx.mp._debug.relSeen.size : -1, room: ctx.mp.room, emr: window.__emr })`) }));
+  t.check("an emote arrives as a reliable event (r) and shows once", emOk, JSON.stringify(await g(`window.__emr`)));
+
   // stage 3, step 3: other players inside a PUBLIC room — A and B (not friends) both walk into the JFK terminal: each
   // draws the other in the hall, in her own look; out again, both are back on the road
   for (const P of [{ g, until: (c, w, ms) => A.until(c, w, ms) }, { g: c => B.game(c), until: (c, w, ms) => B.until(c, w, ms) }]) {
@@ -154,6 +170,23 @@ async function body(t, pages, riders) {
   t.check("a stranger driving into me: at most one small bounce, never a shove-fest (same rule as friends)", safe.bumps <= 1 && safe.bonks === 0 && safe.v < v0 + 4, JSON.stringify({ v0, v: safe.v, bumps: safe.bumps }));
   t.check("emote / honk / record floods are dropped on my side", safe.recv >= 10 && !/BAD WORDS/.test(safe.banner), `recv ${safe.recv}`);
   bad.close(); riders.splice(riders.indexOf(bad), 1);
+
+  // 🌍 drawn ~150 ms in the past between the relay's timestamped updates: a rider driving past at 12 m/s (5 updates a
+  // second) glides forward on my screen — no jumps, no going backwards
+  {
+    const mv = new Rider("Kugel Kid", "blue");
+    riders.push(mv);
+    await mv.open();
+    const s0 = me.s + 20, t0 = Date.now();
+    mv.keep(() => { const s = s0 + 12 * (Date.now() - t0) / 1000; return { di: Math.round(s * 56000 / 4800), x: 240, sp: Math.round(12 * 56000 / 4800), w: ["", Math.round(s * 10) / 10, -1.75, 0] }; }, 200);
+    await A.until(`Object.values(${S}.peers).some(p => p.raw === "Kugel Kid" && p.w && p.w.buf && p.w.buf.length >= 3)`, "A: the mover's timestamped updates", 30000);
+    const xs = [], ts = [];
+    for (let i = 0; i < 24; i++) { xs.push(await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? +p.w.ca.toFixed(2) : null; })()`)); ts.push(Date.now()); await A.frames(3); }
+    // (the samples are seconds apart on a slow page: judge each step against the real time between them — 12 m/s ± a little)
+    const bad = xs.slice(1).map((x, i) => ({ d: x - xs[i], want: 12 * (ts[i + 1] - ts[i]) / 1000 })).filter(o => o.d < -0.05 || Math.abs(o.d - o.want) > 6 + o.want * 0.25);
+    t.check("drawn between real updates: the mover glides forward at her real speed (never back, no jumps)", xs.every(x => x != null) && !bad.length, JSON.stringify({ xs, bad: bad.slice(0, 4) }));
+    mv.close(); riders.splice(riders.indexOf(mv), 1);
+  }
 
   // ── CAP: 12 more riders around me → only the nearest 6 are drawn ──
   const calls1 = await g(`L3.renderer.info.render.calls`);
@@ -196,6 +229,29 @@ async function body(t, pages, riders) {
     t.check("B doesn't see A while A is in town", await B.until(`!Object.values(${S}.peers).some(p => p.onScreen)`, "B: A leaves the highway", 30000));
     await t.shot("town");
     town.close(); riders.length = 0;
+    // 🌍 B drives into Lakewood too — the town's loop minivans are the WORLD's: the same cars at the same places on two
+    // strangers' screens at the same world time (each still has her own extra drivers), and one stopped by A stops for B
+    await B.game(`ctx.town.load("lakewood")`);
+    if (await B.until(`ctx.town.loaded("lakewood")`, "B: Lakewood loaded", 120000)) {
+      // (the same interchange as A's — in the game a town always stands at its own fixed exit; the test dropped A in at hers)
+      const exA = await g(`ctx.town.highwayS`);
+      await B.game(`(ctx.town.enter({ town: "lakewood", exitS: ${JSON.stringify(exA)}, speed: 0 }), true)`);
+      await B.until(`ctx.town.active && ctx.town.id === "lakewood" && !ctx.town.transitioning`, "B: in Lakewood", 60000);
+      const loopsOn = q => q.until(`ctx.openworld.worldTowns() && ctx.openworld.debug.townLive().length >= 6`, "the world's town loops", 60000);
+      if (await loopsOn(A) && await loopsOn(B)) {
+        const T0 = await g(`Math.round(ctx.worldClock.now() + 2000)`);
+        const la = await g(`JSON.stringify(ctx.openworld.debug.townCarsAt(${T0}).map(c => [c.key, +c.x.toFixed(2), +c.z.toFixed(2)]))`);
+        const lb = await B.game(`JSON.stringify(ctx.openworld.debug.townCarsAt(${T0}).map(c => [c.key, +c.x.toFixed(2), +c.z.toFixed(2)]))`);
+        t.check("world town loops: the same minivans at the same places on two strangers' screens", la === lb && JSON.parse(la).length >= 6, `${JSON.parse(la).length} / ${JSON.parse(lb).length}`);
+        // A claims one (as if she stepped out in front of it): it pulls over on B's screen too (a reliable "tcl" event)
+        const key = await g(`(() => { const c = ctx.traffic.cars.find(c => c.data && c.data.owTown && typeof c.data.party === "string"); return c && ctx.party.claim(c, { how: "step" }) ? c.data.key : null; })()`);
+        t.check("world town loops: A stops one…", !!key, String(key));
+        if (key) t.check("…and it pulls over on B's screen too", await B.until(`ctx.openworld.debug.townClaims.claimed(${JSON.stringify(key)})`, "B: the claim arrives", 30000));
+      } else t.check("world town loops: both screens run the world's loops in Lakewood", false, JSON.stringify(await g(`({ wt: ctx.openworld.worldTowns(), live: ctx.openworld.debug.townLive().length, sky: ctx.mp.worldSky.on() })`)));
+      await B.game(`(ctx.town.leave("reset"), true)`);
+      await B.until(`!ctx.town.active`, "B: back on the highway", 30000);
+      await B.game(HOLD); await B.game(PLACE(425, -1.75));
+    }
     await g(`(ctx.town.leave("reset"), true)`);
     await A.until(`!ctx.town.active`, "A: back on the highway", 30000);
   }

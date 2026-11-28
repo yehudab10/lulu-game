@@ -52,6 +52,14 @@ const GRID_S = 60;
 const party = () => !!(ctx.party && ctx.party.active);
 /** In a party that's free-roaming (the only party activity with games + towns). */
 const roam = () => party() && !!ctx.party.activity && ctx.party.activity.k === "roam";
+// 🌍 the world clock's client half: online (connected, the relay's clock measured), no group, in a town → the town's
+// shared loop minivans run on the world clock for everyone; each screen keeps its own extra drivers on top
+const WORLD_SEED = 0x51A7E;
+function worldTowns() {
+    if (roam() || (ctx.party && ctx.party.active) || !zone() || !ctx.town || !ctx.town.active) return false;
+    const WS = ctx.mp && ctx.mp.worldSky;
+    return !!(WS && WS.on());
+}
 const me = () => (roam() ? ctx.party.uid : "me");
 const SOLO = { ms: 0, g: null, n: 0 };
 const now = () => (roam() ? ctx.party.clock() : SOLO.ms);
@@ -778,6 +786,8 @@ function decorateFriend(rc, p) { rc.noBonk = p.uid === riding(); }
 hook("update", (dt, P, controlsOn) => {
     if (!roam()) SOLO.ms += dt * 1000;
     if (roam() && zone() && ctx.town.plan) syncTownTraffic(zone(), ctx.town.plan, ctx.party.seed >>> 0);
+    else if (worldTowns() && ctx.town.plan) syncTownTraffic(zone(), ctx.town.plan, WORLD_SEED, () => ctx.worldClock.now());
+    else if (TT.town && !roam()) clearTownTraffic();       // (went offline / left town: the world's loops go)
     if (pendingGo && ctx.state === "playing") { const f = pendingGo; pendingGo = null; try { f(); } catch (e) { console.error("[openworld] go", e); } }
     else if (pendingWarp && ctx.state === "playing" && performance.now() - pendingWarp.at > 700) {
         const w = pendingWarp, landed = zone() === (w.zone || "");
@@ -896,6 +906,8 @@ initRide(E);
 ctx.openworld = {
     /** Towns in a 🎉 party: only while the party free-roams (town/index.js asks). */
     partyTowns: () => roam(),
+    /** 🌍 Online with no group, in a town: its loop minivans are the world's (the same on every screen, on the world clock). */
+    worldTowns: () => worldTowns(),
     seeded,
     get zone() { return zone(); },
     get game() { const g = getG(); return g ? clone(g) : null; },
