@@ -17,7 +17,7 @@ import { models, ensureModels } from "../../models.js";
 const ASKED = new Set();   // models asked for once (a loop car waits for its own)
 
 const LANE = 1.75, R = 5.5, V = 7, BUS_V = 5.6, FAR = 140;
-export const TT = { town: null, seed: 0, loops: [], cars: new Map(), plan: null, claims: new Map(), dead: new Set() };
+export const TT = { town: null, seed: 0, loops: [], cars: new Map(), plan: null, claims: new Map(), dead: new Set(), clock: null };
 
 function h01(a, b) { let h = Math.imul(a ^ 0x2545F491, 0x9E3779B1) ^ Math.imul(b + 0x6C8E9CF5, 0x85EBCA77); h ^= h >>> 15; h = Math.imul(h, 0xC2B2AE3D); h ^= h >>> 13; return (h >>> 0) / 4294967296; }
 
@@ -114,7 +114,7 @@ function poseAt(L, phase, v, key, Tms, out) {
 }
 function ai(dt, c) {
     const D = c.data, L = D.loop;
-    const T = ctx.party ? ctx.party.clock() : ctx.time * 1000;
+    const T = TT.clock ? TT.clock() : ctx.party ? ctx.party.clock() : ctx.time * 1000;
     worldPose(poseAt(L, D.phase, D.v, D.key, T, _p));
     c.x = _p.x; c.z = _p.z; c.h = _p.h; c.speed = _p.speed;
     D.at = T;
@@ -155,9 +155,10 @@ export const townClaims = {
 on("run:start", () => { TT.claims.clear(); TT.dead.clear(); });
 
 /** In a party town: make sure every loop car exists (call each frame; cheap when nothing changed). */
-export function syncTownTraffic(town, plan, seed) {
+export function syncTownTraffic(town, plan, seed, clockFn = null) {
     const tr = ctx.traffic;
     if (!tr || !plan) return;
+    TT.clock = clockFn;                                   // (null = the party clock; 🌍 online without a group: the world clock)
     if (TT.town !== town || TT.seed !== seed || TT.plan !== plan) {
         clearTownTraffic();
         TT.town = town; TT.seed = seed; TT.plan = plan;
