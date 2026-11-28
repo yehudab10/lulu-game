@@ -106,7 +106,8 @@ export function choose(name, text, options, opts = {}) {
 /** Play a list of [speaker, text, opts?] lines in order. `emoji` maps speaker → emoji. */
 export async function script(lines, { emoji = {}, color = {} } = {}) {
     for (const [who, text, o] of lines) {
-        await say(who, text, Object.assign({ emoji: emoji[who], color: color[who] }, o || {}));
+        // (-1: closed, or another feature's line covered this one — the rest of this script stops; it isn't read anymore)
+        if (await say(who, text, Object.assign({ emoji: emoji[who], color: color[who] }, o || {})) === -1) return -1;
     }
 }
 

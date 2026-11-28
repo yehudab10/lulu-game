@@ -61,6 +61,13 @@ module.exports = {
       await t.tap(0); await t.frames(4);
       const c = await g(`({ pick: window.__pick, open: ctx.dialogOpen })`);
       t.check("pause mid-question: back in the game, the question is still there and answers as before", c.pick === 0 && c.open === false, JSON.stringify(c));
+      // the tab went to the background mid-question (app.js pauses) → back, ✕ = Resume, not the question's answer
+      await ask(); await t.frames(40);
+      await t.L(`import("./js/core/screens.js").then(m => (m.pause(), true))`); await t.frames(2);
+      await t.tap(0); await t.frames(6);
+      const d = await g(`({ pick: window.__pick, paused: ctx.paused, open: ctx.dialogOpen })`);
+      t.check("pause mid-question (a background tab): ✕ resumes the game; the question is still waiting", d.pick === null && d.paused === false && d.open === true, JSON.stringify(d));
+      await t.tap(0); await t.frames(4);
       // two features' lines at once: the one replaced answers -1 (closed) — its await used to hang forever
       const sup = await t.L(`import("./js/core/dialog.js").then(async m => { let a = null; m.choose("A", "Pay the meter maid?", ["Yes", "No"]).then(i => { a = i; }); const b = m.say("B", "Hey, Lulu!"); await null; await null; const r = { a, open: m.isOpen() }; m.closeDialog(); await b; return r; })`);
       t.check("two lines at once: the question that got covered answers -1 (closed), never hangs", sup.a === -1 && sup.open === true, JSON.stringify(sup));
