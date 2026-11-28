@@ -353,6 +353,29 @@ OPTIONAL state fields ride in existing messages, and every old client ignores th
   the way friends do — `hc` her hair colour (`#rrggbb`), `ot` her outfit's compact form (`ctx.clothes.encode`: piece ids
   and commas only, ≤ 160 chars; checked on receipt). Sent only when set; 2D and older 3D clients ignore them (a 3D
   receiver without them draws a top in her car's colour).
+- `d.hs` (Shared Road state) / `hs` (party snapshot, beside `hc`): her **salon hairdo** (`bouncy` / `avigail`; the
+  default sheitel is never sent; lowercase letters only, checked on receipt). Receivers show the style's hair piece on
+  her car and its walking model on foot (`party/remote.js` › `personKey` / `carHairKey`, loaded the first time it's
+  needed; the default until then). Old clients ignore it and draw the sheitel.
+- `d.f` (Shared Road state, on foot): her **foot code**, the same one friends get as `x.f` — `[anim 0..10, look 0..3,
+  height dm 0..40]` (anim: 1 roll · 2 slide · 3 vault · 4 knocked flat · 5 dance · 6 wave · 7 busy · 8 sit · 9 talk ·
+  10 in the air; look: 1 the jumpsuit · 2 old lady · 3 old man). Sent only when not all zero; clamped on receipt;
+  played by `party/remote.js` › `poseWalker` for friends and everyone alike.
+- `d.dc` / `d.hn` (Shared Road state) and `dc` (party snapshot, beside `hn`): her **bling decoration** and her **horn**
+  (garage ids; "none" / "beep" are never sent; `[a-z0-9_]` ≤ 16, checked on receipt). Her decoration sits at its anchor
+  on her car (`CarVisual.setDecor` — animated on a friend's car, baked still into a stranger's one mesh); her honk plays
+  her own horn (`ctx.garage.playHorn`) for strangers too, the way friends already heard it.
+- **One emote system** (`d.eg` on the Shared Road state; `g` in the reliable `em` event): the party's 8 gestures
+  (`party/emotes.js` — 👋 Hi! · 👉 Follow me! · ✋ Wait up! · 🙌 Woohoo! · 💃 · 🤦 Oy vey! · 🥂 Mazel tov! · 👏 GG!; fixed
+  phrases only, no free text) are the wheel for everyone. To strangers a gesture is the SAME message an emote always was
+  (one `em` event + `d.em` for ~2 s in the state), with the gesture's number beside the nearest old emoji — 2D / older 3D
+  players still see the emoji. Receivers play its pose on her walker, its phrase in a bubble and its emoji in the burst
+  (`multiplayer/ghosts.js`). In the car online without friends the wheel opens by HOLDING the horn (D-pad ↑ / F fire
+  missiles there); on foot and with friends as before. The old 6-emoji wheel stays only without the party feature.
+- `d.ch` (Shared Road state): she's in a **police chase** — her heat 1–5 (law's stars), 0 / missing = no chase. Nobody
+  sends where the cops are: every screen near her draws the cruisers on her tail itself (`multiplayer/ghosts.js` ›
+  `chaseTick`: one ~10 m behind along her recent path, a second ~18 m from 3★, light bars flashing, a quiet wail within
+  60 m; cosmetic, they touch nobody; only the nearest chase is drawn — one baked body each + its glow).
 - `d.un` (Shared Road state) / `x.un` (party snapshot extras): a **name ticket** — `PID.EXP.MAC`, ≤ 60 chars, signed by
   the server for THIS relay room + connection id. A receiver never shows text it was sent: it asks `POST /acct/names`
   `{ q: [[ROOM, rid, ticket]] }` and shows the server's answer (null for a forged, copied or expired ticket → the usual

@@ -31,12 +31,19 @@ import { tone } from "../parking/sfx.js";
 
 const tmp = {};
 
+/** One emote system: the party feature's 8-gesture wheel is THE wheel (strangers too); the old 6-emoji one only without it. */
+const partyWheel = () => !!ctx.emotes && ctx.enabled("party");
+
 // ── the service other features (and parking) use ─────────────────────────
 ctx.mp = {
     open: from => U.openSharedRoad(from),
     connect: (room = "lobby") => N.connect(room, room === "lobby" ? "everyone" : "friend"),
     disconnect: () => N.disconnect(true),
     emote: idx => N.sendEmote(idx),
+    /** One of the party's 8 gestures (party/emotes.js) to everyone around — on the emote event already sent. */
+    gesture: g => N.sendGesture(g),
+    /** Other players around and she's out in the world (the emote wheel's for them). */
+    get social() { return !!(me.social && me.inWorld); },
     get connected() { return MP.connected; },
     get riders() { return N.riderCount(); },
     get room() { return MP.roomKind === "place" ? "lobby" : MP.room; },   // (🌍 a place room is "the everyone world" to the rest of the game)
@@ -121,6 +128,9 @@ function myPose() {
         me.lookAt = performance.now();
         const s2 = shared.get();
         me.hc = typeof s2.luluHair === "string" && /^#[0-9a-fA-F]{6}$/.test(s2.luluHair) ? s2.luluHair : null;
+        me.dc = typeof s2.decor === "string" && s2.decor !== "none" && /^[a-z0-9_]{1,16}$/.test(s2.decor) ? s2.decor : null;   // (her bling)
+        me.hn = typeof s2.horn === "string" && s2.horn !== "beep" && /^[a-z0-9_]{1,16}$/.test(s2.horn) ? s2.horn : null;      // (her horn)
+        me.hs = typeof s2.luluHairStyle === "string" && s2.luluHairStyle !== "sheitel" && /^[a-z]{1,12}$/.test(s2.luluHairStyle) ? s2.luluHairStyle : null;
         let ot = null;
         try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
         me.ot = ot;
@@ -128,6 +138,12 @@ function myPose() {
     // what's in her hand / on her head on foot (features/houseitems) — everyone sees the same props she does
     const HI = foot && ctx.houseitems ? ctx.houseitems : null;
     me.hi = HI ? HI.shown : null; me.hw = HI ? HI.worn : null;
+    // in a police chase: her heat (law's stars) — everyone near her draws the cruisers on her tail (ghosts.js chaseTick)
+    me.ch = MP.testHeat ? Math.min(5, MP.testHeat | 0) : ctx.law && ctx.law.chasing ? Math.max(1, Math.min(5, ctx.law.wanted | 0)) : 0;   // (MP.testHeat: tests)
+    // her foot code — the same one friends get (d.x.f): a roll / slide / vault / dance…, the jumpsuit or a disguise, a jump's
+    // height; all zero (a plain walk in her own clothes) isn't sent
+    { const F = foot ? ctx.foot : null, f = F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null;
+      me.f = f && (f[0] || f[1] || f[2]) ? f : null; }
     // her car as she sees it: the skin she's in NOW (the hello only has the one she joined with), a Tushla's configuration,
     // its condition (car care: dirt, dents) — read with the look, every couple of seconds
     if (!me.carAt || performance.now() - me.carAt > 2000) {
@@ -162,8 +178,11 @@ function frame() {
         // (in a 🎉 party the party's own wheel is the emote system — strangers just see your ghost)
         const social = !(ctx.party && ctx.party.active) && (N.friendRoom() || Object.values(MP.peers).some(p => p.onScreen));
         me.social = social;
-        U.wheelTick(dt, inRun && social && !ctx.paused && !ctx.dialogOpen);
-        U.setKeyInRun(inRun && social && !ctx.paused);
+        // (one emote system: with the party feature its 8-gesture wheel is the wheel for strangers too — party/emotes.js;
+        //  the old 6-emoji wheel only without it)
+        const own = !partyWheel();
+        U.wheelTick(dt, own && inRun && social && !ctx.paused && !ctx.dialogOpen);
+        U.setKeyInRun(own && inRun && social && !ctx.paused);
         titleRefresh();
     } catch (e) { console.error("[mp] frame", e); }
 }
@@ -272,7 +291,10 @@ hook("update", (dt, P, controlsOn) => {
 on("honk", () => { if (MP.connected && honkCd <= 0) { honkCd = 0.5; N.sendEvent("honk"); } });
 // a peer honks nearby → 📣 + a little two-tone honk
 on("mp:honk", ({ peer }) => {
-    if (peer && peer.onScreen && Math.abs(peer.rel) < 320) { tone(415, 0.18, "square", 0.08); tone(523, 0.18, "square", 0.08); }
+    if (!(peer && peer.onScreen && Math.abs(peer.rel) < 320)) return;
+    // (her own horn — d.hn, the one she bought — the way friends hear it; without the garage: the old two-tone)
+    if (ctx.garage && ctx.garage.playHorn && ctx.garage.playHorn(peer.hn || "beep", 262)) return;
+    tone(415, 0.18, "square", 0.08); tone(523, 0.18, "square", 0.08);
 });
 
 // ── run lifecycle: cruise auto-join, daily leaderboard, wanted board ─────
@@ -373,6 +395,7 @@ on("mp:event", e => {
     p.emNonce = n;
     if (!N.friendRoom() && MP.clock - (p.emAt || -9) < 1.5) { MP.recv++; return; }
     p.emAt = MP.clock; p.emT = 1.1; p.emEmoji = N.EMOTES[i] || "❤️";
+    p.emG = N.gestureOf(e.d.g); p.emSeq = (p.emSeq || 0) + 1;     // (a gesture: her ghost plays it + its fixed phrase — ghosts.js)
 });
 // 🌍 step 3: a player by her relay id (Nearby / a tap pass that; in place mode MP.peers is keyed by room / session tag) —
 // the one in my own room first
@@ -397,7 +420,7 @@ addMenuItem("pause", { id: "sharedroad", order: 40, label: "🕹️ Classic 2D f
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });
-addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => MP.connected && me.social && me.inWorld });
+addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => !partyWheel() && MP.connected && me.social && me.inWorld });
 hook("update", (dt, P) => { if (P.mpEmote) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); } }, -6);
 
 // tidy up ghosts when leaving a session

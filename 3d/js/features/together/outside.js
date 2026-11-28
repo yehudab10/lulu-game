@@ -6,6 +6,7 @@
 import { ctx, emit } from "../../core/ctx.js";
 import { models } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
+import { personKey } from "../party/remote.js";
 
 const L = new Map();          // uid → { x, z, h, hc, seen } (the last place I drew them walking)
 const steps = [];             // the stand-ins walking in
@@ -16,7 +17,7 @@ export function tick(dt) {
     for (const uid of P.members()) {
         if (uid === P.uid) continue;
         const rc = P.remoteCar(uid), p = P.peer(uid);
-        if (rc && rc.shown && rc.foot) { L.set(uid, { x: rc.x, z: rc.z, h: rc.h, hc: p && p.hc, ot: p && p.x && typeof p.x.ot === "string" ? p.x.ot : "", at: performance.now() }); continue; }
+        if (rc && rc.shown && rc.foot) { L.set(uid, { x: rc.x, z: rc.z, h: rc.h, hc: p && p.hc, hs: p && p.hs, ot: p && p.x && typeof p.x.ot === "string" ? p.x.ot : "", at: performance.now() }); continue; }
         const last = L.get(uid);
         if (!last) continue;
         // gone from the street: inside (m 7, presence "in") within a moment of the last step I drew — not a warp,
@@ -27,7 +28,7 @@ export function tick(dt) {
         L.delete(uid);
         if (ctx.view || !models.luluPerson) continue;
         try {
-            const q = spawnPerson("luluPerson", { colors: last.hc ? { Hair: last.hc } : null, outfit: last.ot && ctx.clothes ? ctx.clothes.decode(last.ot) : false });
+            const q = spawnPerson(personKey(last.hs), { colors: last.hc ? { Hair: last.hc } : null, outfit: last.ot && ctx.clothes ? ctx.clothes.decode(last.ot) : false });
             q.obj.position.set(last.x, 0.05, last.z);
             q.obj.rotation.y = last.h;
             ctx.scene.add(q.obj);
