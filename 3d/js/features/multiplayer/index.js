@@ -79,6 +79,8 @@ function myPose() {
     me.driving = !!def.driving && !foot;
     me.parking = ctx.state === "parking";
     me.sending = (me.inWorld && !ctx.view) || me.parking || !!me.in;
+    // riding along in a friend's car (openworld's ride): strangers see the driver's car, not a second one under it
+    const riding = !!(ctx.openworld && ctx.openworld.riding);
     me.hidden = !me.sending;
     me.s = car ? car.s : 0; me.d = car ? car.d : 0; me.sp = car ? car.speed : 0;
     const T = ctx.town, inTown = !!(T && T.active && T.plan);
@@ -97,7 +99,7 @@ function myPose() {
     }
     if (me.parking || me.in) me.sp = 0;
     if (me.inWorld) me.outAt = { x: wx, z: wz };       // (the last spot outside: where she's "standing" while in a room)
-    me.zone = !me.sending || me.parking ? "~" : inTown ? String(T.id || "") : "";
+    me.zone = !me.sending || me.parking || riding ? "~" : inTown ? String(T.id || "") : "";
     if (me.zone === "" && ctx.world) {
         // the highway: road distance + offset + heading relative to the road (riders' roads can bend differently)
         ctx.world.road.point(me.s, 0, tmp);
