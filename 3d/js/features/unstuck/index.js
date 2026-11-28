@@ -59,6 +59,7 @@ function onLot(x, z) {
     const T = ctx.town;
     if (!T || !T.active) return false;
     if (ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z)) return true;      // (Uncle Refael's car lot: open ground too)
+    if (T.onDrive && T.onDrive(x, z)) return true;                               // (a house's driveway: its minivan's open strip)
     if (ctx.home && typeof ctx.home.isFamily === "function" && ctx.home.isFamily(x, z)) return true;   // (her lot, as features/world draws it — the camera uses the same)
     // (the lot in THIS Midwood — on another lap of the one world the town stands somewhere else, and its lot is open ground too)
     const sp = T.spot && T.spot("luluHome");
