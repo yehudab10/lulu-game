@@ -20,9 +20,10 @@
 // when their text changes, no per-frame allocations in the update path.
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
-import { models, cloneWithColors, findNodes, ensureModels } from "../../models.js";
+import { models, cloneWithColors, findNodes, ensureModels, registerModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
+import { makeDecor, attachToModel, animateDecor, disposeDecor, loadDecor } from "../garage/decor.js";
 import { now, clock, N, fresh } from "./net.js";
 
 const WHEEL_R = 0.34;
@@ -55,6 +56,41 @@ function armParts() {
 }
 
 /** A skin's paint for {Body, BodyLight, BodyDark}. */
+// ── another player's salon hairdo (features/cameos/salon.js: "sheitel" is the default and never sent) ──
+// d.hs (EVERYONE) / the party profile's hs: the style's id. Her car gets the salon's hair piece (car-model space,
+// like car.addHairStyle), her walking Lulu the style's own model; both load the first time someone needs them and
+// show the default until then (whoever draws her rebuilds when the key below changes).
+const STYLE_CAR = { bouncy: "cameos_hairBouncy", avigail: "cameos_hairAvigail" };
+// (the same files the salon registers — here too, so another player's hairdo shows without the salon feature loaded)
+registerModels({ cameos_hairBouncy: "cameos_hair_bouncy", cameos_hairAvigail: "cameos_hair_avigail", luluPerson_bouncy: "cameos_lulu_bouncy", luluPerson_avigail: "cameos_lulu_avigail" });
+const styleTried = new Set();
+const tryLoad = k => { if (!models[k] && !styleTried.has(k)) { styleTried.add(k); ensureModels([k]).catch(() => { }); } };
+/** A bling decoration id she may send (garage DECOR ids), or null ("none" / junk). */
+export const decorOk = v => typeof v === "string" && v !== "none" && /^[a-z0-9_]{1,16}$/.test(v) ? v : null;
+let decorTried = false;
+/** Is the decorations' model in (starts the load the first time someone needs it)? */
+export function decorReady() {
+    if (models.garageDecor) return true;
+    if (!decorTried) { decorTried = true; loadDecor().catch(() => { }); }
+    return false;
+}
+/** A style id she may send, or null (the default / junk). */
+export const styleOk = v => typeof v === "string" && Object.prototype.hasOwnProperty.call(STYLE_CAR, v) ? v : null;
+/** The walking Lulu's model key for a style: its own model once loaded (starts the load), else the default. */
+export function personKey(style) {
+    const s = styleOk(style);
+    if (!s) return "luluPerson";
+    const k = "luluPerson_" + s;
+    tryLoad(k);
+    return models[k] ? k : "luluPerson";
+}
+/** The car's hair piece for a style once loaded (starts the load), else null (the default sheitel shows). */
+export function carHairKey(style) {
+    const s = styleOk(style);
+    if (!s) return null;
+    tryLoad(STYLE_CAR[s]);
+    return models[STYLE_CAR[s]] ? STYLE_CAR[s] : null;
+}
 export function skinColors(key) { const s = SKINS[key] || SKINS.pink; return { Body: s.body, BodyLight: s.light, BodyDark: s.dark }; }
 export function skinHex(key) { return (SKINS[key] || SKINS.pink).body; }
 
@@ -170,12 +206,16 @@ export class CarVisual {
         this.swBase = this.sw ? this.sw.quaternion.clone() : null;
         this.taillights = [];
         this.model.traverse(o => { if (o.isMesh && o.material.name === "Taillight") { o.material = o.material.clone(); this.taillights.push(o.material); } });
-        // only the default hairdo shows (salon styles are per-device add-ons)
+        // the default hairdo (setStyle below swaps in her salon style)
         const hairs = findNodes(this.model, "Hair_");
         const has = hairs.some(h => h.name.startsWith("Hair_sheitel"));
         for (const h of hairs) h.visible = has ? h.name.startsWith("Hair_sheitel") : h === hairs[0];
         this.hairMats = [];
         for (const h of hairs) h.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
+        this.styleKey = null;                               // (the salon piece went with the old model: setStyle re-adds it)
+        if (this.hairStyle) this.setStyle(this.hairStyle);
+        this.decorKey = null;                               // (her bling too: setDecor re-adds it)
+        if (this.decorId) this.setDecor(this.decorId);
         if (this.hairColor) this.setHair(this.hairColor, true);
         // the waving arm, at her outer shoulder
         const head = findNodes(this.model, "Anchor_head")[0];
@@ -226,6 +266,42 @@ export class CarVisual {
         }
         if (C && (C[0] || C[1]) && ctx.carcare && ctx.carcare.dressOther) ctx.carcare.dressOther(this.model, C[0], C[1]);
     }
+    /** Her salon hairdo (styleOk ids; null = the default sheitel). Cheap to call every frame: it rebuilds only when the
+     *  style changes or its hair piece finishes loading. */
+    setStyle(style) {
+        const s = styleOk(style), hk = carHairKey(s), key = hk || "";
+        this.hairStyle = s;
+        if (key === this.styleKey) return;
+        this.styleKey = key;
+        if (this.styleObj) { this.styleObj.removeFromParent(); this.styleObj = null; }
+        const hairs = findNodes(this.model, "Hair_");
+        if (hk) {
+            const obj = models[hk].clone(true);
+            obj.name = "Hair_" + s;
+            obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
+            this.model.add(obj);
+            this.styleObj = obj;
+            for (const h of hairs) h.visible = false;
+            if (this.hairColor) this.setHair(this.hairColor, true);
+        } else {
+            const has = hairs.some(h => h.name.startsWith("Hair_sheitel"));
+            for (const h of hairs) h.visible = has ? h.name.startsWith("Hair_sheitel") : h === hairs[0];
+        }
+    }
+    /** Her bling decoration (garage DECOR id; null = none) at its anchor, like her own car. Cheap every frame: it
+     *  rebuilds only when the id changes or the decorations' model finishes loading. */
+    setDecor(id) {
+        const d = decorOk(id), key = d && decorReady() ? d : "";
+        this.decorId = d;
+        if (key === this.decorKey) return;
+        this.decorKey = key;
+        if (this.decorObj) { this.decorObj.removeFromParent(); disposeDecor(this.decorObj); this.decorObj = null; }
+        if (!key) return;
+        const obj = makeDecor(key);
+        if (!obj) return;
+        attachToModel(this.model, obj);
+        if (obj.parent) this.decorObj = obj; else disposeDecor(obj);
+    }
     setHair(color, force) {
         if (!color || (!force && color === this.hairColor)) return;
         this.hairColor = color;
@@ -233,6 +309,7 @@ export class CarVisual {
     }
     /** Per frame: speed (m/s), steer −1..1, flags {brake, boost, wave}, accel/lat for body roll. */
     animate(dt, speed, steer, brake, boost, accel = 0, lat = 0) {
+        if (this.decorObj) animateDecor(this.decorObj, dt, null);     // (the dice sway, the bow wobbles, neon pulses)
         this.steer += (steer - this.steer) * Math.min(1, dt * 10);
         this.roll += speed * dt / WHEEL_R;
         for (const w of this.wheels) {
@@ -260,6 +337,7 @@ export class CarVisual {
         this.root.removeFromParent();
         for (const m of this.taillights) m.dispose();
         this.flameMat.dispose();
+        if (this.decorObj) disposeDecor(this.decorObj);
     }
 }
 const _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0);
@@ -391,6 +469,8 @@ export function updateCars(dt, show, decorate, frameOf) {
         if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
         rc.v.setLook(p.x && Array.isArray(p.x.ev) ? p.x.ev : null, p.x && Array.isArray(p.x.cc) ? p.x.cc : null);
         if (p.hc) rc.v.setHair(p.hc);
+        rc.v.setStyle(p.hs);
+        rc.v.setDecor(p.dc);
         setForm(rc, p);
         if (emoteFn) { try { emoteFn(rc, p); } catch (e) { console.error("[party] emote", e); } }
         if (rc.emote) { rc.emote.t += dtParty; if (rc.emote.t > rc.emote.dur) rc.emote = null; }
@@ -509,18 +589,19 @@ function step(rc, p, dt, road, cam) {
 // d.x.f = [anim, look]: anim 0 walk/run · 1 roll · 2 slide · 3 vault · 4 knocked flat · 5 dance (busk)
 // · 6 wave · 7 busy (hotwire / interact) · 8 sit (sliding into a car) · 9 talk · 10 in the air (a jump); look 0 · 1 jumpsuit
 // · 2 old lady · 3 old man; f[2] (optional) = her feet's height in decimetres (a jump, standing on a bench / a car roof)
-const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
-const look0 = f => (f[1] | 0) === 0;      // (her own clothes show only out of a disguise / the jumpsuit)
+export const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
+const look0 = f => (f[1] | 0) === 0;
+      // (her own clothes show only out of a disguise / the jumpsuit)
 function setForm(rc, p) {
     const f = p.x && Array.isArray(p.x.f) ? p.x.f : null;
     const foot = !!f && !!models.luluPerson;
     if (foot) {
         const ot = !look0(f) || !ctx.clothes ? "" : (p.x && typeof p.x.ot === "string" ? p.x.ot.slice(0, 160) : "");
-        const look = Math.max(0, Math.min(3, f[1] | 0)), key = look + "|" + (p.hc || "") + "|" + ot;
+        const look = Math.max(0, Math.min(3, f[1] | 0)), pk = personKey(p.hs), key = look + "|" + (p.hc || "") + "|" + ot + "|" + pk;
         if (!rc.walker || rc.walkerKey !== key) {
             if (rc.walker) rc.walker.obj.removeFromParent();
             const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, LOOKS[look]);
-            rc.walker = spawnPerson("luluPerson", { colors, outfit: ot ? ctx.clothes.decode(ot) : false });   // (her outfit: features/clothes)
+            rc.walker = spawnPerson(pk, { colors, outfit: ot ? ctx.clothes.decode(ot) : false });   // (her outfit: features/clothes)
             rc.walker.obj.rotation.order = "YXZ";
             rc.walker.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
             rc.walkerKey = key;
@@ -544,10 +625,12 @@ function setForm(rc, p) {
         rc.v.setRide(v ? v[0] : null, v && typeof v[1] === "string" ? v[1].slice(0, 9) : null);
     }
 }
-function animateWalker(rc, dt, sp, o, honk) {
-    const w = rc.walker;
-    if (!w) return;
-    const ob = w.obj, a = rc.anim;
+function animateWalker(rc, dt, sp, o, honk) { if (rc.walker) poseWalker(rc, rc.walker, dt, sp, rc.anim, rc.footY, honk); }
+/** Play a walking Lulu's foot code: st keeps the move's state (rollA, jy, emote); a = anim, footY = her feet's height (m).
+ *  Shared by friends' walkers and everyone's (multiplayer/ghosts.js) — one look for the same move. */
+export function poseWalker(st, w, dt, sp, a, footY, honk) {
+    const rc = st, ob = w.obj;
+    rc.footY = footY;
     const ease = k => Math.min(1, dt * k);
     let rx = 0;
     if (a === 1) { rc.rollA = (rc.rollA || 0) + dt * 12.5; rx = rc.rollA; }

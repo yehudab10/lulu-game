@@ -15,9 +15,10 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS, KITS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
-import { CarVisual, NameTag } from "../party/remote.js";
+import { CarVisual, NameTag, Bubble, personKey, carHairKey, LOOKS, poseWalker, decorOk, decorReady } from "../party/remote.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeGeometry } from "../../merge.js";
+import { tone } from "../parking/sfx.js";
 
 registerModels({
     multiplayer_bus: "multiplayer_bus", multiplayer_ambulance: "multiplayer_ambulance",
@@ -30,9 +31,11 @@ const ghosts = {};
 let self = null;
 const tmp = {}, v = new THREE.Vector3();
 
+// her foot look (d.f[1]): 0 her own clothes · 1 the jumpsuit · 2 old lady · 3 old man (party/remote.js LOOKS)
+const lookOf = p => p.f ? p.f[1] : 0;
 function kindOf(p) {
-    if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (p.ot || "");
-    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
+    if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (lookOf(p) ? "" : p.ot || "") + ":" + personKey(p.hs) + ":" + lookOf(p);
+    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (carHairKey(p.hs) || "") + ":" + (decorOk(p.dc) && decorReady() ? p.dc : "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
     if (p.vk === "borrowed") return "borrowed:" + (p.ct || 0) + ":" + (p.co || "");
     if (p.vk === "cop" || EXTRA[p.vk]) return p.vk;
     return "car:" + p.sk;
@@ -90,9 +93,10 @@ function buildGhost(p) {
     let body;
     if (p.m === 1) {
         // her own clothes (features/clothes) + hair; an old client sends neither: a top in her car's colour
-        const ot = p.ot && ctx.clothes && ctx.clothes.decode ? p.ot : "";
-        const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, ot ? {} : { Top: sk.body });
-        g.person = spawnPerson("luluPerson", { colors, outfit: ot ? ctx.clothes.decode(ot) : false });
+        // (the jumpsuit / a disguise: its colours over everything, the way friends see it)
+        const look = lookOf(p), ot = !look && p.ot && ctx.clothes && ctx.clothes.decode ? p.ot : "";
+        const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, ot || look ? {} : { Top: sk.body }, LOOKS[look]);
+        g.person = spawnPerson(personKey(p.hs), { colors, outfit: ot ? ctx.clothes.decode(ot) : false });
         body = g.person.obj;
     } else {
         let src, key = g.kind;
@@ -106,6 +110,8 @@ function buildGhost(p) {
             // her own car: the friends' car visual (her skin, the shown hairdo, her hair colour), baked solid once per look
             const cv = new CarVisual(p.sk);
             if (p.hc) cv.setHair(p.hc);
+            cv.setStyle(p.hs);                              // (her salon hairdo, once its piece has loaded)
+            cv.setDecor(p.dc);                              // (her bling, baked in still — the friends' car animates it)
             src = cv.model;
             dressCar(src, p);                               // (her kit — a Tushla in HER configuration — + her dirt)
             const baked = bakedRide(src, key);
@@ -142,6 +148,7 @@ function disposeGhost(g) {
     g.nt.dispose();
     g.ring.geometry.dispose(); g.ring.material.dispose();
     if (g.burst) disposeBurst(g.burst);
+    if (g.bub) g.bub.dispose();
 }
 
 // ── emoji bursts (canvas sprite, redrawn only when the emoji changes) ──────
@@ -195,7 +202,11 @@ export const ghostStats = () => {
         g.body.traverse(o => { if (o.isMesh && o.visible && o.material && o.material.transparent && o.material.opacity < 0.9 && !/Glass|Flame/i.test(o.material.name || "")) seeThrough++; });
     }
     const hands = Object.values(ghosts).filter(g => g && g.shown && g.person && g.person.obj.userData.hiHand).length;
-    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands };
+    const styled = Object.values(ghosts).filter(g => g && g.shown && /cameos_hair|luluPerson_/.test(g.kind)).length;   // (a salon hairdo drawn)
+    const feet = Object.keys(ghosts).filter(id => ghosts[id] && ghosts[id].shown && ghosts[id].person).map(id => (MP.peers[id] && MP.peers[id].f) || [0, 0, 0]);   // (their foot codes)
+    const gestures = Object.values(ghosts).reduce((n, g) => n + ((g && g.gestures) || 0), 0);   // (strangers' gestures played)
+    const decked = Object.keys(ghosts).filter(id => { const G = ghosts[id], p = MP.peers[id]; return G && G.shown && p && decorOk(p.dc) && G.kind.includes(":" + p.dc + ":"); }).length;   // (her bling drawn)
+    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands, styled, feet, decked, gestures, chaseCops: CH.cops.length };
 };
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */
@@ -258,7 +269,28 @@ export function updateGhosts(dt, me, show) {
         g.obj.rotation.y = at.h;
         p.ws = at.x; p.wd = at.z;
         const mps = at.mps;
-        if (g.person) { g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 }); if (ctx.houseitems && ctx.houseitems.dressOther) ctx.houseitems.dressOther(g.person, p.hi, p.hw); }
+        // one emote system: a gesture (p.emG — the party's 8, party/emotes.js) → her walker plays its pose, its FIXED phrase
+        // pops over her (car or foot), its emoji in the burst; an older client's plain emoji just bursts
+        if (g.emSeq !== p.emSeq) {
+            const fresh = g.emSeq !== undefined || p.emT > 0;
+            g.emSeq = p.emSeq;
+            const E = fresh && p.emG >= 0 && ctx.emotes && ctx.emotes.EMOTES ? ctx.emotes.EMOTES[p.emG] : null;
+            if (E) {
+                p.emEmoji = E.e;
+                if (g.person) g.emote = { i: p.emG, t: 0, dur: E.dur || 2.6, pose: E.pose, hop: E.hop || 0 };
+                if (!g.bub) { g.bub = new Bubble(); g.obj.add(g.bub.sp); }
+                g.bub.show(E.say === E.e ? E.e : E.say);
+                g.gestures = (g.gestures || 0) + 1;
+            }
+        }
+        if (g.emote) { g.emote.t += dt; if (g.emote.t > g.emote.dur || (p.f && p.f[0])) g.emote = null; }
+        if (g.bub) g.bub.update(dt, g.person ? 2.6 : 3.3);
+        if (g.person) {
+            // her move (a roll, a slide, a vault, dancing…) the way friends see it — party/remote.js poseWalker
+            const f = p.f;
+            poseWalker(g, g.person, dt, f && f[0] ? mps : Math.min(3, mps), f ? f[0] : 0, f ? f[2] / 10 : 0, p.waveT > 0);
+            if (ctx.houseitems && ctx.houseitems.dressOther) ctx.houseitems.dressOther(g.person, lookOf(p) ? null : p.hi, lookOf(p) ? null : p.hw);
+        }
         for (const w of g.wheels) w.rotation.x += mps * dt / 0.34;
         // (solid, like friends: no see-through fade — she's drawn once she's really there, gone once she isn't)
         g.obj.visible = p.vis > 0.35;
@@ -282,7 +314,69 @@ export function updateGhosts(dt, me, show) {
         if (g) { g.obj.visible = false; g.shown = false; }
         if (!MP.peers[id] || !g || MP.clock - (g.seenAt || 0) > KEEP) { if (g) disposeGhost(g); delete ghosts[id]; }
     }
+    chaseTick(dt, show);
     updateSelf(dt, show);
+}
+
+// ── another player in a POLICE CHASE (d.ch = her heat 1–5): the cruisers on her tail, on every screen near her ─────
+// Nobody sends where those cops are: each screen draws them itself, following her recent path (one cruiser ~10 m
+// behind, a second ~18 m from 3★), light bars flashing, a quiet wail close by. Cosmetic only — they never touch
+// anyone. Only the nearest chase is drawn (budget: a baked cop body = 1 draw + its light glow; nothing when nobody's
+// wanted).
+const CH = { id: null, cops: [], trail: [], acc: 0, wail: 0 };
+const CH_GAP = [10, 18];
+function chaseCop() {
+    const src = models.cop ? cloneWithColors(models.cop) : null;
+    if (!src) return null;
+    const obj = new THREE.Group();
+    obj.add(bakedRide(src, "chasecop") || src);
+    const bar = ctx.law && ctx.law.lightBar ? ctx.law.lightBar(obj) : null;
+    ctx.scene.add(obj);
+    return { obj, bar, placed: false };
+}
+function chaseClear() {
+    for (const c of CH.cops) { c.obj.removeFromParent(); }
+    CH.cops.length = 0; CH.trail.length = 0; CH.id = null;
+}
+function chaseTick(dt, show) {
+    // the nearest drawn player who's being chased
+    let best = null, bd = Infinity;
+    if (show) for (const id in ghosts) {
+        const g = ghosts[id], p = MP.peers[id];
+        if (!g || !g.shown || !g.obj.visible || !p || !(p.ch > 0)) continue;
+        const d = g.obj.position.distanceToSquared(ctx.camera.position);
+        if (d < bd) { bd = d; best = id; }
+    }
+    if (!best) { if (CH.cops.length || CH.id) chaseClear(); return; }
+    const g = ghosts[best], p = MP.peers[best], at = g.obj.position;
+    if (CH.id !== best) { chaseClear(); CH.id = best; }
+    // her path: a point every ~1.5 m (≤ 40 m of it)
+    const T = CH.trail, last = T[T.length - 1];
+    if (!last || Math.hypot(at.x - last.x, at.z - last.z) > 1.5) { T.push({ x: at.x, z: at.z }); if (T.length > 30) T.shift(); }
+    const n = p.ch >= 3 ? 2 : 1;
+    while (CH.cops.length < n) { const c = chaseCop(); if (!c) break; CH.cops.push(c); }
+    while (CH.cops.length > n) CH.cops.pop().obj.removeFromParent();
+    const now = MP.clock;
+    CH.cops.forEach((c, i) => {
+        // walk back along her path to this cruiser's gap (no path yet: straight behind her)
+        let want = CH_GAP[i], px = at.x, pz = at.z, tx = at.x - Math.sin(g.obj.rotation.y) * want, tz = at.z - Math.cos(g.obj.rotation.y) * want, hx = px, hz = pz;
+        for (let k = T.length - 1; k >= 0; k--) {
+            const q = T[k], seg = Math.hypot(px - q.x, pz - q.z);
+            if (seg >= want) { const u = want / Math.max(1e-6, seg); tx = px + (q.x - px) * u; tz = pz + (q.z - pz) * u; hx = px; hz = pz; want = -1; break; }
+            want -= seg; hx = px; hz = pz; px = q.x; pz = q.z;
+        }
+        const o = c.obj, k = c.placed ? Math.min(1, dt * 6) : 1;
+        o.position.x += (tx - o.position.x) * k; o.position.z += (tz - o.position.z) * k; o.position.y = 0;
+        const h = Math.atan2(hx - tx, hz - tz);
+        if (Number.isFinite(h) && Math.hypot(hx - tx, hz - tz) > 0.2) { let dh = ((h - o.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; o.rotation.y += c.placed ? dh * Math.min(1, dt * 5) : dh; }
+        c.placed = true;
+        if (c.bar) c.bar.set(true, now + i * 0.27);
+    });
+    // a quiet wail while the chase is close (her own sirens are law's — this is somebody else's)
+    if ((CH.wail -= dt) <= 0 && bd < 60 * 60 && !(ctx.law && ctx.law.chasing)) {
+        CH.wail = 2.6;
+        tone(720, 0.6, "sine", 0.035, 980); tone(980, 0.6, "sine", 0.035, 720, 0.62);
+    }
 }
 
 /** Where a shown ghost's name tag is on screen (client px) + its half size, or null. */
@@ -310,6 +404,7 @@ export function ghostAt(cx, cy) {
 }
 
 export function clearGhosts() {
+    chaseClear();
     for (const id of Object.keys(ghosts)) { if (ghosts[id]) disposeGhost(ghosts[id]); delete ghosts[id]; }
 }
 

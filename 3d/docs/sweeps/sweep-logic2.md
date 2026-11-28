@@ -20,6 +20,8 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 | 11 | Paused with a line / a question still open (☰, ❚❚, another app) → ⌂ Title screen or ↺ Restart: the question came along — on the title (or at the porch of the new run) it took every ✕ / Enter / A press itself, and the menu got nothing; a controller player was stuck. Nothing closed a dialog on a state / run change. | `core/dialog.js` | **fixed** — the title and a new run close it (answers -1). Batch 2 |
 | 12 | 📞 Phone › Police › "Turn myself in" in a town (and the 🔦 Shomrim's hold ending with the cops) dropped the TOWN first: she was cuffed on the highway out of nowhere, instead of in the town's own precinct (features/places — the arrest flow already leaves a town that can't host it). And on foot it ended foot's walk from a timer ticking inside foot's own frame → a page error ("reading 'car'") mid-frame. | `community/calls.js`, `community/shomrim.js` | **fixed** — no town drop; law's own on-foot arrest where she stands, after the frame. `community` test: the hold's arrest stays in town |
 | 13 | (with #8) Riding in a friend's passenger seat through a town: the 🔦 Shomrim's speed watch / witness saw HER car (riding along at the friend's speed) and started a pursuit + called the cops on her for the friend's driving. | `community/shomrim.js` | **fixed** — not while she rides (by reading; the ride needs two players) |
+| 14 | A speed-camera bench warrant paid off at the precinct's fines window ("On file: UNPAID SPEED CAMERA TICKETS. Settle up for 💰90?"): the law's file was cleared, but the tickets stayed owed in the 📬 / City Hall's ledger (pay twice), and the camera feature still thought a warrant was out (so it never issued another). | `cameras/index.js` | **fixed** — settling the file serves it like an arrest does (the tickets are closed). Batch 3 |
+| 15 | 🔍 Case the vault → a heist PLANNED ("💰 THE JOB · pull up out front of the bank") counted as an activity for `ctx.engaged()` — it has no clock and no way to call it off but a new run, so until she robbed the bank the whole world went quiet: no robbery to foil, snatcher, cameo, drive-thru, payphone / job offer, the Fixer, street scenes, porch pirates… for the rest of the run. | `core/ctx.js` ACTIVITIES, `heist/index.js` `busy("plan")` | **fixed** — a plan isn't an activity (the job itself is, from the moment she pulls up); heist's own events still wait for it. Batch 3 |
 | 4 | Two features' lines at once: a second `say` / `choose` opening over one still waiting replaced it without answering it — the first feature's `await` hung forever (its "busy" flag stuck for the run). | `core/dialog.js` | **fixed (defensive)** — the covered line / question answers -1 ("closed", like `closeDialog`); `script()` stops at a -1 (a closed / covered line), so an old conversation doesn't keep talking over the new one |
 
 ## Checked and fine
@@ -81,7 +83,11 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## Landed
 
-- batch 2 → main (2026-11-28 14:10 UTC): findings 11–13. CI 46146651901 (core, platform, skip, ux, sweeplogic2, oneact, law,
+- batch 3 → main (2026-11-28 14:35 UTC): findings 14–15. CI 46151538172 (cameras, sweeplogic2, core, platform, interiors,
+  qalaw, cityhall ✓) + 46153891714 (heist, oneact, sweeplogic2, core, platform, skip, ux, qa18, partyheist, underworld,
+  streets, roadevents, cameos, crime, crime2 ✓).
+
+- batch 2 → main 071f9fd3 (2026-11-28 13:45 UTC): findings 11–13. CI 46146651901 (core, platform, skip, ux, sweeplogic2, oneact, law,
   qalaw, courts, partners, interiors, qa28, onegame, home, shabbos, journey, cameos, dina ✓) + 46149488863 (community,
   sweeplogic2, core, platform — green on the re-run; places, qalaw, partners3, underworld ✓); community locally ✓ ×2.
 
@@ -94,3 +100,14 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   (green locally + on 46143946043); qa18's page error = finding 10.
 
 ## What's left
+
+- A side job that ends while she's out of the car (on foot / in a room — it fails at once, with the sad trombone) shows
+  its ❌ result card the next time she drives, however much later — by design (`hustle/jobs.js` J.pending), but a card
+  for something 20 minutes old can read as out of the blue. Owner's call (a toast at the moment instead of a late card).
+- Ima's list activates at any home start — also at her OWN house after she moves out, where Ima isn't on the porch
+  (the list still works through the 📱). Flavour, left.
+- A reload in the ER before paying skips the bill (no arrest, unlike "RUN for it"). Minor, left.
+- The Erev Shabbos rush's clock (`shabbos/index.js` R.used) only runs while she drives — on foot the sunset waits. Not an
+  exploit (Bubbe's is a drive away), left.
+- Not covered: every one of the ~60 features' own pairs; this pass went through the schedulers (`ctx.engaged`), the
+  dialog layer, pause, the clocks, arrests from towns / rooms, the passenger ride and the reload paths that save state.
