@@ -652,7 +652,7 @@ class Chunk {
         const w = sign.w || 4.2, ht = sign.h || 2.1;
         const g = new THREE.Group();
         g.position.set(p.x, 0, p.z);
-        g.rotation.y = h + Math.PI; // board faces oncoming drivers (us)
+        g.rotation.y = h + (sign.back ? 0 : Math.PI); // board faces oncoming drivers (us) — `back`: drivers going down the lap (the far carriageway, ci/twoway)
         const te = signEntry(sign.lines, sign.bg, sign.fg, sign.tw, sign.th), tex = te.tex;
         te.refs++;
         this.disposables.push({ dispose: () => releaseSign(te) });
@@ -905,8 +905,10 @@ export class World {
         //  chunk in slices: she isn't on it, so nothing is "near her")
         if (D) playerS = D.highwayS;
         // (keepBehind: a feature with a big place beside the road — the airport — keeps the chunks behind her a while longer)
-        const kMin = Math.max(0, Math.floor((playerS - BEHIND - (this.keepBehind || 0)) / CHUNK));
-        const kMax = Math.floor((playerS + AHEAD) / CHUNK);
+        // (ci/twoway: travelling DOWN the lap the window flips — AHEAD of her is lower s; `dir` is set by app.js)
+        const back = this.dir === -1;
+        const kMin = Math.max(0, Math.floor((playerS - (back ? AHEAD : BEHIND + (this.keepBehind || 0))) / CHUNK));
+        const kMax = Math.floor((playerS + (back ? BEHIND + (this.keepBehind || 0) : AHEAD)) / CHUNK);
         for (const [k, c] of this.chunks) {
             if (k < kMin || k > kMax) { c.dispose(this.scene); this.chunks.delete(k); }
         }
@@ -914,14 +916,15 @@ export class World {
         // a chunk that's being built in slices: carry on (finish it now if she is suddenly close, or on a prebuild)
         let pend = this.pending && this.chunks.get(this.pending.k) === this.pending ? this.pending : null;
         if (pend) {
-            const now = buildBudget > 1 || (!D && pend.s0 < playerS + SLICE_NEAR);
+            const now = buildBudget > 1 || (!D && (back ? pend.s1 > playerS - SLICE_NEAR : pend.s0 < playerS + SLICE_NEAR));
             if (pend.advance(now ? Infinity : SLICE_MS)) pend = null; else built++;
         }
         this.pending = pend;
-        for (let k = kMin; k <= kMax && built < buildBudget; k++) {
+        for (let i = 0; i <= kMax - kMin && built < buildBudget; i++) {
+            const k = back ? kMax - i : kMin + i;          // (nearest first, the way she's going)
             if (this.chunks.has(k)) continue;
             // far ahead (the normal case while driving): in slices; close by or prebuilding: all at once
-            const sliced = buildBudget === 1 && !this.pending && (!!D || k * CHUNK >= playerS + SLICE_NEAR);
+            const sliced = buildBudget === 1 && !this.pending && (!!D || (back ? (k + 1) * CHUNK <= playerS - SLICE_NEAR : k * CHUNK >= playerS + SLICE_NEAR));
             const c = new Chunk(this, k, sliced);
             this.chunks.set(k, c);
             if (sliced) this.pending = c;

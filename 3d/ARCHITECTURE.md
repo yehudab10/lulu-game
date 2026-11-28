@@ -525,6 +525,13 @@ places, City Hall, Ima's house, anything `essential`); every other place shows o
 (`ctx.pins.shown(p)`, `discover(id)` · `PS.found`), with a small pink dot in the list until she's seen it there. The
 registry (`list()`) is unchanged — the Map view filters. Tests opt in with `&enable=discover`.
 
+**The highway both ways (ci/twoway, round 1):** both carriageways are drivable — WRONG WAY means against the traffic of
+the side she's on (moves/drive.js); `world.dir` (+1 up the lap / −1 down it; app.js sets it after 2 s of driving down
+the lap facing that way) flips the chunk window so the world is built ahead of her either way; place signs are mirrored
+for drivers going down the lap (world/places, `addSign({ back: true })`, RIGHT↔LEFT) and lapsigns adds their distance
+boards + "exit on the other side" boards (exits are still only taken from the up-lap side — round 2). A ping takes the
+shorter way round the lap and says the route in words (pins › `way()`, `target()`). Test `pinroute`.
+
 **Storefronts (`features/storefronts`, `ci/storefronts`, 2026-11-27 — the owner: "fill every building and property with
 something … some of them can be under renovation — or closed … I don't necessarily want a bunch of stores repeating
 themselves … this could clutter the map … done smartly"):** every shopfront (town_shop / town_mw_store — Midwood 165,
