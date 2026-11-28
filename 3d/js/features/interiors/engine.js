@@ -658,7 +658,9 @@ export class Room {
             const facing = d > 0.01 ? (dx * fx + dz * fz) / d : 1;
             // (the one she FACES wins over one just beside her: two ✋ a step apart — a house's leaf blower + its broom —
             //  standing at one and facing it, the prompt was the other; ci/sweep-phone)
-            const score = d - facing * 1.0;
+            // (…and a PERSON a little over a thing: the mom behind the seltzer bottle on her counter — facing both, the
+            //  prompt was the bottle; stepping right up to the bottle still picks the bottle)
+            const score = d - facing * 1.0 - (h.who ? 0.3 : 0);
             if (score < bs) { bs = score; best = h; }
         }
         return best;
