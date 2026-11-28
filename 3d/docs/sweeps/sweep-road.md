@@ -68,7 +68,9 @@ Not touched (still moving on another branch when this started): `features/fuel` 
   far carriageway just has no set pieces. Mirroring them is a per-piece job (each is built for one direction); not done here.
 
 - **ci/sweep-health**: `partyworld` "paused in a party (the 📱 phone): the car stops and never rolls backwards" is flaky on
-  plain main (a shared, clock-driven party car rams her stopped car — they can't stop for her); `feel` "rain on foot" sits
+  plain main (a shared, clock-driven party car rams her stopped car — they can't stop for her; seen again in CI
+  46150503359 as `{"min":-7.71,"ds":9}`: placed at 16 m/s in lane 1.75 she eases into a shared car ahead of her and bounces
+  back — the test's placement, not a reverse); `feel` "rain on foot" sits
   right at its 0.02 drum threshold on the fast clock.
 
 - **ci/sweep-health / ci/fasttests**: on the fast test clock a test's `t.shot()` comes out as flat sky blue (the HUD drawn

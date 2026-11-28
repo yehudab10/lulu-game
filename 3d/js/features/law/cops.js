@@ -489,7 +489,8 @@ export function spawnTrap(sAhead = 240, side = Math.random() < 0.5 ? -1 : 1) {
     const cop = cloneWithColors(models.cop);
     cop.position.set(tmpP.x, 0, tmpP.z);
     // nose angled toward the road and a little forward — ready to pounce
-    cop.rotation.y = Math.atan2(-rx * side * 0.8 + fx * 0.6, -rz * side * 0.8 + fz * 0.6);
+    const fw = downLap() ? -0.6 : 0.6;      // (a little forward: her way — down the lap too)
+    cop.rotation.y = Math.atan2(-rx * side * 0.8 + fx * fw, -rz * side * 0.8 + fz * fw);
     const r = rig(cop);
     g.add(cop);
     // the cover, between the cruiser and the approaching traffic
@@ -594,7 +595,7 @@ function trapToChase(t) { beginChase("SPEEDING", { msg: "🚨 SPEED TRAP!", unit
 function trapUnit(t) {
     t.gone = true;
     t.obj.remove(t.cop);
-    const u = addUnit(t.s, t.d, 1, 0, { mode: "chase" });
+    const u = addUnit(t.s, t.d, travelDir(), 0, { mode: "chase" });
     const c = u.car;
     c.free = true; c.x = t.x; c.z = t.z; c.h = t.h;
     c.obj.position.set(c.x, 0, c.z); c.obj.rotation.y = c.h;
