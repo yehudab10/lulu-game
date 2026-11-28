@@ -15,8 +15,18 @@ import { lapPlaces } from "./lapmap.js";
 export const UTURN_BEFORE = 400;
 const BIG = new Set(["town", "airport", "rest"]);
 /** The crossovers' lap metres (one before each exit). */
+// (lapPlaces asks the towns for their exits, and planning those can ask the places for their spots again — this one
+//  included: a re-entry guard, and the answer kept once it has every place: 2 towns + JFK + 2 rest areas)
+let CACHE = null, BUSY = false;
 export function uturnMetres() {
-    try { return lapPlaces().filter(p => BIG.has(p.kind)).map(p => ({ m: ((p.m - UTURN_BEFORE) % LAP + LAP) % LAP, place: p })); } catch (e) { return []; }
+    if (CACHE) return CACHE;
+    if (BUSY) return [];
+    BUSY = true;
+    try {
+        const r = lapPlaces().filter(p => BIG.has(p.kind)).map(p => ({ m: ((p.m - UTURN_BEFORE) % LAP + LAP) % LAP, place: p }));
+        if (r.length >= 5) CACHE = r;
+        return r;
+    } catch (e) { return []; } finally { BUSY = false; }
 }
 
 // ── the paint: a dashed turn bay 36 m × 3.2 m + a U-turn arrow, flat on the road (one merged mesh, one material) ──
