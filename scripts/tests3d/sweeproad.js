@@ -3,18 +3,23 @@
 //   crash   who was moving into whom: a cruiser in traffic that rear-ends HER on her last heart is not her
 //           "DESTROYING A POLICE CRUISER" (law's wreck hook, the cameos' crash scene); her ramming a stopped cruiser
 //           still is; a car she just passed brakes for her when she stops instead of ploughing into her
+//   lot     Uncle Refael's lot: "🔑 Drive it off the lot" for a car she owns is only offered while that car is at home —
+//           an IMPOUNDED one used to come out free (no release fee) and one parked across the map jumped to the lot
 const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash"],
-  query: "&enable=law,cameos,foot",
-  save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
+  parts: ["crash", "lot"],
+  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone",
+  save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
     const PART = process.env.SWEEPROAD_PART ? process.env.SWEEPROAD_PART.split(",") : this.parts;
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 400)); } };
-    if (PART.includes("crash")) await step("crash", () => crash(t));
+    try {
+      if (PART.includes("crash")) await step("crash", () => crash(t));
+      if (PART.includes("lot")) await step("lot", () => lot(t));
+    } finally { W.dropRelayErrors(t); }
   },
 };
 
@@ -22,7 +27,7 @@ module.exports = {
 async function standstill(t) {
   const g = t.game;
   if (await g(`L3.state !== "playing"`)) {
-    await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.startRun({ mode: "cruise" }), true)`);
+    await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.startRun({ mode: "cruise", quick: true }), true)`);
     await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 120000);
   }
   await g(`(() => { ctx.traffic.config.enabled = false; ctx.traffic.clear(); const r = ctx.world.road, s = ctx.car.s + 30, p = r.point(s, 1.75, {});
@@ -35,7 +40,7 @@ async function crash(t) {
   const g = t.game;
   await W.install(t);
   if (!await t.until(`__lulu3d.state === "title"`, "title")) return;
-  await g(`L3.startRun({ mode: "cruise" })`);
+  await g(`L3.startRun({ mode: "cruise", quick: true })`);
   if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts", 120000)) return;
   await g(`(ctx.cameos && (ctx.cameos.force.scene = false), true)`);
 
@@ -80,4 +85,52 @@ async function crash(t) {
   await g(`(ctx.traffic.clear(), L3.setState("title"), true)`);
   await t.frames(4);
   W.check(t, "crash part", await W.report(t));
+}
+
+/** Uncle Refael's lot and a car she owns that isn't at home. */
+async function lot(t) {
+  const g = t.game;
+  if (!await g(`!!(ctx.cars && ctx.shops && ctx.town)`)) { t.check("lot: cars + shops + town are on", false); return; }
+  await W.pause(t, false);
+  if (await g(`ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  if (await g(`L3.state !== "playing"`)) {
+    await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "lot: a cruise starts", 120000);
+  }
+  await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.town.load("lakewood"), true)`);
+  await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "lot: Lakewood's models load", 120000);
+  await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
+  if (!await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "lakewood"`, "lot: into Lakewood", 20000)) return;
+  await t.frames(20);
+  await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+  await t.until(`__lulu3d.state === "footRun"`, "lot: out on foot", 10000);
+  await g(`(() => { const sp = ctx.town.spot("lot_purple"), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 0.6, 0.05, sp.z + sp.nz * 0.6); F.phase = "walk"; return true; })()`);
+  await t.frames(6);
+  // her purple car is IMPOUNDED in Midwood (an arrest there)
+  await g(`(ctx.cars.leaveAt("purple", { kind: "impound", town: "midwood" }), true)`);
+  const buttons = () => t.L(`[...document.querySelectorAll("#screenCard button")].filter(b => b.offsetParent).map(b => b.textContent.trim())`);
+  await g(`ctx.shops.debug.dealer.openLot("purple")`);
+  await t.until(`!!document.querySelector("#screenCard .sp")`, "lot: the car card opens", 10000);
+  await t.frames(6);
+  const b1 = await buttons();
+  t.check("lot: an IMPOUNDED car she owns can't be driven off Refael's lot (no free release)", !b1.some(x => /Drive it off the lot/.test(x)), b1.join(" | "));
+  await t.shot("lot-impounded");
+  await g(`(document.querySelector('#screenCard .dp-opt[data-opt="purple"]') && document.querySelector('#screenCard .dp-opt[data-opt="purple"]').click(), true)`);
+  await t.frames(4);
+  const said = await t.L(`(document.getElementById("screenCard") || {}).textContent || ""`);
+  t.check("lot: …the card says where it is instead", /impounded in Midwood/i.test(said), said.slice(0, 300));
+  t.check("lot: …and it's still impounded", (await g(`ctx.cars.where("purple").kind`)) === "impound");
+  await t.tap(1); await t.frames(10);
+  // at home: the old way still works
+  await g(`(ctx.cars.leaveAt("purple", { kind: "home" }), true)`);
+  if (await g(`L3.state === "footRun" && !document.querySelector("#screenCard .sp")`)) {
+    await g(`ctx.shops.debug.dealer.openLot("purple")`);
+    await t.until(`!!document.querySelector("#screenCard .sp")`, "lot: the card opens again", 10000);
+    await t.frames(6);
+    const b2 = await buttons();
+    t.check("lot: a car she owns that's AT HOME can still be driven off the lot", b2.some(x => /Drive it off the lot/.test(x)), b2.join(" | "));
+    await t.tap(1); await t.frames(10);
+  }
+  await W.pause(t, true);
 }
