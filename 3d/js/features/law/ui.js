@@ -4,7 +4,7 @@
 // HUD bits (wanted stars, the SPOTTED / BUSTED / EVADING meters).
 // Everything here is display only; input goes through showScreen / say / choose.
 import * as THREE from "three";
-import { css } from "../../core/ctx.js";
+import { css, ctx } from "../../core/ctx.js";
 import * as H from "../../hud.js";
 
 css("law", `
@@ -123,6 +123,12 @@ const $ = s => root.querySelector(s);
 const head = $(".law-head"), cap = $(".law-cap"), bar = $(".law-bar"), toasts = $(".law-toasts"), meter = $(".law-meter"), pickEl = $(".law-pick"), bubbles = $(".law-bubbles");
 
 export function header(html) { if (!html) head.classList.add("hidden"); else { head.innerHTML = html; head.classList.remove("hidden"); } }
+/** The precinct she's taken to, by name (features/places: Lakewood's "Precinct 18½", Midwood's "70½th Precinct", Trooper
+ *  Post 7…) — it used to say PRECINCT 18½ wherever she was hauled. Upper case, no leading "the". */
+export function precinctName() {
+    try { const n = ctx.civic && ctx.civic.names && ctx.civic.names(); const s = n && n.precinct && n.precinct.name; if (s) return s.replace(/^the /i, "").toUpperCase(); } catch (e) { /* no places */ }
+    return "PRECINCT 18½";
+}
 export function caption(html, sub = "") {
     if (!html) { cap.classList.add("hidden"); cap.dataset.k = ""; return; }
     const k = html + "|" + sub;

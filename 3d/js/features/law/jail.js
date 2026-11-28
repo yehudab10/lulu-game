@@ -240,7 +240,7 @@ function onTapAnywhere(e) {
 
 async function main(f, data) {
     if (!JAIL_KEYS.every(k => models[k])) {
-        UI.caption("🚓 PRECINCT 18½", "Booking you in…");
+        UI.caption(`🚓 ${UI.precinctName()}`, "Booking you in…");
         try { await ensureModels(JAIL_KEYS); } catch (e) { console.warn("[law] jail models", e); }
         check(f);
         UI.caption("");
@@ -273,7 +273,7 @@ async function arrive(f) {
     e.cruiser.position.set(34, 0, 8.1); e.cruiser.rotation.y = -Math.PI / 2;
     st.cruiseV = 16;
     st.ext = { mode: "arrive" };
-    UI.caption("🏛️ PRECINCT 18½", "Booking & intake");
+    UI.caption(`🏛️ ${UI.precinctName()}`, "Booking & intake");
     UI.header("🚨 UNDER ARREST 🚨");
     e.shot.set(V(11, 3.6, 19), V(2, 1.8, 6), 48).cut();
     await f.until(() => st.ext.stopped, 6);

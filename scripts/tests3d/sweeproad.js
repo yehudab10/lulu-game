@@ -103,6 +103,10 @@ async function crash(t) {
   await g(`(ctx.traffic.clear(), L3.setState("title"), true)`);
   await t.frames(4);
   W.check(t, "crash part", await W.report(t));
+  // 🚓 the haul + booking captions name the precinct she's taken to (they said PRECINCT 18½ everywhere)
+  const pn = await t.L(`import("./js/features/law/ui.js").then(U => { const S = __lulu3d.ctx.civic.debug.STAY, was = S.place;
+    S.place = { kind: "law", id: "midwood" }; const a = U.precinctName(); S.place = { kind: "law", hw: "trooper", id: "trooper", s: 6800 }; const b = U.precinctName(); S.place = was; return [a, b]; })`);
+  t.check("law: hauled to Midwood → '70½TH PRECINCT'; to the highway post → 'TROOPER POST 7'", pn[0] === "70½TH PRECINCT" && pn[1] === "TROOPER POST 7", JSON.stringify(pn));
 }
 
 
@@ -177,6 +181,10 @@ async function lot(t) {
   await t.click(/Car:/);
   await t.frames(4);
   t.check("title: …and still switches to a car at home", (await g(`ctx.car.skinKey`)) === "purple");
+  // 🔧 Shmuel doesn't offer a chop job while her own car is impounded ("his guy brings your car round" = a free release)
+  const chop = await g(`(() => { const k = ctx.car.skinKey; ctx.cars.leaveAt(k, { kind: "impound", town: "midwood" }); const a = !!ctx.streets.chop.request({ instant: true });
+    ctx.cars.leaveAt(k, { kind: "with" }); const b = !!ctx.streets.chop.request({ instant: true }); ctx.streets.debug.CHOP.job = null; return { a, b }; })()`);
+  t.check("chop: no chop-shop job while her own car is impounded (one when it isn't)", !chop.a && chop.b, JSON.stringify(chop));
   await W.pause(t, true);
 }
 

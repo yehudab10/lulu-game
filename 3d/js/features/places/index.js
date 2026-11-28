@@ -38,6 +38,8 @@ const townId = () => (inTown() && ctx.town.id) || "lakewood";
 function names() {
     const P = STAY.place, R = P && P.hw ? BY_ID[P.hw] : null;
     if (R) return Object.assign({}, NAMES.lakewood, R.names);
+    // (the town she's being TAKEN to — an arrest on the highway hauls her to Midwood's precinct while she isn't in a town)
+    if (P && P.id && NAMES[P.id]) return NAMES[P.id];
     return NAMES[townId()] || NAMES.lakewood;
 }
 /** What a door is called right where she stands (on the highway: the roadside place's own name). */
