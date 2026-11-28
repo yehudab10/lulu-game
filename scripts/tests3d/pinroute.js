@@ -38,26 +38,6 @@ module.exports = {
     const lw = await T("lakewood:pizza"), jfk = await T("hw:jfk");
     t.check(`Midwood → Lakewood's pizza: the route to the Lakewood exit (${lw && lw.label})`, !!lw && lw.kind === "exit" && /leave Midwood, then .* to the Lakewood exit/.test(lw.label), JSON.stringify(lw));
     t.check(`Midwood → JFK: the route out of town and along the highway (${jfk && jfk.label})`, !!jfk && jfk.kind === "exit" && /leave Midwood, then .* on the highway/.test(jfk.label), JSON.stringify(jfk));
-    // from indoors (the bank in town: the town's own room) — the ping still knows the way
-    const indoors = await g(`(() => { try { return ctx.interiors && ctx.interiors.bank ? true : false; } catch (e) { return false; } })()`);
-    if (indoors) {
-      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
-      await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000);
-      const ok = await g(`(() => { const sp = ctx.town.spot("bank"); if (!sp) return false; const F = ctx.foot.debug.F; F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
-      if (ok) {
-        await g(`ctx.interiors.bank.enter({ exit: () => L3.setState("footRun", { resume: "interior" }), door: "bank", from: "foot" })`);
-        if (await t.until(`__lulu3d.state === "interior"`, "inside the bank", 60000)) {
-          const ri = await T("hw:mazelati");
-          t.check(`indoors: the ping still knows the way (${ri && ri.label})`, !!ri && /leave Midwood/.test(ri.label), JSON.stringify(ri));
-          await g(`(window.__interiors && __interiors.room && __interiors.room.leave(), true)`);
-          for (let i = 0; i < 20 && await t.L(`__lulu3d.state`) !== "footRun"; i++) await t.tap(0);
-          await t.until(`__lulu3d.state === "footRun"`, "out of the bank", 30000);
-        }
-      }
-      await g(`(ctx.foot.end("test"), L3.setState("playing"), true)`);
-      await t.frames(6);
-    }
-
     // ── 2. on the highway just past Midwood's on-ramp, heading up the lap: "turn around", pointing BACK ──
     await g(`(ctx.town.leave("highway"), true)`);
     await t.frames(10);
@@ -110,14 +90,6 @@ module.exports = {
     await t.frames(150);
     const back = await g(`ctx.world.signs.filter(x => x.back).map(x => ({ s: Math.round(x.s), lines: x.lines.join(" / ") }))`);
     console.log("   BACK SIGNS", JSON.stringify(back));
-    // traffic + cops come from the way she's going (ci/twoway round 3)
-    await g(`(ctx.traffic.clear(), ctx.traffic.config.enabled = true, true)`);
-    await t.frames(240);
-    const tr = await g(`(() => { const s = ctx.car.s, cs = ctx.traffic.cars.filter(c => !c.ai); return { n: cs.length, ahead: cs.filter(c => c.s < s - 150).length, behindFar: cs.filter(c => c.s > s + 300).length, withHer: cs.filter(c => c.s < s - 150 && c.dir < 0).length }; })()`);
-    t.check(`going down the lap: traffic comes from ahead of her that way, the far side's going her way (${JSON.stringify(tr)})`, tr.ahead >= 2 && tr.withHer >= 1 && tr.behindFar === 0, JSON.stringify(tr));
-    await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
-    const pat = await g(`(() => { const D = ctx.law && ctx.law._dbg; if (!D || !D.spawnPatrol) return null; const u = D.spawnPatrol({ oncoming: false, fast: false }); const r = u && u.car ? { ds: Math.round(u.car.s - ctx.car.s), d: u.car.d, dir: u.car.dir } : null; if (u && D.L) { const i = D.L.units.indexOf(u); if (i >= 0) D.L.units.splice(i, 1); if (u.car) ctx.traffic.remove(u.car); } return r; })()`);
-    if (pat) t.check(`…a patrol going her way spawns ahead of her, on her side (${JSON.stringify(pat)})`, pat.ds < -200 && pat.d < 0 && pat.dir === -1, JSON.stringify(pat));
     // the trip bar reads her way too (ci/twoway round 2: it used to say "Lakewood exit in 2.9 mi" going the other way)
     const trip = await t.L(`(document.getElementById("tripLabel") || {}).textContent || ""`);
     t.check(`going down the lap, the trip bar names the next place HER way + "exit on the other side" (${trip})`, /exit on the other side/.test(trip) && !/Lakewood/.test(trip), trip);
@@ -127,5 +99,64 @@ module.exports = {
     if (xs) { await g(`(() => { const c = ctx.car, s = ${xs.s + 150}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; c.vx = -Math.sin(p.h) * 12; c.vz = -Math.cos(p.h) * 12; c.vF = 12; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`); await t.frames(40); await cam(xs.s + 60, -6, xs.s); await t.frames(4); await t.shot("sign-exit-other-side"); }
     if (ds) { await g(`(() => { const c = ctx.car, s = ${ds.s + 150}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; c.vx = -Math.sin(p.h) * 12; c.vz = -Math.cos(p.h) * 12; c.vF = 12; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`); await t.frames(40); await cam(ds.s + 60, -6, ds.s); await t.frames(4); await t.shot("sign-distance-other-way"); }
     await t.L(`window.__camAt = null`);
+
+    // ── 6. a U-turn crossover past each exit, for drivers coming down the lap (ci/twoway round 4) ──
+    const cross = await t.L(`import("./js/features/world/uturn.js").then(m => m.uturnMetres().map(u => ({ m: Math.round(u.m), name: u.place.name, kind: u.place.kind })))`);
+    console.log("   UTURNS", JSON.stringify(cross));
+    const mw = cross.find(u => /midwood/i.test(u.name));
+    t.check(`a crossover 400 m past each town / JFK / rest-area exit (coming down the lap) — ${cross.length}`, cross.length >= 3 && !!mw, JSON.stringify(cross));
+    if (mw) {
+      await g(`(() => { const c = ctx.car, s = ${mw.m + 900}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; c.vx = -Math.sin(p.h) * 12; c.vz = -Math.cos(p.h) * 12; c.vF = 12; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`);
+      await t.frames(150);
+      const ub = await g(`ctx.world.signs.filter(x => x.back && /U-TURN/.test(x.lines.join(" "))).map(x => Math.round(x.s) + ": " + x.lines.join(" / "))`);
+      t.check(`its board, 300 m before it her way: "↺ U-TURN 300 m · for MIDWOOD" (${ub[0] || ""})`, ub.some(x => /MIDWOOD/.test(x)), JSON.stringify(ub));
+      // (closer — the world builds 640 m ahead of her): the crossover's paint is on the road where she turns
+      await g(`(() => { const c = ctx.car, s = ${mw.m + 350}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`);
+      await t.frames(90);
+      const sp = await g(`ctx.places.spots().filter(x => x.id === "uturn").map(x => Math.round(x.s) + (x.built ? "+" : "-"))`);
+      t.check(`Midwood's crossover is on the road where she turns (${sp.join(",")})`, sp.some(x => Math.abs(parseInt(x) - mw.m) < 2 && /\+$/.test(x)), JSON.stringify(sp));
+      await g(`(() => { const c = ctx.car, s = ${mw.m + 60}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; ctx.cam.snap(); return true; })()`); await t.frames(30);
+      await g(`(() => { const R = ctx.world.highway || ctx.world.road, a = R.point(${mw.m + 32}, -1, {}), b = R.point(${mw.m - 4}, -3.5, {}), c = ctx.camera; const y = 0; window.__camAt = [a.x, y + 7, a.z, b.x, y, b.z]; return true; })()`);
+      await t.frames(4); await t.shot("uturn-crossover"); await t.L(`window.__camAt = null`);
+    }
+
+    // (traffic last but two: a busy far side slows the software renderer in CI enough to drop the graphics tier, and the
+    //  screenshots above are for people)
+    await g(`(() => { const c = ctx.car, s = 9000, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`); await t.frames(10);
+    // traffic + cops come from the way she's going (ci/twoway round 3)
+    await g(`(ctx.traffic.clear(), ctx.traffic.config.enabled = true, true)`);
+    await t.frames(240);
+    const tr = await g(`(() => { const s = ctx.car.s, cs = ctx.traffic.cars.filter(c => !c.ai); return { n: cs.length, ahead: cs.filter(c => c.s < s - 150).length, behindFar: cs.filter(c => c.s > s + 300).length, withHer: cs.filter(c => c.s < s - 150 && c.dir < 0).length }; })()`);
+    t.check(`going down the lap: traffic comes from ahead of her that way, the far side's going her way (${JSON.stringify(tr)})`, tr.ahead >= 2 && tr.withHer >= 1 && tr.behindFar === 0, JSON.stringify(tr));
+    await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    // (the patrol check last but one: spawning + removing a unit through law's debug hooks)
+    await g(`(() => { const c = ctx.car, s = 9000, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`); await t.frames(10);
+    const pat = await g(`(() => { const D = ctx.law && ctx.law._dbg; if (!D || !D.spawnPatrol) return null; const u = D.spawnPatrol({ oncoming: false, fast: false }); const r = u && u.car ? { ds: Math.round(u.car.s - ctx.car.s), d: u.car.d, dir: u.car.dir } : null; if (u && D.L) { const i = D.L.units.indexOf(u); if (i >= 0) D.L.units.splice(i, 1); if (u.car) ctx.traffic.remove(u.car); } return r; })()`);
+    if (pat) t.check(`…a patrol going her way spawns ahead of her, on her side (${JSON.stringify(pat)})`, pat.ds < -200 && pat.d < 0 && pat.dir === -1, JSON.stringify(pat));
+    // ── 7. from indoors (last: a room's own view stays on screen until the next state change) ──
+    await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), true)`); await t.frames(6);
+    await g(`ctx.town.enter({ town: "midwood", exitS: ctx.town.exitOf("midwood", 0), speed: 0 })`);
+    await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "back in Midwood", 30000);
+    await g(`(ctx.pins.ping("hw:mazelati", { from: "test" }), true)`); await t.frames(6);
+    // from indoors (the bank in town: the town's own room) — the ping still knows the way
+    const indoors = await g(`(() => { try { return ctx.interiors && ctx.interiors.bank ? true : false; } catch (e) { return false; } })()`);
+    if (indoors) {
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "on foot", 8000);
+      const ok = await g(`(() => { const sp = ctx.town.spot("bank"); if (!sp) return false; const F = ctx.foot.debug.F; F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
+      if (ok) {
+        await g(`ctx.interiors.bank.enter({ exit: () => L3.setState("footRun", { resume: "interior" }), door: "bank", from: "foot" })`);
+        if (await t.until(`__lulu3d.state === "interior"`, "inside the bank", 60000)) {
+          const ri = await T("hw:mazelati");
+          t.check(`indoors: the ping still knows the way (${ri && ri.label})`, !!ri && /leave Midwood/.test(ri.label), JSON.stringify(ri));
+          await g(`(window.__interiors && __interiors.room && __interiors.room.leave(), true)`);
+          for (let i = 0; i < 20 && await t.L(`__lulu3d.state`) !== "footRun"; i++) await t.tap(0);
+          await t.until(`__lulu3d.state === "footRun"`, "out of the bank", 30000);
+        }
+      }
+      await g(`(ctx.foot.end("test"), L3.setState("playing"), true)`);
+      await t.frames(6);
+    }
+
   },
 };

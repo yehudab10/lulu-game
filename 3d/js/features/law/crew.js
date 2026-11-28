@@ -62,7 +62,7 @@ const F_CAR = 1, F_SEEN = 2, F_SEARCH = 4, F_FOOT = 8, F_CUSTODY = 16, F_CELL = 
 const CUSTODY = new Set(["lawArrest", "lawJail", "lawCourt", "lawExit", "placesArrive"]);
 const FREE = new Set(["playing", "footRun"]);
 
-const C = { pubT: 0, sent: "", chasing: false, adopted: 0, refused: new Set(), toldDrop: new Set(), opt: new Map(), busted: 0,
+const C = { pubT: 0, sent: "", sentW: "", chasing: false, adopted: 0, refused: new Set(), toldDrop: new Set(), opt: new Map(), busted: 0,
     give: null, giveFor: 0, stopT: 0, crimeAt: 0, host: { crimes: new Map(), opt: new Map(), splitT: new Map(), quietT: new Map(), outT: new Map(), tickT: 0 },
     cell: { mates: new Map(), allHere: false, waitT: 0, emote: null, seq: 50 }, door: { t: 0 } };
 
@@ -73,6 +73,16 @@ export function crewParty() { const p = P(); return !!(p && p.active && p.activi
 const me = () => P().uid;
 const now = () => P().clock();
 const zone = () => (ctx.town && ctx.town.active ? ctx.town.id || "" : "");
+/** Which building a cell / a precinct desk is in (ci/roadside: the nearest-place rule also holds with friends): the
+ *  town's id, or "hw:<id>" for a roadside place (Trooper Post 7 / the Weigh Station). In custody it's where SHE was
+ *  taken (places' claim — a town she isn't standing in yet, or a roadside place); otherwise the precinct she's at. */
+function building() {
+    const S = ctx.civic && ctx.civic.place;
+    if (CUSTODY.has(ctx.state) && S && S.kind === "law") return S.hw ? "hw:" + S.hw : S.id || "";
+    if (ctx.town && ctx.town.active) return ctx.town.id || "";
+    const sp = ctx.civic && ctx.civic.spot ? ctx.civic.spot("precinct") : null;
+    return sp && sp.hw ? "hw:" + sp.hw : "";
+}
 const clone = o => JSON.parse(JSON.stringify(o));
 const nameOf = uid => { try { return P().displayName(uid); } catch (e) { return "your partner"; } };
 export const names = list => list.map(nameOf).join(" & ");
@@ -92,7 +102,9 @@ function statusOf(uid) {
     const a = p && P().fresh(p, 6000) && p.x && Array.isArray(p.x.pz) ? p.x.pz : null;
     if (!a || a.length < 6 || !a.every(Number.isFinite)) return null;
     return { n: a[0] | 0, heat: Math.max(0, Math.min(5, a[1] | 0)), f: a[2] | 0, ev: Math.max(0, Math.min(100, a[3] | 0)) / 100, x: a[4] / 10, z: a[5] / 10,
-        v: Math.max(0, Math.min(3, a[6] | 0)), bail: Math.max(0, Math.min(99999, a[7] | 0)), zone: typeof p.x.z === "string" ? p.x.z : "" };
+        v: Math.max(0, Math.min(3, a[6] | 0)), bail: Math.max(0, Math.min(99999, a[7] | 0)), zone: typeof p.x.z === "string" ? p.x.z : "",
+        // (the building her cell is in — an older client doesn't say: its town zone stands in)
+        bld: typeof p.x.pw === "string" ? p.x.pw.slice(0, 24) : (typeof p.x.z === "string" ? p.x.z : "") };
 }
 function mine() {
     const ch = L.chase, st = ctx.state, foot = !!(ctx.foot && ctx.foot.active && ctx.foot.chasing);
@@ -107,7 +119,7 @@ function mine() {
     if (st === "lawJail" && C.breakOn) f |= F_BREAK;
     if (st === "lawJail" && C.cell.vote) f |= F_VOTE;
     const p = myPos(), c = crews().find(k => k.ph !== "done" && k.ps.includes(me()) && C.adopted === k.n);
-    return { n: c ? c.n : 0, heat: ch ? ch.heat | 0 : 0, f, ev: ch ? ch.evade : 0, x: p.x, z: p.z, v: C.verdict | 0, bail: (f & F_CELL) ? C.bail | 0 : 0, zone: zone() };
+    return { n: c ? c.n : 0, heat: ch ? ch.heat | 0 : 0, f, ev: ch ? ch.evade : 0, x: p.x, z: p.z, v: C.verdict | 0, bail: (f & F_CELL) ? C.bail | 0 : 0, zone: zone(), bld: building() };
 }
 /** Partners still in the party (not me). */
 function mates(c) { if (!c) return []; const mem = P().members(), u = me(); return c.ps.filter(x => x !== u && mem.includes(x)); }
@@ -269,6 +281,7 @@ on("boot", () => { if (ctx.party && ctx.party.onHostEvent) ctx.party.onHostEvent
 function tick(dt) {
     if (!crewParty()) {
         if (C.sent) { C.sent = ""; try { P() && P().setX && P().setX("pz", null); } catch (e) { /* gone */ } }
+        if (C.sentW) { C.sentW = ""; try { P() && P().setX && P().setX("pw", null); } catch (e) { /* gone */ } }
         if (C.give) { C.give(); C.give = null; }
         if (C.spring) { C.spring(); C.spring = null; }
         C.adopted = 0; C.chasing = false; C.busted = 0;
@@ -362,6 +375,8 @@ function publish(dt) {
     // (only while it matters — in trouble, in custody, in a crew: a party snapshot has a size budget, and just driving
     //  around says nothing a friend needs)
     const key = s.n || (s.f & ~F_DRIVE) ? a.join(",") : "";
+    const pw = (s.f & F_CELL) ? s.bld : "";
+    if (pw !== C.sentW) { C.sentW = pw; P().setX("pw", pw || null); }
     if (key === C.sent) return;
     C.sent = key;
     P().setX("pz", key ? a : null);
@@ -565,14 +580,14 @@ function hostHelp(uid, k, a) {
     }
 }
 function helpOf(target) { const A = P() && P().activity; return A && A.pz && A.pz.h ? A.pz.h[target] || null : null; }
-/** Friends sitting in a cell in THIS town (a precinct I can walk into): [{ uid, name, bail, crew }]. */
+/** Friends sitting in a cell in THIS building (the precinct I'm at — a town's, or a roadside place's): [{ uid, name, bail, crew }]. */
 export function friendsInside() {
     if (!crewParty()) return [];
-    const out = [], c = myCrew(), z = zone();
+    const out = [], c = myCrew(), z = building();
     for (const u of P().members()) {
         if (u === me()) continue;
         const s = statusOf(u);
-        if (!s || !(s.f & F_CELL) || s.zone !== z) continue;
+        if (!s || !(s.f & F_CELL) || s.bld !== z) continue;
         out.push({ uid: u, name: nameOf(u), bail: s.bail, crew: !!(c && c.caught.includes(u)) });
     }
     return out;

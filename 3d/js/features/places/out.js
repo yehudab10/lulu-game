@@ -20,7 +20,6 @@ import { LAP } from "../../world.js";
 import { BY_ID, copyS, nearest, hwSpot } from "./roadside.js";
 
 const inTown = () => !!(ctx.town && ctx.town.active);
-const party = () => !!(ctx.party && ctx.party.active);
 /** The stay in progress: { kind: law | er, id (town), exitS, here (it happened in that town), built } | null. */
 export const STAY = { place: null };
 
@@ -36,9 +35,10 @@ export function claim(kind = "law") {
         STAY.place = { kind, id: ctx.town.id, exitS: ctx.town.debug && ctx.town.debug.S ? ctx.town.debug.S.exitS : null, here: true, attached: !!ctx.town.attached };
         return STAY.place;
     }
-    // on the highway: the nearest interchange's town — only in a solo Cruise (a 🎉 party keeps the old flow: a warp into
-    // a town would split her from her friends; Story / the Shabbos run have no towns)
-    if (party() || !ctx.G || ctx.G.mode !== "cruise" || !ctx.town.prebuild) return null;
+    // on the highway: in a Cruise — solo OR with friends (ci/friends stage 1: each friend rides her OWN run, so the nearest
+    // place is per player; partners caught together are near each other and get the same one, bar a tie right at a
+    // midpoint); Story / the Shabbos run have no towns
+    if (!ctx.G || ctx.G.mode !== "cruise" || !ctx.town.prebuild) return null;
     // 🚔🚑 ci/roadside — THE rule: the nearest place of this kind ALONG THE LAP from where it happened, either way round,
     // the towns' buildings and the roadside ones alike (roadside.js nearest) — the same answer on every lap
     const n = nearest(kind), s = ctx.car.s;

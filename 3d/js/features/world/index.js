@@ -39,6 +39,7 @@ import { departInfo, comeHome } from "./depart.js";
 import { placesApi, reservePlaces } from "./places.js";
 import { openFamilyMap } from "./map.js";
 import "./lapsigns.js";        // 🌍 ci/onemap: real distances on the highway's boards
+import "./uturn.js";           // ↺ ci/twoway: a painted U-turn crossover before each exit, for drivers coming down the lap
 
 registerModels({ world_home: "world_home" }, { preload: true });
 registerModels({ world_gas: "world_gas", world_lookout: "world_lookout" });
