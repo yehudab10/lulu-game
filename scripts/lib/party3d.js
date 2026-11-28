@@ -69,10 +69,23 @@ async function guestPage(t, label, save2d, query, viewport = { width: 640, heigh
     if (!sessionStorage.getItem("__seeded")) localStorage.setItem("luluSaveV2", JSON.stringify(save2d));
     sessionStorage.setItem("__seeded", "1");
   }, { save2d });
+  // (a guest page that navigates on its own after its first load is a bug worth naming: Chrome says WHY — "reload",
+  //  "scriptInitiated", "formSubmissionGet", "anchorClick"… — and to where; it lands in `errors` → "<label>: no page errors")
+  const navs = [];
+  try {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Page.enable");
+    cdp.on("Page.frameRequestedNavigation", e => navs.push({ why: e.reason, url: e.url, disposition: e.disposition }));
+  } catch (e) { /* no CDP: nothing recorded */ }
+  let loads = 0;
+  page.on("framenavigated", f => {
+    if (f !== page.mainFrame()) return;
+    if (++loads > 1) errors.push(`page navigated on its own (#${loads}): ${f.url()} — Chrome's reason: ${JSON.stringify(navs.slice(-2))}`);
+  });
   const base = t.page.url().split("/3d/")[0];
   await page.goto(`${base}/3d/?test${query || ""}`);
   return {
-    label, page, errors,
+    label, page, errors, navs,
     L: code => page.evaluate(code),
     game: code => page.evaluate(`(() => { const L3 = window.__lulu3d, ctx = L3.ctx; return (${code}); })()`),
     frames: n => framesOn(page, n),

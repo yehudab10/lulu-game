@@ -88,7 +88,8 @@ hook("hud", () => {
     const G = ctx.G, want = input.device !== "touch" && ctx.state === "playing" && (G.runTime || 0) < 12;
     if (want !== keyHint) { keyHint = want; refreshCorner(null, want); }
     // one gentle intro, once per save
-    if (!S.hinted && ctx.state === "playing" && (G.runTime || 0) > 8 && ctx.enabled("phone") && !H.popupsBlocked()) {
+    // (not over the first-drive tutorial's cards: both came up together at a new player's first pull-out; ci/sweep-phone)
+    if (!S.hinted && ctx.state === "playing" && (G.runTime || 0) > 8 && ctx.enabled("phone") && !H.popupsBlocked() && !G.tutorial) {
         S.hinted = true; saveSoon();
         H.banner(`<b>📱 Lulu's phone</b><small>map · messages · radio · jobs — ${input.device === "touch" ? "tap 📱 up top" : "press " + glyph("phone")}</small>`, 3600, { key: "phone" });
     }

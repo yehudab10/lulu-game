@@ -82,7 +82,10 @@ export function updateBubbles(dt, camera) {
         _v.project(camera);
         if (_v.z > 1 || _v.z < -1 || Math.abs(_v.x) > 1.2 || Math.abs(_v.y) > 1.2) { b.el.style.display = "none"; continue; }
         b.el.style.display = "";
-        const x = Math.max(70, Math.min(W - 70, (_v.x * 0.5 + 0.5) * W));
+        // (kept whole on the screen: a speaker near the edge of a phone held upright had half her line cut off — the
+        //  bubble's own half-width, measured once it's shown; ci/sweep-phone)
+        const hw = b.hw || (b.hw = b.el.offsetWidth / 2) || 70, m = Math.min(hw + 8, W / 2);
+        const x = Math.max(m, Math.min(W - m, (_v.x * 0.5 + 0.5) * W));
         const sy = Math.max(60, (-_v.y * 0.5 + 0.5) * H);
         b.el.style.transform = `translate(${x.toFixed(1)}px, ${sy.toFixed(1)}px) translate(-50%, -100%)`;
     }

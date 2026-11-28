@@ -88,7 +88,7 @@ export const CLERKS = {
 };
 /** "📣 File a complaint" → the options + what the clerk says back. */
 export const COMPLAINTS = [
-    { opt: "🪿 The geese", reply: "The geese. Yes. Number 4,112 this year. The geese have a lawyer now." },
+    { opt: "🦢 The geese", reply: "The geese. Yes. Number 4,112 this year. The geese have a lawyer now." },
     { opt: "🚗 Double parking", reply: "Double parking! Noted. The man who takes these notes is double-parked right now." },
     { opt: "🕳️ The pothole on my street", reply: "The mayor cut a ribbon for that pothole. It's an official pothole now." },
     { opt: "📢 This window", reply: "A complaint about Complaints. I'll file it under 'brave'." },
@@ -269,7 +269,7 @@ export const PERMIT_LINES = {
     note: p => `📝 You need a permit for ${p.what} (${p.form}). No rush. Come to City Hall's Permits window when you can.`,
     start: p => `${p.form}! In triplicate. Two questions. Pens are on a string. The string is short.`,
     questions: [
-        { q: "Question 1: Is the thing taller than a goose?", a: ["🪿 Taller", "🪿 Shorter", "🪿 It IS a goose"] },
+        { q: "Question 1: Is the thing taller than a goose?", a: ["🦢 Taller", "🦢 Shorter", "🦢 It IS a goose"] },
         { q: "Question 2: Did your neighbour complain?", a: ["😇 Not yet", "😬 Loudly", "🤷 Which neighbour?"] },
         { q: "Question 3: Will it be finished before Pesach?", a: ["✅ Yes", "🙏 Please", "😂 Which Pesach?"] },
     ],

@@ -13,9 +13,9 @@
 export const SLOTS = [
     // ── outside (the street sees these) ──
     { id: "door", where: "outside", room: "porch", icon: "🚪", name: "Front door", verb: "Paint the front door", opts: [
-        { id: "pink", icon: "🩷", name: "Classic pink", price: 0, color: "#E91E63", desc: "The family pink. Ima picked it. Ima is always right." },
+        { id: "pink", icon: "💗", name: "Classic pink", price: 0, color: "#E91E63", desc: "The family pink. Ima picked it. Ima is always right." },
         { id: "mint", icon: "🌿", name: "Mint fresh", price: 40, color: "#5FD3B3", desc: "Like a breath mint, but a door." },
-        { id: "sky", icon: "🩵", name: "Sky blue", price: 40, color: "#4FA8F0", desc: "Calm. Serene. Nothing like the driving." },
+        { id: "sky", icon: "💙", name: "Sky blue", price: 40, color: "#4FA8F0", desc: "Calm. Serene. Nothing like the driving." },
         { id: "sunny", icon: "🌻", name: "Sunshine yellow", price: 60, color: "#FFC928", desc: "Visible from space. Or at least from Mr. Pinsky's." },
         { id: "purple", icon: "💜", name: "Royal purple", price: 90, color: "#7E3FC0", desc: "A door fit for a queen of the highway." },
         { id: "gold", icon: "✨", name: "Solid gold (paint)", price: 400, color: "#E8B923", metal: 0.85, set: "disco", desc: "Subtle. Like a lighthouse." },
@@ -30,7 +30,7 @@ export const SLOTS = [
     ] },
     { id: "mailbox", where: "outside", room: "yard", icon: "📬", name: "Mailbox", verb: "Jazz up the mailbox", opts: [
         { id: "plain", icon: "📪", name: "The family mailbox", price: 0, desc: "Purple. Dented. Loved." },
-        { id: "pink", icon: "🩷", name: "Painted pink", price: 30, set: "pink", desc: "Even the junk mail feels special now." },
+        { id: "pink", icon: "💗", name: "Painted pink", price: 30, set: "pink", desc: "Even the junk mail feels special now." },
         { id: "fish", icon: "🐟", name: "Fish mailbox", price: 90, desc: "The mail goes in its mouth. Don't think about it." },
         { id: "car", icon: "🚗", name: "Mini pink car", price: 220, set: "road", desc: "A tiny version of HER car. Vroom vroom, bills." },
         { id: "kugel", icon: "🥘", name: "Giant kugel", price: 450, desc: "A mailbox shaped like a kugel. Golden. Crispy edges. Iconic." },
@@ -46,14 +46,14 @@ export const SLOTS = [
     // ── inside: Lulu's room ──
     { id: "bed", where: "inside", room: "lulu", icon: "🛏️", name: "Bed", verb: "Change the bed", opts: [
         { id: "basic", icon: "🛏️", name: "The old bed", price: 0, desc: "Blue blanket. A little lumpy. Home." },
-        { id: "fluffy", icon: "🩷", name: "Pink & fluffy", price: 80, set: "pink", desc: "Like sleeping inside a cupcake." },
+        { id: "fluffy", icon: "💗", name: "Pink & fluffy", price: 80, set: "pink", desc: "Like sleeping inside a cupcake." },
         { id: "kugel", icon: "🥘", name: "Kugel pillow set", price: 120, desc: "Pillows shaped like a potato kugel. Crispy-edge pattern." },
         { id: "racecar", icon: "🏎️", name: "Race-car bed", price: 450, set: "road", desc: "Zero to asleep in 4.2 seconds." },
         { id: "canopy", icon: "👑", name: "Princess canopy", price: 700, desc: "Gauzy curtains. Royal dreams. Do not disturb." },
     ] },
     { id: "wallpaper", where: "inside", room: "lulu", icon: "🎨", name: "Wallpaper", verb: "Redo the walls", opts: [
         { id: "cream", icon: "🤍", name: "Plain cream", price: 0, wall: { color: "#F6EBDD", pat: "plain" }, desc: "The walls came this way." },
-        { id: "pink", icon: "🩷", name: "Bubblegum pink", price: 50, wall: { color: "#F9B9D3", pat: "plain" }, set: "pink", desc: "Pinker. Always pinker." },
+        { id: "pink", icon: "💗", name: "Bubblegum pink", price: 50, wall: { color: "#F9B9D3", pat: "plain" }, set: "pink", desc: "Pinker. Always pinker." },
         { id: "mint", icon: "🌿", name: "Mint stripes", price: 90, wall: { color: "#CDEFE3", pat: "stripes", ink: "#9ED9C4" }, desc: "Fresh, like a new semester." },
         { id: "checker", icon: "🏁", name: "Racing checkers", price: 140, wall: { color: "#FFFFFF", pat: "checks", ink: "#2B2B2B" }, set: "road", desc: "The finish line is wherever she naps." },
         { id: "clouds", icon: "☁️", name: "Sky & clouds", price: 180, wall: { color: "#9FD4F6", pat: "clouds", ink: "#FFFFFF" }, desc: "Head in the clouds, feet on the gas." },
@@ -68,7 +68,7 @@ export const SLOTS = [
     ] },
     { id: "rug", where: "inside", room: "lulu", icon: "🟣", name: "Rug", verb: "Pick a rug", opts: [
         { id: "none", icon: "🟫", name: "Bare floor", price: 0, desc: "Wood floor. Cold toes at 6 a.m." },
-        { id: "round", icon: "🩷", name: "Round pink rug", price: 45, set: "pink", desc: "Soft, round, perfect for dramatic flops." },
+        { id: "round", icon: "💗", name: "Round pink rug", price: 45, set: "pink", desc: "Soft, round, perfect for dramatic flops." },
         { id: "road", icon: "🛣️", name: "Road-map play rug", price: 110, set: "road", desc: "Dina's toy cars are not allowed on it. They're on it." },
         { id: "zebra", icon: "🦓", name: "Faux zebra rug", price: 180, desc: "No zebras were harmed. It's polyester." },
         { id: "shag", icon: "🟪", name: "Purple shag", price: 260, set: "disco", desc: "You will lose earrings in here. Worth it." },
@@ -92,7 +92,7 @@ export const SLOTS = [
         { id: "purple", icon: "🛋️", name: "The family couch", price: 0, couch: { fab: "#7E57C2", cush: "#9575CD" }, desc: "Purple. Firm. Has seen things." },
         { id: "plastic", icon: "🫧", name: "Bubbe's plastic cover", price: 40, couch: { fab: "#C8A2C8", cush: "#E1C6E8", cover: true }, set: "bubbe", desc: "It squeaks. It sticks. It's PERFECT." },
         { id: "avocado", icon: "🥑", name: "Avocado green", price: 120, couch: { fab: "#8BA640", cush: "#A8C25A" }, desc: "Very 1974. Very in." },
-        { id: "velvet", icon: "🩷", name: "Pink velvet", price: 160, couch: { fab: "#E2558F", cush: "#F48FB1" }, set: "pink", desc: "Soft as a kitten. Do NOT eat on it." },
+        { id: "velvet", icon: "💗", name: "Pink velvet", price: 160, couch: { fab: "#E2558F", cush: "#F48FB1" }, set: "pink", desc: "Soft as a kitten. Do NOT eat on it." },
         { id: "massage", icon: "💆", name: "Massage couch", price: 650, couch: { fab: "#4E342E", cush: "#6D4C41", buzz: true }, desc: "It hums. Abba hasn't left it since Tuesday." },
     ] },
 ];

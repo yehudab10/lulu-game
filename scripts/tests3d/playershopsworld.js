@@ -41,7 +41,7 @@ async function body(t, guests) {
   // both get a username (an account: shops need one)
   const names = {};
   for (const [P, tag] of [[A, "a"], [B, "b"]]) {
-    const nm = "zzshop" + tag + Math.random().toString(36).slice(2, 7);
+    const nm = "zzshop" + tag + Array.from({ length: 5 }, () => "abcdefghjkmnpqrstuvwxyz"[Math.floor(Math.random() * 23)]).join("");     // (letters only: a run of digits reads as contact details to the name filter)
     const r = await P.L(`__lulu3d.ctx.accounts.setName(${JSON.stringify(nm)})`);
     t.check(`${P.label || "A"}: an account with a username`, !!(r && r.ok), JSON.stringify(r));
     names[tag] = nm;

@@ -17,11 +17,13 @@ body.phone-ok #pauseBtn { display: none; }
 
 /* the radio ticker would sit on the handset's top edge: the Radio app shows now-playing itself */
 body.phone-open .hs-radio { visibility: hidden; }
+/* (heights: 100dvh where the browser has it — on an iPhone in Safari 100vh is taller than what's visible, and the handset's
+   bottom row sat under the toolbar / the home bar; ci/sweep-phone) */
 /* the screen behind it: dim the right side only, the road stays visible */
 body.phone-open #screen { justify-content: flex-end; align-items: flex-end;
   padding: 14px max(22px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) 14px;
   background: linear-gradient(90deg, rgba(43, 27, 46, 0) 40%, rgba(43, 27, 46, 0.42)); }
-body .card.lphone { width: 300px; height: min(610px, calc(100vh - 28px)); max-height: none; padding: 8px; border-radius: 44px; overflow: hidden;
+body .card.lphone { width: 300px; height: min(610px, calc(100vh - 28px)); height: min(610px, calc(100dvh - 14px - max(14px, env(safe-area-inset-bottom)))); max-height: none; padding: 8px; border-radius: 44px; overflow: hidden;
   text-align: left; background: linear-gradient(150deg, #4a3550, #1a1020 60%); box-shadow: inset 0 0 0 2px #6d5872, 0 18px 50px rgba(0,0,0,.45);
   animation: lpIn .2s cubic-bezier(.2, .9, .3, 1); }
 @keyframes lpIn { from { transform: translateY(105%) rotate(3deg); opacity: .4; } to { transform: none; opacity: 1; } }
@@ -43,6 +45,9 @@ body .card.lphone { width: 300px; height: min(610px, calc(100vh - 28px)); max-he
   display: inline-flex; gap: 5px; align-items: center; }
 .lp-fb .glyph { height: 19px; min-width: 19px; font-size: 10px; background: #fff; color: var(--ink); }
 body.dev-touch .lp-fb .glyph { display: none; }
+/* (fingers: ‹ Back / ☰ Menu were ~26 px tall — the phone's main way out, under a kid's thumb; ci/sweep-phone) */
+body.dev-touch .lp-fb { min-height: 40px; padding: 6px 14px; font-size: 14px; }
+body.dev-touch .lp-foot { padding-bottom: 6px; }
 .lp-hb { width: 72px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .85); }
 .lp-toast { position: absolute; top: 40px; left: 50%; transform: translate(-50%, -8px); background: rgba(26, 16, 32, .9); color: #fff; border-radius: 999px;
   padding: 6px 14px; font-weight: 700; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; max-width: 85%; text-align: center; z-index: 3; }
@@ -122,7 +127,7 @@ body.tv .lp-notif { padding: 10px 14px; } body.tv .lp-notif .lp-av { width: 44px
 
 /* phone landscape / short screens: 4 across, smaller clock */
 @media (max-height: 520px) {
-  body .card.lphone { width: 330px; height: calc(100vh - 20px); border-radius: 34px; padding: 6px; }
+  body .card.lphone { width: 330px; height: calc(100vh - 20px); height: calc(100dvh - 10px - max(10px, env(safe-area-inset-bottom))); border-radius: 34px; padding: 6px; }
   body.phone-open #screen { padding-top: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
   .lp-scr { border-radius: 29px; }
   .lp-big { font-size: 30px; margin-top: 2px; } .lp-hello { margin-bottom: 2px; } .lp-notes { display: none; }
@@ -140,7 +145,7 @@ body.tv .lp-notif { padding: 10px 14px; } body.tv .lp-notif .lp-av { width: 44px
 /* portrait: centred at the bottom, a bit bigger */
 @media (max-aspect-ratio: 1/1) {
   body.phone-open #screen { justify-content: center; padding-left: 14px; padding-right: 14px; background: linear-gradient(180deg, rgba(43, 27, 46, 0) 30%, rgba(43, 27, 46, .45)); }
-  body .card.lphone { width: min(360px, 92vw); height: min(660px, 80vh); }
+  body .card.lphone { width: min(360px, 92vw); height: min(660px, 80vh); height: min(660px, 80dvh, calc(100dvh - 14px - max(14px, env(safe-area-inset-bottom)))); }
   .lp-big { font-size: 54px; }
 }
 /* TV / console: big, readable from the couch */

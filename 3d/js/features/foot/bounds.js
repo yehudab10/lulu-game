@@ -68,7 +68,7 @@ const LINES = {
     mud: ["These were SUEDE. Were. 😭", "SQUELCH. My shoe is GONE. ...found it.", "I'm in a MUD. On PURPOSE?!"],
     sand: ["Sand. In my shoes. Forever now.", "It's like a beach but nobody's HAPPY."],
     goose: ["NOPE. NOPE. NOPE.", "OK OK I'M GOING!!", "IT HAS TEETH ON ITS TONGUE!", "Not the goose. ANYTHING but the goose."],
-    gooseSays: ["HONK!!", "HONK HONK!", "HSSSSSS 🪿", "HONK. (this means you, Lulu)"],
+    gooseSays: ["HONK!!", "HONK HONK!", "HSSSSSS 🦢", "HONK. (this means you, Lulu)"],
     dog: ["Good boy! GOOD BOY! ...bad boy!", "I'm LEAVING, I'm leaving!", "Bubbe, if I don't make it, the jewelry's yours."],
     dogSays: ["WOOF! WOOF!", "GRRRR 🐕", "BARK BARK!"],
     farmer: ["GET OFF MY LAND!", "Again with the city people!", "That's a PRIVATE field, missy!"],

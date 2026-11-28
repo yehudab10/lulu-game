@@ -99,6 +99,7 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #tx_foot_exit { width: 84px; height: 64px; font-size: 26px; background: rgba(126, 87, 194, 0.85); }
 .foot-chip { background: var(--glass); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 15px; box-shadow: var(--shadow); white-space: nowrap; }
 .foot-chip small { opacity: .65; font-size: 12px; }
+body.lulu-interior .foot-chip { display: none; }   /* (inside a room it said ON FOOT over the room's own chips — ci/sweep-phone) */
 .foot-chase { background: rgba(183, 28, 28, .9); color: #fff; border-radius: 16px; padding: 6px 14px; font-weight: 700; text-align: center; min-width: 230px; box-shadow: var(--shadow); }
 .foot-chase .meter { height: 8px; background: rgba(0,0,0,.35); border-radius: 99px; margin-top: 5px; overflow: hidden; }
 .foot-chase .meter i { display: block; height: 100%; border-radius: 99px; transition: width .1s; }
@@ -1706,7 +1707,8 @@ function interactables() {
 // ── the moves coach: the first few walks, the empty prompt line says what the buttons do — until she's done each ──
 function coachDid(k) { const n = S.coach[k] || 0; if (n < 99) { S.coach[k] = n + 1; saveSoon(); } }
 function coachHint() {
-    if (F.t < 1.2 || F.chase || ctx.dialogOpen) return "";
+    // (a walk hint is up — the first start's "drag the WALK pad to your car": ONE thing to do at a time; ci/sweep-phone)
+    if (F.t < 1.2 || F.chase || ctx.dialogOpen || (F.hintT > 0 && ctx.G && ctx.G.hint)) return "";
     const c = S.coach, young = F.t < 45;
     if (F.camFree && ctx.cam && ctx.cam.free && ctx.cam.free.looks > (F.looks0 || 0) && !F.lookedThisWalk) { F.lookedThisWalk = true; coachDid("look"); }
     if ((c.jump || 0) < 3 && young) return input.device === "touch" ? "⤴ tap JUMP · hold it = higher" : `${glyph("jump")} JUMP · hold = higher`;
@@ -2117,7 +2119,10 @@ function hud() {
     if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "foot-chip"; H.hudSlot("left").appendChild(chipEl); chipText = ""; }
     const f = frac(F), best = Math.max(shared.get().footRunHigh || 0, F.maxFrac);
     const label = ctx.G.mode === "story" && ctx.trip ? "trip" : "🏡";
-    const t = `🚶‍♀️ ON FOOT <small>· ${label} ${Math.round(f * 100)}% · best ${Math.round(best * 100)}%</small>${F.coins ? ` <small>· 💰+${F.coins}</small>` : ""}${B.chip(F)}`;
+    // (the "🏡 %" was the old walk-to-Bubbe's run's progress: in the open world it read "🏡 100% · best 100%" in every town
+    //  and room and meant nothing to a player — only a story trip, where it's the trip's progress, shows it; ci/sweep-phone)
+    const prog = label === "trip" ? ` <small>· trip ${Math.round(f * 100)}% · best ${Math.round(best * 100)}%</small>` : "";
+    const t = `🚶‍♀️ ON FOOT${prog}${F.coins ? ` <small>· 💰+${F.coins}</small>` : ""}${B.chip(F)}`;
     if (t !== chipText) { chipText = t; chipEl.innerHTML = t; }
     const ch = F.chase;
     if (ch && !ch.giveUp) {
