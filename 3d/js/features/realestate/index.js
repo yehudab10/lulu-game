@@ -576,7 +576,8 @@ on("town:leave", () => { clearSigns(); clearYard(); W.town = null; W.listed = []
 on("title", () => { clearSigns(); clearYard(); W.town = null; });
 // d3 (ci/accounts): her username on her mailbox plate; a name she reported never shows on a home (the server already
 // sends owners' usernames, filtered — features/accounts' `A.names` ticket → name tells which name a report hid)
-const ACCT = { hiddenNames() { const out = new Set(); for (const t of ACC.hidden) { const v = ACC.names.get(t); if (v && v.n) out.add(String(v.n).toLowerCase()); } return out; } };
+// (A.names is keyed "ROOM|rid|ticket" — a ticket only counts for the room + relay id it was made for)
+const ACCT = { hiddenNames() { const out = new Set(); for (const [k, v] of ACC.names) if (v && v.n && ACC.hidden.has(k.slice(k.lastIndexOf("|") + 1))) out.add(String(v.n).toLowerCase()); return out; } };
 function wireNames() {
     ctx.realestate.useNames({
         mine: () => (ctx.accounts && !ctx.accounts.off && ctx.accounts.name) || null,

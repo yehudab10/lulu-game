@@ -22,6 +22,9 @@ import { SHOMRIM } from "./lines.js";
 import { shomrimParty } from "./party.js";
 
 const inTown = () => !!(ctx.town && ctx.town.active);
+// (one activity at a time — ci/sweep-logic2: the Shomrim on her tail, filming, about to call the cops, is a chase too —
+//  a robbery to foil / a street scene / a job's offer used to start on top of it)
+ctx.addActivity("shomrim", () => !!CM.chase);
 const MPH = 2.23694;
 let chip = null;
 

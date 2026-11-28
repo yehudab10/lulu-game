@@ -28,8 +28,8 @@ export const S = store("accounts", { hide: false, later: 0, off: false, seen: 0 
 export const A = {
     on: false, base: "", view: null, cfg: null, helloAt: -1e9, busy: null, fails: 0,
     tickets: new Map(),            // "ROOM|rid" → { t, exp } (my own, per relay connection)
-    names: new Map(),              // ticket → { n, at } (other players', from the server)
-    queue: new Map(),              // ticket → [room, rid] waiting to be asked
+    names: new Map(),              // "ROOM|rid|ticket" → { n, at } (other players', from the server)
+    queue: new Map(),              // "ROOM|rid|ticket" → [room, rid, ticket] waiting to be asked
     hidden: new Set(),             // tickets I reported (hidden on my screen right away)
     lastErr: "",
 };
@@ -160,9 +160,13 @@ export const TICKET_RE = /^[A-Z2-7]{16}\.[0-9a-z]{1,10}\.[A-Za-z0-9_-]{22}$/;
 /** Another player's name from their ticket: the server's answer (cached), or null (unknown / not yet / names off). */
 export function ghostName(room, rid, t, { always = false } = {}) {
     if ((S.hide && !always) || typeof t !== "string" || !TICKET_RE.test(t) || A.hidden.has(t)) return null;
-    const c = A.names.get(t);
-    if (c && now() - c.at < 10 * 60000) return c.n;
-    if (!A.queue.has(t)) A.queue.set(t, [roomKey(room), String(rid)]);
+    // (a ticket is only good for the room + relay id it was made for — the cache is keyed by all three: the same ticket
+    //  heard somewhere else first (her lobby-bridge copy carried her place room's ticket) got a null that stuck for
+    //  10 minutes on her real car too — accounts "Pink 56"; sweep-health2. A null is asked again after 30 s)
+    const k = roomKey(room) + "|" + String(rid) + "|" + t;
+    const c = A.names.get(k);
+    if (c && now() - c.at < (c.n ? 10 * 60000 : 30000)) return c.n;
+    if (!A.queue.has(k)) A.queue.set(k, [roomKey(room), String(rid), t]);
     return c ? c.n : null;
 }
 let flushing = false;
@@ -170,13 +174,13 @@ async function flushNames() {
     if (flushing || !A.queue.size || !A.on) return;
     flushing = true;
     const batch = [...A.queue].slice(0, 30);
-    for (const [t] of batch) A.queue.delete(t);
-    const r = await req("/acct/names", { q: batch.map(([t, [room, rid]]) => [room, rid, t]) });
+    for (const [k] of batch) A.queue.delete(k);
+    const r = await req("/acct/names", { q: batch.map(([, v]) => v) });
     if (r.st === 200 && r.j && Array.isArray(r.j.n)) {
-        batch.forEach(([t], i) => { const n = r.j.n[i]; A.names.set(t, { n: typeof n === "string" && !R.shape(n) ? n : null, at: now() }); });
+        batch.forEach(([k], i) => { const n = r.j.n[i]; A.names.set(k, { n: typeof n === "string" && !R.shape(n) ? n : null, at: now() }); });
         if (A.names.size > 400) for (const k of [...A.names.keys()].slice(0, 100)) A.names.delete(k);
         emit("accounts:names", {});
-    } else for (const [t, v] of batch) A.queue.set(t, v);
+    } else for (const [k, v] of batch) A.queue.set(k, v);
     flushing = false;
 }
 setInterval(() => { flushNames(); }, 600);
@@ -218,5 +222,5 @@ ctx.accounts = {
     get off() { return !!S.off; },
     rules: R,
     hello, check, ideas, setName, nextChange, needsName, ticketFor, ghostName, report, deleteAccount, call, addHelloExtra,
-    debug: () => ({ on: A.on, base: A.base || base(), view: A.view, tickets: A.tickets.size, names: [...A.names].map(([t, v]) => [t.slice(0, 6), v.n]), S }),
+    debug: () => ({ on: A.on, base: A.base || base(), view: A.view, tickets: A.tickets.size, names: [...A.names].map(([k, v]) => [k.split("|")[2].slice(0, 6), v.n]), S }),
 };

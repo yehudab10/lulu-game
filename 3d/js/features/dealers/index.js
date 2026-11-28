@@ -37,6 +37,7 @@ import { DS, perksOf, hasPerk, perksDebug } from "./perks.js";
 import { openTablet, evDebug } from "./ev.js";
 import { openLux, luxDebug } from "./lux.js";
 import { schlep } from "./schlep.js";
+import { otherKit, myCfg } from "./config.js";
 
 // ── the cars join the game's car list (before the car is made: app.js imports features first) ──
 for (const [id, c] of Object.entries(LUX_CARS)) {
@@ -193,5 +194,7 @@ ctx.dealers = {
     open: openShowroom, haggle, perks: perksOf, has: hasPerk,
     /** ⚡ Tushla's tablet (stage 2) + Full Schlep Driving (the subscription + the self-driving). */
     tablet: openTablet, schlep,
+    /** Other players' Tushlas (multiplayer / party): her configuration on our copy of the car — config.js. */
+    otherKit, myCfg,
     debug: { D, DS, LUX_AT, nearSpot, padWorld, talk, perks: perksDebug, ev: evDebug, lux: luxDebug },
 };

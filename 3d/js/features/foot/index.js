@@ -231,8 +231,10 @@ function start(reason = "carWreck", opts = {}) {
         car: null, peds: [], animals: [], parked: [], booth: null, companion: null, walker: null,
         chase: null, hotwire: null, approach: null, hail: null, prompt: null, knock: null, arrest: null, enter: null,
         coins: 0, distAcc: 0, statT: 0, startS: near.s, maxFrac: 0, fracSaved: 0,
-        chatT: rand(2.5, 4.5), buskT: 0, parkCool: 4.5, pedCool: 0, animalCool: rand(4, 8), behindT: 2, boothCool: 3,
+        chatT: rand(8, 12), buskT: 0, parkCool: 4.5, pedCool: 0, animalCool: rand(4, 8), behindT: 2, boothCool: 3,
         avigailT: rand(14, 30), avigailDone: false, chaseCool: 3, disguise: reason === "jailbreak" ? "prison" : null,
+        // (chatT: her first idle line waits out the 6 s walk hint + the town's own arrival lines — at 2.5–4.5 s she talked
+        //  over both: three of her lines in ~3 s on calm's "on foot in town" minute — sweep-health2)
         attn: Math.max(0.35, 0.75 - level * 0.04), savedOurs: T.config.ours, hintT: 6,
         introDur: reason === "droveOff" ? 0.8 : reason === "knockout" ? 1.7 : 2.1, introLine: opts.line || pick(introPool(reason, opts)), introSaid: false, titleShown: false,
         home: homeOpts,

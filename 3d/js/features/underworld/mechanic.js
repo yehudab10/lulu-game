@@ -25,9 +25,13 @@ const damaged = () => {
     return (G.hearts || 0) < (G.maxHearts || 3) || !!(ctx.feel && ctx.feel.damage && ctx.feel.damage.stage > 0) || !!(ctx.streets && ctx.streets.flat);
 };
 /** The "borrowed" ride she's in (a jacked / hotwired car): { key, label } | null. */
-function rideNow() {
+export function rideNow() {
     const v = ctx.foot && ctx.foot.vehicle;
     if (!v || !ctx.foot.borrowed) return null;
+    // (Ima's family minivan — features/cars' never-stuck ride, no paint of its own — isn't hers to sell; and while her OWN car
+    //  is in the impound, "your car's brought round" after a sale would be a free release)
+    if (v.kind === "town_minivan" && !v.color) return null;
+    try { const C = ctx.cars, k = ctx.car && ctx.car.skinKey, r = C && C.where && ctx.enabled("cars") && k ? C.where(k) : null; if (r && r.kind === "impound") return null; } catch (e) { /* no cars */ }
     const key = v.kind;
     const label = /van/.test(key) ? "minivan" : /truck/.test(key) ? "box truck" : /sports/.test(key) ? "sports car" : key === "cop" ? "COP CAR" : /ambulance/.test(key) ? "ambulance" : /bus/.test(key) ? "bus" : /dozer/.test(key) ? "steamroller" : "car";
     return { key, label, pay: SPAWN.mechanic.buy[key] || 70 };

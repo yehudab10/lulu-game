@@ -34,12 +34,27 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 18 | The impound HUD line said "City Hall or the precinct" for a car held at a roadside yard. | `impound/index.js` | **fixed** — "City Hall or Trooper Post 7's yard" |
 
 | 19 | Arrested anywhere, the haul's progress bar and the booking caption said "PRECINCT 18½" (Lakewood's) — also when she was taken to Midwood's 70½th Precinct or Trooper Post 7; and places' `names()` used the town she was IN, not the one she was taken to. | `law/arrest.js`, `law/jail.js`, `law/ui.js`, `places/index.js` | **fixed** — `UI.precinctName()` from `ctx.civic.names()` (which now follows `STAY.place`) |
+| 21 | BUSTED on a town's exit ramp / its cross road / the on-ramp, or in a rest area's lot: law's pull-over steered her back across the grass to the highway's shoulder (d 7.9), and the cruiser pulled up there. | `law/bust.js` (hooks), `town/exit.js`, `exits/index.js` | **fixed** — both answer law's `pullOverSpot` (she stops where she is, as at JFK) and its `copRoute` in pull-over mode too (the cruiser stops 7 m behind her, on the ramp / in the lot); and anywhere else well off the asphalt (a roadside place's lot, a dealership's) law's own `pullOverSpot` stops her where she is |
+| 22 | Driving straight on past an exit, the chip still said "EXIT 9 BROOKLYN · NOW ↗" for 120 m after it. | `exits/index.js` `nextAhead` | **fixed** — gone 25 m past (kept while she's down its ramp); the lap survey checks it |
+| 23 | 🔋 An EV pulled into a rest area's pump bay: it starts charging (the bay has a charger) AND Yanky's "Electric? Try a charger" joke pops up — two messages that disagree (and it isn't Yanky's station). | `fuel/index.js` `fill` | **fixed** — no joke at a rest area's bay (still at Yanky's Gas 'n' Go) |
+| 24 | Velvel's no-questions garage buys the "borrowed" car she's in — including IMA'S FAMILY MINIVAN (the never-stuck ride when none of her cars is home), and while her own car was impounded "your car's brought round" released it for free. | `underworld/mechanic.js` `rideNow` | **fixed** — he won't buy Ima's minivan, nor anything while her own car is impounded |
 | 20 | Shmuel's chop shop: "his guy brings Lulu's own car round" after a drop-off — even when her car was IMPOUNDED (a free release). | `streets/chop.js` | **fixed** — no chop-shop call while her own car is impounded (a car parked away is still "brought round": his guy's service) |
+
+- (from ci/sweep-health) `schlepnav` "…still self-driving in town": NOT a game bug — on the fast test clock the harness stops on
+  the very frame the town turns active, and the self-drive plans its town route on the next controls frame (10 frames later:
+  on, route "town"). The test now waits for the plan.
 
 ## Left (not fixed yet)
 
-- ci/twoway (moving): driving DOWN the lap (the far carriageway) the trip bar + the exit chip still count to the next exit UP
-  the lap (`app.js` `nextPlace`, `exits/index.js` `nextAhead`) — i.e. behind her. Theirs to decide (exits are on the other side).
+- A long ride's (truck / bus) own hit circles: driven nose-first across a town street into a parked car's side, the truck
+  ends up overlapping it — but a 7.5 m truck turned across a ~9 m street also touches the parked car BEHIND it, and the two
+  push-outs squeeze it through. Not a real way to drive; car-sized shells keep her car's circles (#11). Left.
+
+- (ci/twoway handled the trip bar going DOWN the lap itself — `nextPlace` › `down`.)
+- ci/twoway: a chase / a pull-over while she drives DOWN the lap (the far carriageway) — law's chase + pull-over still
+  assume +s: `spawnChaser` puts cruisers at `car.s − back`, the pull-over's `pullDAt` is the RIGHT shoulder (7.9) and
+  `stopS = car.s − 7.2`, and bust.js `autoLulu` aims at `car.s + 12` — busted going down the lap she'd be steered across both
+  carriageways. (Traps + patrols already mirror with `downLap()`.) Not touched: it's that branch's model.
 
 ## For other branches
 
@@ -52,6 +67,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 12:25 UTC — part 3 on main: findings 21–23 + the schlepnav test wait. CI 46124201678 (core, platform,
+  sweeproad, law, town, roadside, qaplaces, qalaw, lawstruck, airport, exits ✓) + local after the merge (core, sweeproad, qalaw ✓).
 - 2026-11-28 08:05 UTC — part 2 on main: findings 19–20. CI 46121235380 (core, platform, sweeproad, law, places, roadside,
   qaplaces, interiors, partners, streets, nocalls ✓); main's Smoke test after part 1: 46120263706 ✓.
 - 2026-11-28 07:25 UTC — part 1 on main (e7241646, fast-forward): findings 1–18. CI 3D full suite run 46110858388 on the branch (core, platform,

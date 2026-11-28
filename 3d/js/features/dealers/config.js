@@ -48,8 +48,18 @@ export function applyCfg(model, cfg) {
     model.traverse(o => { if (o.name && /^Wheel_/.test(o.name)) o.traverse(m => { if (m.isMesh && m.material && !/Tire|Tyre|Rubber/i.test(m.material.name || "")) { if (!m.material.userData.cfgOwn) { m.material = m.material.clone(); m.material.userData.cfgOwn = true; } m.material.color.set(W.hex); } }); });
 }
 // her own Tushlas wear their configuration (car.js runs the kit on every setSkin)
+let baseTushla = null;
+/** Another player's Tushla (multiplayer / party draw it): the plain kit + HER configuration (`cfg` = { paint, wheels,
+ *  interior } option ids from the online update; none = stock) — never mine. */
+export function otherKit(model, anchors, sk, cfg) {
+    if (baseTushla) baseTushla(model, anchors, sk);
+    applyCfg(model, Object.assign({ paint: "stock", wheels: "bagel", interior: "black" }, cfg || {}));
+}
+/** My Tushla's configuration as the online update carries it ([paint, wheels, interior] ids), or null (not a Tushla). */
+export function myCfg(key) { return key && EV_IDS.includes(key) ? (({ paint, wheels, interior }) => [paint, wheels, interior])(cfgOf(key)) : null; }
 export function wrapKit(KITS) {
     const base = KITS.tushla;
+    baseTushla = base;
     KITS.tushla = (model, anchors, sk) => { base(model, anchors, sk); if (sk && sk.evKey && DS.evCfg[sk.evKey]) applyCfg(model, cfgOf(sk.evKey)); };
 }
 // 💨 Whoopee Mode: her own horn in a Tushla that has it (a short, PG raspberry; the world reacts as to any honk)

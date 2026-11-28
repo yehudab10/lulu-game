@@ -98,6 +98,9 @@ module.exports = {
       const inT = await t.until(`__lulu3d.ctx.town.active || !${SL}.on`, "the stop at the T, right onto the cross road, into town", 90000);
       t.check("…into Lakewood by its own wheels (town:exit, then town:enter)", inT && await g(`ctx.town.active && ctx.town.id === "lakewood"`) && (await evs(/town:exit/)).length >= 1,
         `${await g(`ctx.town.id`)} · ${await g(`ctx.dealers.schlep.debug.last`)} · ${JSON.stringify(await g(`ctx.dealers.schlep.debug.log.slice(-3)`))}`);
+      // (the town's route is planned on the NEXT controls frame after town:enter — the fast test clock stops exactly on the
+      //  frame the town turns active, so give it a moment; it was never a hand-back: ci/sweep-road checked)
+      await t.until(`!${SL}.on || (${SL}.debug.route && ${SL}.debug.route.kind === "town")`, "the town's route is planned", 10000);
       t.check("…still self-driving in town (it plans the streets from the approach)", await g(`ctx.dealers.schlep.on && ctx.dealers.schlep.debug.route && ctx.dealers.schlep.debug.route.kind === "town"`));
       // a new ping on the way (the nearest Lakewood place): it re-plans from where it is and goes there instead
       const near = await g(`(() => { let b = null, bd = 1e9; for (const p of ctx.pins.list()) { if (p.town !== "lakewood" || p.id === "lakewood:clothes") continue; const t = ctx.pins.target(p.id); if (t && t.kind === "at" && t.d > 60 && t.d < bd) { bd = t.d; b = p.id; } } return b; })()`);

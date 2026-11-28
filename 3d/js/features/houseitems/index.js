@@ -409,6 +409,23 @@ on("run:start", () => { R.chickenHorn = false; R.carWorn = null; });
 ctx.houseitems = {
     get bag() { return S.bag.map(x => Object.assign({}, x, { name: ITEMS[x.id].name, emoji: ITEMS[x.id].emoji })); },
     get hand() { const it = cur(); return it ? it.id : null; },
+    /** What other players should see on her (on foot): the thing drawn in her hand · the thing worn on her head (ids or null). */
+    get shown() { return R.prop && R.prop.parent ? R.propId || null : null; },
+    get worn() { return R.worn ? R.worn.id : null; },
+    /** Dress ANOTHER player's walker (a Person) with her hand item / worn item — the same props, the same spots (multiplayer's
+     *  everyone, party's friends). Cheap when nothing changed; unknown ids are ignored. */
+    dressOther(person, hand, worn) {
+        if (!person || !person.obj) return;
+        const U = person.obj.userData, key = (hand || "") + "|" + (worn || "");
+        if (U.hiKey === key) return;
+        if ((hand && !ITEMS[hand]) || (worn && !ITEMS[worn])) return;
+        if ((hand && !ITEMS[hand].make || worn && !ITEMS[worn].make) && !models.homesItems) { ensureModels(["homesItems"]).catch(() => { }); return; }
+        for (const k of ["hiHand", "hiWorn"]) { if (U[k] && U[k].parent) U[k].parent.remove(U[k]); U[k] = null; }
+        U.hiKey = key;
+        const arm = person.limbs && person.limbs.Arm_R, body = person.limbs && person.limbs.Body;
+        if (hand && hand !== worn && arm) { const o = propOf(hand); if (o) { o.position.set(0, -0.47, 0.06); arm.add(o); U.hiHand = o; } }
+        if (worn && body) { const o = propOf(worn); if (o) { o.position.set(0, 1.62, 0); o.rotation.set(Math.PI, 0, 0); body.add(o); U.hiWorn = o; } }
+    },
     /** Is something in her hand (on foot)? The pepper spray yields the item button to it. */
     get inHand() { return onFoot() && !!cur() && ctx.enabled(ID); },
     /** At the wheel with a car-usable thing in hand: the item button is ours (garage's pepper waits). */
