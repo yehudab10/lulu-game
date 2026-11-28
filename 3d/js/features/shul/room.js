@@ -74,7 +74,9 @@ function cast(P) {
     } else if (k === "friday") {
         man("gabbai", 7.6, 0.5, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: 6.95, z0: -2.6, x1: 6.95, z1: 1.9, T: 13 }, collide: false });
         man("set1", 9.1, -1.4, -Math.PI / 2, { name: "Someone setting up", pose: { talk: true } });
-        kid({ loop: { cx: 8.0, cz: -0.6, rx: 1.45, rz: 2.9, w: 1.1, sq: 0.5 } });
+        // (round the kiddush table: its far end runs down the MIDDLE of the 0.35 m gap between the table (z -3.45) and the
+        //  counter (z -3.8) — at rz 2.9 it brushed the table's end: shul "nobody stands inside a wall (kid)" — sweep-health)
+        kid({ loop: { cx: 8.0, cz: -0.65, rx: 1.45, rz: 2.975, w: 1.1, sq: 0.5 } });
         candy(); rebb(7.1, 2.3, 0, { walker: null });
     } else if (k === "davening") {
         man("gabbai", -3.55, -1.3, Math.PI, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" } });
