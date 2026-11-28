@@ -92,6 +92,9 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 17:35 UTC — part 7 on main: a given-up cruiser is let go 170 m on her way (down the lap too); the `amb`
+  check no longer races the chase; sweeproad3's driver flips back for Ima's call (the down-the-lap "veers"). CI 46170331613
+  (core, platform, sweeproad, law, lawstruck, qalaw ✓).
 - 2026-11-28 17:30 UTC — part 6 on main: findings 28–30 (the ambulance waits for an activity to end; down the lap the
   flavour pull-over ahead of her; no bad-guy cars down the lap). CI 46169171987 (core, platform, sweeproad, law, oneact,
   underworld, roadevents, lawstruck, qacar ✓). Main's Smoke after part 5: 46151341698 ✓.
