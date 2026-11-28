@@ -5,6 +5,8 @@
 //   it: Midwood prebuilt at an exit, and the lot of a real house on E 16th St (its T.homes entry) as the family lot.
 module.exports = {
   name: "hometown",
+  fast: false,     // (its "out on the highway" step races the town re-entering under her feet; on the fast clock that race
+                   //  is lost ~2 in 3 — the old clock until the step is made deterministic)
   viewport: { width: 1280, height: 720 },
   query: "&enable=world,foot,day,town,decor",
   save2d: { totalCoins: 300 },
