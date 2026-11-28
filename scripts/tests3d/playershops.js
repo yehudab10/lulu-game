@@ -72,8 +72,19 @@ module.exports = {
 
     // the cap: Midwood allows one (the edict) — struck down in court → two
     t.check("Midwood: a second shop is refused (Marxdani's edict)", /One shop per person/.test(await g(`${P}.capBlock("midwood")`)));
-    await g(`(ctx.cityhall.mayor31.strike("shops"), true)`);
-    t.check("…the court strikes the edict down → Midwood allows 2", await g(`${P}.capOf("midwood")`) === 2 && (await g(`${P}.capBlock("midwood")`)) === "");
+    // stage 4: the landlord turns her away → she files an appeal → Courtroom 2B (Midwood) → the judge rules
+    const F2 = await g(`${P}.leasable().find(f => f.id !== ${JSON.stringify(F.id)}).id`);
+    await g(`(${P}.debug.landlord(${P}.debug.frontById(${JSON.stringify(F2)})), true)`);
+    t.check("…the landlord offers: ⚖️ take the edict to court", await flow([/Take the edict to court/]));
+    await drain();
+    const CS = `ctx.civic.courts.caseById("playershops:edict")`;
+    t.check("…filed: the appeal is on Courtroom 2B's docket (Midwood)", await g(`!!${CS} && ${CS}.town === "midwood" && ${CS}.available()`));
+    await g(`(${P}.debug.HR.ROLL.force = 0, ${CS}.acts.ruling({}), true)`);
+    await drain();
+    t.check("…the judge says no: the edict stands, she may try again in a week", await g(`${P}.capOf("midwood")`) === 1 && /try again in 7 days/.test(await g(`${P}.debug.HR.fileBlock()`)) && !(await g(`${CS}.available()`)));
+    await g(`(${P}.debug.S.met.hearing.lost = ${P}.debug.today() - 7, ${P}.debug.HR.file(), ${P}.debug.HR.ROLL.force = 1, ${CS}.acts.ruling({}), true)`);
+    await drain();
+    t.check("…a week later she wins: the edict is struck → Midwood allows 2", await g(`${P}.capOf("midwood")`) === 2 && (await g(`${P}.capBlock("midwood")`)) === "" && await g(`ctx.cityhall.mayor31.struck("shops")`));
     t.check("Lakewood allows 3", await g(`${P}.capOf("lakewood")`) === 3);
 
     // the depot: what her car holds, two presses a box
