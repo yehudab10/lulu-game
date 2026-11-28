@@ -19,6 +19,7 @@ function make(t) {
   const shot = async label => {
     if (!process.env.SWEEP_SHOTS && !process.argv.includes("--shots")) return;
     fs.mkdirSync(SHOTS, { recursive: true });
+    await t.L(`(window.__lulu3d && __lulu3d.realFrame && __lulu3d.realFrame(), true)`).catch(() => {});      // (the fast test clock draws small: one full picture)
     await t.page.screenshot({ path: path.join(SHOTS, `${label.replace(/[^\w-]+/g, "-")}.png`) });
   };
   const playing = async () => {

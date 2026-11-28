@@ -73,6 +73,11 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
 15. **A room's speech bubble rose off the top of the screen** (its first lines cut, e.g. the pizza shop's wall of fame
    at 1280 × 720) — it comes down until its top is on screen (`interiors/fx.js`). — batch 2
 
+16. **Out of a neighbour's front door: one flat beige screen** — the camera behind her (facing out) started inside the
+   house: a town block's camera outline (`town/plan.js` OCCLUDERS, FRONT + 1.2) sits ~2 m behind the houses' front
+   walls, and the camera only stopped CAM_PAD (0.25 m) short of it. `foot/jump.js` camClip: the lens stops 2.4 m
+   further out (at the walls). Same cause as Lakewood's shul door below (the yeshiva protrudes 1.2 m more). — batch 3
+
 ## For other sweeps
 - for `ci/sweep-health`: `storefronts` › "lakewood: the town's signs stay sharp" is red on main since ci/yeshiva landed
   (02:12): Lakewood's sign atlas scale 0.578 < 0.58 (the yeshiva's new signs) — not from this sweep.
