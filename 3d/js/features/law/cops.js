@@ -521,7 +521,7 @@ export function spawnTrap(sAhead = 240, side = Math.random() < 0.5 ? -1 : 1) {
     const trap = { obj: g, cop, rig: r, s, d: dCop, side, hide, x: tmpP.x, z: tmpP.z, h: cop.rotation.y, spot: 0, gone: false, near: false };
     L.traps.push(trap);
     addActor({
-        update() { return ctx.car.s - trap.s < 140; },
+        update() { return (ctx.car.s - trap.s) * travelDir() < 140; },      // (along her way: down the lap too)
         collide(pcar) {
             if (trap.gone) return null;
             const imp = pcar.collideStatic(trap.x, trap.z, 1.5);
@@ -565,7 +565,7 @@ function updateTraps(dt, controlsOn) {
         if (t.gone) continue;
         if (t.flashT > 0) t.flashT -= dt;
         setRig(t.rig, t.flashT > 0, ctx.time);           // (a warning: a burst of the lights, no chase)
-        const rel = car.s - t.s;
+        const rel = (car.s - t.s) * travelDir();
         const inView = rel > -70 && rel < 12;
         if (inView) t.near = true;
         if (controlsOn && canPounce() && inView && speeding() && !(t.noticeUntil > ctx.time)) {
@@ -789,7 +789,7 @@ function updateBolo(dt, controlsOn) {
         const car = ctx.car;
         const tp = ctx.town && ctx.town.active && ctx.town.copSpawn ? ctx.town.copSpawn("search", false) : null;
         const u = tp ? addUnit(tp.s, tp.d, tp.dir, 10, { mode: "chase" })
-            : addUnit(car.s - rand(170, 220), pick(LANES_OURS), 1, clamp(car.speed * 0.9, 18, TUNE.boloSpeed), { mode: "chase" });
+            : addUnit(car.s - travelDir() * rand(170, 220), travelDir() * pick(LANES_OURS), travelDir(), clamp(car.speed * 0.9, 18, TUNE.boloSpeed), { mode: "chase" });
         u.bolo = true; u.hunter = true; u.siren = false;
         b.unit = u; b.phase = "looking";
         // (in town: where the caller saw her — the cruiser prowls round there, it doesn't know where she's gone since)
@@ -1100,7 +1100,7 @@ function updateFugitive(dt, controlsOn) {
     const bustAt = Math.max(0.7, 1.6 - wl * 0.2);
     const pos = ctx.car.pos;
     const seen = L.units.find(u => u.car && !u.car.hit && Math.hypot(u.car.x - pos.x, u.car.z - pos.z) < 38)
-        || L.traps.find(t => !t.gone && ctx.car.s - t.s > -60 && ctx.car.s - t.s < 10);
+        || L.traps.find(t => !t.gone && (ctx.car.s - t.s) * travelDir() > -60 && (ctx.car.s - t.s) * travelDir() < 10);
     if (wl >= 5) {
         f.spot += dt * 1.1;
         if (f.spot > bustAt) { f.spot = 0; beginChase("ESCAPE FROM CUSTODY", { msg: "🚁 SPOTLIGHT — FLOOR IT!", unit: seen && seen.car ? seen : null }); }
@@ -1183,7 +1183,7 @@ function spawnPoster() {
     ctx.scene.add(b);
     const posts = [-2, 2].map(o => { road.point(s + o, d, tmpQ); return { x: tmpQ.x, z: tmpQ.z }; });
     addActor({
-        update() { return ctx.car.s - s < 80; },
+        update() { return (ctx.car.s - s) * travelDir() < 80; },
         collide(pc) {
             for (const q of posts) {
                 const imp = pc.collideStatic(q.x, q.z, 0.3);
@@ -1201,8 +1201,9 @@ export function spawnK9() {
     if (!models.lawK9) { ensureCopModels(); return; }
     const road = ctx.world.road, car = ctx.car;
     // loosed from a cruiser up ahead if there is one, else from the roadside
-    const lead = L.units.find(u => u.car && u.car.s > car.s + 20 && u.car.s < car.s + 140);
-    let s = lead ? lead.car.s - 3 : car.s + rand(70, 95), d = lead ? lead.car.d : pick([1.75, 5.25, -1.75]);
+    const D = travelDir();      // (down the lap "up ahead" is −s, her lanes the far side's)
+    const lead = L.units.find(u => u.car && (u.car.s - car.s) * D > 20 && (u.car.s - car.s) * D < 140);
+    let s = lead ? lead.car.s - D * 3 : car.s + D * rand(70, 95), d = lead ? lead.car.d : D * pick([1.75, 5.25, -1.75]);
     const dog = cloneWithColors(models.lawK9);
     dog.scale.setScalar(1.25);
     ctx.scene.add(dog);
@@ -1216,12 +1217,12 @@ export function spawnK9() {
     addActor({
         update(dt) {
             t += dt;
-            s -= 9 * dt;
+            s -= D * 9 * dt;
             // soft homing, and it commits to a line in the last few metres — a late lane change shakes the dog
-            if (s - car.s > 18) d += (car.d - d) * Math.min(1, 0.55 * dt);
+            if ((s - car.s) * D > 18) d += (car.d - d) * Math.min(1, 0.55 * dt);
             threat.s = s; threat.d = d;
             road.point(s, d, tmpQ);
-            const h = road.at(s).h + Math.PI;
+            const h = road.at(s).h + (D > 0 ? Math.PI : 0);
             dog.position.set(tmpQ.x, Math.abs(Math.sin(t * 9)) * 0.12, tmpQ.z);
             dog.rotation.y = h;
             legs.forEach((l, i) => { l.rotation.x = Math.sin(t * 18 + (i % 2 ? 0 : Math.PI) + (i > 1 ? 1.2 : 0)) * 0.8; });
@@ -1229,7 +1230,7 @@ export function spawnK9() {
             if (head) head.rotation.x = Math.sin(t * 9) * 0.08;
             barkT -= dt;
             if (barkT <= 0) { barkT = rand(0.6, 1.2); if (Math.abs(car.s - s) < 60) X.bark(); }
-            return !hit && car.s - s < 40;
+            return !hit && (car.s - s) * D < 40;
         },
         dispose() { ctx.scene.remove(dog); L.threats.delete(threat); },
         collide(pc) {
@@ -1249,8 +1250,9 @@ export function spawnK9() {
 export function fireMissile() {
     if (!models.lawMissile) { ensureCopModels(); return; }
     const road = ctx.world.road, car = ctx.car;
-    const lead = L.units.find(u => u.car && u.car.s > car.s + 20 && u.car.s < car.s + 160);
-    let s = lead ? lead.car.s - 3 : car.s + rand(110, 130), d = lead ? lead.car.d : pick([1.75, 5.25]);
+    const D = travelDir();
+    const lead = L.units.find(u => u.car && (u.car.s - car.s) * D > 20 && (u.car.s - car.s) * D < 160);
+    let s = lead ? lead.car.s - D * 3 : car.s + D * rand(110, 130), d = lead ? lead.car.d : D * pick([1.75, 5.25]);
     const m = cloneWithColors(models.lawMissile);
     m.scale.setScalar(1.3);
     ctx.scene.add(m);
@@ -1262,16 +1264,16 @@ export function fireMissile() {
     addActor({
         update(dt) {
             t += dt;
-            s -= 22 * dt;
-            if (s - car.s > 32) d += (car.d - d) * Math.min(1, 0.8 * dt);      // locks on, then flies straight: a late lane change dodges it
+            s -= D * 22 * dt;
+            if ((s - car.s) * D > 32) d += (car.d - d) * Math.min(1, 0.8 * dt);      // locks on, then flies straight: a late lane change dodges it
             threat.s = s; threat.d = d;
 
             road.point(s, d, tmpQ);
-            const h = road.at(s).h + Math.PI;
+            const h = road.at(s).h + (D > 0 ? Math.PI : 0);
             m.position.set(tmpQ.x, 1.0 + Math.sin(t * 7) * 0.05, tmpQ.z);
             m.rotation.set(0, h, Math.sin(t * 9) * 0.3);   // nose (+Z after export) points back down the road at Lulu
             if (Math.random() < 0.8) car.fx.emit(tmpQ.x - Math.sin(h) * 1.1, 1.0, tmpQ.z - Math.cos(h) * 1.1, (Math.random() - 0.5), 0.6, (Math.random() - 0.5), 0.45, 0.5, [1, 0.55 + Math.random() * 0.3, 0.15]);
-            return !hit && car.s - s < 30;
+            return !hit && (car.s - s) * D < 30;
         },
         collide(pc) {
             const dx = m.position.x - pc.pos.x, dz = m.position.z - pc.pos.z;

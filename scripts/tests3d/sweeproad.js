@@ -431,6 +431,11 @@ async function downLap(t) {
     window.__route = { pts: P, v: 16, r: 6 }; return s; })()`);
   await W.moved(t);
   await t.frames(40);
+  // a speed trap + a wanted poster up ahead of her (down the lap): they stay until she's passed them (both were dropped the frame they spawned)
+  await g(`(ctx.law._dbg.spawnTrap(600), true)`);
+  await t.frames(15);
+  const tr = await g(`(() => { const T = ctx.law._dbg.L.traps.filter(x => !x.gone); return T.map(x => Math.round(ctx.car.s - x.s)); })()`);
+  t.check("downlap: a speed trap up ahead of her stays there (not gone the frame it spawned)", tr.length > 0 && tr.every(x => x > 400), JSON.stringify(tr));
   await g(`(ctx.law._dbg.L.units.length = 0, ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
   // (every second for 8 s: the cruiser behind her, on her side, FACING her way — down the lap)
   const samples = [];
@@ -441,6 +446,14 @@ async function downLap(t) {
   }
   const good = samples.filter(x => x && x.behind > 0 && x.behind < 80 && x.d < 0 && x.down).length;
   t.check("downlap: the cruiser chases her from behind HER (up the lap), on her side, driving her way", good >= 5, JSON.stringify(samples));
+  // a K9 loosed up ahead runs back at HER (it was loosed behind her, running away)
+  let k9 = null;
+  for (let k = 0; k < 3 && !k9; k++) { await g(`(ctx.law._dbg.spawnK9(), true)`); await t.frames(10); k9 = await g(`(() => { const q = [...ctx.law._dbg.L.threats].find(x => x.kind === "k9"); return q ? Math.round(ctx.car.s - q.s) : null; })()`); }
+  if (k9 != null) {
+    await t.frames(20);
+    const k9b = await g(`(() => { const q = [...ctx.law._dbg.L.threats].find(x => x.kind === "k9"); return q ? Math.round(ctx.car.s - q.s) : null; })()`);
+    t.check("downlap: a K9 loosed up ahead of her comes at her", k9 > 20 && (k9b == null || k9b < k9), `${k9} → ${k9b}`);
+  } else t.check("downlap: a K9 can be loosed", false);
   // busted while still rolling slowly: the pull-over keeps her on her own side
   await g(`(window.__route.v = 4, true)`);
   if (await t.until(`/^law/.test(__lulu3d.state)`, "downlap: crawling with a cruiser behind → busted", 60000)) {
