@@ -44,6 +44,11 @@ export function key() {
     if (!G || !car || G.mode === "dina") return "";
     const r = ctx.streets && ctx.streets.ride;
     if (r) return NO_GAUGE.has(r.kind) ? "" : "ride:" + r.kind;
+    // (ANY borrowed shell — a hotwired parked car, Ima's minivan, a ride, a getaway car — not only a carjacked one: it used to
+    //  drain / fill HER OWN car's tank while she drove something else; each new shell is a new tank)
+    const so = ctx.foot && ctx.foot.shellObj, v = so && ctx.foot.vehicle;
+    if (so !== F.shell) { F.shell = so || null; if (so) F.ride.clear(); }
+    if (v) return NO_GAUGE.has(v.kind) ? "" : "ride:" + v.kind;
     const k = car.skinKey || "pink";
     return NO_GAUGE.has(k) ? "" : k;
 }

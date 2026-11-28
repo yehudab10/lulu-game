@@ -230,7 +230,7 @@ function actionHtml(kind, id) {
     if (kind === "item") {
         const it = itemDef(id);
         if (id === "distracted") {
-            if (inv.distractedUnlocked) return `<span class="gx-go">${ok} turn it ${distracted() ? "OFF" : "ON"}</span><span class="gx-sub">(also on the title menu)</span>`;
+            if (inv.distractedUnlocked) return `<span class="gx-go">${ok} turn it ${distracted() ? "OFF" : "ON"}</span><span class="gx-sub">(also in the title's 🚗 Garage)</span>`;
             return buy(it.price, "UNLOCK");
         }
         return wallet.coins >= it.price ? `<span class="gx-go">${ok} BUY ${priceTag(it.price)}</span>` : `<span class="gx-go poor">need ${fmt(it.price - wallet.coins)} more 💰</span>`;
@@ -304,7 +304,7 @@ function spend(price, armKey) {
     if (shop.armed !== armKey) {
         shop.armed = armKey;
         S.sfxClick();
-        setMsg(`Press ${glyph("confirm")} again to buy for ${priceTag(price)}`, "gold");
+        setMsg(`${input.device === "touch" ? "Tap" : `Press ${glyph("confirm")}`} again to buy for ${priceTag(price)}`, "gold");      // (touch: "Press Tap again")
         return false;
     }
     shop.armed = null;
@@ -350,7 +350,7 @@ function itemAction(id, key) {
         if (!spend(it.price, key)) return;
         writeShared(s => { s.distractedUnlocked = true; });
         S.sfxBuy(); rumble(0.3, 0.6, 200, true); confetti();
-        setMsg(it.bought + " Toggle it here or on the title menu.", "gold");
+        setMsg(it.bought + " Toggle it here or in the title's 🚗 Garage.", "gold");
         return;
     }
     if (wallet.coins < it.price || !wallet.spend(it.price)) { S.sfxDeny(); setMsg("Not enough coins!", "red"); return; }

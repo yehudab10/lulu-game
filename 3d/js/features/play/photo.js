@@ -406,7 +406,7 @@ function albumHtml() {
     }).join("");
     return `<h2>📒 Lulu's Photo Album</h2>
         <p class="fine">Your last ${ALBUM_MAX} snaps live here on this device · ${IN_APP ? "open one to share or save it." : "full-size PNGs go to your downloads."}</p>
-        ${list.length ? `<div class="pp-album">${items}</div>` : `<p class="pp-empty">No photos yet — press ${glyph("confirm")} to snap one!</p>`}`;
+        ${list.length ? `<div class="pp-album">${items}</div>` : `<p class="pp-empty">No photos yet — ${input.device === "touch" ? "tap 📸 in photo mode" : `press ${glyph("confirm")}`} to snap one!</p>`}`;
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 export function openAlbum(focus = 0) {

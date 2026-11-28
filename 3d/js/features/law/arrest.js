@@ -108,7 +108,7 @@ registerState("lawArrest", {
         }
         if (st.hauling && u && u.car) {
             st.haulT += dt;
-            UI.progress(Math.min(1, st.haulT / 4.4), "🚓 ———→ 🏛️ PRECINCT 18½");
+            UI.progress(Math.min(1, st.haulT / 4.4), `🚓 ———→ 🏛️ ${UI.precinctName()}`);
         }
         if (flow) flow.tick(dt, P);
         X.sirenUpdate(dt, spatialSirens() ? 0 : st.hauling ? 0.5 : 0.2, 0, "wail");

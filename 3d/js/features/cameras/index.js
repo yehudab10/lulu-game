@@ -249,28 +249,28 @@ function mailOut(t, stage) {
 }
 export function ladder() {
     const P = played();
-    let mailed = 0;
+    let mailed = 0, mailTown = null;
     for (const t of S.tickets) {
         if (!open(t)) continue;
         if (t.refs.length && owedOf(t) === 0) { t.stage = "paid"; t.unread = false; stat("camPaid"); log("paid", { id: t.id }); continue; }
         if (t.stage === "new" && P >= t.t0 + TUNE.mailAfter) {
             t.stage = "mailed"; t.dueAt = P + TUNE.dueAfter;
             addFine(t, `📸 Speed camera — ${t.where} (${t.mph} mph)`, t.fine);
-            mailed += mailOut(t, "mailed"); log("mail", { id: t.id });
+            mailed += mailOut(t, "mailed"); mailTown = mailTown || t.town; log("mail", { id: t.id });
         } else if (t.stage === "mailed" && P >= t.dueAt) {
             t.stage = "late"; t.lateAt = P;
             addFine(t, `📸 Late fee — ${t.where}`, TUNE.lateFee);
-            mailed += mailOut(t, "late"); log("late", { id: t.id });
+            mailed += mailOut(t, "late"); mailTown = mailTown || t.town; log("late", { id: t.id });
         } else if (t.stage === "late" && P >= t.lateAt + TUNE.summonsAfter) {
             t.stage = "summons"; t.summonsAt = P;
-            mailed += mailOut(t, "summons"); addCase(t); log("summons", { id: t.id });
+            mailed += mailOut(t, "summons"); mailTown = mailTown || t.town; addCase(t); log("summons", { id: t.id });
         } else if (t.stage === "summons" && P >= t.summonsAt + TUNE.warrantAfter && !S.warrant) warrant("summons");
     }
     // (overdue ones only: a notice that just arrived isn't "unpaid" yet)
     const unpaid = S.tickets.filter(t => open(t) && (t.stage === "late" || t.stage === "summons") && owedOf(t) > 0).length;
     if (unpaid >= TUNE.warrantUnpaid && !S.warrant) warrant("unpaid");
     if (mailed) {
-        try { if (ctx.phone && ctx.phone.text) ctx.phone.text({ from: L.mailFrom, emoji: "📬", color: "#455A64", msg: L.mailMsg, thread: "City Hall", need: true, dur: 5 }); } catch (e) { /* no phone */ }
+        try { if (ctx.phone && ctx.phone.text) ctx.phone.text({ from: L.mailFrom(mailTown), emoji: "📬", color: "#455A64", msg: L.mailMsg(mailTown), thread: "City Hall", need: true, dur: 5 }); } catch (e) { /* no phone */ }
         // Ima's one line, when the day starts at the family house and she's at the door
         try { const ima = !(ctx.home && ctx.home.startAt) && ctx.places && ctx.places.home && ctx.places.home.people && ctx.places.home.people.ima; if (ima && ima.obj && ima.obj.visible && ctx.foot && ctx.foot.say) ctx.foot.say(ima.obj, L.ima, 3.2); } catch (e) { /* none */ }
     }

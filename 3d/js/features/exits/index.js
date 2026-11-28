@@ -126,7 +126,7 @@ export function planRest(s, force = false, nameK = null) {
     reserve(s + LY.TAPER0 - 30, s + LY.ACC1 + 30, 1, 7.2, 74);
     const sign = (u, def) => {
         let at = s + u;
-        for (let i = 0; i < 4 && signBusy(at); i++) at += 70;
+        for (let i = 0; i < 4 && signBusy(at); i++) at += u <= LY.SIGN_HALF ? -70 : 70;      // (the 1 MI / ½ MI boards slide BACK: on toward the rest area they read 0.66 / 0.26 mi)
         reserve(at - 20, at + 20, 1, 9, 13);
         const sg = Object.assign({ s: at, d: 10.6, bg: "#1565C0", w: 4.8, h: 2.6, tw: 512, th: 280 }, def);
         w.addSign(sg); R.signs.push(sg);
@@ -330,6 +330,9 @@ function nextAhead() {
         for (const e of T.exits) { const a = e.s - car.s; if (a > -120 && a < 1609) { if (!seen.has(e.s)) seen.set(e.s, []); seen.get(e.s).push(e); } }
         for (const [s, list] of seen) { const a = s - car.s; if (!best || a < best.a) best = { kind: "exit", a, list }; }
     }
+    // ✈ the JFK exit (features/airport): its EXIT 12 boards count down like a town's — so does the chip
+    const ap = ctx.airport && ctx.airport.on && ctx.airport.planned;
+    if (ap) { const a = ap.s - car.s; if (a > -120 && a < 1609 && (!best || a < best.a)) best = { kind: "exit", a, list: [{ s: ap.s, id: "airport", no: ap.no, label: "JFK AIRPORT" }] }; }
     for (const R of RS.list) { const a = R.s - car.s; if (a > -60 && a < 1609 && (!best || a < best.a)) best = { kind: "rest", a, R }; }
     return best;
 }
@@ -344,6 +347,32 @@ function chip(n) {
     if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "exits-wrap"; H.hudSlot("center").appendChild(chipEl); H.objective(chipEl, { prio: H.OBJ.info, id: "exit", badge: false }); }
     chipEl.innerHTML = html;
 }
+
+// ── a chase into a rest area (law's hook "copRoute", like a town's ramps and JFK's roads) ──
+// Law steers a cruiser at her sideways offset off the highway: into a rest area that cut across the grass and the gore.
+// A cruiser that can SEE her drives the decel lane → the off-ramp → the drive aisle → (back out) the on-ramp, and goes
+// straight at her once it's close. While they're SEARCHING it stays on the highway (law's lanes): hiding in a lot works.
+const restLine = u => (u < LY.TAPER0 + 10 ? 5.25 : u < LY.RAMP0 ? 5.25 + (8.9 - 5.25) * (u - LY.TAPER0 - 10) / (LY.RAMP0 - LY.TAPER0 - 10)
+    : u <= LY.RAMP1 ? LY.offD(u) : u < LY.ON0 ? LY.AISLE : u < LY.ON1 ? LY.onD(u) : (7 + LY.accelEdge(u)) / 2);
+const _rc = { R: null, uC: 0, uL: 0, tx: 0, tz: 0 };
+function aimRest(la, out) {
+    const A = _rc, ua = A.uC + la;
+    if (A.uL - A.uC < 18 || ua >= A.uL) { out.x = A.tx; out.z = A.tz; return out; }
+    return ctx.world.highway.point(A.R.s + ua, restLine(ua), out);
+}
+hook("copRoute", (c, unit, ch) => {
+    if (!unit || unit.mode !== "chase" || (ch && ch.searching) || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
+    const car = ctx.car;
+    if (!(car.d > 6.6)) return null;
+    const R = RS.list.find(r => car.s > r.s + LY.TAPER0 && car.s < r.s + LY.ACC1);
+    if (!R) return null;
+    const uL = car.s - R.s;
+    if (!LY.groundAt(uL, car.d)) return null;                    // (not on the rest area's ground: law's own)
+    const uC = c.s - R.s;
+    if (uC < LY.TAPER0 - 400 || uC > uL + 5) return null;
+    Object.assign(_rc, { R, uC, uL, tx: car.pos.x, tz: car.pos.z });
+    return { gap: Math.max(0, uL - uC), aim: aimRest };
+});
 
 // ── wiring ───────────────────────────────────────────────────────────────
 on("boot", () => {

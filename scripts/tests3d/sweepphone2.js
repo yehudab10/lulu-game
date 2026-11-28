@@ -8,6 +8,10 @@
 const { make, W } = require("../lib/sweepplaces.js");
 
 // her silhouette on screen: the 8 corners of a 0.7 × 1.75 × 0.7 box around her, projected → the screen share it covers
+// the room's speech bubbles: both ends on screen (NDC x within ±1)
+const BUBX = `(() => { const r = window.__interiors && __interiors.room; if (!r) return []; const cam = r.set.camera, V = cam.position.constructor;
+  cam.updateMatrixWorld(); return r.bubbles.list.map(b => { const c = b.sp.position.clone().project(cam), d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vw = 2 * d * Math.tan(cam.fov * Math.PI / 360) * cam.aspect, h = b.sp.scale.x * (b.fill || 1) / vw;
+    return c.z < 1 && (c.x - h < -1.02 || c.x + h > 1.02) ? (b.text || "?").slice(0, 30) + " " + (c.x - h).toFixed(2) + ".." + (c.x + h).toFixed(2) : null; }).filter(Boolean); })()`;
 const COVER = `(() => { const r = window.__interiors && __interiors.room; if (!r) return null; const cam = r.set.camera, o = r.lulu.obj, V = cam.position.constructor;
   let x0 = 1, x1 = -1, y0 = 1, y1 = -1, behind = 0;
   for (const dx of [-0.35, 0.35]) for (const dz of [-0.35, 0.35]) for (const y of [0, 1.75]) { const v = new V(o.position.x + dx, o.position.y + y, o.position.z + dz).project(cam);
@@ -44,6 +48,8 @@ module.exports = {
       await S.shot(`${where}-door`);
       const c0 = await g(COVER);
       S.log(`${where} at the door: ${JSON.stringify(c0)}`);
+      const bx0 = await g(BUBX);
+      t.check(`${where}: at the door, the room's speech bubbles are whole on screen`, !bx0.length, bx0.join(" | "));
       t.check(`${where}: at the door she covers ≤ 35 % of an upright phone (or is see-through)`, c0 && (c0.cover <= 0.35 || c0.a < 0.6), JSON.stringify(c0));
       const who = await S.room(`(() => { const h = r.hots.find(h => h.who && r.byId[h.who] && (!h.enabled || h.enabled(r))); if (!h) return null; const p = r.byId[h.who].p.obj.position; return { id: h.id, x: p.x, z: p.z, i: r.hots.indexOf(h) }; })()`);
       if (!who) return;
@@ -55,6 +61,8 @@ module.exports = {
       await S.shot(`${where}-by-${who.id}`);
       S.log(`${where} by ${who.id}: ${JSON.stringify(c1)}`);
       t.check(`${where}: beside ${who.id} she covers ≤ 35 % of the phone (or is see-through)`, c1 && (c1.cover <= 0.35 || c1.a < 0.6), JSON.stringify(c1));
+      const bx = await g(BUBX);
+      t.check(`${where}: the room's speech bubbles are whole on screen (no end cut off at a side)`, !bx.length, bx.join(" | "));
       const nr = await S.room(`(() => { const L = r.lulu.obj.position, ry = r.lulu.obj.rotation.y; return { near: r.near ? r.near.id : null, all: r.hots.filter(h => !h.enabled || h.enabled(r)).map(h => { const w = h.track && h.who && r.byId[h.who], x = w ? w.p.obj.position.x : h.x, z = w ? w.p.obj.position.z : h.z, d = Math.hypot(x - L.x, z - L.z);
         return d <= h.r ? h.id + "@" + d.toFixed(2) + "/" + ((x - L.x) * Math.sin(ry) / Math.max(d, 0.01) + (z - L.z) * Math.cos(ry) / Math.max(d, 0.01)).toFixed(2) : null; }).filter(Boolean) }; })()`);
       S.log(`${where} ✋ by ${who.id}: ${JSON.stringify(nr)}`);
@@ -100,7 +108,16 @@ module.exports = {
     // her own house (Ima's) + a one-joke shopfront
     await W.moved(t);
     if (await g(`(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff("luluHome", { id: "luluHome", s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })()`)
-      && await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, "her house is up", 60000)) { await measure("phone-her-house"); await out("phone-her-house"); }
+      && await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, "her house is up", 60000)) {
+      await measure("phone-her-house");
+      // (the test put her in from wherever she stood: out of Ima's front door is a long way from there — not a glitch)
+      await W.pause(t);
+      await g(`(window.__interiors && __interiors.room ? __interiors.room.leave() : 0, true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "her house: back out", 30000);
+      await t.frames(30);
+      await W.pause(t, true); await W.reset(t);
+      await out("phone-her-house");
+    }
     const front = await g(`(() => { const SF = ctx.storefronts; if (!SF) return null; const f = SF.debug.F.list.find(f => f.door && SF.stateOf(f) === "open"); return f ? { name: f.name, at: { x: f.door.x, z: f.door.z, nx: f.nx, nz: f.nz } } : null; })()`);
     if (front) {
       await S.onFoot();
@@ -110,6 +127,14 @@ module.exports = {
       const i = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr && pr.ent ? ctx.foot.spots().indexOf(pr.ent) : -1; })()`);
       if (await S.enter({ name: front.name, i, at: front.at }, "phone-front") === true) { await measure("phone-front"); await out("phone-front"); }
     }
-    t.check("visited the rooms (a stranger's house, her house, the clothes shop, a shopfront)", ["phone-stranger", "phone-her-house", "phone-clothes", "phone-front"].every(w => seen.has(w)), [...seen].join(","));
+    // on its side (844 × 390): the realtor's small office — the camera has more room sideways; she's solid unless it's close
+    await t.page.setViewportSize({ width: 844, height: 390 });
+    await t.frames(6);
+    {
+      const d = doors.find(d => d.name === "realty");
+      if (d && await S.enter(d, "phone-land-realty") === true) { await measure("phone-land-realty"); await out("phone-land-realty"); }
+    }
+    await t.page.setViewportSize({ width: 390, height: 844 });
+    t.check("visited the rooms (her house, the clothes shop, a shopfront; a stranger's when someone's home)", ["phone-her-house", "phone-clothes", "phone-front"].every(w => seen.has(w)), [...seen].join(","));
   },
 };

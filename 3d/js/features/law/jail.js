@@ -16,7 +16,7 @@ import { models, cloneWithColors, findNodes, registerModels, ensureModels } from
 import { makeSet, textPlane } from "../../core/sets.js";
 import { wallet } from "../../core/save.js";
 import { SKINS } from "../../car.js";
-import { glyph, rumble } from "../../input.js";
+import { glyph, rumble, input } from "../../input.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
@@ -240,7 +240,7 @@ function onTapAnywhere(e) {
 
 async function main(f, data) {
     if (!JAIL_KEYS.every(k => models[k])) {
-        UI.caption("🚓 PRECINCT 18½", "Booking you in…");
+        UI.caption(`🚓 ${UI.precinctName()}`, "Booking you in…");
         try { await ensureModels(JAIL_KEYS); } catch (e) { console.warn("[law] jail models", e); }
         check(f);
         UI.caption("");
@@ -273,7 +273,7 @@ async function arrive(f) {
     e.cruiser.position.set(34, 0, 8.1); e.cruiser.rotation.y = -Math.PI / 2;
     st.cruiseV = 16;
     st.ext = { mode: "arrive" };
-    UI.caption("🏛️ PRECINCT 18½", "Booking & intake");
+    UI.caption(`🏛️ ${UI.precinctName()}`, "Booking & intake");
     UI.header("🚨 UNDER ARREST 🚨");
     e.shot.set(V(11, 3.6, 19), V(2, 1.8, 6), 48).cut();
     await f.until(() => st.ext.stopped, 6);
@@ -677,7 +677,8 @@ function updateServe(dt, P) {
     sv.lifeT -= dt;
     if (sv.lifeT <= 0) { sv.lifeT = rand(6, 9); UI.toast(pick(JAIL_LIFE), ""); }
     J.tally.count = Math.min(150, sv.days);
-    UI.caption("⛓️ SERVING YOUR SENTENCE", `${SERVE_ACTS[sv.act]} · mash ${glyph("confirm")} (or tap) to do your time`);
+    // (on a phone: "mash Tap (or tap)" — ci/sweep-phone)
+    UI.caption("⛓️ SERVING YOUR SENTENCE", `${SERVE_ACTS[sv.act]} · ${input.device === "touch" ? "tap tap tap" : `mash ${glyph("confirm")} (or tap)`} to do your time`);
     UI.progress(sv.days / sv.total, `DAY ${sv.days} / ${sv.total} · car impounded — you'll walk out 🚶‍♀️`);
 }
 

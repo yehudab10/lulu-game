@@ -246,10 +246,10 @@ export class PlayerCar {
     collideStatic(cx, cz, r) {
         let impact = 0;
         const fx = Math.sin(this.h), fz = Math.cos(this.h);
-        for (const o of CAR_CIRCLES) {
+        for (const o of this.circles || CAR_CIRCLES) {          // (a ride's own body — features/rides sets circles / radius)
             const px = this.pos.x + fx * o, pz = this.pos.z + fz * o;
             const dx = px - cx, dz = pz - cz;
-            const rr = r + CAR_RADIUS;
+            const rr = r + (this.radius || CAR_RADIUS);
             const d2 = dx * dx + dz * dz;
             if (d2 >= rr * rr || d2 < 1e-6) continue;
             const d = Math.sqrt(d2);

@@ -26,8 +26,13 @@ function want() {
     return { kind, hex, text: `${COLORS[hex]} ${KIND_NAME[kind]}`, pay: PAY[kind] };
 }
 /** Shmuel calls with a request (opts: { kind, hex } to pick it). Returns the job or null if the line's busy. */
+/** Her own car (the one Shmuel's guy "brings round" after a drop-off) is impounded — features/cars: he can't get it out. */
+function ownImpounded() {
+    try { const C = ctx.cars, k = ctx.car && ctx.car.skinKey; return !!(C && C.where && ctx.enabled("cars") && k && C.where(k) && C.where(k).kind === "impound"); } catch (e) { return false; }
+}
 export function chopRequest(opts = {}) {
-    if (!ctx.phone || !ctx.phone.call || CHOP.job) return null;
+    // (not while her own car is impounded: "his guy brings your car round" would be a free release from the impound)
+    if (!ctx.phone || !ctx.phone.call || CHOP.job || (!opts.force && ownImpounded())) return null;
     const w = Object.assign(want(), opts.kind ? { kind: opts.kind, pay: PAY[opts.kind] || 100 } : {}, opts.hex ? { hex: opts.hex.toLowerCase() } : {});
     w.text = `${COLORS[w.hex] || "shiny"} ${KIND_NAME[w.kind] || w.kind}`;
     const line = pick(T.CHOP_INTRO).replace("{want}", w.text);

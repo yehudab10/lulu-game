@@ -358,7 +358,9 @@ for (const id of Object.keys(FAMILY)) {
 export const placesApi = {
     add: addPlace,
     get: id => PLACES.get(id) || null,
-    list: () => [...PLACES.values()].map(p => ({ id: p.id, name: p.name, icon: p.icon, kind: p.kind })),
+    // (a place with `listed: false` — paint on the road, the U-turn crossovers — is built but never listed: nothing plans
+    //  round it, no app offers it)
+    list: () => [...PLACES.values()].filter(p => p.listed !== false).map(p => ({ id: p.id, name: p.name, icon: p.icon, kind: p.kind })),
     /** Live spots near the car (built chunks): [{key, id, s, d}] */
     spots: () => [...SPOTS.values()].map(s => ({ key: s.key, id: s.place.id, s: s.s, built: !!s.obj })),
     /** Where place `id` is in the current mode (metres along the road). */
