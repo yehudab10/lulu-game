@@ -513,8 +513,10 @@ async function amb(t) {
   await g(`L3.startRun({ mode: "cruise", quick: true })`);
   if (!await t.until(`__lulu3d.state === "playing"`, "amb: a cruise starts", 120000)) return;
   await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.car.vF = 20, true)`);
-  const was = await t.L(`import("./js/features/roadevents/config.js").then(m => { window.__RATES = m.RATES; const w = m.RATES.ambulance; m.RATES.ambulance = 1000; return w; })`);
+  // (the chase first, THEN the rate: an ambulance asked for a frame before the chase would still be on its way)
   await g(`(ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
+  await t.frames(2);
+  const was = await t.L(`import("./js/features/roadevents/config.js").then(m => { window.__RATES = m.RATES; const w = m.RATES.ambulance; m.RATES.ambulance = 1000; return w; })`);
   await t.frames(60);
   const during = await g(`({ chase: !!ctx.law.chasing, amb: ctx.traffic.cars.some(c => c.kind === "roadevents_ambulance") })`);
   t.check("amb: no 'pull over for the ambulance' in the middle of a police chase", during.chase && !during.amb, JSON.stringify(during));
