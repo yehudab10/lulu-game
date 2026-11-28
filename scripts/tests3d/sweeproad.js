@@ -436,6 +436,20 @@ async function downLap(t) {
   await t.frames(15);
   const tr = await g(`(() => { const T = ctx.law._dbg.L.traps.filter(x => !x.gone); return T.map(x => Math.round(ctx.car.s - x.s)); })()`);
   t.check("downlap: a speed trap up ahead of her stays there (not gone the frame it spawned)", tr.length > 0 && tr.every(x => x > 400), JSON.stringify(tr));
+  // a call-in: the unlit cruiser comes from behind her, in HER lanes, her way (it crossed to the other carriageway, against the traffic)
+  await g(`(ctx.law.callIn("RECKLESS DRIVING", { delay: 0.2 }), true)`);
+  if (await t.until(`__lulu3d.ctx.law._dbg.L.units.some(u => u.bolo && u.car)`, "downlap: the call-in's cruiser comes out", 20000)) {
+    const bs = [];
+    for (let k = 0; k < 4; k++) {
+      await t.frames(20);
+      bs.push(await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.bolo && u.car); if (!u) return null; const rh = ctx.world.highway.at(u.car.s).h;
+        return { behind: Math.round(u.car.s - ctx.car.s), d: +u.car.d.toFixed(1), down: Math.cos(u.car.h - rh) < 0 }; })()`));
+    }
+    const ok = bs.filter(x => x && x.behind > 0 && x.d < -0.5 && x.down).length;
+    t.check("downlap: the call-in's cruiser comes from behind her, on her side, her way", ok >= 3, JSON.stringify(bs));
+  }
+  await g(`(ctx.law.standDown("test"), ctx.law._dbg.L.bolo = null, true)`);
+  await t.frames(2);
   await g(`(ctx.law._dbg.L.units.length = 0, ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
   // (every second for 8 s: the cruiser behind her, on her side, FACING her way — down the lap)
   const samples = [];

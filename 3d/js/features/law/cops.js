@@ -386,7 +386,7 @@ function steerUnit(dt, c, u) {
         lv = ch.last.v; ls = ch.last.s + D * ch.last.v * Math.min(ctx.time - ch.last.t, 20); ld = clamp(ch.last.d, -5.25, 5.25);
     }
     if (u.bolo) {                               // a call-in: one unlit cruiser prowls up the road looking for her car
-        tD = c.d > 3.5 ? 5.25 : 1.75; vT = TUNE.boloSpeed; u.vmax = route ? 14 : TUNE.boloSpeed;
+        tD = D * (c.d * D > 3.5 ? 5.25 : 1.75); vT = TUNE.boloSpeed;      // (her side's lanes: the far ones down the lap) u.vmax = route ? 14 : TUNE.boloSpeed;
         if (route) { const err = route.gap - 6; vT = B ? clamp(4 + route.gap * 0.5, 4, TUNE.prowl) : clamp(lv + err * 0.9, 0, 14); }
     } else if (u.mode === "chase") {
         u.pitT -= dt;
