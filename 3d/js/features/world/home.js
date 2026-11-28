@@ -304,8 +304,10 @@ export function houseColliders() {
     const hp = home.hp, P = home.park, r = home.house.rotation.y;
     const fx = Math.sin(r), fz = Math.cos(r), rx = Math.cos(r), rz = -Math.sin(r);
     const gx = P.x - fx * 3.9, gz = P.z - fz * 3.9;
-    const list = [{ x: hp.x + rx * 2.4, z: hp.z + rz * 2.4, r: 4.4, kind: "house" }, { x: hp.x - rx * 2.4, z: hp.z - rz * 2.4, r: 4.4, kind: "house" },
-        { x: gx - fx * 2.2, z: gz - fz * 2.2, r: 2.9, kind: "house" }];
+    // (camWall: the free camera stops at these too — in a town it skips "house" circles for the blocks' outlines, but her
+    //  own lot is an open lot with no outline: the camera went INSIDE the family house's walls — ci/fasttests, qa7)
+    const list = [{ x: hp.x + rx * 2.4, z: hp.z + rz * 2.4, r: 4.4, kind: "house", camWall: true }, { x: hp.x - rx * 2.4, z: hp.z - rz * 2.4, r: 4.4, kind: "house", camWall: true },
+        { x: gx - fx * 2.2, z: gz - fz * 2.2, r: 2.9, kind: "house", camWall: true }];
     // …and the hedge round the lot's sides + back: a row of small circles along each line
     if (home.lotSpot) for (const e of lotEdges(home.lotSpot)) {
         const n = Math.max(1, Math.ceil(e.len / HEDGE.step));

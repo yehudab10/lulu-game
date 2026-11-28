@@ -179,7 +179,7 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2);
                 continue;
             }
-            if (c.r < 0.8 || topOf(c) != null || (blocks && c.kind === "house")) continue;
+            if (c.r < 0.8 || topOf(c) != null || (blocks && c.kind === "house" && !c.camWall)) continue;
             const ox = tgt.x - c.x, oz = tgt.z - c.z;
             // (the traffic circle's island is a 6 m lawn — only its statue in the middle stands tall)
             const cr = c.kind === "island" ? Math.min(c.r, 2.8) : c.r;
