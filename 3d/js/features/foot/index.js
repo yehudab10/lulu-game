@@ -1050,7 +1050,13 @@ function footCamera(dt) {
     return true;
 }
 // (the free camera stays on her side of a wall: jump.js camClip — the colliders she walks into, a town's blocks)
-const clipCam = (tgt, dx, dy, dz, D) => F ? camClip(F, tgt, dx, dy, dz, D) : D;
+// (ci/sweep-camera: + the airport's terminal + tower boxes, as the chase cam has — on foot at the kerb the free camera only
+//  knew the terminal's collision circles)
+const clipCam = (tgt, dx, dy, dz, D) => {
+    if (!F) return D;
+    const r = camClip(F, tgt, dx, dy, dz, D), air = ctx.airport && ctx.airport.camClip ? ctx.airport.camClip(tgt, dx, dy, dz, D) : null;
+    return air != null && air < (typeof r === "number" ? r : r.d) ? (typeof r === "number" ? air : { d: air, noLift: r.noLift }) : r;
+};
 /** Gentle auto-follow: only while she walks roughly "up" (away from the camera) and the camera is already within ~40°
  *  of the road / street's direction — then it eases onto it, so walking along a bend keeps the road ahead. Pointing the
  *  camera across the road, strafing, walking back toward it or standing still: it stays exactly where it is. */

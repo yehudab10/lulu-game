@@ -45,7 +45,7 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
     const g = t.game;
-    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside").split(",");
+    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport").split(",");
     await W.install(t);
     // ── 0. ▶ PLAY from the title: the picture glides from the title's street shot to her on her lot — never through the
     //       neighbours' house (qaweekend "home → highway": the camera inside block@128,195 for 8 frames) ──
@@ -281,6 +281,45 @@ module.exports = {
         t.check(`${P.m} km ${door} (${id}): walked in facing into the room, the camera behind her (${c0 && c0.behind} / ${c0 && c0.into})`, !!c0 && c0.behind > 0.3 && c0.into > 0 && !!c1 && c1.in && c1.seen && !c1.wall, JSON.stringify({ c0, c1 }));
         await g(`(window.__interiors && __interiors.room ? __interiors.room.leave() : 0, true)`);
         await t.until(`__lulu3d.state === "footRun"`, `${P.m} ${door}: out`, 30000);
+      }
+    }
+
+    // ── 7. JFK's kerb: on foot along the terminal's front, the camera turned to look out at the road (it sits between her
+    //       and the terminal) and along the pavement — never inside the terminal (the on-foot camera only knew its
+    //       collision circles; the chase cam had its boxes) ──
+    if (only.includes("airport")) {
+      await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" && L3.setState("playing"), true)`);
+      await t.frames(6);
+      await g(`(ctx.airport && (ctx.airport.debug.enable(true), !ctx.airport.planned && ctx.airport.debug.placeAt(ctx.car.s + 1500)), true)`);
+      if (await t.until(`!!__lulu3d.ctx.airport && !!__lulu3d.ctx.airport.planned`, "the airport planned", 60000)) {
+        const E = await g(`ctx.airport.planned.s`);
+        await W.moved(t);
+        await g(`(() => { const s = ${E} - 250, p = ctx.world.highway.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+        await t.frames(10);
+        await g(`ctx.airport.debug.buildNow()`);
+        if (await t.until(`!!__lulu3d.ctx.airport.at(0, 200)`, "the landside built", 90000)) {
+          await W.moved(t);
+          await g(`(() => { const p = ctx.airport.debug.world(80, 193.5), h = ctx.airport.debug.G().F.yaw(1, 0); const n = ctx.world.highway.nearest(p.x, p.z, ctx.car.s, {}); ctx.car.place(p.x, p.z, h); ctx.car.s = n.s; ctx.car.d = n.d; ctx.cam.snap(); return true; })()`);
+          await t.until(`__lulu3d.ctx.airport.inside`, "on the landside", 20000);
+          await g(`ctx.foot.start("droveOff", { noIntro: true })`);
+          if (await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot at the kerb", 30000)) {
+            await W.reset(t);
+            const bad = [];
+            for (const f of [-80, -40, 0, 40, 80]) for (const [lab, k] of [["camera toward the terminal", 0], ["along the front", 1], ["along the front, the other way", 2]]) {
+              const p = await g(`(() => { const T = ctx.airport.debug.LY.TERM, F = ctx.airport.debug.G().F, w = F.world(${f}, T.r0 - 2.2, {}), toward = F.world(${f}, T.r0 + 5, {}), along = F.world(${f} + 5, T.r0 - 2.2, {});
+                const a = Math.atan2(w.x - toward.x, w.z - toward.z), b = Math.atan2(along.x - w.x, along.z - w.z);
+                return { x: w.x, z: w.z, yaw: ${k} === 0 ? a : ${k} === 1 ? b : b + Math.PI }; })()`);
+              await standAt(t, p.x, p.z, p.yaw);
+              await t.frames(14);
+              const pr = await CJ.probe(t);
+              const inT = await g(`(() => { const T = ctx.airport.debug.LY.TERM, F = ctx.airport.debug.G().F, c = ctx.camera.position, q = F.local(c.x, c.z, {}); return q.f > T.f0 && q.f < T.f1 && q.r > T.r0 && q.r < T.r1 && c.y < 15; })()`);
+              if (inT || pr.near > 0.35 || (pr.block && !/Car|Taxi|Bus|Shuttle|Lod/i.test(pr.block))) { bad.push({ f, lab, inT, ...pr }); if (bad.length <= 3) await t.shot(`jfk-${bad.length}`); }
+            }
+            await t.shot("jfk-kerb");
+            t.check(`JFK: along the terminal's front the camera stays out of it and shows her (15 views)`, bad.length === 0, JSON.stringify(bad.slice(0, 4)));
+            W.check(t, "JFK kerb", await W.report(t), ["nan", "flat", "underground", "inwall"]);
+          }
+        }
       }
     }
   },
