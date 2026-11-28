@@ -2,8 +2,11 @@
 
 Sweep started 2026-11-27 23:55 UTC (rules: `RULES.md`). Scope: the lap + exits, the cars, traffic + crashes, cops +
 chases, car care / dealers / impound / cameras, getting in + out, touch driving. Tests: `scripts/tests3d/sweeproad.js`
-(crash fairness, Refael's lot + the title's car switch), `sweeproad2.js` (a lap survey on a phone: every board, the trip
-bar, the exit chip), `sweeproad3.js` (a whole lap DRIVEN with traffic, a controller at 1280×720, the watchdog on).
+(parts: crash fairness, long-ride bodies + fuel, ramps / rest areas, DOWN the lap (chase, traps, K9, call-in, traffic
+honks, the flavour pull-over), the call-in in town, roadside impound yards, Refael's lot + the title's car switch, the
+ambulance; `SWEEPROAD_PART=`), `sweeproad2.js` (a lap survey on a phone: every board, the trip bar, the exit chip),
+`sweeproad3.js` (a whole lap DRIVEN with traffic, a controller at 1280×720, the watchdog on; `SWEEPROAD3_DOWN=1` drives
+it down the lap, `_KM` / `_FROM` a stretch).
 
 Not touched (still moving on another branch when this started): `features/fuel` (`ci/fuel`, not landed),
 `features/dealers` (`ci/dealers-ui`, moved minutes before).
