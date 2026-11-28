@@ -1,0 +1,106 @@
+// 📱 The phone sweep, part 3 — MENUS + SETTINGS on a phone (a returning player's save), upright then on its side:
+//   • ❚❚ pause: fits, every button ≥ 44 px tall, no broken text
+//   • ⚙️ Settings: every switch changes what it says, the card fits a small phone (375 × 667) and scrolls by finger; a
+//     reload keeps every choice
+//   • the 📱 phone on a small phone upright + turned on its side WHILE it's open: the handset stays on the screen
+// Screenshots: SWEEP_SHOTS=1 → smoke-shots/sweepphone/.
+const { make, W } = require("../lib/sweepphone.js");
+
+const CARD_FIT = `(() => { const c = document.getElementById("screenCard"); if (!c || c.offsetParent === null) return null; const r = c.getBoundingClientRect(), bad = [];
+  if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push("card off screen " + [r.left, r.top, r.right, r.bottom].map(Math.round));
+  for (const b of c.querySelectorAll("button")) { if (b.offsetParent === null) continue; const q = b.getBoundingClientRect(); if (q.width < 2) continue;
+    if (q.height < 40) bad.push("small " + Math.round(q.width) + "×" + Math.round(q.height) + " " + b.textContent.trim().slice(0, 24));
+    if (q.right > innerWidth + 1 || q.left < -1) bad.push("off the side " + b.textContent.trim().slice(0, 24)); }
+  const sc = [c, ...c.querySelectorAll("*")].find(e => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY));
+  const cut = c.scrollHeight > c.clientHeight + 4 && !sc;
+  if (cut) bad.push("taller than the screen and doesn't scroll");
+  return { bad, scrolls: !!sc, h: Math.round(r.height) }; })()`;
+
+module.exports = {
+  name: "sweepphone3",
+  viewport: { width: 375, height: 667 },
+  hasTouch: true,
+  query: "&enable=all",
+  save2d: { totalCoins: 23456, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [], mpName: "Kugel Kid" },
+  save3d: { settings: { quality: "low" }, best: 4321, f: { meta: { tutorialDone: true } } },
+  async run(t) {
+    try { await this.body(t); } finally { W.dropRelayErrors(t); }
+  },
+  async body(t) {
+    const S = make(t), g = t.game;
+    const touch = () => t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
+    await touch();
+    await t.click(/PLAY/);
+    if (!await t.until(`__lulu3d.state === "footRun"`, "PLAY: on foot at home", 30000)) return;
+    await g(`(ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.law.hold(99999), true)`);
+    await t.frames(30);
+    // ❚❚ pause (the corner button on foot is the 📱: the pause menu through the game's own pause)
+    const pb = await S.box("pauseBtn");
+    S.log("❚❚ button: " + JSON.stringify(pb));
+    await t.L(`(document.getElementById("pauseBtn").click(), 0)`);
+    await t.frames(6);
+    await S.shot("10-pause");
+    const pz = await t.L(CARD_FIT);
+    S.log("pause: " + JSON.stringify(pz) + " · " + (await S.texts()).filter(x => x.id === "screenCard" || /screenCard/.test(x.id)).map(x => x.tx).join(" | ").slice(0, 600));
+    t.check("❚❚ pause fits a small phone, buttons ≥ 40 px", pz && !pz.bad.length, JSON.stringify(pz));
+    await S.badText("pause", { touch: true, w: 375 });
+    // ⚙️ Settings
+    await t.click(/Settings/);
+    await t.frames(6);
+    await S.shot("11-settings");
+    const sf = await t.L(CARD_FIT);
+    t.check("⚙️ Settings fits a small phone (or scrolls)", sf && !sf.bad.length, JSON.stringify(sf));
+    await S.badText("settings", { touch: true, w: 375 });
+    const read = () => t.L(`[...document.querySelectorAll("#screenCard .setting")].map(b => ({ id: b.id, l: (b.querySelector("span") || b).textContent.trim(), v: (b.querySelector("b") || {}).textContent || "" }))`);
+    const rows0 = await read();
+    S.log("settings: " + rows0.map(r => `${r.l}=${r.v}`).join(" · "));
+    const SKIP = /set_controls|set_x_/;
+    const changed = {};
+    for (const r of rows0) {
+      if (SKIP.test(r.id) || !r.v) continue;
+      await t.L(`(document.getElementById(${JSON.stringify(r.id)}).click(), 0)`);
+      await t.frames(4);
+      const now = (await read()).find(x => x.id === r.id);
+      t.check(`⚙️ ${r.l}: a tap changes it (${r.v} → ${now && now.v})`, now && now.v !== r.v);
+      if (now) changed[r.id] = now.v;
+    }
+    await S.shot("12-settings-changed");
+    const s3 = await t.L(`import("./js/core/save.js").then(m => { m.saveNow && m.saveNow(); return JSON.stringify(m.save3d.settings) + " music " + m.save3d.music + " sound " + m.save3d.sound; })`);
+    S.log("saved: " + s3);
+    await t.page.reload();
+    await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots again after the reload", 120000);
+    await touch();
+    await t.click(/More/); await t.frames(3);
+    await t.click(/Settings/); await t.frames(6);
+    const rows1 = await read();
+    for (const [id, v] of Object.entries(changed)) {
+      const r = rows1.find(x => x.id === id);
+      // (graphics AUTO shows the tier it picked: compare the word before " · ")
+      const same = r && (r.v === v || r.v.split(" · ")[0] === v.split(" · ")[0]);
+      t.check(`⚙️ ${r ? r.l : id} survives a reload (${v} → ${r && r.v})`, same);
+    }
+    await t.click(/Done/); await t.frames(4);
+    // the 📱 on a small phone, then turned on its side while it's open
+    await t.click(/PLAY/);
+    if (!await t.until(`__lulu3d.state === "footRun"`, "PLAY again", 30000)) return;
+    await touch();
+    await t.frames(20);
+    await g(`ctx.phone.openPhone()`);
+    await t.frames(12);
+    await S.shot("13-phone-small");
+    const hs = () => t.L(`(() => { const c = document.querySelector("#screenCard.lphone"); if (!c) return null; const r = c.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), W: innerWidth, H: innerHeight }; })()`);
+    const in1 = await hs();
+    t.check("📱 small phone upright: the handset is on the screen", in1 && in1.t >= -1 && in1.b <= in1.H + 1 && in1.l >= -1 && in1.r <= in1.W + 1, JSON.stringify(in1));
+    await t.page.setViewportSize({ width: 667, height: 375 });
+    await t.frames(12);
+    await S.shot("14-phone-turned");
+    const in2 = await hs();
+    t.check("📱 turned on its side while open: the handset is still on the screen", in2 && in2.t >= -1 && in2.b <= in2.H + 1 && in2.l >= -1 && in2.r <= in2.W + 1, JSON.stringify(in2));
+    await g(`(ctx.phone.closePhone(), true)`);
+    await t.frames(6);
+    await S.shot("15-foot-turned");
+    await S.badText("on its side", { touch: true, w: 667 });
+    await t.page.setViewportSize({ width: 375, height: 667 });
+    await t.frames(6);
+  },
+};

@@ -1706,7 +1706,8 @@ function interactables() {
 // ── the moves coach: the first few walks, the empty prompt line says what the buttons do — until she's done each ──
 function coachDid(k) { const n = S.coach[k] || 0; if (n < 99) { S.coach[k] = n + 1; saveSoon(); } }
 function coachHint() {
-    if (F.t < 1.2 || F.chase || ctx.dialogOpen) return "";
+    // (a walk hint is up — the first start's "drag the WALK pad to your car": ONE thing to do at a time; ci/sweep-phone)
+    if (F.t < 1.2 || F.chase || ctx.dialogOpen || (F.hintT > 0 && ctx.G && ctx.G.hint)) return "";
     const c = S.coach, young = F.t < 45;
     if (F.camFree && ctx.cam && ctx.cam.free && ctx.cam.free.looks > (F.looks0 || 0) && !F.lookedThisWalk) { F.lookedThisWalk = true; coachDid("look"); }
     if ((c.jump || 0) < 3 && young) return input.device === "touch" ? "⤴ tap JUMP · hold it = higher" : `${glyph("jump")} JUMP · hold = higher`;

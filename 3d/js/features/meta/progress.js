@@ -271,14 +271,19 @@ function showStreak(streak, pay) {
     slot.prepend(streakEl);
     streakUntil = ctx.time + 6.5;   // game time: covers the 3-2-1 and the first seconds of driving
 }
+// (a run that starts at home ON FOOT: the card waits for the drive — the first seconds at the porch already have Ima's
+//  line + the walk hint, and the card sat on top of Ima's speech bubble; ci/sweep-phone. The coins are hers at once.)
+let streakPending = null;
+const driveNow = () => !!(ctx.states[ctx.state] || {}).driving && !(ctx.foot && ctx.foot.active);
 hook("hud", () => {
+    if (streakPending && driveNow()) { const [s, p] = streakPending; streakPending = null; showStreak(s, p); }
     if (!streakEl || ctx.time < streakUntil) return;
     const el = streakEl;
     streakEl = null;
     el.classList.add("out");
     setTimeout(() => el.remove(), 500);
 });
-on("state", ({ to }) => { if (streakEl && !(ctx.states[to] || {}).hud) { streakEl.remove(); streakEl = null; } });
+on("state", ({ to }) => { if (streakEl && !(ctx.states[to] || {}).hud) { streakEl.remove(); streakEl = null; } if (to === "title") streakPending = null; });
 export function dayNum() { return Math.floor(now() / 86400000); }
 on("run:start", () => {
     if (!ctx.enabled("meta")) return;   // a surprise payout: off in scripted test runs
@@ -294,7 +299,7 @@ on("run:start", () => {
     });
     if (!pay) return;
     wallet.add(pay);
-    showStreak(streak, pay);
+    streakPending = [streak, pay];          // (shown on the next HUD frame — or, on foot at home, once she drives)
     tone(784, 0.1, "triangle", 0.16, 0.3); tone(1046, 0.14, "triangle", 0.16, 0.42);
     emit("streak", { streak, pay });
 });

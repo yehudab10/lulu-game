@@ -71,7 +71,7 @@ export const total = (id, cfg) => lines(id, cfg).reduce((a, l) => a + l.price, 0
 
 // ── the screen ──
 css("dealers-config", `
-#screenCard.card.tsl-card { width: min(900px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; padding: 18px 22px 14px;
+#screenCard.card.tsl-card { width: min(900px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px 22px 14px;
   background: #FFFFFF; color: #171A20; border-radius: 14px; border: 1px solid #E4E6EA; box-shadow: 0 18px 50px rgba(0,0,0,.25); font-family: Helvetica, Arial, sans-serif; }
 .tsl-brand { letter-spacing: .5em; font-size: 12px; font-weight: 700; color: #171A20; text-align: center; }
 .tsl-model { font-size: 32px; font-weight: 500; text-align: center; margin: 4px 0 2px; }

@@ -157,7 +157,7 @@ function startAtHome(opts = {}, alt = null) {
         camBlend: opts.camBlend != null ? opts.camBlend : ctx.state === "title" ? 1.1 : 0, line: "",
         home: {
             hazards: false,
-            hint, hintT: D.first ? 14 : 6,
+            hint, hintT: D.first ? 60 : 6,      // (the first time ever: the hint stays up till she's found the car — ci/sweep-phone)
             quiet: () => !!ctx.foot.pos && nearHome(ctx.foot.pos.x, ctx.foot.pos.z, 90),     // no random townsfolk / busking / "get in a car" nudges on her own street
             onOwnCar: drove, driveState: "worldPullOut",
             // (in town, on her own lot: the walking frame + camera face into the lot, so the camera stays over her yard + the
@@ -167,7 +167,18 @@ function startAtHome(opts = {}, alt = null) {
     });
     if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
     // (the free camera on foot keeps the direction it starts from: point it into her lot, behind her)
-    if (lotFace != null && ctx.cam && ctx.cam.free && ctx.cam.free.recentre) ctx.cam.free.recentre(lotFace);
+    // (…turned just enough to show her CAR: on a phone held upright the picture is narrow and the car, parked beside the
+    //  house, was off the edge of the screen while the hint said "drag the WALK pad to your car" — ci/sweep-phone)
+    if (ctx.cam && ctx.cam.free && ctx.cam.free.recentre) {
+        let yaw = lotFace != null ? lotFace : face;
+        const c = ctx.foot.parkedCar, me = at || spots.idle, cam = ctx.camera;
+        if (c && me && cam) {
+            const half = Math.atan(Math.tan((58 + (cam.aspect < 1 ? 14 : 0)) * Math.PI / 360) * cam.aspect) * 0.75;
+            const d = wrapAngle(Math.atan2(c.x - me.x, c.z - me.z) - yaw);
+            if (Math.abs(d) > half) yaw = wrapAngle(yaw + d - Math.sign(d) * half);
+        }
+        if (lotFace != null || yaw !== face) ctx.cam.free.recentre(yaw);
+    }
     H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
     G.lastS = G.startS = ctx.car.s;
     // (a Cruise with features/day: Ima reads out today's list instead — after the first-ever "the car's right there")
