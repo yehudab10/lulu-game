@@ -39,7 +39,7 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | qaweekend — Lakewood on foot in the rain: no inwall / flat glitch (camera inside block@38,38 ×37; inside a tree's leaves ×26; a re-run: one flat colour in foot phase "script") | REAL but not pinned down: the end-of-mash screenshot (`3d-qaweekend-lakewood-foot.png`, run 46085361039) is a screen full of a street tree's leaves at the Feldmans' door. Always Lakewood's E-W street at z ≈ -3190 (x -100…-180). camClip's leaf rule skips a tree she stands under and a trunk between them; not reproduced locally yet — open |
 | unstuck — ramp + rest area: no inwall glitch (camera inside a big tree trunk r1.4, ×2) | same family as above (Lakewood z ≈ -3189); 2 frames after a rescue — open |
 | partners2 — bail paid at the desk ("She's not in a cell here.": the guest was already called to court) | timing: the cell's court clock is real time since a6bd69f (`ci/friends`); `ci/fasttests` gives partners2 the old clock — left |
-| exits — interchange triangles (242k vs 85k) | stale test: the baseline 2.6 km back is now a different scenery region (open fields, no trees: 0 leaves) vs the T's forest (106k leaf triangles). The baseline now stands in the interchange's own region — 7a… (this branch, CI 46089119253) |
+| exits — interchange triangles (242k vs 85k) | stale test: the baseline 2.6 km back is now a different scenery region (open fields, no trees: 0 leaves) vs the T's forest (106k leaf triangles). The baseline now stands in the interchange's own region — 6526f26 (CI 46089119253) |
 | qaweekend-party — both screens have the same puddles + pigeons (host 0 sites) | open (party; `ci/friends` area) |
 | partyplus — the claimed minivan pulls over the same way on both screens (guest null) | open (party; `ci/friends` area) |
 | qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame | open (party) |
@@ -48,6 +48,13 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 
 ## Left for other branches
 
+- **`ci/doors` (other account, moving: camClip / the camera in trees + houses, 2026-11-28 00:18–00:43):** the on-foot
+  camera in Lakewood's street-tree leaves / a block / a big trunk (qaweekend, unstuck rows above) is theirs — the
+  screenshot `3d-qaweekend-lakewood-foot.png` of run 46085361039 (a screen of leaves at the Feldmans' door) and the
+  positions above are the repro data.
+- **Party / friends checks** (partyplus' claimed minivan on the guest, qaweekend-party's puddles on the host, qafriends'
+  hop-out car jump, partners2's bail on a real-time court clock): `ci/friends` / `ci/oneserver-place` / `ci/fasttests`
+  are all moving in that code — left, listed above.
 - **Note for every sweep:** dispatching "3D full suite" on `main` CANCELS a run already going on `main` (one run per
   branch). The whole-suite run 46073386320 lost its last two machines (calm + the adhold group) to a 3-file dispatch on
   main at 00:43. Dispatch targeted groups on your OWN `ci/` branch.
