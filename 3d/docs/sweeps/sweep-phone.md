@@ -18,8 +18,9 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
    in the car (`world/depart.js` hintT 60); the streak card (coins paid at once) shows when she drives
    (`meta/progress.js`). — fixed
 2. **Her car was off the screen** — "drag the WALK pad to your car 🚗", Ima: "the car. Over there." — on a phone held
-   upright the camera faced the house and the car stood 120 px past the left edge. The camera now turns just enough to
-   show it (`world/depart.js`, from the real field of view). — fixed
+   upright the camera faced the house and the car stood 120 px past the left edge. When the car is off the picture the
+   camera now looks at it from behind her, so up on the stick walks straight to it (`world/depart.js`, from the real
+   field of view; landscape keeps the house shot when the car's already in it). — fixed
 3. **Ima: "The pink one."** — her car isn't always pink (the default car is red). "In the driveway." — fixed
 4. **0 MPH in the driveway, nothing on screen** — a first-time player in the car (the pull-out shot) with no hint until
    the game gave up after 15 s. Now "Hold GAS to pull out 🚗" (touch) / "Hold <gas> to pull out" after 2 s still. — fixed
@@ -63,7 +64,21 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 17. **Emoji newer than an iPhone 7 / iPhone 6s can draw** (Unicode 15, iOS 16.4+: 🪿 goose, 🩷 pink heart, 🩵, 🫷 —
    empty boxes in the decor catalogue, City Hall's questions, the purse snatcher's prompt) → 🦢 💗 💙 ✋. — fixed
 
+18. **A room's speech bubble sized against last frame's camera** — while the camera swung in for a purchase at the
+   clothes counter the "−150 💰 ✓" bubble came out 110–120 % of a phone's width (`sweepplaces` red on this branch):
+   the room now moves its camera before it fits the bubbles (`interiors/engine.js`). — fixed
+19. **📱 ‹ Back / ☰ Menu ~26 px tall on fingers** — 40 px now (`phone/style.js`). — fixed
+
+## Landed
+- batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
+  houseitems, storefronts, lanes, doors, qa28, decor, family, realestate: green; cityhall + shul red — also red on main,
+  see below), 46110656699 (core, platform, skip, ux, music, sweepphone 1/3/4, meta, phone, hudfit: green), 46110218885
+  (home, onegame, world, qa26: green).
+
 ## For other sweeps
+- for `ci/sweep-health`: on main a5c02a2a (run 46112384329 on a copy of main): `cityhall` › "the ribbon cutting: no jump
+  glitch" (the camera moves ~5 m a frame for 4 frames on foot) and `shul` › "midwood / lakewood friday: nobody stands
+  inside a wall (kid)" are red — not from this sweep (red on main without it).
 
 ## Left
 - No browser-back handling: an Android back gesture / an iOS Safari edge swipe leaves the page (the root page uses
