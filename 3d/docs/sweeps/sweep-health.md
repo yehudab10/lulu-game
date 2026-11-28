@@ -66,6 +66,11 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | sweeplogic — no page errors (`[cameos] model load TypeError: Failed to fetch`) | `ci/sweep-logic`'s own test: it navigates while a lazy model download is in flight (the pattern `ci/fasttests` fixed in 06647cf: let the downloads finish first) — theirs |
 | sweepplaces3 — THE ONE SOCK LAUNDROMAT: at its door the ✋ is the door (got 💬 SAY HI) | `ci/sweep-places`' own test — theirs |
 | partyworld — community: the same roadside scenes on both screens | party (2 pages): re-run once |
+| partners2 — bail paid at the desk ("She's not in a cell here") | test: the bail section didn't hold the jailed guest's court clock (real time since a6bd69f) like the cells above do; holds it now |
+| accounts — A sees B's USERNAME over B's car (got "Pink 45"); multiplayer — the 2D ghost / emote checks | `ci/oneserver-place`'s rooms-by-place landed on main 02:49 and is still moving — left for them |
+| qafriends — guest: riding across the town line (car 6.2 m in a frame), 2 runs of 3 | left for `ci/friends` (`openworld/ride.js`, moving) |
+| airport — the cruiser doesn't drive through her car (ram: centres 1.3 m < 1.5), no teleport (ram 0.6 m > 0.5 a frame) | intermittent (green in 46073386320): the test's scripted cruiser pushes on 0.3 s after contact while the kerb holds her car; borderline numbers — open, not loosened |
+| (the dealersui / schlepnav / exits / friends / qacar / partners3 / hidden / qa10 / qa28 / homelife2 / movement / cityhall4 machine) | cancelled by my own next dispatch — to re-run |
 | qa4, qa26, qa27, exits, calm, qol, qaweekend's HUD, perf | green |
 
 ## Findings + status
