@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { models, registerModels, ensureModels, cloneWithColors, findNodes } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
-import { SKINS } from "../../car.js";
+import { SKINS, KITS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
 import { CarVisual, NameTag } from "../party/remote.js";
@@ -32,7 +32,7 @@ const tmp = {}, v = new THREE.Vector3();
 
 function kindOf(p) {
     if (p.m === 1) return "foot:" + p.sk + ":" + (p.hc || "") + ":" + (p.ot || "");
-    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "");
+    if (!p.vk || p.vk === "car") return "car:" + p.sk + ":" + (p.hc || "") + ":" + (p.ev ? p.ev.join(".") : "") + ":" + (p.cc ? p.cc[0] : 0) + ":" + (p.cc ? p.cc[1] : 0);
     if (p.vk === "borrowed") return "borrowed:" + (p.ct || 0) + ":" + (p.co || "");
     if (p.vk === "cop" || EXTRA[p.vk]) return p.vk;
     return "car:" + p.sk;
@@ -70,6 +70,20 @@ function bakedRide(src, key) {
     return mesh;
 }
 
+/** Another player's car the way she sees it: her skin's body kit (a Mazelati's spoiler, a Tushla in HER paint + wheels —
+ *  dealers' otherKit, never mine) and her dirt on the paint (car care). */
+function dressCar(model, p) {
+    const sk = SKINS[p.sk];
+    if (sk && sk.kit && KITS[sk.kit]) {
+        const anchors = {};
+        model.traverse(o => { if (o.name && o.name.startsWith("Anchor_")) anchors[o.name.slice(7).replace(/\d+$/, "")] = o; });
+        try {
+            if (sk.kit === "tushla" && ctx.dealers && ctx.dealers.otherKit) ctx.dealers.otherKit(model, anchors, sk, p.ev ? { paint: p.ev[0], wheels: p.ev[1], interior: p.ev[2] } : null);
+            else KITS[sk.kit](model, anchors, sk);
+        } catch (e) { console.warn("[mp] kit", sk.kit, e); }
+    }
+    if (p.cc && p.cc[0] && ctx.carcare && ctx.carcare.dressOther) ctx.carcare.dressOther(model, p.cc[0], 0);
+}
 function buildGhost(p) {
     const sk = SKINS[p.sk] || SKINS.pink;
     const g = { kind: kindOf(p), obj: new THREE.Group(), mats: [], wheels: [], person: null, burst: null, burstKey: "" };
@@ -93,11 +107,14 @@ function buildGhost(p) {
             const cv = new CarVisual(p.sk);
             if (p.hc) cv.setHair(p.hc);
             src = cv.model;
+            dressCar(src, p);                               // (her kit — a Tushla in HER configuration — + her dirt)
             const baked = bakedRide(src, key);
             cv.dispose();
             if (baked) body = baked;
         } else body = bakedRide(null, key);
         if (!body) body = bakedRide(src, key) || src;
+        // her dents: decals over the baked body (none on a clean car — a dented one costs a few draws)
+        if ((!p.vk || p.vk === "car") && p.cc && p.cc[1] && ctx.carcare && ctx.carcare.dressOther) ctx.carcare.dressOther(body, 0, p.cc[1]);
         if (body === src) { src.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } }); g.wheels = findNodes(src, "Wheel_"); }
     }
     g.obj.add(body);
@@ -177,7 +194,8 @@ export const ghostStats = () => {
         kinds.push(g.person ? "foot" : g.kind.split(":")[0]);
         g.body.traverse(o => { if (o.isMesh && o.visible && o.material && o.material.transparent && o.material.opacity < 0.9 && !/Glass|Flame/i.test(o.material.name || "")) seeThrough++; });
     }
-    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough };
+    const hands = Object.values(ghosts).filter(g => g && g.shown && g.person && g.person.obj.userData.hiHand).length;
+    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands };
 };
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */
@@ -240,7 +258,7 @@ export function updateGhosts(dt, me, show) {
         g.obj.rotation.y = at.h;
         p.ws = at.x; p.wd = at.z;
         const mps = at.mps;
-        if (g.person) g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 });
+        if (g.person) { g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 }); if (ctx.houseitems && ctx.houseitems.dressOther) ctx.houseitems.dressOther(g.person, p.hi, p.hw); }
         for (const w of g.wheels) w.rotation.x += mps * dt / 0.34;
         // (solid, like friends: no see-through fade — she's drawn once she's really there, gone once she isn't)
         g.obj.visible = p.vis > 0.35;

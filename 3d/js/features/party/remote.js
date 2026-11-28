@@ -22,7 +22,7 @@ import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { models, cloneWithColors, findNodes, ensureModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
-import { SKINS } from "../../car.js";
+import { SKINS, KITS } from "../../car.js";
 import { now, clock, N, fresh } from "./net.js";
 
 const WHEEL_R = 0.34;
@@ -205,6 +205,27 @@ export class CarVisual {
         this.rideWheels = findNodes(this.ride, "Wheel_").map(w => { w.rotation.order = "YXZ"; return w; });
         this.tilt.add(this.ride);
     }
+    /** Her car the way she sees it: the skin's body kit (a Tushla in HER configuration, `ev` = [paint, wheels, interior]) +
+     *  her condition (`cc` = [dirt 0..10, dents 0..3], car care). Rebuilds the model only when it changes. */
+    setLook(ev, cc) {
+        const ok = v => typeof v === "string" && /^[a-z0-9_]{1,16}$/.test(v);
+        const E = Array.isArray(ev) && ev.length === 3 && ev.every(ok) ? ev : null;
+        const C = Array.isArray(cc) && cc.length === 2 ? [Math.max(0, Math.min(10, cc[0] | 0)), Math.max(0, Math.min(3, cc[1] | 0))] : null;
+        const key = this.skin + "|" + (E ? E.join(".") : "") + "|" + (C ? C.join(".") : "");
+        if (key === this.lookKey) return;
+        if (this.lookKey != null) { const sk = this.skin; if (this.model) this.tilt.remove(this.model); this.model = null; this.skin = null; this.setSkin(sk); if (this.hairColor) this.setHair(this.hairColor, true); }
+        this.lookKey = key;
+        const sk = SKINS[this.skin];
+        if (sk && sk.kit && KITS[sk.kit]) {
+            const anchors = {};
+            this.model.traverse(o => { if (o.name && o.name.startsWith("Anchor_")) anchors[o.name.slice(7).replace(/\d+$/, "")] = o; });
+            try {
+                if (sk.kit === "tushla" && ctx.dealers && ctx.dealers.otherKit) ctx.dealers.otherKit(this.model, anchors, sk, E ? { paint: E[0], wheels: E[1], interior: E[2] } : null);
+                else KITS[sk.kit](this.model, anchors, sk);
+            } catch (e) { console.warn("[party] kit", sk.kit, e); }
+        }
+        if (C && (C[0] || C[1]) && ctx.carcare && ctx.carcare.dressOther) ctx.carcare.dressOther(this.model, C[0], C[1]);
+    }
     setHair(color, force) {
         if (!color || (!force && color === this.hairColor)) return;
         this.hairColor = color;
@@ -368,6 +389,7 @@ export function updateCars(dt, show, decorate, frameOf) {
         if (!want) { if (rc) { rc.v.root.visible = false; rc.shown = false; rc.st.init = false; } continue; }
         if (!rc) { rc = new RemoteCar(p); cars.set(uid, rc); }
         if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
+        rc.v.setLook(p.x && Array.isArray(p.x.ev) ? p.x.ev : null, p.x && Array.isArray(p.x.cc) ? p.x.cc : null);
         if (p.hc) rc.v.setHair(p.hc);
         setForm(rc, p);
         if (emoteFn) { try { emoteFn(rc, p); } catch (e) { console.error("[party] emote", e); } }
@@ -504,6 +526,9 @@ function setForm(rc, p) {
             rc.walkerKey = key;
             rc.v.root.add(rc.walker.obj);
         }
+        // (what's in her hand / on her head — features/houseitems; not in a disguise / the jumpsuit)
+        const hi = look0(f) && p.x && Array.isArray(p.x.hi) ? p.x.hi : null, idOk = v => typeof v === "string" && /^[a-z0-9_]{1,24}$/.test(v) ? v : null;
+        if (ctx.houseitems && ctx.houseitems.dressOther) ctx.houseitems.dressOther(rc.walker, hi ? idOk(hi[0]) : null, hi ? idOk(hi[1]) : null);
         rc.anim = f[0] | 0;
         rc.footY = Math.max(0, Math.min(4, (f[2] | 0) / 10));
     }

@@ -42,7 +42,7 @@ import { beacon, hideBeacon, hideBeacons, roofProp, tickProps, beaconCount } fro
 import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT, loopPoint, townClaims } from "./towntraffic.js";
 import { registerApps } from "./apps.js";
 import { initSpots, spotsDebug } from "./spots.js";
-import { initRide, startRide, stopRide, riding, tickSeats, ridingWith } from "./ride.js";
+import { initRide, startRide, stopRide, riding, tickSeats, ridingWith, RLOG } from "./ride.js";
 
 const SAVE = store("openworld", { best: {}, games: 0, wins: 0, snaps: 0, pins: 0 });
 const OFF = 20000;                 // the flat frame's s offset (towns sit south of the highway's start)
@@ -925,7 +925,7 @@ ctx.openworld = {
     /** world(local {x, z, h}) → the same pose in world coords (in place): the town can stand turned at its interchange */
     townLoops: () => (TT.plan && TT.loops.length ? { loops: TT.loops, world: o => { const h = o.h; TT.plan.world(o.x, o.z, o); if (h != null) o.h = TT.plan.wh(h); return o; }, point: loopPoint, town: TT.town } : null),
     debug: {
-        CL, SOLO, NP, TT, townCarsAt, townLive, townClaims, beaconCount, sights: townSights, pins, hostTick, getG, here,
+        CL, SOLO, NP, TT, townCarsAt, townLive, townClaims, rideLog: () => RLOG.slice(), beaconCount, sights: townSights, pins, hostTick, getG, here,
         /** tests: claim a game event as me (exactly what play() would send). */
         claim: (k, ...a) => send(k, ...a),
         touching, posOf, spots: spotsDebug,

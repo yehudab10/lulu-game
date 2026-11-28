@@ -79,6 +79,8 @@ function myPose() {
     me.driving = !!def.driving && !foot;
     me.parking = ctx.state === "parking";
     me.sending = (me.inWorld && !ctx.view) || me.parking || !!me.in;
+    // riding along in a friend's car (openworld's ride): strangers see the driver's car, not a second one under it
+    const riding = !!(ctx.openworld && ctx.openworld.riding);
     me.hidden = !me.sending;
     me.s = car ? car.s : 0; me.d = car ? car.d : 0; me.sp = car ? car.speed : 0;
     const T = ctx.town, inTown = !!(T && T.active && T.plan);
@@ -97,7 +99,7 @@ function myPose() {
     }
     if (me.parking || me.in) me.sp = 0;
     if (me.inWorld) me.outAt = { x: wx, z: wz };       // (the last spot outside: where she's "standing" while in a room)
-    me.zone = !me.sending || me.parking ? "~" : inTown ? String(T.id || "") : "";
+    me.zone = !me.sending || me.parking || riding ? "~" : inTown ? String(T.id || "") : "";
     if (me.zone === "" && ctx.world) {
         // the highway: road distance + offset + heading relative to the road (riders' roads can bend differently)
         ctx.world.road.point(me.s, 0, tmp);
@@ -122,6 +124,18 @@ function myPose() {
         let ot = null;
         try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
         me.ot = ot;
+    }
+    // what's in her hand / on her head on foot (features/houseitems) — everyone sees the same props she does
+    const HI = foot && ctx.houseitems ? ctx.houseitems : null;
+    me.hi = HI ? HI.shown : null; me.hw = HI ? HI.worn : null;
+    // her car as she sees it: the skin she's in NOW (the hello only has the one she joined with), a Tushla's configuration,
+    // its condition (car care: dirt, dents) — read with the look, every couple of seconds
+    if (!me.carAt || performance.now() - me.carAt > 2000) {
+        me.carAt = performance.now();
+        const k = car && car.skinKey;
+        me.sk = k || null;
+        try { me.ev = k && ctx.dealers && ctx.dealers.myCfg ? ctx.dealers.myCfg(k) : null; } catch (e) { me.ev = null; }
+        try { me.cc = k && ctx.carcare && ctx.carcare.look ? ctx.carcare.look(k) : null; } catch (e) { me.cc = null; }
     }
     return me;
 }
@@ -293,7 +307,9 @@ ctx.mp.peersIn = N.peersIn;
 const WSKY = { DAY_S: 540, BLOCK: 100, SEED: 0x5EA7 };
 const wh01 = (a, b) => { let h = Math.imul(a ^ 0x2545F491, 0x9E3779B1) ^ Math.imul(b + 0x6C8E9CF5, 0x85EBCA77); h ^= h >>> 15; h = Math.imul(h, 0xC2B2AE3D); h ^= h >>> 13; return (h >>> 0) / 4294967296; };
 ctx.mp.worldSky = {
-    on: () => !!(MP.connected && WC.flag("clock") && ctx.worldClock && ctx.worldClock.synced && onlineOn()),
+    // (MP.want, not "connected this instant": a place-room switch — driving into a town — is a reconnect, and the clock
+    //  stays good through it; the sky / the town's loops must not blink away for that second)
+    on: () => !!((MP.connected || MP.want) && WC.flag("clock") && ctx.worldClock && ctx.worldClock.synced && onlineOn()),
     clock: () => ((0.3 + WC.now() / 1000 / WSKY.DAY_S) % 1 + 1) % 1,
     weather: () => {
         const b = Math.floor(WC.now() / 1000 / WSKY.BLOCK), r = wh01(WSKY.SEED + 7, b), r2 = wh01(WSKY.SEED + 8, b);
