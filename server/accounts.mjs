@@ -420,7 +420,7 @@ export function createAccounts(q, opts = {}) {
     return { status: 404, body: { error: "not found" } };
   }
   const ok = (b) => ({ status: 200, body: b });
-  return { handle, schema, config: pubCfg, nameOf: (pid) => { schema(); return nameOf(pid); }, sechOf: (pid) => { schema(); const r = acct(pid); return r ? r.sech : null; } };
+  return { handle, schema, config: pubCfg, nameOf: (pid) => { schema(); return nameOf(pid); }, madeOf: (pid) => { schema(); const r = acct(pid); return r ? r.made || 0 : 0; }, sechOf: (pid) => { schema(); const r = acct(pid); return r ? r.sech : null; } };
 }
 
 /** The worker's SQL (a Durable Object's state.storage.sql) as `q`. */

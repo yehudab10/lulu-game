@@ -42,6 +42,13 @@ export const S = store("interiors", { visits: {}, danceBest: 0, castles: 0 });
  *  the free coffee / seltzer / ice cream (that was an endless coin loop). A new run starts them fresh. */
 const RUN_USED = {};
 on("run:start", () => { for (const k of Object.keys(RUN_USED)) delete RUN_USED[k]; });
+/** …and the one-off COIN rewards (rt.onceToday) are once per REAL day (device-local date), saved: ↺ Restart / a reload /
+ *  ⌂ title → ▶ PLAY start a new run, so "once a run" alone was still a coin tap (the precinct's free coffee: +30 a lap). */
+const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function dailyUsed() {
+    if (!S.daily || typeof S.daily !== "object" || S.daily.day !== dayKey() || !S.daily.used) { S.daily = { day: dayKey(), used: {} }; saveSoon(); }
+    return S.daily.used;
+}
 
 export const GOLD = ["#FFD700", "#FFE082", "#FFF59D", "#FFB300"];
 export const CONFETTI = ["#FF4081", "#40C4FF", "#FFD740", "#7C4DFF", "#69F0AE"];
@@ -226,6 +233,8 @@ export class Room {
         this.yaw = (def.cam && def.cam.yaw) || 0;
         this.luluPose = null;
         this.used = RUN_USED[def.id] || (RUN_USED[def.id] = {});   // one-off reward flags (the 2D barUsed / rewarded): once per interior per run
+        const today = dailyUsed()[def.id];                          // (+ the coin ones already taken today: the labels / "again" lines agree)
+        if (today) for (const k of Object.keys(today)) this.used[k] = true;
         this.data = {};          // scratch for the interior def
     }
 
@@ -316,6 +325,8 @@ export class Room {
         slot.appendChild(this.chip);
         this.extraEl = this.chip.querySelector(".int-extra");
 
+        // (the street's flavour banners stay outside — the town's WELCOME, a shop's title — this room's own are next)
+        if (H.dropBanners) H.dropBanners(b => b.prio <= 1);
         def.build(this);
         // a door hotspot for every interior
         if (this.spots.door && !this.hots.some(h => h.id === "door")) {
@@ -333,7 +344,7 @@ export class Room {
             this.outArmed = false;
         }
         this.updateCamera(0, true);
-        H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200);
+        H.banner(`${def.emoji} <b>${def.name}</b>${def.tagline ? `<small>${def.tagline}</small>` : ""}`, 2200, { key: "room" });
     }
 
     hintHtml() {
@@ -439,6 +450,17 @@ export class Room {
         if (at) this.particles.burst(at, GOLD, 14, 2.2, 0.06);
         emit("stat", { id: "interiorCoins", n });
     }
+    /** A one-off COIN reward (the free coffee / seltzer / ice cream…): true the first time today for this room + key,
+     *  false after — for the rest of the real day, whatever the run. Sets rt.used[key] too. */
+    onceToday(key) {
+        if (this.used[key]) return false;
+        this.used[key] = true;
+        const u = dailyUsed(), m = u[this.def.id] || (u[this.def.id] = {});
+        if (m[key]) return false;
+        m[key] = true;
+        saveSoon();
+        return true;
+    }
     /** ⭐ stars bank into the wallet, like the 2D footAwardStar(). */
     star(n = 1, label, at) {
         wallet.add(n);
@@ -509,6 +531,7 @@ export class Room {
         if (this.chip) this.chip.remove();
         H.prompt("");
         if (dialogIsOpen()) closeDialog();   // never strand a half-read line on the next screen
+        if (H.dropBanners) H.dropBanners(b => b.key === "room");      // (…nor its title banner in the next place)
         if (this.bubbles) this.bubbles.clear();
         if (this.faded) { for (const [o, f] of this.faded) { o.material = f.m0; for (const m of f.ms) m.dispose(); } this.faded.clear(); }
         if (this.orbiting && ctx.cam && ctx.cam.free) ctx.cam.free.release();      // (outside, the street's rig starts fresh)

@@ -140,6 +140,23 @@ module.exports = {
     await place(780, 1.75, 24);
     await t.frames(3);
     t.check("back in her lane → WRONG WAY move + best time", await G(`(${M}.save.n.wrongway || 0) >= 1 && ${M}.save.best.wrongway >= 1.5`));
+    // (the owner, 2026-11-27: "when driving the other way but the right way, the pop up still says wrong way") — turned
+    // round on the far carriageway, going WITH its traffic, is legal: no callout, no wrong-way time; down the lap on her
+    // OWN side is the wrong way
+    const legalW = async (d, back) => {
+      await G(`(${M}.debug.W.t = 0, true)`);
+      for (let i = 0; i < 6; i++) {
+        await t.frames(12);
+        await G(`(() => { const c = ctx.car, s = c.s, v = 22; const p = ctx.world.road.point(s, ${d}, {}); const h = p.h + (${back} ? Math.PI : 0); c.place(p.x, p.z, h); c.s = s;
+          c.vx = Math.sin(h) * v; c.vz = Math.cos(h) * v; return true; })()`);
+      }
+      return G(`${M}.debug.W.t`);
+    };
+    const withIt = await legalW(-3.5, true);
+    t.check(`turned round on the far side, WITH its traffic: no WRONG WAY (${withIt.toFixed(2)} s)`, withIt === 0);
+    const against = await legalW(3.5, true);
+    t.check(`down the lap on her OWN side: WRONG WAY (${against.toFixed(2)} s)`, against > 0.5);
+    await place(820, 1.75, 24); await t.frames(3);
     await t.hold(7, 0);
     await bankNow(); await t.frames(3);
 
@@ -253,6 +270,27 @@ module.exports = {
     const moved = Math.hypot(after.x - before.x, after.z - before.z);
     t.check("…and she's over the hood, on the far side", moved > 3.5, moved.toFixed(2) + " m");
     await G(`(ctx.traffic.remove(window.__parked), true)`);
+    // …but with a big tree right behind that car she doesn't vault INTO its trunk (ci/qa: "the camera in a tree" at the rest
+    // area) — a roll / slide instead, and she's never inside the trunk
+    await t.frames(8);
+    await G(`(() => { const F = ctx.foot.debug.F, o = F.lulu.obj, y = o.rotation.y;
+      const p = { x: F.pos.x + Math.sin(y) * 3.2, z: F.pos.z + Math.cos(y) * 3.2 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
+      window.__parked = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, c) => { c.speed = 0; } });
+      const ch = ctx.world.activeChunks().find(c => Math.abs(c.s0 + 100 - F.s) <= 220);
+      window.__tree = { x: F.pos.x + Math.sin(y) * 6.4, z: F.pos.z + Math.cos(y) * 6.4, r: 1.4, kind: "tree" }; ch.colliders.push(window.__tree); window.__treeCh = ch; return true; })()`);
+    await t.frames(2);
+    await t.tap(2);
+    const kind2 = await G(`${M}.debug.foot().kind`);
+    t.check(`a big tree right behind the car → no vault into it (${kind2})`, kind2 !== "vault");
+    let inTrunk = 0;
+    for (let k = 0; k < 40; k++) { await t.frames(1); if (await G(`(() => { const F = ctx.foot.debug.F, T = window.__tree; return Math.hypot(F.pos.x - T.x, F.pos.z - T.z) < T.r; })()`)) inTrunk++; }
+    t.check("…and she's never inside the trunk", inTrunk === 0, inTrunk + " frames");
+    // the camera, if her pivot ever were inside a trunk: out of it along its line, never in it
+    const camOut = await G(`import("./js/features/foot/jump.js").then(m => { const F = ctx.foot.debug.F, T = window.__tree; const tgt = { x: T.x + 0.3, y: 1.2, z: T.z };
+      const r = m.camClip(F, tgt, -1, 0.2, 0, 5), d = typeof r === "number" ? r : r.d; return +(Math.abs(tgt.x - d - T.x)).toFixed(2); })`);
+    t.check(`a pivot inside a trunk → the camera ends up outside it (${camOut} m from its middle)`, camOut > 1.4, String(camOut));
+    await G(`(window.__treeCh.colliders.splice(window.__treeCh.colliders.indexOf(window.__tree), 1), ctx.traffic.remove(window.__parked), true)`);
+    await t.until(`!__lulu3d.ctx.moves.debug.foot().on && __lulu3d.ctx.foot.phase === "walk"`, "the move ends", 5000);
     // a car whooshing past mid-roll → MATADOR (cars can't touch her mid-move)
     await G(`(() => { const F = ctx.foot.debug.F; window.__bull = ctx.traffic.add("sedan", F.s - 7, F.d + 1.4, 1, 16,
       { ai: (dt, c) => { c.s += 16 * dt; c.d = F.d + 1.4; } }); return true; })()`);

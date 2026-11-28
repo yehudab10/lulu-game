@@ -549,6 +549,9 @@ registerState("footRun", {
         hot.classList.add("hidden");
         showBubbles(false);
         if (!F) return;
+        // (the 6 s "Find a car to borrow" hint from climbing out is the street's: walked straight into a room, it sat at
+        //  the bottom of the hospital / the shul / Borough Hall for the whole visit — only the street's frames clear it)
+        if (F.hintT > 0 && ctx.G) { F.hintT = 0; ctx.G.hint = null; }
         if (F.handoff) { F.suspended = F.handoff; return; }
         if (["title", "gameover", "intro", "playing"].includes(next)) end(next);
         else F.suspended = next;     // somebody else's cutscene; we'll pick up where we left off
@@ -657,6 +660,9 @@ function footUpdate(dt, P) {
         arrivedOnFoot();
         if (!F) return;
     }
+    // (a ✋ / a doorway took her into a room THIS frame — the state changed under us and exit() already put the street's
+    //  overlays away: re-showing the bubbles here left "No car? No problem." frozen over the room for the whole visit)
+    if (ctx.state !== "footRun") { showBubbles(false); return; }
     stats(dt);
     hud(dt);
     showBubbles(!ctx.paused && !H.screenOpen());
@@ -1656,7 +1662,15 @@ function interactables() {
     if (F.car && F.car.stub && ctx.traffic.cars.includes(F.car.stub)) {
         const c = F.car.stub;
         const ripLabel = F.car.key === "lulu" ? "💀 RIP, little pink car" : "💀 That one's had it";
+        const n0 = out.length;
         consider(F.car.drivable ? "own" : "rip", c, F.car.drivable ? (F.reason === "home" ? "🚗 GET IN — let's go!" : "🚗 GET BACK IN") : ripLabel, c.x, c.z, 3.3);
+        // (her own car counts as "right next to her" by its BODY, not its centre: beside its door she's ~1 m from it though
+        //  2 m from the middle — else a shop door's wide zone a few metres on won (sweep-health: qa4 got 🏘️ ENTER REALTY))
+        if (out.length > n0 && F.car.drivable) {
+            const fx = Math.sin(c.h), fz = Math.cos(c.h), dx = p.x - c.x, dz = p.z - c.z;
+            const lon = Math.abs(dx * fx + dz * fz), lat = Math.abs(dx * -fz + dz * fx);
+            out[n0].d = Math.hypot(Math.max(0, lon - 2.1), Math.max(0, lat - 0.95));
+        }
     }
     for (const ped of F.peds) consider("talk", ped, "💬 TALK", ped.p.obj.position.x, ped.p.obj.position.z, 2.1);
     for (const a of F.animals) consider("pet", a, "🐾 PET", a.p.obj.position.x, a.p.obj.position.z, a.key === "foot_ostrich" ? 2.4 : 1.9);

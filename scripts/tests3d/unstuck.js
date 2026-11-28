@@ -337,7 +337,7 @@ module.exports = {
       } else console.log("   (no building in the rest area)", JSON.stringify(sol));
       await noFalse("rest area", 31);
     }
-    await seg("ramp + rest area");
+    await seg("ramp + rest area");      // (strict again: ci/doors fixed the camera in a big trunk — 1a83dd66)
 
     // 12 · the highway monkey run
     await noFalse("highway", 11);

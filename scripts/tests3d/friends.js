@@ -21,6 +21,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 module.exports = {
   name: "friends",
+  fast: false,     // (two pages on the relay, which keep a REAL performance.now: flaky on the fast clock — 1 red in 2 full runs — the old clock)
   viewport: { width: 960, height: 540 },
   query: Q(URL),
   save2d: { totalCoins: 100, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid" },

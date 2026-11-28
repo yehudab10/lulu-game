@@ -114,6 +114,8 @@ const hudOverlap = t => t.L(`(() => { const out = [], W = innerWidth, H = innerH
     for (const e of document.querySelectorAll("#hud .hud-tl .pill, #hud .trip, #tripLabel, #pauseBtn, #phoneBtn, #slot-left > *, #slot-right > *, #hud .speedo, #skipBtn, #banner, #slot-bottom .prompt, #padHint, #stickBase")) {
       let hid = false; for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === "none" || c.visibility === "hidden" || +c.opacity < 0.1 || n.classList.contains("hidden")) { hid = true; break; } }
       if (hid || !e.textContent.trim() && e.id !== "phoneBtn" && e.id !== "pauseBtn") continue;
+      // (a text sliding in / out — jphIn / jphOut run on wall time — is off the edge for a moment on purpose: not a layout fault)
+      if (e.classList.contains("out") || (e.getAnimations && e.getAnimations().some(a => a.playState === "running" && /^jph(In|Out)$/.test(a.animationName || "")))) continue;
       const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
       out.push({ id: e.id || (e.className || e.tagName).toString().split(" ")[0], l: r.left, t: r.top, r: r.right, b: r.bottom });
     }

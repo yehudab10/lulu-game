@@ -322,7 +322,7 @@ function acctReg() {
     return m.createAccounts(q, { clock: () => Date.now() + homesClock.offset,
       config: fast ? { writeGapMs: 30, checkGapMs: 0 } : {},
       homeSech: (pid) => { const r = homesStore && homesStore.byOwner(pid)[0]; return r ? r.sech : null; },
-      onDelete: (pid) => { if (wearNow) wearNow.releaseAll(pid); } });
+      onDelete: (pid) => { if (wearNow) wearNow.releaseAll(pid); if (shopsNow) shopsNow.releaseAll(pid); } });
   });
   return acctP;
 }
@@ -353,6 +353,39 @@ function handleWear(req, res, pathname) {
   if (req.method === "GET") { run({}); return; }
   let raw = "";
   req.on("data", (c) => { raw += c; if (raw.length > 4 * 1024) req.destroy(); });
+  req.on("end", () => { let body = null; try { body = JSON.parse(raw); } catch (_) { body = null; } run(body && typeof body === "object" ? body : null); });
+}
+// --- 🏪 player-owned shops (shops.mjs — the SAME code the worker runs, on node:sqlite; ci/playershops) -----------------
+// Dev / test only: POST /shops/_clock {offset} moves the same clock (a new day; an owner going idle); POST /shops/_made
+// {pid, ago} back-dates an account (a buyer needs one ≥ minDays old); SHOPS_OFF=1 starts with the kill switch off;
+// SHOPS_CFG='{"ownerDayProfit":10}' shrinks the caps (reaching them in a test). The production worker has none of these.
+let shopsP = null, shopsNow = null;
+function shopsReg() {
+  if (!shopsP) shopsP = acctReg().then((A) => Promise.all([import("./shops.mjs"), import("./accounts.mjs"), import("./world.mjs")]).then(async ([m, a, w]) => {
+    const q = await a.nodeSql(":memory:");
+    if (!q || !A) return null;
+    const made = new Map();
+    shopsNow = m.createShops(q, { clock: () => Date.now() + homesClock.offset, sechOf: (pid) => A.sechOf(pid), nameOf: (pid) => A.nameOf(pid),
+      madeOf: (pid) => (made.has(pid) ? made.get(pid) : A.madeOf(pid)), on: () => process.env.SHOPS_OFF !== "1" && !!w.WORLD.shops,
+      config: Object.assign(process.env.ACCT_FAST === "1" ? { writeGapMs: 30, ipGapMs: 0, sweepGapMs: 0 } : {}, (() => { try { return JSON.parse(process.env.SHOPS_CFG || "{}"); } catch (e) { return {}; } })()) });
+    shopsNow.backdate = (pid, ago) => made.set(pid, Date.now() + homesClock.offset - ago);
+    return shopsNow;
+  }));
+  return shopsP;
+}
+function handleShops(req, res, pathname) {
+  if (req.method === "OPTIONS") { res.writeHead(204, CORS_HEADERS); res.end(); return; }
+  const done = (st, obj) => sendBoard(res, st, obj);
+  const qs = Object.fromEntries(new URL(req.url, "http://x").searchParams);
+  const run = (body) => {
+    if (pathname === "/shops/_clock" && req.method === "POST") { homesClock.offset = Number(body && body.offset) || 0; done(200, { ok: true, offset: homesClock.offset }); return; }
+    if (pathname === "/shops/_made" && req.method === "POST") { shopsReg().then((S) => { if (S) S.backdate(String(body && body.pid), Number(body && body.ago) || 0); done(200, { ok: true }); }); return; }
+    shopsReg().then((S) => (S ? S.handle(pathname, req.method, body, boardClientIp(req), qs) : { status: 404, body: { error: "no shops here" } }))
+      .then((r) => done(r.status, r.body)).catch((e) => done(500, { error: String(e && e.message) }));
+  };
+  if (req.method === "GET") { run({}); return; }
+  let raw = "";
+  req.on("data", (c) => { raw += c; if (raw.length > 8 * 1024) req.destroy(); });
   req.on("end", () => { let body = null; try { body = JSON.parse(raw); } catch (_) { body = null; } run(body && typeof body === "object" ? body : null); });
 }
 function handleAcct(req, res, pathname) {
@@ -402,6 +435,7 @@ const server = http.createServer((req, res) => {
   if (pathname.startsWith("/acct/")) { handleAcct(req, res, pathname); return; }
   if (pathname.startsWith("/world/")) { handleWorld(req, res, pathname); return; }
   if (pathname.startsWith("/wear/")) { handleWear(req, res, pathname); return; }
+  if (pathname.startsWith("/shops/")) { handleShops(req, res, pathname); return; }
   res.writeHead(426);
   res.end("expected websocket upgrade");
 });

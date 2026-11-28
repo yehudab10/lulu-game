@@ -258,6 +258,16 @@ module.exports = {
       t.check("Hillel: not your fault → payout lands", (await t.game(`ctx.G.coins`)) - c0 >= 60, `+${(await t.game(`ctx.G.coins`)) - c0}`);
       t.check("second chance → Lulu carries on (foot, or the car if no foot feature)", await t.game(`ctx.state !== "gameover"`));
       t.check("Hillel's claim pays the tow (no fee on that knock-out)", await t.game(`ctx.G.knockouts >= 1`));
+      // "one a day" is a REAL day: a new run (↺ Restart) the same day → the claim is denied, no second payout
+      await drive();
+      const c1 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
+      await t.game(`(ctx.cameos.force = { scene: true, reprieve: "insurance", fault: false, mood: "angry" }, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "car" }))`);
+      await t.until(`__lulu3d.state === "cameosCrash"`, "wreck again (a new run) → aftermath", 90000);
+      await t.until(`/Hillel/i.test((document.querySelector("#dialog.open .name") || {}).textContent || "")`, "Hillel again", 90000);
+      await mash(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, 60);
+      await t.page.waitForTimeout(1500);           // (the wallet flushes within a second)
+      const c2 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
+      t.check("Hillel: a second claim the same day (a new run) pays nothing", c2 <= c1, `${c1} → ${c2}`);
     }
 
     if (want("animal")) {

@@ -6,7 +6,7 @@
 // so the timing and difficulty match exactly; it's only DRAWN in 3D.
 import * as THREE from "three";
 import { ctx, registerState, setState, emit } from "../../core/ctx.js";
-import { shared, wallet } from "../../core/save.js";
+import { shared, wallet, store, saveSoon } from "../../core/save.js";
 import { makeSet } from "../../core/sets.js";
 import { spawnPerson } from "../../core/people.js";
 import { input, rumble } from "../../input.js";
@@ -19,6 +19,15 @@ import {
 import { cloneWithColors } from "../../models.js";
 
 export const COOKIE_DURATION = 30, COOKIE_FEE = 10;
+/** The most Cookie Catch banks in a REAL day (device-local date, saved): a skill game, but a repeatable one — every reward
+ *  is capped (AGENTS golden rule 5). Rounds past it still count for the best score. */
+export const COOKIE_DAY_CAP = 300;
+const CKD = store("dinaCookie", { d: "", n: 0 });
+function cookieRoom() {
+    const d = new Date(), k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (CKD.d !== k || !(CKD.n >= 0)) { CKD.d = k; CKD.n = 0; }
+    return Math.max(0, COOKIE_DAY_CAP - CKD.n);
+}
 const W = 480, Hh = 854, PLATE_Y = Hh - 120, PLATE_W = 78;
 // falling kinds — weight controls how often each appears (2D COOKIE_KINDS)
 export const COOKIE_KINDS = [
@@ -102,10 +111,10 @@ function buildKitchen() {
 
 function startRound() {
     // entry fee — a real gamble: you only come out ahead by catching well
-    const fee = Math.min(COOKIE_FEE, wallet.coins);
+    const fee = cookieRoom() > 0 ? Math.min(COOKIE_FEE, wallet.coins) : 0;      // (piggy bank full for today: free rounds, for the fun / the best)
     if (fee > 0) wallet.spend(fee);
     Object.assign(CK, {
-        active: true, plateX: W / 2, timer: COOKIE_DURATION, score: 0, lives: 3, spawnT: 0.8, combo: 0, comboT: 0, fee,
+        active: true, plateX: W / 2, timer: COOKIE_DURATION, score: 0, banked: 0, lives: 3, spawnT: 0.8, combo: 0, comboT: 0, fee,
         msg: "Catch the cookies!", msgT: 2, phase: "play", endT: 0, caught: 0, prevBest: 0, newBest: false, shake: 0, shown: false, t: 0,
     });
     for (const it of K.set.items) K.set.set.scene.remove(it.obj);
@@ -126,7 +135,8 @@ function endRound(why) {
     CK.endT = 0;
     CK.prevBest = shared.get().cookieBest || 0;
     if (CK.score > CK.prevBest) { shared.update(s => { s.cookieBest = CK.score; }); CK.newBest = CK.prevBest > 0; }
-    wallet.add(CK.score);            // bank the round (2D banks it on the "head back" tap)
+    CK.banked = Math.min(CK.score, cookieRoom());     // (the real day's cap: COOKIE_DAY_CAP)
+    if (CK.banked > 0) { CKD.n += CK.banked; saveSoon(); wallet.add(CK.banked); }     // bank the round (2D banks it on the "head back" tap)
     emit("stat", { id: "cookies", n: CK.caught });
     emit("dina:cookie", { score: CK.score, caught: CK.caught, fee: CK.fee });
     if (why === "done") sfx.win(); else sfx.womp();
@@ -134,13 +144,14 @@ function endRound(why) {
 
 function showResult() {
     CK.shown = true;
-    const win = CK.phase === "done", net = CK.score - CK.fee;
+    const win = CK.phase === "done", net = CK.banked - CK.fee, full = CK.banked < CK.score;
     const buttons = [{ label: `🏠 Head back ${g("confirm")}`, cls: "pink", action: () => setState("dinaHome", { from: "cookie" }) }];
-    if (wallet.coins >= COOKIE_FEE) buttons.push({ label: `↺ Play again (💰${COOKIE_FEE})`, cls: "alt", action: () => { H.hideScreen(); startRound(); } });
+    const nextFee = cookieRoom() > 0 ? COOKIE_FEE : 0;
+    if (wallet.coins >= nextFee) buttons.push({ label: nextFee ? `↺ Play again (💰${nextFee})` : "↺ Play again (free)", cls: "alt", action: () => { H.hideScreen(); startRound(); } });
     H.showScreen(`${CK.newBest ? `<div class="dina-newbest">🏆 NEW BEST!</div>` : ""}
         <h2>${win ? "🍪 YUM! 🍪" : "Out of cookies! 💥"}</h2>
         <p><b>Caught ${CK.caught} treats</b></p>
-        <p>Earned 💰${CK.score} · Fee 💰${CK.fee}</p>
+        <p>Earned 💰${CK.banked} · Fee 💰${CK.fee}</p>${full ? `<p class="fine">🐷 Dina's piggy bank is full for today — more rounds are just for fun!</p>` : ""}
         <div class="dina-profit ${net >= 0 ? "up" : "down"}">${net >= 0 ? "Profit +💰" : "Lost 💰"}${Math.abs(net)}</div>
         <p class="fine">Best round: 💰${Math.max(CK.prevBest, CK.score)}</p>`,
         buttons, { cls: "dina-cookie-result", onBack: () => setState("dinaHome", { from: "cookie" }) });

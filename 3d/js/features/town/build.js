@@ -92,7 +92,7 @@ export function* buildTownSteps(def) {
     const mergeFar = new Merger(150);     // the skyline: big cells, few draw calls
     const atlas = new Atlas(2048);
     const colliders = [];
-    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [], homes: [], drives: [], fronts: [] };
+    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [], homes: [], stores: [], drives: [], fronts: [] };
 
     const col = (lx, lz, r, kind = "town") => colliders.push({ x: wx(lx, lz), z: wz(lx, lz), r, kind });
     const sign = (spec, x, y, z, yaw, w, h, twoSided = false) => {
@@ -967,6 +967,9 @@ function* placeFace(B, kind, fr, counters) {
                 door: { x: lotX + fr.nx * 2.6, z: lotZ + fr.nz * 2.6 }, facade: fa ? { x: fa.x, z: fa.z } : null, x: sx, z: sz, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, lotX, lotZ, w: D.w, face: kind });
         }
         const a = text && anchorAt(k, sx, sz, fr.rot);
+        // (the PLAIN storefronts — decoration today; features/playershops leases them, ci/storefronts gives them states:
+        //  local coords like T.homes; `sign` = its lines + the sign's anchor)
+        if (k === "town_shop" || k === "town_mw_store") T.stores.push({ key: k, x: sx, z: sz, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, lotX, lotZ, w: D.w, list: it.list || kind, sign: text, door: { x: lotX + fr.nx * 0.4, z: lotZ + fr.nz * 0.4 }, anchor: a ? { x: a.x, y: a.y, z: a.z } : null });
         if (a) {
             const big = k === "town_hall" ? [15.4, 1.45, 96] : k === "town_yeshiva" ? [11.4, 1.15, 104] : k === "town_frame" ? [11.6, 1.7, 150]
                 : k === "town_mw_store" || k === "town_mw_bakery" ? [8.4, 0.9, 88] : k === "town_mw_carbase" ? [11.0, 1.1, 104] : k === "town_mw_shul" ? [9.6, 0.9, 96]

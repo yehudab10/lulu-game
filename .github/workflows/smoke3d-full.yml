@@ -7,7 +7,11 @@
 # long as the slowest file (~45 min) instead of the sum.
 #   only   — which test files (comma list, e.g. law,journey). Empty = all.
 #   groups — run exactly these groups in parallel, separated by ';'
-#            (e.g. "community;midwood;core,rides"). Overrides `only`.
+#            (e.g. "community;midwood;core,rides"). Overrides `only`. `node scripts/affected.js` prints a ready one
+#            for your change (packed by the recorded durations in scripts/tests3d-durations.json).
+#   clock  — "" / "fast" (the fast test clock, except the files that say `fast: false`) or "slow" (the old clock
+#            everywhere, e.g. to compare) — see scripts/smoke3d.js › THE FAST TEST CLOCK.
+# Without `groups`, the files are packed onto ≤ 16 machines by their recorded durations (longest first).
 # Works on any branch (pick it in "Use workflow from"): push a test branch and
 # run it there before merging to main.
 name: 3D full suite
@@ -21,6 +25,10 @@ on:
         default: ""
       groups:
         description: "Optional: exact parallel groups separated by ';' (e.g. community;midwood;core,rides). Overrides 'only'."
+        required: false
+        default: ""
+      clock:
+        description: "Test clock: empty / fast = the fast test clock (default) · slow = the old clock everywhere"
         required: false
         default: ""
 
@@ -42,6 +50,7 @@ jobs:
         env:
           ONLY: ${{ inputs.only }}
           GROUPS: ${{ inputs.groups }}
+          CLOCK: ${{ inputs.clock }}
         run: |
           node -e '
             const fs = require("fs");
@@ -51,10 +60,15 @@ jobs:
             if (!groups.length) {
               const all = fs.readdirSync("scripts/tests3d").filter(f => f.endsWith(".js")).map(f => f.slice(0, -3)).sort();
               const files = split(process.env.ONLY, ",").length ? split(process.env.ONLY, ",") : all;
+              // pack by the recorded durations (longest first onto the least-loaded machine)
+              let dur = {};
+              try { dur = JSON.parse(fs.readFileSync("scripts/tests3d-durations.json", "utf8")).files || {}; } catch (e) { }
+              const slow = process.env.CLOCK === "slow", d = f => dur[f] || {};
+              const sec = f => (slow ? d(f).slow || d(f).fast * 8 : d(f).fast || d(f).slow) || 300;
               const n = Math.min(MAX, files.length);
-              groups = Array.from({ length: n }, () => []);
-              files.forEach((f, i) => groups[i % n].push(f));
-              groups = groups.map(g => g.join(","));
+              const bins = Array.from({ length: n }, () => ({ t: 0, f: [] }));
+              for (const f of [...files].sort((a, b) => sec(b) - sec(a))) { const b = bins.reduce((m, x) => x.t < m.t ? x : m); b.t += sec(f); b.f.push(f); }
+              groups = bins.filter(b => b.f.length).map(b => b.f.join(","));
             }
             console.log("groups:", groups);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, "groups=" + JSON.stringify(groups) + "\n");
@@ -85,7 +99,19 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
           SMOKE3D_ONLY: ${{ matrix.group }}
+          SMOKE3D_FAST: ${{ inputs.clock == 'fast' && '1' || inputs.clock == 'slow' && '0' || '' }}
+          SMOKE3D_TIMES: smoke-times/times-${{ strategy.job-index }}.json
+          SMOKE3D_PROF: "1"        # (a PROF line per file: boot / draws / game step — where the time goes)
         run: node scripts/smoke3d.js --shots
+
+      - name: Timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: times-${{ strategy.job-index }}
+          path: smoke-times/
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Screenshots
         if: always()

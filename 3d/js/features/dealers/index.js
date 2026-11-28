@@ -35,6 +35,7 @@ import { SHOW } from "./models.js";
 import { haggle, remembered } from "./haggle.js";
 import { DS, perksOf, hasPerk, perksDebug } from "./perks.js";
 import { openTablet, evDebug } from "./ev.js";
+import { openLux, luxDebug } from "./lux.js";
 import { schlep } from "./schlep.js";
 
 // ── the cars join the game's car list (before the car is made: app.js imports features first) ──
@@ -137,7 +138,7 @@ on("run:start", () => { dropShow(); D.spots = []; });
 on("boot", () => { ensureModels(["npcMan"]).catch(() => {}); });
 
 // ── on foot: ✋ at a car on show, ✋ at Sal ──
-const onFootHere = () => ctx.state === "footRun" && ctx.foot && ctx.foot.pos && !D.busy && !cardOpen() && !(ctx.party && ctx.party.active && !(ctx.group && ctx.group.roaming));
+const onFootHere = () => ctx.state === "footRun" && ctx.foot && ctx.foot.pos && !D.busy && !cardOpen() && !H.screenOpen() && !(ctx.party && ctx.party.active && !(ctx.group && ctx.group.roaming));
 function carSpot(k) {
     return {
         r: 2.6, short: "CAR",
@@ -161,38 +162,11 @@ const salSpot = {
 };
 on("boot", () => { if (ctx.foot && ctx.foot.addSpot) { LUX_IDS.forEach((_, k) => ctx.foot.addSpot(carSpot(k))); ctx.foot.addSpot(salSpot); } });
 
-// ── the card: every model, its stats on the luxury scale, the perks, the sticker ──
-css("dealers", `
-.dl-perks { margin: 6px 0 0; font-size: 13px; line-height: 1.35; }
-.dl-perks b { color: #C9A227; }
-.dl-ref { font-size: 12px; opacity: .75; margin-top: 4px; }
-`);
-const lux = m => Math.max(0, Math.min(1, ((m || 1) - 0.7) / 0.9));      // (0.7 → 1.6: Refael's best is ~half way)
-function headHtml(id) {
-    const sk = SKINS[id], c = LUX_CARS[id];
-    const rows = STAT_ROWS.map(([lab, key]) => `<div><span class="sp-stat">${lab}</span><span class="sp-bar"><i style="width:${Math.round(lux(sk[key]) * 100)}%;background:linear-gradient(90deg, ${sk.dark}, ${c.stripe || sk.body})"></i></span></div>`).join("");
-    const p = perksOf(id), perks = [...p].map(k => OPTIONS[k] ? OPTIONS[k].name : BUILT_IN[k] || k);
-    const tank = sk.nitro > 1 ? `🔋 Nitro tank +${Math.round((sk.nitro - 1) * 100)} %` : "";
-    return `<b>${c.name}</b> — <i>${c.flavor}</i><div class="sp-stats">${rows}</div>`
-        + `<div class="dl-perks">${[tank, ...perks].filter(Boolean).map(t => `<b>·</b> ${t}`).join("<br>") || "<i>Options in the F&amp;I office.</i>"}</div>`
-        + `<div class="dl-ref">(Uncle Refael's best, the Black Ninja, sits about halfway up each bar.)</div>`;
-}
+// ── the card: lux.js (browse every car on the floor, compare, Sal only on his button) ──
+/** ✋ at a car on the floor → the Mazelati card at that car (lux.js): browse + compare, Sal only on his button. */
 export function openShowroom(id) {
-    if (cardOpen() || !ctx.foot || !ctx.foot.script) return false;
-    syncInv();
-    const tiles = LUX_IDS.map(k => ({
-        id: k, name: LUX_CARS[k].name, dot: LUX_CARS[k].body, price: LUX_CARS[k].price,
-        state: () => (owns("car", k) ? (inv.selectedSkin === k ? "placed" : "owned") : "look"),
-        tag: () => (owns("car", k) ? (inv.selectedSkin === k ? "✓ Driving it" : "Yours") : `${fmt(LUX_CARS[k].price)} 💰 · 🤝 talk to Sal`),
-        desc: () => "",
-        act: () => {
-            if (owns("car", k)) { if (equipSkin(k)) { ctx.foot.repaintCar && ctx.foot.repaintCar(); cardSay(`Out front, ready. Drive it away whenever you like.`); } return; }
-            closeCard(true);
-            setTimeout(() => talk(k), 60);
-        },
-    }));
-    openCard({ title: "🏎️ Mazelati of Monsey", head: id => headHtml(id), tiles, focus: id });
-    return ctx.foot.script({ update(dt, P) { return cardTick(P); } });
+    if (cardOpen() || H.screenOpen()) return false;
+    return openLux(id, k => talk(k));
 }
 async function talk(id) {
     if (D.busy) return;
@@ -212,12 +186,12 @@ let pinned = false;
 hook("hud", () => {
     if (pinned || !ctx.pins || !ctx.pins.add) return;
     pinned = true;
-    try { ctx.pins.add({ id: LUX.addr, name: LUX.full, icon: LUX.emoji, cat: "shops", lap: LAP_M, sub: "luxury cars · 6,000–38,000 💰" }); } catch (e) { /* the registry's own rules */ }
+    try { ctx.pins.add({ id: LUX.addr, name: LUX.full, icon: LUX.emoji, cat: "shops", lap: LAP_M, d: LUX.d, sub: "luxury cars · 6,000–38,000 💰" }); } catch (e) { /* the registry's own rules */ }
 });
 
 ctx.dealers = {
     open: openShowroom, haggle, perks: perksOf, has: hasPerk,
     /** ⚡ Tushla's tablet (stage 2) + Full Schlep Driving (the subscription + the self-driving). */
     tablet: openTablet, schlep,
-    debug: { D, DS, LUX_AT, nearSpot, padWorld, talk, perks: perksDebug, ev: evDebug },
+    debug: { D, DS, LUX_AT, nearSpot, padWorld, talk, perks: perksDebug, ev: evDebug, lux: luxDebug },
 };

@@ -39,6 +39,7 @@ class Rider {
 
 module.exports = {
   name: "mpworld",
+  fast: false,     // (it measures draws / pictures per frame: the old clock — scripts/smoke3d.js › THE FAST TEST CLOCK)
   viewport: { width: 960, height: 540 },
   query: Q(URL),
   save2d: { totalCoins: 100, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid" },

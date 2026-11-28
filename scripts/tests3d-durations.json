@@ -1,0 +1,655 @@
+{
+ "about": "Seconds per 3D test file on one GitHub machine: slow = the old clock, fast = the fast test clock. Read by scripts/affected.js + the full-suite workflow's packing; refreshed with `node scripts/durations.js <run id>`.",
+ "updated": "2026-11-27",
+ "files": {
+  "accounts": {
+   "slow": 248,
+   "fast": 46
+  },
+  "accountsfriends": {
+   "slow": 349,
+   "fast": 59
+  },
+  "adhold": {
+   "slow": 519,
+   "fast": 72
+  },
+  "airport": {
+   "slow": 2684
+  },
+  "airport-stage3": {
+   "slow": 590,
+   "fast": 49
+  },
+  "airport-terminal": {
+   "slow": 1042,
+   "fast": 75
+  },
+  "atmos": {
+   "slow": 312,
+   "fast": 53
+  },
+  "bankfriends": {
+   "slow": 436,
+   "fast": 57
+  },
+  "banter": {
+   "slow": 165,
+   "fast": 30
+  },
+  "calls": {
+   "slow": 1469,
+   "fast": 111
+  },
+  "calm": {
+   "slow": 3308,
+   "fast": 300
+  },
+  "cameos": {
+   "slow": 1124,
+   "fast": 167
+  },
+  "cameras": {
+   "slow": 123,
+   "fast": 20
+  },
+  "cars": {
+   "fast": 16,
+   "slow": 100
+  },
+  "cars2": {
+   "fast": 13,
+   "slow": 45
+  },
+  "cityhall": {
+   "slow": 759,
+   "fast": 97
+  },
+  "cityhall2": {
+   "slow": 56,
+   "fast": 10
+  },
+  "cityhall3": {
+   "slow": 481,
+   "fast": 48
+  },
+  "cityhall4": {
+   "slow": 57,
+   "fast": 13
+  },
+  "cityhall5": {
+   "fast": 28,
+   "slow": 256
+  },
+  "clothes": {
+   "slow": 508,
+   "fast": 66
+  },
+  "clothesjfk": {
+   "slow": 83,
+   "fast": 13
+  },
+  "community": {
+   "slow": 2469,
+   "fast": 236
+  },
+  "core": {
+   "slow": 135
+  },
+  "courts": {
+   "slow": 711,
+   "fast": 51
+  },
+  "crime": {
+   "slow": 625,
+   "fast": 62
+  },
+  "crime2": {
+   "slow": 259,
+   "fast": 42
+  },
+  "crime3": {
+   "fast": 186,
+   "slow": 1877
+  },
+  "day": {
+   "slow": 132,
+   "fast": 17
+  },
+  "dealers": {
+   "slow": 626,
+   "fast": 83
+  },
+  "decor": {
+   "slow": 128,
+   "fast": 22
+  },
+  "dina": {
+   "slow": 275,
+   "fast": 44
+  },
+  "doors": {
+   "fast": 103,
+   "slow": 675
+  },
+  "exits": {
+   "slow": 2777,
+   "fast": 225
+  },
+  "family": {
+   "slow": 1260,
+   "fast": 89
+  },
+  "feel": {
+   "slow": 270,
+   "fast": 30
+  },
+  "flow": {
+   "slow": 702,
+   "fast": 77
+  },
+  "foot": {
+   "slow": 600,
+   "fast": 64
+  },
+  "footbounds": {
+   "slow": 594,
+   "fast": 69
+  },
+  "friends": {
+   "slow": 607,
+   "fast": 106
+  },
+  "friendsjobs": {
+   "slow": 239,
+   "fast": 42
+  },
+  "gadgets": {
+   "fast": 5,
+   "slow": 41
+  },
+  "garage": {
+   "slow": 80,
+   "fast": 11
+  },
+  "gfx": {
+   "slow": 184
+  },
+  "heist": {
+   "slow": 1459,
+   "fast": 143
+  },
+  "hidden": {
+   "slow": 716,
+   "fast": 57
+  },
+  "home": {
+   "slow": 307,
+   "fast": 34
+  },
+  "homelife": {
+   "slow": 948,
+   "fast": 129
+  },
+  "homelife2": {
+   "slow": 431,
+   "fast": 34
+  },
+  "homeperf": {
+   "slow": 149
+  },
+  "homes": {
+   "slow": 556
+  },
+  "hometown": {
+   "slow": 224,
+   "fast": 27
+  },
+  "houseitems": {
+   "fast": 9,
+   "slow": 102
+  },
+  "hudfit": {
+   "slow": 484,
+   "fast": 79
+  },
+  "hudworst": {
+   "slow": 181,
+   "fast": 23
+  },
+  "hustle": {
+   "slow": 594,
+   "fast": 53
+  },
+  "impound": {
+   "slow": 331,
+   "fast": 40
+  },
+  "interiors": {
+   "slow": 569,
+   "fast": 73
+  },
+  "journey": {
+   "slow": 540,
+   "fast": 91
+  },
+  "law": {
+   "slow": 1180,
+   "fast": 115
+  },
+  "lawstruck": {
+   "slow": 58,
+   "fast": 6
+  },
+  "life": {
+   "slow": 397,
+   "fast": 59
+  },
+  "life2": {
+   "slow": 818,
+   "fast": 91
+  },
+  "life3": {
+   "fast": 93,
+   "slow": 1052
+  },
+  "memory": {
+   "slow": 457,
+   "fast": 56
+  },
+  "meta": {
+   "slow": 243,
+   "fast": 43
+  },
+  "midwood": {
+   "slow": 3058,
+   "fast": 252
+  },
+  "movement": {
+   "slow": 193,
+   "fast": 25
+  },
+  "moveout": {
+   "slow": 188,
+   "fast": 28
+  },
+  "moves": {
+   "slow": 238,
+   "fast": 43
+  },
+  "movetouch": {
+   "slow": 60,
+   "fast": 9
+  },
+  "mpworld": {
+   "slow": 418
+  },
+  "multiplayer": {
+   "slow": 127,
+   "fast": 34
+  },
+  "music": {
+   "slow": 33,
+   "fast": 38
+  },
+  "native": {
+   "slow": 160,
+   "fast": 56
+  },
+  "netping": {
+   "slow": 34,
+   "fast": 6
+  },
+  "nocalls": {
+   "slow": 614,
+   "fast": 37
+  },
+  "oneact": {
+   "slow": 100,
+   "fast": 13
+  },
+  "onegame": {
+   "slow": 351,
+   "fast": 49
+  },
+  "openworld": {
+   "slow": 466,
+   "fast": 100
+  },
+  "parking": {
+   "slow": 489,
+   "fast": 54
+  },
+  "parking-levels": {
+   "fast": 249,
+   "slow": 2436
+  },
+  "partners": {
+   "slow": 1020,
+   "fast": 80
+  },
+  "partners2": {
+   "slow": 602,
+   "fast": 172
+  },
+  "partners3": {
+   "slow": 536,
+   "fast": 69
+  },
+  "party": {
+   "slow": 360,
+   "fast": 104
+  },
+  "partyfoot": {
+   "slow": 462,
+   "fast": 75
+  },
+  "partyhang": {
+   "slow": 568,
+   "fast": 178
+  },
+  "partyheist": {
+   "slow": 275,
+   "fast": 33
+  },
+  "partyplus": {
+   "slow": 293,
+   "fast": 67
+  },
+  "partyworld": {
+   "slow": 434,
+   "fast": 94
+  },
+  "perf": {
+   "slow": 1148
+  },
+  "phone": {
+   "slow": 410,
+   "fast": 57
+  },
+  "pins": {
+   "slow": 47,
+   "fast": 12
+  },
+  "places": {
+   "slow": 1666,
+   "fast": 190
+  },
+  "platform": {
+   "slow": 54,
+   "fast": 10
+  },
+  "play": {
+   "slow": 237,
+   "fast": 33
+  },
+  "playgate": {
+   "slow": 73,
+   "fast": 36
+  },
+  "qa": {
+   "slow": 753,
+   "fast": 63
+  },
+  "qa10": {
+   "slow": 320,
+   "fast": 48
+  },
+  "qa11": {
+   "slow": 76,
+   "fast": 10
+  },
+  "qa12": {
+   "slow": 120,
+   "fast": 17
+  },
+  "qa13": {
+   "slow": 224,
+   "fast": 38
+  },
+  "qa14": {
+   "slow": 641,
+   "fast": 81
+  },
+  "qa15": {
+   "slow": 764,
+   "fast": 109
+  },
+  "qa16": {
+   "slow": 82,
+   "fast": 11
+  },
+  "qa17": {
+   "slow": 503,
+   "fast": 47
+  },
+  "qa18": {
+   "slow": 628,
+   "fast": 123
+  },
+  "qa19": {
+   "slow": 186,
+   "fast": 24
+  },
+  "qa2": {
+   "fast": 73,
+   "slow": 582
+  },
+  "qa20": {
+   "slow": 217,
+   "fast": 47
+  },
+  "qa21": {
+   "slow": 53,
+   "fast": 33
+  },
+  "qa22": {
+   "slow": 125,
+   "fast": 27
+  },
+  "qa23": {
+   "slow": 424,
+   "fast": 46
+  },
+  "qa24": {
+   "slow": 29,
+   "fast": 11
+  },
+  "qa25": {
+   "slow": 155,
+   "fast": 35
+  },
+  "qa26": {
+   "fast": 37,
+   "slow": 226
+  },
+  "qa26b": {
+   "fast": 21,
+   "slow": 77
+  },
+  "qa27": {
+   "fast": 99,
+   "slow": 334
+  },
+  "qa28": {
+   "fast": 42,
+   "slow": 179
+  },
+  "qa3": {
+   "slow": 351,
+   "fast": 40
+  },
+  "qa4": {
+   "slow": 139,
+   "fast": 18
+  },
+  "qa5": {
+   "slow": 128,
+   "fast": 21
+  },
+  "qa6": {
+   "fast": 121,
+   "slow": 1231
+  },
+  "qa7": {
+   "slow": 522,
+   "fast": 56
+  },
+  "qa8": {
+   "slow": 245,
+   "fast": 36
+  },
+  "qa9": {
+   "slow": 835,
+   "fast": 89
+  },
+  "qacar": {
+   "slow": 774,
+   "fast": 83
+  },
+  "qafoot": {
+   "slow": 56,
+   "fast": 11
+  },
+  "qafriends": {
+   "slow": 797,
+   "fast": 64
+  },
+  "qafriends2": {
+   "slow": 468,
+   "fast": 46
+  },
+  "qalaw": {
+   "slow": 252,
+   "fast": 26
+  },
+  "qaplaces": {
+   "slow": 333,
+   "fast": 44
+  },
+  "qaseam": {
+   "slow": 767,
+   "fast": 94
+  },
+  "qatouch": {
+   "slow": 23,
+   "fast": 8
+  },
+  "qatown": {
+   "slow": 264,
+   "fast": 29
+  },
+  "qaweekend": {
+   "slow": 821,
+   "fast": 114
+  },
+  "qaweekend-air": {
+   "slow": 424,
+   "fast": 43
+  },
+  "qaweekend-party": {
+   "slow": 256,
+   "fast": 39
+  },
+  "qol": {
+   "slow": 297,
+   "fast": 36
+  },
+  "realestate": {
+   "slow": 661,
+   "fast": 60
+  },
+  "realestatefriends": {
+   "slow": 292,
+   "fast": 27
+  },
+  "realestatego": {
+   "fast": 19,
+   "slow": 73
+  },
+  "realestatehome": {
+   "slow": 15,
+   "fast": 9
+  },
+  "realestateworld": {
+   "slow": 267,
+   "fast": 59
+  },
+  "realestateyard": {
+   "slow": 89,
+   "fast": 28
+  },
+  "rides": {
+   "slow": 241,
+   "fast": 41
+  },
+  "roadevents": {
+   "slow": 330,
+   "fast": 72
+  },
+  "roadside": {
+   "slow": 474,
+   "fast": 52
+  },
+  "seasons": {
+   "slow": 494,
+   "fast": 109
+  },
+  "shabbos": {
+   "slow": 543,
+   "fast": 41
+  },
+  "shops": {
+   "slow": 1075,
+   "fast": 122
+  },
+  "shul": {
+   "slow": 523,
+   "fast": 80
+  },
+  "skip": {
+   "slow": 92,
+   "fast": 22
+  },
+  "streets": {
+   "slow": 411,
+   "fast": 61
+  },
+  "together": {
+   "slow": 1036,
+   "fast": 147
+  },
+  "town": {
+   "slow": 3110,
+   "fast": 312
+  },
+  "underworld": {
+   "slow": 751,
+   "fast": 76
+  },
+  "unstuck": {
+   "slow": 4759,
+   "fast": 398
+  },
+  "unstuck-air": {
+   "slow": 355,
+   "fast": 44
+  },
+  "unstuck2": {
+   "slow": 137,
+   "fast": 22
+  },
+  "ux": {
+   "slow": 342,
+   "fast": 55
+  },
+  "world": {
+   "slow": 590,
+   "fast": 60
+  },
+  "worldclock": {
+   "fast": 48,
+   "slow": 400
+  }
+ }
+}

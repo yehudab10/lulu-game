@@ -6,7 +6,9 @@
 //   🥂 fridge     stopped 8 s → a fizzy line + a small nitro top-up (once a run)
 //   🛎️ concierge  a honk → a classy line over the car (at most every 8 s)
 //   🅿️ selfpark   the Parking Challenge's "park it for me" (features/parking: once a level, scores ★, no level bonus)
-import { ctx, on, hook, emit } from "../../core/ctx.js";
+import { ctx, on, hook, emit, css, MPH, addMenuItem } from "../../core/ctx.js";
+import { resume } from "../../core/screens.js";
+import * as H from "../../hud.js";
 import { store } from "../../core/save.js";
 import { heal } from "../../core/driving.js";
 import { SKINS } from "../../car.js";
@@ -17,6 +19,8 @@ import { OPTIONS } from "./data.js";
 /** 3D save: options bought per car, the nonsense she fell for, deals done / walked out of. */
 export const DS = store("dealers", { opts: {}, fell: {}, deals: 0, walked: 0, saved: 0 });
 const R = { stopT: 0, armed: false, launched: false, massage: false, fridge: false, conciergeT: 0 };
+/** ⏱️ cruise control: on, the speed it holds (m/s), adaptive (keeps a gap), why it last went off. */
+const CC = { on: false, v: 0, adaptive: false, off: "" };
 
 export function perksOf(id) {
     const sk = SKINS[id];
@@ -33,13 +37,68 @@ function line(text) {
     try { if (ctx.banter && ctx.banter.say) { ctx.banter.say(text); return; } } catch (e) { /* none */ }
 }
 
-// the nitro tank (every frame: cheap; the car can change under her at any time)
+// the nitro tank (every frame: cheap; the car can change under her at any time) — and NO nitro at all in an electric car
+// (the owner: "nitro shouldn't work for the electric cars" — their punch is the acceleration): core/driving.js reads
+// G.evCar, and the nitro bar + the touch button hide while she's in one
+css("dealers-ev", `body.ev-car #hud .boost, body.ev-car #hud .boost-label, body.ev-car #tBoost { display: none !important; }`);
 hook("hud", () => {
     const G = ctx.G, car = ctx.car;
     if (!G || !car) return;
     const sk = SKINS[car.skinKey] || {};
     G.nitroTank = (sk.nitro || 1) * (hasPerk("tank") ? 1.3 : 1);
+    const ev = !!sk.ev && !(ctx.foot && ctx.foot.active);
+    if (G.evCar !== ev) { G.evCar = ev; document.body.classList.toggle("ev-car", ev); }
 });
+
+// ── ⏱️ CRUISE CONTROL (the owner: "maybe cruise control to some of the luxury cars") — the Kvetchtoria has it, the
+//    Machatunim's is ADAPTIVE (keeps a gap), the others can add it in the F&I office. ❚❚ › Cruise holds the speed she's
+//    doing; she still steers (it isn't self-driving: everything earns as usual). The gas pedal goes faster for a moment;
+//    brake, a hard swerve, a chase, a crash, getting out or another car → off.
+const hasCruise = () => hasPerk("cruise") || hasPerk("acc");
+export function cruiseOn() {
+    const car = ctx.car;
+    if (!car || !hasCruise() || ctx.state !== "playing" || (ctx.G && ctx.G.selfDriving)) return false;
+    if (car.speed < 6) { H.toast("⏱️ Get moving first — then set the cruise", "", { key: "cruise" }); return false; }
+    CC.on = true; CC.v = car.speed; CC.adaptive = hasPerk("acc"); CC.off = "";
+    H.toast(`⏱️ Cruise: ${Math.round(CC.v * MPH)} mph${CC.adaptive ? " · keeping a gap" : ""} — brake to cancel`, "", { key: "cruise" });
+    emit("dealers:perk", { k: CC.adaptive ? "acc" : "cruise", mph: Math.round(CC.v * MPH) });
+    return true;
+}
+export function cruiseOff(why = "you") {
+    if (!CC.on) return;
+    CC.on = false; CC.off = why;
+    if (why !== "quiet") H.toast("⏱️ Cruise off", "", { key: "cruise" });
+}
+hook("controls", ctl => {
+    if (!CC.on) return;
+    const car = ctx.car, G = ctx.G;
+    if (!car || !hasCruise() || (G && G.selfDriving)) { cruiseOff("quiet"); return; }
+    if (input.brake > 0.2 || input.handbrake) { cruiseOff("brake"); return; }
+    if (Math.abs(input.steer) > 0.9 && car.speed > 8) { cruiseOff("swerve"); return; }
+    if (ctx.law && ctx.law.chasing) { cruiseOff("chase"); return; }
+    if (input.throttle > 0.15) return;                                // (her foot's on the gas: hers for a moment)
+    let v = CC.v;
+    if (CC.adaptive && ctx.traffic && ctx.traffic.cars) {
+        // the car ahead in her lane: hold a gap that grows with speed
+        let lead = null, lg = 1e9;
+        for (const o of ctx.traffic.cars) {
+            if (o.hit || o.dir <= 0 || Math.abs(o.d - car.d) > 1.7) continue;
+            const ds = o.s - car.s;
+            if (ds > 2 && ds < 70 && ds < lg) { lg = ds; lead = o; }
+        }
+        const want = 8 + car.speed * 1.2;
+        if (lead && lg < want) v = Math.min(v, Math.max(0, (lead.speed || 0) - (want - lg) * 0.25));
+    }
+    ctl.throttle = car.speed < v - 0.15 ? Math.max(0.2, Math.min(0.8, (v - car.speed) * 0.25)) : 0;
+    if (car.speed > v + 1.2) ctl.brake = Math.max(ctl.brake || 0, Math.min(0.5, (car.speed - v) * 0.12));
+}, -80);
+on("crash", () => cruiseOff("crash"));
+on("state", ({ to }) => { if (to !== "playing") cruiseOff("quiet"); });
+on("run:start", () => cruiseOff("quiet"));
+addMenuItem("pause", { id: "cruise", order: 83, cls: "alt",
+    label: () => (CC.on ? `⏱️ Cruise off (holding ${Math.round(CC.v * MPH)} mph)` : `⏱️ Cruise control${hasPerk("acc") ? " (adaptive)" : ""}: hold ${Math.round(Math.abs(ctx.car ? ctx.car.speed : 0) * MPH)} mph`),
+    visible: () => ctx.state === "playing" && hasCruise() && !(ctx.foot && ctx.foot.active) && !(ctx.G && ctx.G.selfDriving),
+    action: () => { const was = CC.on; resume(); if (was) cruiseOff("you"); else cruiseOn(); } });
 
 // launch control + the at-rest perks
 hook("update", (dt, P, controlsOn) => {
@@ -77,4 +136,4 @@ export function openOptions(id) {
     const p = perksOf(id);
     return Object.keys(OPTIONS).filter(k => !p.has(k));
 }
-export const perksDebug = { R, DS, perksOf };
+export const perksDebug = { R, DS, CC, perksOf, cruiseOn, cruiseOff };

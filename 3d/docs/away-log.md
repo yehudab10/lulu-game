@@ -4,6 +4,31 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 02:27 UTC — 🏬 Places, part 1 (walking into buildings in town): speech bubbles from the street ("No car? No
+  problem.", a protester's line) no longer stay frozen on screen inside the shop you just walked into, and neither does
+  the "Find a car to borrow" hint or the town's WELCOME banner. On a phone, a room's speech bubbles are never wider than
+  the screen any more (some filled it in giant letters) and long ones wrap into a few lines; a friend's name tag right
+  by the camera no longer fills the screen. Walking out of East Midwood Lanes no longer drops Lulu on the highway far
+  from Midwood — she comes out of the same front she went in by — and the alley's front now has its own sign instead of
+  COMING SOON. On a controller, ○ / B on a question now picks its "never mind" answer ("Stay a bit", "Not now"…).
+  Shops don't let her hide from the police any more, and three shop doors whose signs contradicted their opening hours
+  say the right thing.
+- 2026-11-27 23:02 UTC — 🪙 Coins and rules, part 1: no more free-coin loops from restarting. The one-time treats inside
+  buildings (the precinct's free coffee, the bar's seltzer, the beach ice cream, the school bake sale, the hospital
+  snack…) now pay once a DAY — restarting used to refill them. Couch coins in the neighbours' houses really stop for the
+  day, like Lulu says; Hillel's insurance payout is once a day, like he says; the easy on-foot robbery tackle and the
+  moped thief's catch bonus have a daily limit too. Mashing the roll button (or tapping the road on a phone) no longer
+  pays combo coins — mix different moves and it still does, up to 200 a day. Cookie Catch with Dina pays up to 300 a day,
+  then the rounds are free, just for fun. Ima's list no longer asks Lulu to drop the challah at Bubbe's (Bubbe's house
+  isn't on the open-world map, so that list could never be finished), and pulling into the hair salon no longer gets her
+  out of a police chase. Small text fixes: Midwood's "LAKEWOOD 64 MI" sign, the precinct's phone line, and the family card
+  now says home is in Midwood. The full list of where coins come from and go is in `3d/docs/sweeps/sweep-logic.md`.
+- 2026-11-28 02:15 UTC (tests) — The speed check at the Lakewood exit compared it with a bare stretch of fields with no
+  trees; it now compares it with the same kind of countryside, and the exit is well within budget (nothing changed in
+  the game).
+- 2026-11-28 00:40 UTC (tests) — Standing right beside her own car after getting out, the ✋ button now says GET BACK IN
+  even when a shop's door is a few steps away — before, the shop door won and she walked into the shop instead of her
+  car. Two more automatic checks that had gone out of date were fixed.
 - 2026-11-27 22:20 UTC (tests) — Hitting a pothole on the highway no longer pops up a "🕳️ POTHOLE!" message on top of
   whatever Lulu says about it: the jolt, the thud and her line already say it (one less pop-up while driving). Two
   automatic checks that had gone out of date were brought up to date.
