@@ -67,7 +67,7 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
-- 2026-11-28 13:35 UTC — part 4 on main (8f76b59f): finding 24 + sweeproad3's bump / ragers fixes. CI 46146705028
+- 2026-11-28 12:58 UTC — part 4 on main (8f76b59f): finding 24 + sweeproad3's bump / ragers fixes. CI 46146705028
   (underworld, core, platform ✓; sweeproad3 still running at landing).
 - 2026-11-28 12:25 UTC — part 3 on main: findings 21–23 + the schlepnav test wait. CI 46124201678 (core, platform,
   sweeproad, law, town, roadside, qaplaces, qalaw, lawstruck, airport, exits ✓) + local after the merge (core, sweeproad, qalaw ✓).
