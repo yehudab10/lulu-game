@@ -157,6 +157,7 @@ export class Bubbles {
     fit(b) {
         const cam = this.set.camera;
         if (!cam || !cam.isPerspectiveCamera) return;
+        cam.updateMatrixWorld();      // (this frame's camera — the last render's can be frames old: projecting with it slid bubbles the wrong way)
         const d = Math.max(0.3, cam.position.distanceTo(b.sp.position)), vh = 2 * d * Math.tan(cam.fov * Math.PI / 360), vw = vh * cam.aspect;
         const k = Math.min(1, (vw * 0.9) / (b.w * b.fill), (vh * 0.34) / b.h);
         b.sp.scale.set(b.w * k, b.h * k, 1);

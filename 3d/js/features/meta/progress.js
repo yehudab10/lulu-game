@@ -239,7 +239,7 @@ on("run:end", ({ score = 0, G = ctx.G } = {}) => {
     shared.update(s => { s.lifetimeScore = lifeOf(s) + Math.max(0, Math.floor(score)); });
     if (questsUnlocked()) persistQuests();
     if (wasLocked && questsUnlocked()) {
-        note("📜 WEEKLY QUESTS UNLOCKED! Check the title menu.", "gold");
+        note("📜 WEEKLY QUESTS UNLOCKED! Find 📜 Quests in the pause menu.", "gold");
         chime([523, 659, 784, 1047], 0.12, 0.2);
     }
     emit("meta:banked", { score });
@@ -250,7 +250,7 @@ on("score:bank", ({ score = 0 } = {}) => {
     if (!(score > 0)) return;
     const wasLocked = !questsUnlocked();
     shared.update(s => { s.lifetimeScore = lifeOf(s) + Math.floor(score); });
-    if (wasLocked && questsUnlocked()) { note("📜 WEEKLY QUESTS UNLOCKED! Check the title menu.", "gold"); chime([523, 659, 784, 1047], 0.12, 0.2); }
+    if (wasLocked && questsUnlocked()) { note("📜 WEEKLY QUESTS UNLOCKED! Find 📜 Quests in the pause menu.", "gold"); chime([523, 659, 784, 1047], 0.12, 0.2); }
 });
 
 // ── daily streak: the FIRST run of each day pays 25 × streak (capped ×7) ──

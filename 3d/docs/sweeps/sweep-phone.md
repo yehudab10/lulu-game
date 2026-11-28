@@ -71,6 +71,13 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 
 20. **📒 Scrapbook on a small phone: "Neighbourhood Hero" ran out of its badge cell** — badge names break inside their
    cell (`meta/style.js`). — batch 2
+21. **The touch stick had no dead zone** — a thumb resting on its middle steered the car / walked her a little (the
+   controllers have one). 8 % of its reach now, rescaled so a full push is still 1 (`input.js`). — batch 3
+22. **A room's speech bubble cut off at a side** — the realtor's "Welcome, welcome! Sit, sit!…" started past the left
+   edge of a phone held upright. It slides in along the camera's right until both ends are on screen
+   (`interiors/fx.js` fit). — batch 3
+23. Right behind her at a room's door she's fainter now (12 %, was 30 → 20 %): the ghost of her head still covered the
+   middle of the screen. — batch 3
 
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
