@@ -646,6 +646,7 @@ function footUpdate(dt, P) {
     if (!F) return;
     updateActors(dt, true);
     car.fx.update(dt);
+    if (!F) return;          // (an actor can end the walk mid-update — then there's nothing left to step; sweep-logic2)
     updateStub(dt);
     if (F.phase !== "intro") {
         pickups();
