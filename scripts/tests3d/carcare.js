@@ -66,6 +66,8 @@ module.exports = {
     await setDate("2026-11-24T11:00");         // a Tuesday, 11 am: everything's open
     await g(`(L3.startRun({ mode: "cruise", quick: true }), true)`);
     await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "a run", 60000);
+    // (the shops' hours follow the SKY's hour in a Cruise day — storefronts/hours.js worldNow: keep it late morning)
+    await g(`(ctx.atmos.debug.time(0.15), ctx.atmos.debug.freeze(true), true)`);
     await g(`(ctx.cars.debug.S.migrated || ctx.cars.debug.migrate(), true)`);
     if (!await town("midwood")) { t.check("into Midwood", false); return; }
     await drive();

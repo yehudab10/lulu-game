@@ -1,6 +1,7 @@
-// features/storefronts/hours.js — opening hours on the game clock (the device's own time — the world's day follows it;
-// tests pin it with seasons/calendar.js setDate) + the weekday + the Jewish calendar (ctx.seasons.day(): Shabbos and Yom
-// Tov close every shop, from Friday evening; a `shabbos: "motzei"` shop opens again Saturday night after it).
+// features/storefronts/hours.js — opening hours on the WORLD's clock (worldNow below: today's date — the device's, or one
+// tests pin with seasons/calendar.js setDate — at the hour the sky shows) + the weekday + the Jewish calendar
+// (ctx.seasons.day(): Shabbos and Yom Tov close every shop, from Friday evening; a `shabbos: "motzei"` shop opens again
+// Saturday night after it).
 // Format (data.js): "D-D h-h, h-h; D h-h" — days 0 (Sun) … 6 (Sat); hours as numbers (6.5 = 6:30; 26 = 2 am next day).
 import { ctx } from "../../core/ctx.js";
 import { now as calNow } from "../seasons/calendar.js";
@@ -22,7 +23,23 @@ export function parse(str) {
     cache.set(str, out);
     return out;
 }
-export const clock = () => calNow();
+/**
+ * The world's clock (ci/sweep-logic2): in a Cruise day the sky runs its own day (features/atmos, ~9 minutes; the 📱's
+ * clock and the households' schedules follow it), so the hour of the day comes from THAT clock — a shop said "CLOSED ·
+ * opens 7 am" under the noon sun, a school-zone camera flashed under the stars. The date (the weekday, Shabbos, the
+ * holidays) stays the real one: the sky's day goes round and round inside it (`date.cycle` — the sky's "tomorrow
+ * morning" is still today's weekday). Anywhere else (the title — whose sky already IS the device's time —, a Story
+ * Trip, tests without atmos) it's the device's / the pinned time.
+ */
+export function worldNow() {
+    const d = calNow(), A = ctx.atmos;
+    if (!A || A.mode !== "cruise" || typeof A.clock !== "number" || ctx.state === "title") return d;
+    const h = (7.3 + A.clock * 24) % 24, hh = Math.floor(h);
+    const w = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hh, Math.floor((h - hh) * 60));
+    Object.defineProperty(w, "cycle", { value: true });
+    return w;
+}
+export const clock = () => worldNow();
 /** Shabbos / Yom Tov right now (the seasons calendar's day — the party host's in a 🎉 party). */
 export function holyNow() {
     const d = ctx.seasons && ctx.seasons.day ? ctx.seasons.day() : null;
@@ -36,7 +53,8 @@ export function openAt(hours, date = clock(), opts = {}) {
     const wd = date.getDay(), h = date.getHours() + date.getMinutes() / 60;
     for (const r of parse(hours)) for (const [a, b] of r.spans) {
         if (r.days.has(wd) && h >= a && h < Math.min(b, 24)) return true;
-        if (b > 24 && r.days.has((wd + 6) % 7) && h < b - 24) return true;          // (last night's span runs past midnight)
+        // (last night's span runs past midnight — in the sky's day, "last night" was today's weekday too)
+        if (b > 24 && r.days.has(date.cycle ? wd : (wd + 6) % 7) && h < b - 24) return true;
     }
     return false;
 }
@@ -44,7 +62,17 @@ const fmt = h => { h = ((h % 24) + 24) % 24; const hh = Math.floor(h), mm = Math
 /** "opens 6:30 am" / "opens Thu 7 pm" — the next opening within a week (Shabbos-aware only roughly: it skips Saturday daytime). */
 export function nextOpen(hours, date = clock()) {
     if (!hours) return "";
+    if (date.cycle && holyNow()) date = calNow();      // (Shabbos / Yom Tov run on the real clock: it opens after them)
     const wd = date.getDay(), h = date.getHours() + date.getMinutes() / 60;
+    // (the sky's day: its next morning is still today's weekday — "opens 7 am", not "opens tomorrow" / "Sun")
+    if (date.cycle) {
+        let later = null, first = null;
+        for (const r of parse(hours)) if (r.days.has(wd)) for (const [a] of r.spans) {
+            if (a > h && (later == null || a < later)) later = a;
+            if (first == null || a < first) first = a;
+        }
+        if (first != null) return `opens ${fmt(later != null ? later : first)}`;
+    }
     for (let k = 0; k < 8; k++) {
         const d = (wd + k) % 7;
         let best = null;

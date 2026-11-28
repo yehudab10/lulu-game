@@ -167,6 +167,8 @@ on("run:end", ({ G } = {}) => { if (G && G.mode === "party") return; saved.clock
 ctx.atmos = {
     get night() { return S.night; },
     get clock() { return S.clock; },
+    /** "cruise" (the day cycle runs: the sky's hour is the world's — storefronts/hours.js worldNow) | "base" | "off". */
+    get mode() { return S.mode; },
     get weather() { return W.kind; },
     /** How wet the road is 0..1 (core/gfx.js puts the sky in a wet road). */
     get wet() { return S.wet; },

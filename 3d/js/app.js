@@ -240,7 +240,10 @@ function step(dt, P) {
     ctx.stateT += dt;
     const def = ctx.states[ctx.state];
     try {
-        if (ctx.dialogOpen) { dialogUpdate(dt, P); P = {}; }
+        // a question / a line takes the controls — except ☰ / Esc, which pause (they used to ADVANCE it: ☰ is "start"
+        // too, so it picked the highlighted answer); while paused the pause card has them and the question waits
+        // (ci/sweep-logic2: back from another app, ✕ "Resume" answered the question behind the card)
+        if (ctx.dialogOpen && !ctx.paused) { const pz = !!P.pause && !!def && (def.pausable || ctx.pauseHatch); dialogUpdate(dt, P); P = pz ? { pause: true } : {}; }
         if (ctx.paused) {
             H.menuInput(P);
         } else if (def) {

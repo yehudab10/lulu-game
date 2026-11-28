@@ -32,6 +32,7 @@ import { store, saveSoon, wallet } from "../../core/save.js";
 import { say } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { ID, PKWY, SCHOOL, SCHOOL_HOURS, TUNE, CHARGE, L } from "./data.js";
+import { worldNow, holyNow } from "../storefronts/hours.js";
 
 export const S = store(ID, { day: "", n: 0, seq: 0, tickets: [], warrant: false });
 if (!Array.isArray(S.tickets)) S.tickets = [];
@@ -48,11 +49,12 @@ const billOf = ref => { const T = TAX(); return T && T.ledger ? T.ledger.bills.f
 const owedOf = t => (t.refs || []).reduce((a, r) => { const b = billOf(r); return a + (b && !b.paid ? b.amount : 0); }, 0);
 const open = t => !["paid", "dismissed", "served"].includes(t.stage);
 
-/** School hours by the device clock (Sun–Thu 7:30–16:30 · Fri 7:30–13:00; never Shabbos or at night). */
+/** School hours on the world's clock (Sun–Thu 7:30–16:30 · Fri 7:30–13:00; never Shabbos or at night) — the hour the sky
+ *  shows in a Cruise day, the real date (storefronts/hours.js worldNow: a school camera flashed under the stars). */
 export function schoolHours() {
     if (CM.force.school != null) return !!CM.force.school;
-    const d = new Date(), h = d.getHours() + d.getMinutes() / 60, wd = d.getDay();
-    if (wd === 6) return false;
+    const d = worldNow(), h = d.getHours() + d.getMinutes() / 60, wd = d.getDay();
+    if (wd === 6 || holyNow()) return false;          // (Shabbos / Yom Tov by the real calendar: Friday night too)
     const [a, b] = wd === 5 ? SCHOOL_HOURS.friday : SCHOOL_HOURS.week;
     return h >= a && h < b;
 }
