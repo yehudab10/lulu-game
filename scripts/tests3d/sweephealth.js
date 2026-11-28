@@ -5,7 +5,7 @@
 module.exports = {
   name: "sweephealth",
   viewport: { width: 1280, height: 720 },
-  query: "&enable=roadevents,banter",
+  query: "&enable=all",
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
     const g = t.game;
@@ -27,5 +27,23 @@ module.exports = {
     t.check("a pothole: the bump is counted (stat potholes)", await t.L(`window.__st.length`) >= 1, JSON.stringify(await t.L(`window.__st`)));
     const toasts = await t.L(`window.__toasts.filter(x => /POTHOLE/i.test(x))`);
     t.check("a pothole: no '🕳️ POTHOLE!' toast on top of Lulu's line", !toasts.length, JSON.stringify(toasts));
+
+    // ── 📱 🗺️ Map: tapping the place she's standing at says so (it used to ping + close the phone on nothing: "arrived" at once) ──
+    await t.hold(7, 0);
+    await g(`(ctx.onegame.home(), true)`);
+    if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "home on foot", 120000)) return;
+    await t.frames(10);
+    const homeId = await g(`(() => { const ids = ctx.pins.list().filter(p => p.home).map(p => p.id); return ids.find(id => ctx.pins.arrivedAt(id)) || null; })()`);
+    t.check("at home: a home place counts as 'she's here'", !!homeId, String(homeId));
+    if (homeId) {
+      await g(`(ctx.phone.isOpen && ctx.phone.closePhone(), ctx.phone.openPhone("lapmap"), true)`);
+      await t.frames(6);
+      const clicked = await t.L(`(() => { const b = document.querySelector('#lpApp [data-pin="${homeId}"]'); if (!b) return false; b.click(); return true; })()`);
+      await t.frames(6);
+      const after = await g(`({ open: ctx.phone.isOpen, ping: ctx.pins.current || null })`);
+      const row = await t.L(`(document.querySelector('#lpApp [data-pin="${homeId}"]') || {}).textContent || ""`);
+      t.check("🗺️ Map: a tap on the place she's at keeps the phone open, pings nothing, the row says 'you're here'", clicked && after.open && !after.ping && /you're here/.test(row), JSON.stringify({ clicked, after, row: row.slice(0, 80) }));
+      await g(`(ctx.phone.closePhone(), true)`);
+    }
   },
 };

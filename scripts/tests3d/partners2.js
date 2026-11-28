@@ -135,6 +135,9 @@ async function body(t, guests) {
   await A.frames(10);
   await A.game(`ctx.law.arrest(["LOITERING NEAR A KNISH"], { skipCinematic: true })`);
   if (!await talk(A, CELL, "bail: guest → the cell (alone)")) return;
+  // (hold her court clock while the host's page catches up, as for the cells above — it runs on REAL time since a6bd69f and a
+  //  slow CI box had her called to court before the bail: "She's not in a cell here" — sweep-health, 46100408619)
+  await A.game(`(ctx.law._dbg.jail().courtT = 600, true)`);
   if (!await Hp.until(`${CR}.friendsInside().some(f => f.uid === ${GU} && f.bail > 0)`, "host: knows her friend's in this precinct's cell + the bail", 30000)) return;
   const bail = (await g(`${CR}.friendsInside()`)).find(f => f.uid === guestUid).bail;
   // a lowball (a hacked page): refused, she stays in
