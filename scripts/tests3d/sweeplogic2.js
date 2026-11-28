@@ -94,7 +94,10 @@ module.exports = {
         const TD = C.shops.debug.dealer.TD, on0 = TD.on; TD.on = true; out.test = C.engaged(); TD.on = on0;
         const CM = C.community.debug.CM, ch0 = CM.chase; CM.chase = { units: [] }; out.shomrim = C.engaged(); CM.chase = ch0;
         out.after = C.engaged();
+        const H = C.heist, J = H.debug && H.debug.J;
+        if (J) { const p0 = J.plan; J.plan = { town: null, plan: { id: "classic", name: "test", emoji: "💰" }, via: "test", t: 0 }; out.plan = C.engaged(); out.planBusy = H.busy(); J.plan = p0; }
         return out; })`);
+      t.check("one activity: a heist only PLANNED (no clock, no way to call it off) doesn't silence the world; heist's own events still wait", r.plan === "" && r.planBusy === true, JSON.stringify(r));
       t.check("one activity: a 🚑 patient run (to the patient, loading, the ER clock) counts — nothing new starts on top", r.free === "" && r.pickup === "ride" && r.load === "ride" && r.rush === "ride", JSON.stringify(r));
       t.check("one activity: Uncle Refael's 60 s test drive counts", r.test === "testdrive", JSON.stringify(r));
       t.check("one activity: the 🔦 Shomrim on her tail (about to call the cops) count", r.shomrim === "shomrim" && r.after === "", JSON.stringify(r));
