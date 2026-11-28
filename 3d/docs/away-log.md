@@ -4,7 +4,7 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
-- 2026-11-28 14:00 UTC — 🚗 On the road, part 5. Police chases now work when Lulu drives the highway the other way (on the
+- 2026-11-28 13:50 UTC — 🚗 On the road, part 5. Police chases now work when Lulu drives the highway the other way (on the
   far side, down the lap): the police cars come from behind her and follow her way — before, they started in front of her
   facing the wrong way and simply fell behind — and if she's pulled over there she stops on her own side of the road
   instead of being steered across both carriageways. On that side, hidden speed traps and WANTED posters used to vanish
@@ -12,7 +12,10 @@ machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
   out looking for her drove on the wrong side of the highway — all fixed. Also on that side: cars catching up behind her
   no longer flash their lights and honk at her as if she were coming at them, and her horn now makes the slow car in
   front move over, as it does on the other side.
-- 2026-11-28 12:58 UTC — 🚗 On the road, part 4. Velvel, the no-questions mechanic by the highway, no longer offers to buy
+- 2026-11-28 13:45 UTC — 🩺 Tests + small fixes, part 3. On a phone held upright, speech bubbles no longer run off
+  the side of the screen: inside a house (someone standing off to the side, a long line like "Who put a SPOON down
+  here?") and out on the street (a passer-by's "Shalom!" at the edge) — they slide in so every word shows.
+- 2026-11-28 13:30 UTC — 🚗 On the road, part 4. Velvel, the no-questions mechanic by the highway, no longer offers to buy
   Ima's family minivan (the car Lulu borrows when none of hers is at home), and he won't buy any car while Lulu's own car
   is in the impound — his "we'll bring your car round" used to get it out of the impound for free.
 - 2026-11-28 12:45 UTC — 🔍 Game logic, part 2: one clock — shop doors, the car-care row, the school-zone speed cameras

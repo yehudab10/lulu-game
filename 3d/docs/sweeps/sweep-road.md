@@ -78,6 +78,10 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 13:50 UTC — part 5 on main: findings 25–27 (down the lap: chases, the pull-over, traps, posters, K9 / missiles,
+  the call-in cruiser, traffic flashing + the honk) + sweeproad3's down-the-lap drive. CI 46149112139 (core, platform, sweeproad,
+  law, qalaw, lawstruck, town, qacar, heist, crime ✓), 46150503359 (core, platform, sweeproad, qacar, atmos, moves, pinroute,
+  foot, law ✓; partyworld ✗ — the known flake, see For other branches) + local law, lawstruck, sweeproad downlap after the last tweak.
 - 2026-11-28 12:58 UTC — part 4 on main (8f76b59f): finding 24 + sweeproad3's bump / ragers fixes. CI 46146705028
   (underworld, core, platform ✓; sweeproad3 still running at landing).
 - 2026-11-28 12:25 UTC — part 3 on main: findings 21–23 + the schlepnav test wait. CI 46124201678 (core, platform,
