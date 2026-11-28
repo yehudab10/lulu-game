@@ -123,6 +123,9 @@ function myPose() {
         try { if (ctx.clothes && ctx.clothes.encode) { const o = ctx.clothes.encode(ctx.clothes.current()); ot = /[^,]/.test(o) ? o : null; } } catch (e) { ot = null; }
         me.ot = ot;
     }
+    // what's in her hand / on her head on foot (features/houseitems) — everyone sees the same props she does
+    const HI = foot && ctx.houseitems ? ctx.houseitems : null;
+    me.hi = HI ? HI.shown : null; me.hw = HI ? HI.worn : null;
     return me;
 }
 

@@ -1505,7 +1505,8 @@ function publishExtras(m, foot) {
     XP.at = w;
     const inRun = m >= 2 && m <= 4 || m === 7;
     const F = inRun ? ctx.foot : null, car = ctx.car;
-    NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null);     // (f[2]: her feet's height, dm — a jump, a bench, a car roof)
+    NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null);
+    { const HI = foot && ctx.houseitems ? ctx.houseitems : null, hi = HI && (HI.shown || HI.worn) ? [HI.shown || "", HI.worn || ""] : null; NET.setX("hi", hi); }   // (her hand item / worn item: friends see the props)     // (f[2]: her feet's height, dm — a jump, a bench, a car roof)
     NET.setX("un", N.rid && ctx.accounts && ctx.accounts.ticketFor ? ctx.accounts.ticketFor(N.room, N.rid) : null);   // (features/accounts: my name ticket for this room)
     const pr = PS.myPresence();
     // a scene that takes her out of the car right where it stands (a pull-in place, a porch, a side job's scene):

@@ -177,7 +177,8 @@ export const ghostStats = () => {
         kinds.push(g.person ? "foot" : g.kind.split(":")[0]);
         g.body.traverse(o => { if (o.isMesh && o.visible && o.material && o.material.transparent && o.material.opacity < 0.9 && !/Glass|Flame/i.test(o.material.name || "")) seeThrough++; });
     }
-    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough };
+    const hands = Object.values(ghosts).filter(g => g && g.shown && g.person && g.person.obj.userData.hiHand).length;
+    return { built: Object.keys(ghosts).length, shown: lastShown, cap: CAP, kinds, seeThrough, hands };
 };
 
 /** Where to draw peer p (→ out {x, z, h}, or false). */
@@ -240,7 +241,7 @@ export function updateGhosts(dt, me, show) {
         g.obj.rotation.y = at.h;
         p.ws = at.x; p.wd = at.z;
         const mps = at.mps;
-        if (g.person) g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 });
+        if (g.person) { g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 }); if (ctx.houseitems && ctx.houseitems.dressOther) ctx.houseitems.dressOther(g.person, p.hi, p.hw); }
         for (const w of g.wheels) w.rotation.x += mps * dt / 0.34;
         // (solid, like friends: no see-through fade — she's drawn once she's really there, gone once she isn't)
         g.obj.visible = p.vis > 0.35;

@@ -295,7 +295,9 @@ function applyState(id, d, snap, src = LEGACY) {
     p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
     p.hc = typeof d.hc === "string" && CO_RE.test(d.hc) ? d.hc : null;                       // (her hair colour)
     p.ot = typeof d.ot === "string" && d.ot.length <= 160 && /^[a-z0-9_,-]*$/i.test(d.ot) ? d.ot : null;   // (her outfit: ids only)
-    p.in = validIn(d.in);                                                                            // (inside a public room)
+    p.in = validIn(d.in);
+    p.hi = typeof d.hi === "string" && /^[a-z0-9_]{1,24}$/.test(d.hi) ? d.hi : null;               // (her hand item / worn item)
+    p.hw = typeof d.hw === "string" && /^[a-z0-9_]{1,24}$/.test(d.hw) ? d.hw : null;                                                                            // (inside a public room)
     p.fr = Array.isArray(d.fr) && d.fr.length <= 3 ? d.fr : null;      // (features/friends: a ➕ friend handshake — read + checked there)
     const un = typeof d.un === "string" && d.un.length <= 60 ? d.un : null;   // (features/accounts: a name ticket — the server reads it)
     if (un !== (p.un || null)) { p.un = un; p.name = labelFor(p); }
@@ -455,7 +457,9 @@ function sendState() {
     if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     if (me.hc) d.hc = me.hc;                          // (stage 3: her hair colour + outfit — everyone sees her look; old clients ignore it)
     if (me.ot) d.ot = me.ot;
-    if (me.in) d.in = me.in;                          // (stage 3: inside a public room — [room, instance, x×100, z×100, facing×100, pose bits])
+    if (me.in) d.in = me.in;
+    if (me.hi) d.hi = me.hi;                          // (what's in her hand on foot / worn on her head — houseitems ids)
+    if (me.hw) d.hw = me.hw;                          // (stage 3: inside a public room — [room, instance, x×100, z×100, facing×100, pose bits])
     if (MP.fr) d.fr = MP.fr;                          // (features/friends: my ➕ friend handshake entries, ≤ 3)
     const un = MP.myId && ctx.accounts && ctx.accounts.ticketFor ? ctx.accounts.ticketFor(roomPath(), MP.myId) : null;
     if (MP.roomKind === "place") d.sid = MP.sid;      // (🌍 step 3: the same me across rooms — net.js › pkey)

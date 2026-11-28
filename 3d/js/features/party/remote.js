@@ -504,6 +504,9 @@ function setForm(rc, p) {
             rc.walkerKey = key;
             rc.v.root.add(rc.walker.obj);
         }
+        // (what's in her hand / on her head — features/houseitems; not in a disguise / the jumpsuit)
+        const hi = look0(f) && p.x && Array.isArray(p.x.hi) ? p.x.hi : null, idOk = v => typeof v === "string" && /^[a-z0-9_]{1,24}$/.test(v) ? v : null;
+        if (ctx.houseitems && ctx.houseitems.dressOther) ctx.houseitems.dressOther(rc.walker, hi ? idOk(hi[0]) : null, hi ? idOk(hi[1]) : null);
         rc.anim = f[0] | 0;
         rc.footY = Math.max(0, Math.min(4, (f[2] | 0) / 10));
     }
