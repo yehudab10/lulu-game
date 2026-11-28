@@ -43,11 +43,13 @@ async function survey(t) {
     const r = await t.L(`(() => { const C = __lulu3d.ctx, q = s => { const e = document.querySelector(s); return e && !e.closest(".hidden") ? e.textContent.trim() : ""; };
       return { s: ${s}, state: C.state, town: !!(C.town && C.town.active), trip: q("#tripLabel"), chip: q(".exits-chip") }; })()`);
     seen.push(r);
+    // (boards are collected as she passes: JFK takes its own down once she's gone by)
+    await g(`(() => { const M = window.__boards = window.__boards || new Map(); for (const x of ctx.world.signs) if (x.s > ${s} - 300 && x.s < ${s} + 3000) M.set(Math.round(x.s) + "|" + x.lines.join("/"), { s: Math.round(x.s), d: x.d, lines: x.lines, tab: x.tab || null }); return true; })()`);
     if (r.state !== "playing" || r.town) { await g(`(ctx.town && ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" ? L3.setState("playing") : 0, true)`); }
   }
   const W0 = await g(`(() => {
     const L = ${s0}, E = ${end};
-    const signs = ctx.world.signs.filter(x => x.s > L - 200 && x.s < E + 2000).map(x => ({ s: Math.round(x.s), d: x.d, lines: x.lines, tab: x.tab || null }));
+    const signs = [...(window.__boards || new Map()).values()].filter(x => x.s > L - 200 && x.s < E + 2000);
     const exits = ctx.town && ctx.town.exits ? ctx.town.exits.map(e => ({ s: Math.round(e.s), id: e.id, no: e.no, label: e.label })) : [];
     const ap = ctx.airport && ctx.airport.on ? ctx.airport.planned : null;
     const air = ctx.airport && ctx.airport.zones ? ctx.airport.zones(L - 2000, E + 2000).map(z => Math.round(z.s)) : [];
