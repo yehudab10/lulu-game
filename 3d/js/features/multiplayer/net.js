@@ -812,5 +812,5 @@ function placeTick(dt) {
     // sees them. With an old copy in the lobby: every 0.5 s (+ her honks) so the ghost moves smoothly on their screen;
     // with nobody old there: every 10 s, only so the relay's snapshot for a newcomer's hello isn't far off
     if (!PS.bridge) { PS.bridge = placeSub("LOBBY", {}); PS.bridge.src = { prefix: "L:", room: "LOBBY", main: false, bridge: true }; PS.bridgeAt = -99; }
-    if (MP.clock - PS.bridgeAt >= (legacyNear() ? 0.5 : 10) && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; PS.bridge.send({ t: "s", d: Object.assign({}, MP.lastD, { pl: 1 }) }); }
+    if (MP.clock - PS.bridgeAt >= (legacyNear() ? 0.5 : 10) && MP.lastD && PS.bridge.connected) { PS.bridgeAt = MP.clock; const bd = Object.assign({}, MP.lastD, { pl: 1 }); delete bd.un; PS.bridge.send({ t: "s", d: bd }); }   // (no name ticket: hers is for her place room, not the lobby — sweep-health2)
 }
