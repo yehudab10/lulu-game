@@ -96,3 +96,14 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
   (green locally + on 46143946043); qa18's page error = finding 10.
 
 ## What's left
+
+- A side job that ends while she's out of the car (on foot / in a room — it fails at once, with the sad trombone) shows
+  its ❌ result card the next time she drives, however much later — by design (`hustle/jobs.js` J.pending), but a card
+  for something 20 minutes old can read as out of the blue. Owner's call (a toast at the moment instead of a late card).
+- Ima's list activates at any home start — also at her OWN house after she moves out, where Ima isn't on the porch
+  (the list still works through the 📱). Flavour, left.
+- A reload in the ER before paying skips the bill (no arrest, unlike "RUN for it"). Minor, left.
+- The Erev Shabbos rush's clock (`shabbos/index.js` R.used) only runs while she drives — on foot the sunset waits. Not an
+  exploit (Bubbe's is a drive away), left.
+- Not covered: every one of the ~60 features' own pairs; this pass went through the schedulers (`ctx.engaged`), the
+  dialog layer, pause, the clocks, arrests from towns / rooms, the passenger ride and the reload paths that save state.
