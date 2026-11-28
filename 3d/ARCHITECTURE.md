@@ -2103,7 +2103,9 @@ verdict / fine from her own save, and her partner's verdict as her screen ruled 
 together:** the release waits (≤ `waitDoor` 10 s) for a partner still inside, then both walk out of the precinct /
 courthouse side by side (`walkOut({ side })` ±1.6 m, their cars one behind the other at the kerb); on the highway both come
 back to the road at the crew's spot a few car lengths apart (`crewResume`). **Bail a friend out:** any party friend in a
-cell in THIS town — the precinct desk (interiors' `police`, Officer Pomerantz) offers 💰 Bail out <name> · 💰<her bail>; the
+cell in THIS building (each screen publishes `x.pw`, the building her cell is in — the town's id, or `hw:trooper` /
+`hw:weigh` for a roadside place, the nearest-place rule holding with friends too; the helper's desk is the precinct she's
+standing in) — the precinct desk (interiors' `police`, Officer Pomerantz, or the roadside place's own desk) offers 💰 Bail out <name> · 💰<her bail>; the
 helper pays from HER OWN wallet, only once the prisoner's screen took it (host-validated `pzh` → the prisoner's `pzha`);
 the prisoner's wallet is untouched, she's out on bail (still WANTED till court — the solo rule). A lowball / self / not-in-a-
 cell request is refused by the host; nobody is ever paid coins, so nothing can be minted. **Fair + calm:** a leaver (closed
