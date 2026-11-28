@@ -16,7 +16,7 @@ const W = require("../lib/qawatch.js");
 module.exports = {
   name: "sweeproad",
   parts: ["crash", "body", "ramp", "yard", "lot"],
-  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets",
+  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
@@ -206,7 +206,36 @@ async function ramp(t) {
   await g(`(window.__route = null, true)`);
   t.check("ramp: a cruiser chased her down the ramp", seen.some(n => n > 0), seen.join(","));
   t.check("ramp: …on the decel lane / ramp, never across the gore or the grass", off.length === 0, JSON.stringify(off.slice(0, 8)));
-  await g(`(ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await g(`(ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), true)`);
+  await t.frames(30);
+  // ── the same into a REST AREA: down its off-ramp into the drive aisle ──
+  if (await g(`!!(ctx.exits && ctx.exits.debug && ctx.exits.debug.restAhead)`)) {
+    await g(`(L3.state !== "playing" ? L3.setState("playing") : 0, ctx.law._dbg.L.units.length = 0, ctx.traffic.clear(), true)`);
+    const R = await g(`ctx.exits.debug.restAhead(900)`);
+    if (t.check("ramp: a rest area planned ahead", R > 0, String(R))) {
+      await g(`(() => { const s = ${R} - 520, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
+        ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.car.vF = 20; ctx.world.prebuild(s); ctx.cam.snap(); ctx.G.invT = 99; return true; })()`);
+      await W.moved(t);
+      // her line: the right lane → the decel lane → the off-ramp → the drive aisle (d 27) to the pumps
+      await g(`(() => { const P = []; for (let u = -500; u <= 190; u += 10) { const d = u < -190 ? 5.25 : u < -80 ? 5.25 + 3.65 * (u + 190) / 110 : u <= 10 ? 8.9 + 18.1 * Math.min(1, Math.max(0, (u + 80) / 90)) : 27; const p = ctx.world.highway.point(${R} + u, d, {}); P.push({ x: p.x, z: p.z }); } window.__route = { pts: P, v: 15, r: 5 }; return true; })()`);
+      await g(`(ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
+      const off2 = [], seen2 = [];
+      for (let k = 0; k < 80; k++) {
+        await t.frames(5);
+        const r = await t.L(`import("./js/features/exits/layout.js").then(LY => { const C = __lulu3d.ctx, hw = C.world.highway, out = [];
+          for (const u of C.law._dbg.L.units) { if (!u.car || u.mode !== "chase" || u.car.hit) continue; const n = hw.nearest(u.car.x, u.car.z, u.car.s, {});
+            const uu = n.s - ${R}; out.push({ u: Math.round(uu), d: +n.d.toFixed(1), ok: Math.abs(n.d) <= 8.8 || LY.groundAt(uu, n.d) >= 2 }); }
+          return { me: Math.round(C.car.s - ${R}), st: C.state, cops: out }; })`);
+        seen2.push(r.cops.length);
+        for (const c of r.cops) if (!c.ok && c.u > -200 && c.u < 230) off2.push(c);
+        if (r.st !== "playing" || r.me > 185 || (!r.cops.length && k > 30)) break;
+      }
+      await g(`(window.__route = null, true)`);
+      t.check("ramp: into a rest area too, the cruiser keeps to its ramp + aisle (not across the grass)", seen2.some(n => n > 0) && off2.length === 0, JSON.stringify(off2.slice(0, 8)) + " · " + seen2.slice(0, 20).join(","));
+      await g(`(ctx.law.standDown("test"), true)`);
+    }
+  }
+  await g(`(L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
 }

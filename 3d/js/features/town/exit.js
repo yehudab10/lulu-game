@@ -280,8 +280,10 @@ function aimOn(la, out) {
 hook("copRoute", (c, unit, ch) => {
     if (!unit || unit.mode !== "chase" || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
     const car = ctx.car, hw = ctx.world.highway;
-    // where they're heading: her car, or (searching) where they last saw her
-    const look = ch && ch.searching && ch.last ? ch.last : null;
+    // (SEARCHING — they've lost sight of her: law's own lanes, they fly on up the highway; that's how taking an exit unseen
+    //  shakes them — law/index.js town:enter. Only a cruiser that can SEE her follows her down the ramp.)
+    if (ch && ch.searching) return null;
+    const look = null;
     const ts = look ? look.s : car.s, td = look ? look.d : car.d;
     const e = exitAt(ts);
     if (!e) return null;
