@@ -170,6 +170,7 @@ export function ribbonTick(dt) {
     if (!R) {
         if (!inTown() || !onFoot() || !ctx.enabled(ID) || (ctx.party && ctx.party.active && !(ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns()))) return;
         if (ctx.dialogOpen || (ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing)) return;
+        if (ctx.engaged && ctx.engaged() && !force.ribbonNow) return;      // (one activity at a time — ci/hud's rule; ci/sweep-logic2)
         if (C.n >= K.perRun && !force.ribbonNow) return;
         C.next -= dt;
         if (C.next > 0 && !force.ribbonNow) return;

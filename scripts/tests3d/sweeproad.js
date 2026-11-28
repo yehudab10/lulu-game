@@ -9,6 +9,7 @@
 //           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
 //   downlap a chase while she drives DOWN the lap (ci/twoway's far carriageway): the cruisers come from behind HER (up the
 //           lap) and chase her her way; busted, she stops on her own side (it steered her across both carriageways)
+//   amb     the road's "🚑 ambulance behind you — pull over" waits while she's in a chase (an activity), comes after
 //   bolo    someone CALLS IN her car in town: the cruiser that comes looking prowls round where the call came from — it
 //           used to drive the street grid straight to her car, wherever she'd gone
 //   yard    a car impounded at a ROADSIDE yard (Trooper Post 7): its gate takes the fee and gives it back (it was keyed
@@ -19,7 +20,7 @@ const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "body", "ramp", "downlap", "bolo", "yard", "lot"],
+  parts: ["crash", "body", "ramp", "downlap", "bolo", "amb", "yard", "lot"],
   query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits,fuel",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
@@ -35,6 +36,7 @@ module.exports = {
       if (PART.includes("bolo")) await step("bolo", () => bolo(t));
       if (PART.includes("yard")) await step("yard", () => yard(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
+      if (PART.includes("amb")) await step("amb", () => amb(t));
     } finally { W.dropRelayErrors(t); }
   },
 };
@@ -441,6 +443,13 @@ async function downLap(t) {
   t.check("downlap: a car behind her, going her way, doesn't flash + honk at her", !tf.aHonked && tf.aFlash === 0, JSON.stringify(tf));
   t.check("downlap: a honk moves the slow car ahead of her (her way) into the other lane", tf.bLane === -5.25, JSON.stringify(tf));
   await g(`(ctx.traffic.clear(), true)`);
+  // somebody else getting pulled over (the flavour scene) happens up ahead of HER, on her side's shoulder
+  await g(`(window.__tV = ctx.traffic.add("sedan", ctx.car.s - 170, -1.75, -1, 14), true)`);
+  const fl = await t.L(`import("./js/features/law/cops.js").then(m => !!m.startFlavour())`);
+  await t.frames(120);
+  const fv = await g(`(() => { const v = window.__tV, u = ctx.law._dbg.L.units.find(u => u.flavour === v); return { started: !!u, ahead: Math.round(ctx.car.s - v.s), vd: +v.d.toFixed(1), cop: u && u.car ? Math.round(u.car.s - v.s) : null }; })()`);
+  t.check("downlap: the pull-over she drives past is up ahead of her, on her side's shoulder", fl && fv.started && fv.ahead > 0 && fv.vd < -5 && fv.cop > 0, JSON.stringify(fv));
+  await g(`(ctx.traffic.clear(), ctx.law._dbg.L.units.length = 0, true)`);
   // a speed trap + a wanted poster up ahead of her (down the lap): they stay until she's passed them (both were dropped the frame they spawned)
   await g(`(ctx.law._dbg.spawnTrap(600), true)`);
   await t.frames(15);
@@ -488,6 +497,34 @@ async function downLap(t) {
     t.check("downlap: busted going down the lap she pulls over on HER side (not steered across both carriageways)", ds.length > 0 && Math.max(...ds) < 0, at.join(" "));
   }
   await g(`(window.__route = null, ctx.law.standDown("test"), ctx.world.dir = 1, L3.setState("title"), true)`);
+  await t.frames(6);
+  await W.pause(t, true);
+}
+
+/** The road's ambulance-behind-you doesn't start in the middle of a chase. */
+async function amb(t) {
+  const g = t.game;
+  await W.pause(t, false);
+  if (await g(`ctx.foot && ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  if (await g(`ctx.town && ctx.town.active`)) await g(`(ctx.town.leave("reset"), true)`);
+  await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+  // (the road's events are off in this file's query: on for this part only)
+  await g(`(window.__en0 = ctx.enabled, ctx.enabled = id => id === "roadevents" || window.__en0(id), true)`);
+  await g(`L3.startRun({ mode: "cruise", quick: true })`);
+  if (!await t.until(`__lulu3d.state === "playing"`, "amb: a cruise starts", 120000)) return;
+  await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.car.vF = 20, true)`);
+  // (the chase first, THEN the rate: an ambulance asked for a frame before the chase would still be on its way)
+  await g(`(ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
+  await t.frames(2);
+  const was = await t.L(`import("./js/features/roadevents/config.js").then(m => { window.__RATES = m.RATES; const w = m.RATES.ambulance; m.RATES.ambulance = 1000; return w; })`);
+  await t.frames(60);
+  const during = await g(`({ chase: !!ctx.law.chasing, amb: ctx.traffic.cars.some(c => c.kind === "roadevents_ambulance") })`);
+  t.check("amb: no 'pull over for the ambulance' in the middle of a police chase", during.chase && !during.amb, JSON.stringify(during));
+  await g(`(ctx.law.standDown("test"), true)`);
+  const after = await t.until(`__lulu3d.ctx.traffic.cars.some(c => c.kind === "roadevents_ambulance")`, "amb: …and the ambulance comes once the chase is over", 20000);
+  await t.L(`(window.__RATES.ambulance = ${JSON.stringify(was)}, true)`);
+  if (after) await g(`(ctx.traffic.cars.filter(c => c.kind === "roadevents_ambulance").forEach(c => ctx.traffic.remove(c)), true)`);
+  await g(`(L3.setState("title"), ctx.enabled = window.__en0, true)`);
   await t.frames(6);
   await W.pause(t, true);
 }

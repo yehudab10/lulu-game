@@ -138,7 +138,9 @@ export function back() {
 // ── the handset ───────────────────────────────────────────────────────────
 function clock() {
     let h, m;
-    if (ctx.atmos && ctx.G && ctx.G.mode === "cruise" && typeof ctx.atmos.clock === "number") {
+    // (the sky's hour: a Cruise day — and a 🎉 party's shared sky too, which shop doors already follow: storefronts/hours.js
+    //  worldNow — ci/sweep-logic2; the 📱 showed the device's time there)
+    if (ctx.atmos && ctx.G && (ctx.G.mode === "cruise" || (ctx.atmos.mode === "cruise" && ctx.state !== "title")) && typeof ctx.atmos.clock === "number") {
         const hrs = (7.3 + ctx.atmos.clock * 24) % 24;        // atmos: 0.03 ≈ 8 am, sunset ≈ 7 pm, night ≈ midnight
         h = Math.floor(hrs); m = Math.floor((hrs - h) * 60);
     } else { const d = new Date(); h = d.getHours(); m = d.getMinutes(); }
