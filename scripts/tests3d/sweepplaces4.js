@@ -66,7 +66,8 @@ module.exports = {
       const d = doors.find(x => x.name === name);
       if (!d) { t.check(`party: Midwood has its ${name} door`, false); continue; }
       const go = P => P.game(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); ctx.cam.snap();
-        const pr = ctx.foot.debug.interactables(); if (!pr || !pr.ent || !pr.ent.door) return "no door: " + (pr ? pr.label : "nothing"); pr.ent.act(); return pr.label; })()`);
+        // (the door's own ✋ — a ride / a passer-by right beside her can fairly win the nearest prompt: not the question here)
+        const sp = ctx.foot.spots()[${d.i}]; if (!sp || !sp.act) return "no door"; sp.act(); return typeof sp.label === "function" ? sp.label() : sp.label; })()`);
       await W.moved(t);
       const lh = await go(Hp); const lg = await go(A);
       const inH = await Hp.until(`ctx.state === "interior" && window.__interiors.room && __interiors.room.ready`, `party ${name}: host goes in («${lh}»)`, 60000);

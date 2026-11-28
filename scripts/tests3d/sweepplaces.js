@@ -20,7 +20,7 @@ module.exports = {
     await W.install(t);
     if (!await S.start()) return;
     const only = process.env.SWEEP_ROOMS ? process.env.SWEEP_ROOMS.split(",") : null;
-    await S.sweepTown(process.env.SWEEP_TOWN || "midwood", { only });
+    await S.sweepTown(process.env.SWEEP_TOWN || "midwood", { only, extrasIn: "hospital" });
     await S.persisted();
   },
 };

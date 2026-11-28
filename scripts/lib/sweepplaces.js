@@ -278,6 +278,29 @@ function make(t) {
   const HARD = /street's|% of the screen wide|doesn't fit|charged|without the coins|stuck|throws|can't be reached from the door$|the prompt is (?!nothing)/;
   const report = (where, a) => { for (const p of a.problems) { if (HARD.test(p)) t.check(`${where}: ${p}`, false); else console.log(`   ✗? ${where}: ${p}`); } };
 
+  /** Inside a room: the 📱 opens + closes (she's still there), pause (Start) → B resumes, 🆘 I'm stuck → back by this
+   *  room's door, still inside, nothing left covering the screen. */
+  const extras = async where => {
+    const inRoom = () => g(`L3.state === "interior" && !!(window.__interiors && __interiors.room && __interiors.room.ready)`);
+    const op = await g(`(ctx.phone && ctx.phone.openPhone ? ctx.phone.openPhone() : false, !!(ctx.phone && ctx.phone.isOpen))`);
+    await t.frames(20);
+    await shot(`${where}-phone`);
+    await g(`(ctx.phone && ctx.phone.closePhone && ctx.phone.closePhone(), true)`);
+    await t.frames(10);
+    t.check(`${where}: the 📱 opens inside (${op}) and closes, still in the room`, op && !await g(`!!ctx.phone.isOpen`) && await inRoom());
+    await t.tap(9); await t.frames(10);
+    const pz = await g(`ctx.paused`);
+    await t.tap(1); await t.frames(10);
+    t.check(`${where}: Start pauses (${pz}), B resumes, still in the room`, pz && !await g(`ctx.paused`) && await inRoom());
+    await room(`(() => { const o = r.lulu.obj; o.position.x = (r.bounds.x0 + r.bounds.x1) / 2; o.position.z = (r.bounds.z0 + r.bounds.z1) / 2; return true; })()`);
+    await t.frames(4);
+    const u = await g(`(() => { try { return ctx.unstuck.now(); } catch (e) { return "threw " + e.message; } })()`);
+    await t.frames(40);
+    const at = await room(`(() => { const sp = r.spots.lulu || r.spots.door, L = r.lulu.obj.position; return sp ? +Math.hypot(L.x - sp.x, L.z - sp.z).toFixed(2) : -1; })()`);
+    const cov = await t.L(`window.__qa ? window.__qa.covered() : []`).catch(() => []);
+    t.check(`${where}: 🆘 inside → back by the door (${u}, ${at} m), still in the room, nothing covering`, await inRoom() && at >= 0 && at < 1 && !cov.length, JSON.stringify(cov));
+  };
+
   /** Into a door from the street with the real ✋; → true when the room is up. */
   const enter = async (d, where) => {
     await onFoot();
@@ -335,7 +358,7 @@ function make(t) {
 
   /** Visit every door-like room in a town (filter by name): in, audit, out. */
   // (the impound gate only opens on a car of hers that's in there — features/impound's own test plays it)
-  const sweepTown = async (id, { only = null, skipNames = ["impound"], skipHots = {}, prefix = "" } = {}) => {
+  const sweepTown = async (id, { only = null, skipNames = ["impound"], skipHots = {}, prefix = "", extrasIn = null } = {}) => {
     if (!await town(id)) return [];
     await onFoot();
     await t.frames(20);
@@ -352,6 +375,7 @@ function make(t) {
       if (!ok) { await playing(); await onFoot(); continue; }
       const a = await audit(where, { skip: skipHots[d.name] || [] });
       res.push(a);
+      if (extrasIn && extrasIn === d.name && await g(`!!(window.__interiors && __interiors.room && __interiors.room.ready)`)) await extras(where);
       report(where, a);
       if (await g(`!!(window.__interiors && __interiors.room && __interiors.room.ready)`)) {
         await shot(`${where}-end`);
@@ -414,7 +438,7 @@ function make(t) {
     oneOffs.forEach((x, k) => t.check(`bought ${x.name} (${x.where}) is in the save (${a[k]}) and survives a reload (${b[k]})`, a[k] && b[k]));
   };
 
-  return { report, sweepFronts, persisted, BUYS, g, st, coins, log, shot, playing, start, town, onFoot, findDoors, room, dialogFit, flood, facts, drive, useHot, audit, enter, leave, carPos, sweepTown };
+  return { extras, report, sweepFronts, persisted, BUYS, g, st, coins, log, shot, playing, start, town, onFoot, findDoors, room, dialogFit, flood, facts, drive, useHot, audit, enter, leave, carPos, sweepTown };
 }
 
 module.exports = { make, W };

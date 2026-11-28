@@ -356,7 +356,11 @@ export class Room {
     spot(name) { return this.spots[name] || null; }
     fx(name) { return this.fxs[name] || null; }
     node(name) { return findNodes(this.root, name)[0] || null; }
-    add(obj) { this.set.add(obj); return obj; }
+    add(obj) { this.set.add(obj); (this.built || (this.built = [])).push(obj); return obj; }
+    /** What the camera's rays see of the room: its model AND everything its def built in code (rt.add — the houses, the
+     *  clothes shop, the lanes… are code-built: before, the lens went through their walls / their front door filled a
+     *  phone with one flat colour, and nothing of theirs ever faded). → [Object3D] */
+    rayRoots() { const a = this.built && this.built.length ? [this.root, ...this.built] : [this.root]; RAY.camera = this.set.camera; return a; }
     own(...x) { return this.set.own(...x); }
     groundAt(x, z) { return this.def.ground ? this.def.ground(x, z) : 0; }
 
@@ -731,7 +735,7 @@ export class Room {
         // …and the room's own walls (its big shell meshes: a set's walls don't always sit on its walking bounds)
         if (this.root && t > 0.6) {
             RAY.set(RV.set(tgt.x, tgt.y, tgt.z), RD.set(dx, dy, dz).normalize()); RAY.near = 0.2; RAY.far = t + 0.3;
-            for (const h of RAY.intersectObject(this.root, true)) {
+            for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
                 if (!h.object.isMesh || (this.fadeable(h.object) && !this.wallLike(h.object))) continue;
                 t = Math.min(t, h.distance - 0.3);
                 break;
@@ -769,7 +773,7 @@ export class Room {
         const far = RD.length() - 0.05;
         if (far > 0.2) {
             RAY.set(RV, RD.normalize()); RAY.near = 0.35; RAY.far = far;
-            for (const h of RAY.intersectObject(this.root, true)) {
+            for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
                 const o = h.object;
                 if (!o.isMesh || hit.has(o)) continue;
                 if (this.fadeable(o)) hit.add(o);        // (the room's shell: never — the camera is clipped to it)
@@ -793,7 +797,7 @@ export class Room {
         RV.copy(cam.position); RD.set(L.x, L.y + 1.0, L.z).sub(RV);
         const far = RD.length() - 0.3;
         RAY.set(RV, RD.normalize()); RAY.near = 0; RAY.far = far;
-        for (const h of RAY.intersectObject(this.root, true)) {
+        for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
             const m = h.object.material, op = Array.isArray(m) ? m[0].opacity : m.opacity;
             if (h.object.isMesh && h.object.visible && !(op < 0.5)) return `${h.object.name || "mesh"} @${h.distance.toFixed(2)}`;
         }

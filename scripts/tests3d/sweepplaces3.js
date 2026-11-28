@@ -53,12 +53,37 @@ module.exports = {
       await t.frames(90);
     }
 
-    // ── houses: a stranger's (knock), Lulu's own, one for sale (the interiors engine, entered through foot's hand-off) ──
-    await t.L(`Promise.all([import("./js/features/homes/house.js"), import("./js/features/realestate/house.js")]).then(([homes, re]) => { window.__dm = { homes, re }; return true; })`);
+    // ── houses: a stranger's (her real front door: ✋ → ✊ Knock), Lulu's own, one for sale (a real listing) ──
+    await t.L(`Promise.all([import("./js/features/realestate/house.js"), import("./js/features/realestate/market.js")]).then(([re, mk]) => { window.__dm = { re, mk }; return true; })`);
+    {
+      await S.onFoot();
+      await W.moved(t);
+      const ap = await g(`(() => { const F = ctx.foot.debug.F, s = ctx.foot.spots().find(s => s.short === "HOUSE"); if (!s || !ctx.homes || !ctx.homes.homes) return null;
+        const h = ctx.homes.homes().filter(h => h.ap && h.ap.nx != null).find(h => { F.pos.set(h.ap.x + h.ap.nx * 0.6, 0.05, h.ap.z + h.ap.nz * 0.6); return !!s.pos(); });
+        if (!h) return null; F.vel.set(0, 0, 0); ctx.cam.snap(); return { x: h.ap.x, z: h.ap.z, nx: h.ap.nx, nz: h.ap.nz, name: h.name }; })()`);
+      if (t.check(`a stranger's front door to knock on (${ap && ap.name})`, !!ap)) {
+        await t.frames(6);
+        await g(`(() => { const pr = ctx.foot.debug.interactables(); if (pr && pr.ent && pr.ent.act) pr.ent.act(); return pr ? pr.label : ""; })()`);
+        const seen = [];
+        for (let k = 0; k < 60 && await S.st() !== "interior"; k++) {
+          await t.frames(8);
+          const f = await S.dialogFit();
+          if (f && f.opts.length) { seen.push(f.opts.join("|")); const i = Math.max(0, f.opts.findIndex(o => /Knock/i.test(o))); await t.L(`(() => { const o = document.querySelectorAll("#dialog .opt")[${i}]; if (o) { o.click(); o.click(); } return true; })()`); }
+          else if (f) { seen.push(f.text.slice(0, 40)); await t.tap(0); }
+        }
+        S.log(`knock: ${seen.join(" ⇒ ").slice(0, 300)}`);
+        if (await S.st() === "interior" && await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, "the house is up", 60000)) {
+          const a = await S.audit("midwood-stranger", { skip: ["sneak", "steal", "win_kids", "win_living", "win_dining", "win_kitchen", "win_bedroom"] });
+          S.report("midwood-stranger", a);
+          await S.shot("midwood-stranger-end");
+          await S.leave({ name: "house", at: ap }, "midwood-stranger", null);
+        } else S.log("the knock didn't take her in (nobody home / a doorstep scene) — fine");
+        const r = await W.report(t); W.log(r); W.check(t, "stranger: in + out", r); await W.reset(t);
+      }
+    }
     const houses = [
-      ["stranger", `window.__dm.homes.prepare({ home: { name: "Katz", key: "sweep:katz", cast: ["dad", "mom", "girl"], seed: 4242 }, mode: "guest", via: "door", cast: ["dad", "mom", "girl"], noCatch: true })`, "home"],
       ["her-house", `0`, "luluHome"],
-      ["for-sale", `window.__dm.re.nameHouse({ id: "sweep:re3", rooms: 3, address: "1 Sweep St" }, "viewing")`, "realestateHouse"],
+      ["for-sale", `(() => { const L = window.__dm.mk.listings(); const rec = L.find(r => r.rooms === 3) || L[0]; return rec ? window.__dm.re.nameHouse(rec, "viewing") : null; })()`, "realestateHouse"],
     ];
     for (const [label, setup, id] of houses) {
       await S.onFoot();

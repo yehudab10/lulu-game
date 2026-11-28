@@ -17,7 +17,7 @@ module.exports = {
     await W.install(t);
     if (!await S.start()) return;
     const only = process.env.SWEEP_ROOMS ? process.env.SWEEP_ROOMS.split(",") : null;
-    await S.sweepTown("lakewood", { only });
+    await S.sweepTown("lakewood", { only, extrasIn: "bank" });
     await S.persisted();
   },
 };
