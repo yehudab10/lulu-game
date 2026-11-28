@@ -158,6 +158,28 @@ function titleRefresh() {
 
 // ── party mechanics while driving (friend rooms) ─────────────────────────
 let prevScore = 0, honkCd = 0;
+// 🚗 Everyone follows the same bump rule (stage 3, "no ghosts"): two players' cars that touch get ONE harmless bounce
+// (sparks + a thunk, never a heart, a coin or a star), then that player drives THROUGH her for a moment — so nobody can
+// pin, drag, shove or trap anyone: a second bounce from the same player waits SB.PER s, and any bounce at all waits
+// SB.ANY s. Judged on my own screen, on where I see her (ghosts.js: p.ws / p.wd, only while she's drawn).
+const SB = { R: 2.3, PER: 2.5, ANY: 1.0, PUSH: 3.0 };
+let sbAny = 0;
+function strangerBump(p, car, dt) {
+    if (p.m !== 0 || !p.onScreen || typeof p.ws !== "number" || ctx.foot && ctx.foot.active) { p.bonkOverlap = false; return; }
+    const dx = car.pos.x - p.ws, dz = car.pos.z - p.wd, d = Math.hypot(dx, dz);
+    const overlap = d < SB.R;
+    if (overlap && !p.bonkOverlap && !(p.bonkCd > 0) && !(sbAny > 0) && d > 1e-3) {
+        const nx = dx / d, nz = dz / d, side = nx * -Math.cos(car.h) + nz * Math.sin(car.h);
+        car.applyImpulse(nx * SB.PUSH, nz * SB.PUSH, side * 0.3);
+        p.bonkCd = SB.PER; sbAny = SB.ANY;
+        // (no toast: the bounce, the sparks and the sound are the feedback)
+        car.fx.burst(car.pos.x - nx * 1.0, 1.0, car.pos.z - nz * 1.0, 14, 4, [1, 0.94, 0.46], 0.35, 0.45);
+        tone(150, 0.12, "square", 0.22, 90);
+        rumble(0.45, 0.5, 160, true);
+        MP.bumps = (MP.bumps || 0) + 1;
+    }
+    p.bonkOverlap = overlap;
+}
 hook("runStart", G => { prevScore = 0; G.mpPbDone = false; MP.scorePosted = false; MP.convoy.active = false; MP.convoy.t = 0; MP.draft.active = false; MP.draft.t = 0; });
 hook("update", (dt, P, controlsOn) => {
     const G = ctx.G, car = ctx.car;
@@ -166,6 +188,7 @@ hook("update", (dt, P, controlsOn) => {
     if (!G.mpPbDone && save3d.best > 0 && G.score > save3d.best && controlsOn) { G.mpPbDone = true; if (MP.connected) N.noteRecord(G.score); }
     if (!MP.connected || ctx.state !== "playing") { prevScore = G.score; return; }
     const friend = N.friendRoom();
+    if (sbAny > 0) sbAny -= dt;            // (the shared bump cooldown: once a frame)
     let near = false, draftWin = false;
     const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
     for (const id in MP.peers) {
@@ -173,7 +196,8 @@ hook("update", (dt, P, controlsOn) => {
         if (!p.seen) continue;
         const rel = p.rel;
         if (Math.abs(rel) < 500) near = true;
-        if (!friend || p.m !== 0) { p.bonkOverlap = false; continue; }
+        if (!friend) { strangerBump(p, car, dt); continue; }
+        if (p.m !== 0) { p.bonkOverlap = false; continue; }
         const ds = rel / DI_PER_M, dd = (p.x - X_MID) / X_PER_M - car.d;
         // SLIPSTREAM: a friend 10–36 m ahead, lined up
         if (rel > 120 && rel < 420 && Math.abs(dd) < 1.7) draftWin = true;

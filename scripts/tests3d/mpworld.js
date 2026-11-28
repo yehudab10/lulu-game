@@ -8,7 +8,7 @@
 //   OFF       ⚙️ Settings › Play online OFF disconnects (and stays off); ON again reconnects out in the world;
 //             Dina's mode takes you offline, back in the world you're online again
 //   FRIENDS   the 👯 Friends hub (📤 Play with a friend · 🔑 Join with a code?); A invites → straight
-//             into 🌍 Free Roam, STILL online (a stranger still shows as a ghost); B joins with the code → lands next to
+//             into 🌍 Free Roam, STILL online (a stranger still shows, solid since stage 3); B joins with the code → lands next to
 //             A as a FRIEND: a real car with B's name, and no second ghost of B; the phone's 👯 app → Go solo
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
@@ -127,10 +127,12 @@ async function body(t, pages, riders) {
   for (let i = 0; i < 20; i++) { bad.event("honk"); await sleep(40); }
   await A.frames(120);
   bad.stop();
-  const safe = await g(`(() => { const p = Object.values(${S}.peers).find(q => q.raw === "BAD WORDS HERE"); return { found: !!p, name: p && p.name, race: !!${S}.race, tag: !!${S}.tag, bonks: ${S}.bonks || 0, recv: ${S}.recv, v: Math.hypot(ctx.car.vx, ctx.car.vz), banner: (document.getElementById("mpOverlay") || {}).textContent || "" }; })()`);
+  const safe = await g(`(() => { const p = Object.values(${S}.peers).find(q => q.raw === "BAD WORDS HERE"); return { found: !!p, name: p && p.name, race: !!${S}.race, tag: !!${S}.tag, bonks: ${S}.bonks || 0, bumps: ${S}.bumps || 0, recv: ${S}.recv, v: Math.hypot(ctx.car.vx, ctx.car.vz), banner: (document.getElementById("mpOverlay") || {}).textContent || "" }; })()`);
   t.check("stranger's typed name never shows (they're \"Red NN\")", safe.found && /^Red \d\d$/.test(safe.name), JSON.stringify(safe));
   t.check("a stranger can't start a race or tag on my screen", !safe.race && !safe.tag && !/RACE|TAG|IT/.test(safe.banner), JSON.stringify(safe));
-  t.check("a stranger driving into me doesn't shove my car (no BONK in EVERYONE)", safe.bonks === 0 && safe.v < v0 + 0.5, JSON.stringify({ v0, v: safe.v }));
+  // stage 3: everyone has the same bump rule — ONE harmless bounce, then she drives through for a moment (nobody can pin,
+  // drag or keep shoving her: a stranger sitting on top of her at 8 Hz for ~2 s gets at most one small bounce)
+  t.check("a stranger driving into me: at most one small bounce, never a shove-fest (same rule as friends)", safe.bumps <= 1 && safe.bonks === 0 && safe.v < v0 + 4, JSON.stringify({ v0, v: safe.v, bumps: safe.bumps }));
   t.check("emote / honk / record floods are dropped on my side", safe.recv >= 10 && !/BAD WORDS/.test(safe.banner), `recv ${safe.recv}`);
   bad.close(); riders.splice(riders.indexOf(bad), 1);
 
