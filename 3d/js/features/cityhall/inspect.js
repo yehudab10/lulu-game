@@ -180,6 +180,7 @@ export function inspectTick(dt) {
     IN.t = 0;
     if (!lp || !solo() || !ctx.enabled(ID) || ctx.dialogOpen || S.insp.day === realDay()) return;
     if ((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing)) return;
+    if (ctx.engaged && ctx.engaged()) return;          // (one activity at a time — ci/hud's rule; ci/sweep-logic2: he waited on her path mid robbery / Shomrim)
     for (const h of homesHere()) {
         if (Math.hypot(h.x - lp.x, h.z - lp.z) > K.near) continue;
         const waiting = openPermits().some(p => p.home === h.id);
