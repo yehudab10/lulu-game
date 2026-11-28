@@ -137,7 +137,9 @@ export function planExit(s, towns) {
     const signs = e.signs;
     const add = (u, def) => {
         let at = s + u;
-        for (let k = 0; k < 4 && signBusy(at); k++) at += 70;
+        // (a busy spot: an advance board ("1 MI" / "½ MI") slides BACK, away from the exit — sliding toward it put the "½ MI"
+        //  board 420 m out; the last-chance board still slides on)
+        for (let k = 0; k < 4 && signBusy(at); k++) at += u <= -600 ? -70 : 70;
         reserve(at - 20, at + 20, 1, 9, 13);
         signs.push(Object.assign({ s: at, d: 10.6, bg: "#1f7a46", tab }, def));
     };

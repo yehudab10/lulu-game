@@ -12,7 +12,7 @@ module.exports = {
   parts: ["survey"],
   viewport: { width: 390, height: 844 },
   hasTouch: true,
-  query: "&enable=all",
+  query: "&enable=all&airport=1",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [], mpName: "Kugel Kid" },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
@@ -39,7 +39,7 @@ async function survey(t) {
     await g(`(() => { const hw = ctx.world.highway, p = hw.point(${s}, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = 1.75;
       ctx.car.vx = Math.sin(p.h) * 30; ctx.car.vz = Math.cos(p.h) * 30; ctx.car.vF = 30; ctx.G.invT = 5; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
     await W.moved(t);
-    await t.frames(4);
+    await t.frames(10);         // (the trip bar's next-place sum is cached for 0.25 s of game time)
     const r = await t.L(`(() => { const C = __lulu3d.ctx, q = s => { const e = document.querySelector(s); return e && !e.closest(".hidden") ? e.textContent.trim() : ""; };
       return { s: ${s}, state: C.state, town: !!(C.town && C.town.active), trip: q("#tripLabel"), chip: q(".exits-chip") }; })()`);
     seen.push(r);
@@ -75,12 +75,14 @@ async function survey(t) {
       const a = target ? target.s - sg.s : null;
       if (a == null || a < 450 || a > 1200) bad.push(`"${txt}" @${sg.s}: the place is ${a} m on`);
     }
-    // the "next places up the road" boards: NAME  x.y MI
+    // the "next places up the road" boards: NAME  x.y MI (the same name twice = the next one, then the one after)
+    const seenNm = {};
     for (const ln of sg.lines) {
       const m = /^(.*\S)\s+(\d+\.\d) MI$/.exec(ln);
       if (!m) continue;
-      const nm = m[1].trim(), want = +m[2] * MI;
-      const p = nextAfter(sg.s, q => nm === "REST AREA" ? q.kind === "rest" : q.name === nm || q.name.startsWith(nm) || nm.startsWith(q.name));
+      const nm = m[1].trim(), want = +m[2] * MI, nth = seenNm[nm] = (seenNm[nm] || 0) + 1;
+      const match = q => nm === "REST AREA" ? q.kind === "rest" : q.name === nm || q.name.startsWith(nm) || nm.startsWith(q.name);
+      const p = places.filter(q => q.s > sg.s && match(q))[nth - 1];
       if (!p) { if (sg.s + want < end) bad.push(`"${ln}" @${sg.s}: no ${nm} ahead`); continue; }
       if (Math.abs((p.s - sg.s) - want) > 0.2 * MI) bad.push(`"${ln}" @${sg.s}: ${nm} is really ${((p.s - sg.s) / MI).toFixed(1)} mi on`);
     }

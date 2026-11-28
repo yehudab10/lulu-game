@@ -126,7 +126,7 @@ export function planRest(s, force = false, nameK = null) {
     reserve(s + LY.TAPER0 - 30, s + LY.ACC1 + 30, 1, 7.2, 74);
     const sign = (u, def) => {
         let at = s + u;
-        for (let i = 0; i < 4 && signBusy(at); i++) at += 70;
+        for (let i = 0; i < 4 && signBusy(at); i++) at += u <= LY.SIGN_HALF ? -70 : 70;      // (the 1 MI / ½ MI boards slide BACK: on toward the rest area they read 0.66 / 0.26 mi)
         reserve(at - 20, at + 20, 1, 9, 13);
         const sg = Object.assign({ s: at, d: 10.6, bg: "#1565C0", w: 4.8, h: 2.6, tw: 512, th: 280 }, def);
         w.addSign(sg); R.signs.push(sg);
