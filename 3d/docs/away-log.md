@@ -4,6 +4,10 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 03:30 UTC — 🏬 Places, part 2: walking into a house on a phone (a neighbour's, Ima's, a home for sale)
+  no longer shows one flat grey screen — the camera was stuck inside the front door; now the door goes see-through and
+  you see the room. The camera inside the newer buildings (houses, shops, City Hall, the bowling alley) also stops at
+  their walls instead of going through them, and a speech bubble never rises off the top of the screen.
 - 2026-11-28 02:27 UTC — 🏬 Places, part 1 (walking into buildings in town): speech bubbles from the street ("No car? No
   problem.", a protester's line) no longer stay frozen on screen inside the shop you just walked into, and neither does
   the "Find a car to borrow" hint or the town's WELCOME banner. On a phone, a room's speech bubbles are never wider than
