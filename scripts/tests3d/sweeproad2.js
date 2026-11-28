@@ -105,6 +105,9 @@ async function survey(t) {
       if (Math.abs(real - +m[1]) > 0.15) tb.push(`@${r.s} trip "${r.trip}" vs ${nx.name} ${real.toFixed(2)} mi`);
       if (nx.kind === "exit" && !new RegExp(nx.name.split(" ")[0], "i").test(r.trip)) tb.push(`@${r.s} trip "${r.trip}" vs next ${nx.name}`);
     }
+    // (an exit she's already driven past on the carriageway isn't "NOW ↗" any more)
+    const behind = places.find(p => p.kind === "exit" && p.s < r.s - 30 && p.s > r.s - 200);
+    if (behind && r.chip && new RegExp(behind.name.split(" ")[0] + "|" + behind.alt.split(" ")[0], "i").test(r.chip) && !(nx && new RegExp(nx.name.split(" ")[0], "i").test(r.chip))) tb.push(`@${r.s} chip "${r.chip}" — ${behind.name} is behind her`);
     if (nx && nx.s - r.s < MI - 100 && nx.s - r.s > 200 && !r.chip) tb.push(`@${r.s} no exit chip ${((nx.s - r.s) / MI).toFixed(1)} mi before ${nx.name}`);
     if (r.chip && nx && nx.s - r.s < MI - 100 && !new RegExp(nx.kind === "rest" ? "REST" : nx.name.split(" ")[0] + "|" + nx.alt.split(" ")[0], "i").test(r.chip)) tb.push(`@${r.s} chip "${r.chip}" vs ${nx.name}`);
   }

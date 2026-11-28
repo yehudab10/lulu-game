@@ -321,6 +321,11 @@ export function startWeather(kind, strength = 1, instant = false, dur = 0) {
 
 function announce(kind, strength) {
     const fp = S.fp;
+    // (on foot the car's lines — "hold the wheel", "headlights on", "use your low beams" — are wrong: her own words)
+    const foot = ctx.state === "footRun" || !!(ctx.foot && ctx.foot.active);
+    if (foot && kind !== "snow") return say(kind === "fog" ? pick(["🌫️ Fog bank — I can't see my own flats!", "🌫️ Pea soup! Stay on the sidewalk, Lululeh"])
+        : strength > 0.75 ? pick(["⛈️ Thunderstorm! Find a porch, mamele!", "⛈️ Storm's here — and me without an umbrella!"])
+        : pick(["🌧️ Rain! And me in suede", "🌧️ Rain! Where's an umbrella gemach when you need one?"]), "", 8);
     if (kind === "rain") say(strength > 0.75 ? pick(["⛈️ Thunderstorm! Bubbe says pull over. (You don't have to.)", "⛈️ Storm's here — hold the wheel, mamele!"])
         : fp ? "🌧️ Rain! Wipers on" : pick(["🌧️ Rain! Headlights on, Lululeh", "🌧️ Rain! Good thing it's a convertible…"]), "", 8);
     else if (kind === "fog") say(pick(["🌫️ Fog bank — slow down, Lululeh!", "🌫️ Pea soup! Ima says use your low beams"]), "", 8);

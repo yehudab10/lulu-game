@@ -130,6 +130,16 @@ module.exports = {
           // nobody stands inside a wall / the furniture
           const bad = info.people.filter(q => info.cols.some(c => q.x > c[0] - 0.05 && q.x < c[1] + 0.05 && q.z > c[2] - 0.05 && q.z < c[3] + 0.05));
           t.check(`${id} ${kind}: nobody stands inside a wall (${bad.map(b => b.id).join(",") || "ok"})`, bad.length === 0);
+          // (the check above is one instant; a kid running a loop is checked all the way round — sweep-health2)
+          const loops = await room(`r.data.V.loops.map(l => ({ id: l.rec.id, L: l.l }))`);
+          const pw = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+          const loopBad = [];
+          for (const { id: who, L } of loops || []) for (let a = 0; a < Math.PI * 2; a += 0.01) {
+            const x = L.cx + pw(Math.cos(a), L.sq || 1) * L.rx, z = L.cz + pw(Math.sin(a), L.sq || 1) * L.rz;
+            const c = info.cols.find(c => x > c[0] - 0.05 && x < c[1] + 0.05 && z > c[2] - 0.05 && z < c[3] + 0.05);
+            if (c) { loopBad.push(`${who} @ ${x.toFixed(2)},${z.toFixed(2)}`); break; }
+          }
+          t.check(`${id} ${kind}: a kid running a loop keeps clear of every wall + table all the way round (${loopBad.join("; ") || "ok"})`, loopBad.length === 0);
           // every hotspot she can use is somewhere she can stand, and ✋ reaches it
           const unreachable = await room(`r.hots.filter(h => !h.enabled || h.enabled(r)).filter(h => { const p = r.lulu.obj.position; const w = h.track && h.who && r.byId[h.who]; if (w) return false; p.set(w ? w.p.obj.position.x : h.x, 0, w ? w.p.obj.position.z : h.z); const x0 = p.x, z0 = p.z; r.collide(p, 0.32); const moved = Math.hypot(p.x - x0, p.z - z0) > 0.06; const near = r.findNear(); return moved || !near; }).map(h => h.id)`);
           t.check(`${id} ${kind}: every hot-spot is reachable and standable (${unreachable.join(",") || "ok"})`, unreachable.length === 0);
