@@ -840,7 +840,8 @@ export class Room {
         const at2 = at || (nw ? nw.p.obj.position : null);
         if (at2 && Math.hypot(at2.x - L.x, at2.z - L.z) > 0.3) {
             const to = Math.atan2(at2.x - L.x, at2.z - L.z), side = Math.sign(wrapAngle(F.yaw - to)) || 1;
-            auto = { yaw: to + side * SHOULDER, k: 3 };
+            // (a person: over the shoulder; a thing — a rack, a focus point — straight on, as before)
+            auto = { yaw: to + (who && !this.focusAt || nw ? side * SHOULDER : 0), k: 3 };
             if (at) dist *= 0.85;
         }
         ctx.cam.orbit(this.lulu.obj, { camera: cam, dist, look: ORBIT.look, fov: this.def.fov || ORBIT.fov, auto,

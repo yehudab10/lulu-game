@@ -54,6 +54,8 @@ module.exports = {
     await t.frames(6);
     await S.shot("11-settings");
     const sf = await t.L(CARD_FIT);
+    S.log("settings widths: " + JSON.stringify(await t.L(`(() => { const g = document.querySelector("#screenCard .settings"); if (!g) return null; return { grid: Math.round(g.getBoundingClientRect().width), cols: getComputedStyle(g).gridTemplateColumns,
+      wide: [...g.children].map(e => ({ t: e.textContent.trim().slice(0, 40), w: Math.round(e.getBoundingClientRect().width), sw: e.scrollWidth, min: (() => { const c = e.cloneNode(true); c.style.width = "min-content"; c.style.position = "absolute"; g.appendChild(c); const w = c.getBoundingClientRect().width; c.remove(); return Math.round(w); })() })).sort((a, b) => b.min - a.min).slice(0, 4) }; })()`)));
     t.check("⚙️ Settings fits a small phone (or scrolls)", sf && !sf.bad.length, JSON.stringify(sf));
     await S.badText("settings", { touch: true, w: 375 });
     const read = () => t.L(`[...document.querySelectorAll("#screenCard .setting")].map(b => ({ id: b.id, l: (b.querySelector("span") || b).textContent.trim(), v: (b.querySelector("b") || {}).textContent || "" }))`);
@@ -96,6 +98,8 @@ module.exports = {
     await g(`ctx.phone.openPhone()`);
     await t.frames(12);
     await S.shot("13-phone-small");
+    const fb = await t.L(`[...document.querySelectorAll("#screenCard.lphone .lp-fb")].filter(b => b.offsetParent !== null).map(b => Math.round(b.getBoundingClientRect().height) + " " + b.textContent.trim())`);
+    t.check("📱 ‹ Back / ☰ Menu are big enough for a finger (≥ 40 px tall)", fb.length && fb.every(x => parseInt(x) >= 40), fb.join(" | "));
     await g(`(ctx.phone._dbg.openApp("friends"), true)`);
     await t.frames(8);
     await S.shot("13b-phone-friends-longname");

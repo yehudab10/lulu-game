@@ -167,15 +167,16 @@ function startAtHome(opts = {}, alt = null) {
     });
     if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
     // (the free camera on foot keeps the direction it starts from: point it into her lot, behind her)
-    // (…turned just enough to show her CAR: on a phone held upright the picture is narrow and the car, parked beside the
-    //  house, was off the edge of the screen while the hint said "drag the WALK pad to your car" — ci/sweep-phone)
+    // (…unless her CAR is off the picture: on a phone held upright the view is narrow and the car, parked beside the house,
+    //  was past the edge of the screen while the hint said "drag the WALK pad to your car" — then the camera looks at
+    //  the car from behind her, so the car is in the middle and up on the stick walks straight to it; ci/sweep-phone)
     if (ctx.cam && ctx.cam.free && ctx.cam.free.recentre) {
         let yaw = lotFace != null ? lotFace : face;
         const c = ctx.foot.parkedCar, me = at || spots.idle, cam = ctx.camera;
         if (c && me && cam) {
             const half = Math.atan(Math.tan((58 + (cam.aspect < 1 ? 14 : 0)) * Math.PI / 360) * cam.aspect) * 0.75;
             const d = wrapAngle(Math.atan2(c.x - me.x, c.z - me.z) - yaw);
-            if (Math.abs(d) > half) yaw = wrapAngle(yaw + d - Math.sign(d) * half);
+            if (Math.abs(d) > half) yaw = wrapAngle(yaw + d);
         }
         if (lotFace != null || yaw !== face) ctx.cam.free.recentre(yaw);
     }

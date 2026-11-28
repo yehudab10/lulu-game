@@ -51,6 +51,18 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
    what Safari shows); now 100dvh minus the home bar (`phone/style.js`; the dealers' cards too). Menus (`.screen`) keep
    clear of the notch / home bar (safe-area padding). — fixed
 
+14. **⚙️ Settings with a long username: every row ran past the card's edge** (a 16-letter name in "🪪 Your name" made
+   the grid's column as wide as the name; the values were cut off on the right) — the value ends in "…" now, the grid
+   columns can shrink (`style3d.css` .settings). — fixed
+15. **In a stranger's kitchen, facing the mom, the ✋ was the seltzer bottle on the counter in front of her** — a person
+   counts a little more than a thing at the same spot (`interiors/engine.js` findNear); stepping right up to the bottle
+   still picks the bottle. — fixed
+16. **Rooms on a phone: the camera straight behind her hid the shopkeeper she'd walked up to** (Sal at register 3 behind
+   her head) — at someone's ✋ the camera eases over her shoulder (0.45 rad), as it already did mid-chat. The ON FOOT
+   chip is hidden indoors (five chips were stacked at the top-left of a stranger's house). — fixed
+17. **Emoji newer than an iPhone 7 / iPhone 6s can draw** (Unicode 15, iOS 16.4+: 🪿 goose, 🩷 pink heart, 🩵, 🫷 —
+   empty boxes in the decor catalogue, City Hall's questions, the purse snatcher's prompt) → 🦢 💗 💙 ✋. — fixed
+
 ## For other sweeps
 
 ## Left
