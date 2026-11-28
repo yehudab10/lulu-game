@@ -371,10 +371,14 @@ function steerUnit(dt, c, u) {
     // in a town the chase goes round corners: its street graph gives the route and the real gap — and once they've
     // lost her, the route goes where they THINK she is (on to where she was heading, then crossing to crossing)
     const inTown = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute;
-    const prowling = inTown && ch && ch.searching && ch.last && !u.bolo && !!ctx.town.searchPoint;
+    // a CALL-IN's cruiser in town doesn't know where she is either: it prowls round where the call came from (or where it
+    // first came into town after her) — it used to drive the street grid straight to her car (AGENTS §7 known issue)
+    const B = u.bolo && L.bolo && !ch && inTown && ctx.town.searchPoint ? L.bolo : null;
+    if (B && !B.last) B.last = { s: car.s, d: car.d, h: car.h, v: 0, t: ctx.time };
+    const prowling = inTown && ((ch && ch.searching && ch.last && !u.bolo) || !!B) && !!ctx.town.searchPoint;
     if (!prowling) u.prowl = null;
     const route = !inTown ? ((u.mode === "chase" || u.mode === "pull") && !(ctx.town && ctx.town.active) ? placeRoute(c, u, ch) : null)
-        : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
+        : prowling ? prowlRoute(c, u, B || ch) : ctx.town.copRoute(c, u);
     // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
     // (pull off and stop out of sight, and they fly right past)
     if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
@@ -382,7 +386,7 @@ function steerUnit(dt, c, u) {
     }
     if (u.bolo) {                               // a call-in: one unlit cruiser prowls up the road looking for her car
         tD = c.d > 3.5 ? 5.25 : 1.75; vT = TUNE.boloSpeed; u.vmax = route ? 14 : TUNE.boloSpeed;
-        if (route) { const err = route.gap - 6; vT = clamp(lv + err * 0.9, 0, 14); }
+        if (route) { const err = route.gap - 6; vT = B ? clamp(4 + route.gap * 0.5, 4, TUNE.prowl) : clamp(lv + err * 0.9, 0, 14); }
     } else if (u.mode === "chase") {
         u.pitT -= dt;
         let want = -7;             // where it wants to sit, relative to Lulu along the road

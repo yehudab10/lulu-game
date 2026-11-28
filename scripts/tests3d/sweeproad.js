@@ -7,6 +7,8 @@
 //           pass through: the hit circles were always her own 4.6 m car's)
 //   ramp    a chase down Lakewood's off-ramp: the cruiser on her tail drives the ramp (decel lane → ramp → its branch),
 //           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
+//   bolo    someone CALLS IN her car in town: the cruiser that comes looking prowls round where the call came from — it
+//           used to drive the street grid straight to her car, wherever she'd gone
 //   yard    a car impounded at a ROADSIDE yard (Trooper Post 7): its gate takes the fee and gives it back (it was keyed
 //           to no town, so the gate never opened and the car stayed in for good); the 📱 says where it is
 //   lot     Uncle Refael's lot: "🔑 Drive it off the lot" for a car she owns is only offered while that car is at home —
@@ -15,7 +17,7 @@ const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "body", "ramp", "yard", "lot"],
+  parts: ["crash", "body", "ramp", "bolo", "yard", "lot"],
   query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits,fuel",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
@@ -27,6 +29,7 @@ module.exports = {
       if (PART.includes("crash")) await step("crash", () => crash(t));
       if (PART.includes("body")) await step("body", () => body(t));
       if (PART.includes("ramp")) await step("ramp", () => ramp(t));
+      if (PART.includes("bolo")) await step("bolo", () => bolo(t));
       if (PART.includes("yard")) await step("yard", () => yard(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
     } finally { W.dropRelayErrors(t); }
@@ -329,4 +332,29 @@ async function body(t) {
   await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   t.check("body: back in her own car (a new run): her own body again", !(await g(`ctx.car.circles`)));
+}
+
+/** A call-in in Lakewood: the cruiser looks for her; it doesn't know where she is. */
+async function bolo(t) {
+  const g = t.game;
+  await W.pause(t, false);
+  await pinkInHand(t);
+  await g(`L3.startRun({ mode: "cruise", quick: true })`);
+  if (!await t.until(`__lulu3d.state === "playing"`, "bolo: a cruise starts", 120000)) return;
+  await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.town.load("lakewood"), true)`);
+  await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "bolo: Lakewood's models load", 120000);
+  await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
+  if (!await t.until(`__lulu3d.ctx.town.active`, "bolo: into Lakewood", 20000)) return;
+  await t.frames(20);
+  await g(`(ctx.town.debug.place("Main St", 60, 1.75, 0, 1), ctx.law.callIn("RECKLESS DRIVING", { delay: 0.2 }), true)`);
+  if (!await t.until(`__lulu3d.ctx.law._dbg.L.units.some(u => u.bolo && u.car)`, "bolo: the cruiser comes out looking", 20000)) return;
+  // she drives off somewhere else (a far street), quietly
+  await g(`(ctx.town.debug.place("County Line Rd", 200, 1.75, 0, 1), ctx.cam.snap && ctx.cam.snap(), true)`);
+  await t.frames(90);
+  const r = await g(`(() => { const L = ctx.law._dbg.L, u = L.units.find(u => u.bolo && u.car), car = ctx.car.pos; if (!u) return { gone: true, bolo: !!L.bolo };
+    return { prowl: !!u.prowl, to: u.prowl ? Math.round(Math.hypot(u.prowl.to.x - car.x, u.prowl.to.z - car.z)) : -1, cop: Math.round(Math.hypot(u.car.x - car.x, u.car.z - car.z)), chase: !!L.chase }; })()`);
+  t.check("bolo: the call-in's cruiser prowls (not routed straight to her car)", r.chase || (r.prowl && r.to > 25), JSON.stringify(r));
+  await g(`(ctx.law.standDown("test"), ctx.law._dbg.L.bolo && (ctx.law._dbg.L.bolo = null), ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await t.frames(6);
+  await W.pause(t, true);
 }
