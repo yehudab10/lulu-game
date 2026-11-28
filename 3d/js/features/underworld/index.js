@@ -60,6 +60,8 @@ export function why() {
         if (party) return "party";       // (no bad-guy cars with friends: they'd sit in the shared traffic on one screen)
         if (onFoot() || inTown()) return "town";
         if (ctx.car.speed < 12) return "slow";
+        // (a road-rager / a gang car is driven for the up-the-lap carriageway: heading DOWN the lap it came at her head-on — ci/sweep-road)
+        if (ctx.world && ctx.world.dir === -1 && !ctx.world.district) return "downlap";
         return "";
     }
     if (ctx.state === "footRun") return ctx.foot && ctx.foot.phase === "walk" && !ctx.foot.chasing ? "" : "foot";

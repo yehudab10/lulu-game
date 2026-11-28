@@ -4,6 +4,11 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 17:30 UTC — 🚗 On the road, part 6. The "🚑 pull aside for the ambulance!" on the highway no longer
+  turns up in the middle of a police chase, a road-rager or a side job. Driving the highway the other way (the far side):
+  the other driver being pulled over by the police is now up ahead of her where she can see it (it used to happen behind
+  her, out of sight), and road-ragers / gang cars no longer show up there — they're built for the other side of the road
+  and could come at her head-on.
 - 2026-11-28 17:20 UTC — 🔍 Game logic, part 2d: City Hall's ribbon cutting no longer starts while Lulu is busy with
   something else (a robbery, the Shomrim on her tail), and rushing a patient to the ER in an ambulance with the siren on
   no longer gets her a speed-camera ticket in the mail.
