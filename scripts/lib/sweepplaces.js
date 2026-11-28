@@ -374,10 +374,6 @@ function make(t) {
     for (const d of doors) {
       const where = `${prefix}${id}-${d.name}`;
       await W.reset(t);
-      // KNOWN, left for the town engine (3d/docs/sweeps/sweep-places.md): at Lakewood's shul door (the yeshiva building
-      // protrudes past its block's camera outline) the free camera behind her can sit inside the building — one flat colour
-      const known = id === "lakewood" && d.name === "yeshiva";
-      if (known) await t.L(`(window.__qa.allow.push({ kind: "flat", re: /./, sweep: 1 }), true)`);
       const car0 = await carPos();
       const ok = await enter(d, where);
       if (ok === "card") continue;
@@ -392,7 +388,6 @@ function make(t) {
         await leave(d, where, car0);
       } else { await playing(); }
       const r = await W.report(t); W.log(r); W.check(t, `${where}: in + out`, r); await W.reset(t);
-      if (known) await t.L(`(window.__qa.allow = window.__qa.allow.filter(a => !a.sweep), true)`);
       await onFoot();
     }
     return res;

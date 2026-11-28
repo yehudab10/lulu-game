@@ -4,6 +4,9 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 04:16 UTC — 🏬 Places, part 3: coming out of a front door (a neighbour's house, Lakewood's shul) the camera
+  no longer starts inside the building — the screen used to be one flat colour until she walked away; now you see her
+  on the pavement right away.
 - 2026-11-28 03:30 UTC — 🏬 Places, part 2: walking into a house on a phone (a neighbour's, Ima's, a home for sale)
   no longer shows one flat grey screen — the camera was stuck inside the front door; now the door goes see-through and
   you see the room. The camera inside the newer buildings (houses, shops, City Hall, the bowling alley) also stops at

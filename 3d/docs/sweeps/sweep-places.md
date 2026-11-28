@@ -60,13 +60,7 @@ Sweep: everything a player WALKS INTO or does on foot in the towns (see RULES.md
    the impound gate only opens on an impounded car; carcare's fronts play on the street; a fake house / listing.
 
 ## Left (owner's call / not a fix)
-- **Lakewood's shul door (the yeshiva building on Carpool Ln): the free camera can end up INSIDE the building** — one
-  flat dark screen when she stands at the door with the camera on the building side, and right after walking OUT of
-  the shul (the camera starts behind her = in the building) until she walks off. The town camera clip
-  (`foot/jump.js` camClip) uses the blocks' outlines (`town/plan.js` OCCLUDERS = block inset FRONT + 1.2), but the
-  yeshiva model protrudes past the front line (`town/build.js` town_yeshiva `prot: 1.2`; Bais Yaakov `prot: 3.1`), so
-  its front few metres aren't covered. Town-engine work (an occluder per protruding landmark) — left for the town
-  owner; the sweep test allows it at that one door.
+- (Lakewood's shul door — the camera inside the yeshiva building: fixed with item 16, batch 3.)
 - Yanky's makolet's sign says "closed Shabbos · it's complicated", but none of the big places (makolet, clothes, pizza,
   bakery, bank, realtor, city hall, the lanes) close on Shabbos while the shopfronts do. Closing them is a design call.
 
