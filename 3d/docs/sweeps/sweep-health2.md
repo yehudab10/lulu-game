@@ -57,6 +57,15 @@ party* / qafriends / openworld relay → `ci/oneserver-place` / `ci/friends` whi
 
 see the FINAL TABLE at the top.
 
+## After whole suite #2
+
+| check | verdict / status |
+|---|---|
+| partyworld — paused in a party: never rolls backwards (min vF −6.3; −16, −11.5 in earlier runs) | REAL: paused in a party, `holdCtl` pulled the HANDBRAKE at once — at 16 m/s the car slid round (forward speed negative for a moment). Placing the host away from the guest didn't help (−3.8), so it wasn't a bump. The handbrake goes on only once she's nearly stopped (`party/index.js` holdCtl) — partyworld green 46171036930. (`ci/friends` landed + quiet → mine.) The test also places the host 150 m behind the stopped guest now |
+| homes — a speeding car: peds scatter (AAH!) | flake: green on the re-run 46169211630 |
+| streets — a cop SAW it → an instant chase (CARJACKING) | flake (red in both whole suites, green on the re-run 46169211630); cops = `ci/sweep-road` — told in the report |
+| sweeproad3, sweepcamera | the other sweeps' own tests — theirs |
+
 ## Findings + status
 
 ## Left for other branches

@@ -4,6 +4,9 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 18:00 UTC — 🩺 Tests + small fixes, part 4. Playing with friends, opening the 📱 phone or the pause menu
+  while driving no longer spins Lulu's car round (it pulled the handbrake at full speed) — it brakes to a stop in its
+  lane and stays there.
 - 2026-11-28 17:30 UTC — 🔍 Game logic, part 2e: playing with friends, the 📱's clock now shows the same time of day as the
   sky (and the shop doors), not the device's.
 - 2026-11-28 17:30 UTC — 🚗 On the road, part 6. The "🚑 pull aside for the ambulance!" on the highway no longer
