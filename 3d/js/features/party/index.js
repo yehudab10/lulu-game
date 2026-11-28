@@ -1546,11 +1546,16 @@ const HWY = {
 function claimHandler(key) { const k = String(key), i = k.indexOf(":"); return (i > 0 && CLAIM.H.get(k.slice(0, i))) || HWY; }
 /** Claims are a carjack thing: a 🏡 Road Trip / 🌍 Free Roam run (not a race / dash / tag) with streets on. */
 /** (🌍 on her own run the town's loop minivans are still the shared ones — openworld/towntraffic — so they claim the same way) */
-const claimWorld = () => inPartyRun() || lightRoam();
-function claimRunOk() { const A = N.A; return claimWorld() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
+// 🌍 online with no group at all (ci/friends, the world clock's client half): a town's loop minivans are the SAME on every
+// screen (openworld › worldTowns), so they claim the same way — on the world clock, sent as reliable one-time events
+// ("tcl" / "tj", multiplayer's ctx.mp.event) to everyone in the same place
+const worldClaims = () => !N.want && !!(ctx.openworld && ctx.openworld.worldTowns && ctx.openworld.worldTowns());
+const claimClock = () => (worldClaims() && ctx.worldClock ? ctx.worldClock.now() : clock());
+const claimWorld = () => inPartyRun() || lightRoam() || worldClaims();
+function claimRunOk() { if (worldClaims()) return ctx.enabled("streets"); const A = N.A; return claimWorld() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
 function canClaim(c) {
     const key = c && c.data && c.data.party;
-    return typeof key === "string" && !c.data.lightClaim && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
+    return typeof key === "string" && (!worldClaims() || key.startsWith("tw:")) && !c.data.lightClaim && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
         !(claimHandler(key).claimed && claimHandler(key).claimed(key)) && !!(ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind]);
 }
 function claimShared(c, opts = {}) {
@@ -1558,13 +1563,16 @@ function claimShared(c, opts = {}) {
     const key = c.data.party, h = claimHandler(key), pl = h.plan(c, opts);
     if (opts.dS != null) pl.dS = opts.dS;
     pl.L = Math.round(pl.L * 10) / 10; pl.dS = Math.round(pl.dS * 10) / 10;     // (what friends get: the same stop to the cm)
-    const T0 = Math.round(clock()), hail = opts.hail ? 1 : 0;
-    if (!h.add(key, T0, pl.L, pl.dS, N.uid, true, !!hail)) return false;
+    const T0 = Math.round(claimClock()), hail = opts.hail ? 1 : 0;
+    if (!h.add(key, T0, pl.L, pl.dS, N.uid || "me", true, !!hail)) return false;
     const L10 = Math.round(pl.L * 10), d10 = Math.round(pl.dS * 10);
-    XC.push(key, T0, L10, d10, hail);
-    while (XC.length > 20) XC.splice(0, 5);
-    NET.setX("cl", XC.slice());
-    NET.broadcast("cl", key, T0, L10, d10, hail);
+    if (worldClaims()) { if (ctx.mp && ctx.mp.event) ctx.mp.event("tcl", { a: [key, T0, L10, d10, hail] }); }
+    else {
+        XC.push(key, T0, L10, d10, hail);
+        while (XC.length > 20) XC.splice(0, 5);
+        NET.setX("cl", XC.slice());
+        NET.broadcast("cl", key, T0, L10, d10, hail);
+    }
     CLAIM.n++;
     emit("party:claim", { key, how: opts.how || "stop", hail: !!hail });
     emit("stat", { id: "partyClaims", n: 1 });
@@ -1580,6 +1588,13 @@ function applyClaims(p, a) {
     }
 }
 on("party:bc", ({ p, k, a }) => { if (k === "cl" && claimWorld() && p.aid === N.A.id) applyClaims(p, a); });
+// 🌍 another player online claimed / took a town loop minivan (reliable events — a late one still counts: the claim's
+//  pure formula puts the car where it is now)
+on("mp:event", e => {
+    if (!e || !e.d || !Array.isArray(e.d.a) || !worldClaims()) return;
+    if (e.k === "tcl") applyClaims({ uid: "mp:" + e.from }, e.d.a.slice(0, 5));
+    else if (e.k === "tj") for (const key of e.d.a.slice(0, 2)) if (typeof key === "string" && key.startsWith("tw:")) dropShared(key);
+});
 function claimFeedback(c, how) {
     const msg = how === "step" ? "🛑 SCREEEECH — it stopped for you!" : how === "ram" ? "💥 They're pulling over… go get it!" : how === "hail" ? "✋ They're pulling over for you!" : "🚨 Pulling over…";
     H.toast(msg, "gold");
@@ -1680,7 +1695,7 @@ const flagSpot = {
     r: 2.6, short: "FLAG",
     pos() {
         const fp = ctx.foot && ctx.foot.pos;
-        CLAIM.flag = fp && N.want ? (flagCandidate(fp) || lightFlagCandidate(fp)) : null;
+        CLAIM.flag = fp && (N.want || worldClaims()) ? (flagCandidate(fp) || lightFlagCandidate(fp)) : null;
         if (!CLAIM.flag) return null;
         const c = CLAIM.flag.c, s = Math.sign(CLAIM.flag.lat) || 1;
         return { x: fp.x - Math.cos(c.h) * s * 1.1, z: fp.z + Math.sin(c.h) * s * 1.1 };
@@ -1742,7 +1757,7 @@ on("boot", () => { if (ctx.foot && ctx.foot.addSpot) { ctx.foot.addSpot(flagSpot
  *  for good; on my screen it's a local car now (removed by whoever took it). */
 function claimTraffic(c, now = false) {
     const D = c && c.data;
-    if (!N.want || !D) return false;
+    if ((!N.want && !worldClaims()) || !D) return false;
     let key = null;
     if (typeof D.partyClaim === "string") {
         key = D.partyClaim;
@@ -1758,6 +1773,7 @@ function claimTraffic(c, now = false) {
         if (h === HWY) T.goneCar(key, true); else h.kill(key);
     } else return false;
     D.party = null; D.partyClaim = null; D.owTown = false; D.local = true; D.wasParty = key; c.onRemove = null;
+    if (worldClaims()) { if (ctx.mp && ctx.mp.event) ctx.mp.event("tj", { a: [key] }); return true; }
     XP.jk.push(key); if (XP.jk.length > 6) XP.jk.shift();
     NET.setX("jk", XP.jk.slice());
     NET.broadcast("j", key);
@@ -1781,7 +1797,7 @@ on("party:bc", ({ p, k, a }) => { if (k === "j" && claimWorld() && p.aid === N.A
 on("streets:carjack", () => {
     const pd = CLAIM.pending;
     CLAIM.pending = null;
-    if (pd && N.want && !ctx.traffic.cars.includes(pd.c)) claimTraffic(pd.c, true);
+    if (pd && (N.want || worldClaims()) && !ctx.traffic.cars.includes(pd.c)) claimTraffic(pd.c, true);
 });
 
 // ── on foot in a party: the shared traffic keeps coming, coins stay shared, friends can knock her flat ──
@@ -1857,7 +1873,14 @@ function frame() {
     try {
         if (!autoTried && ctx.state === "title") { autoTried = true; autoJoin(); }
         NET.tick();
-        if (!N.want) return;
+        if (!N.want) {
+            // 🌍 no group, online: she can still stop a town's shared loop minivan by stepping out in front of it
+            if (worldClaims()) {
+                if (CLAIM.cool > 0) CLAIM.cool -= dt;
+                if (ctx.state === "footRun" && ctx.foot && ctx.foot.active && ctx.foot.pos && !ctx.paused) claimStepTick(ctx.foot.pos);
+            }
+            return;
+        }
         updateRate();
         publish();
         if (N.isHost) hostTick();

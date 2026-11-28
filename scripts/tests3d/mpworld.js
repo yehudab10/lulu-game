@@ -15,7 +15,7 @@ const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.
 let relay = null;
 const PORT = 27000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone,streets&mpurl=${encodeURIComponent(url)}`;
 const S = `ctx.mp._debug`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -229,6 +229,27 @@ async function body(t, pages, riders) {
     t.check("B doesn't see A while A is in town", await B.until(`!Object.values(${S}.peers).some(p => p.onScreen)`, "B: A leaves the highway", 30000));
     await t.shot("town");
     town.close(); riders.length = 0;
+    // 🌍 B drives into Lakewood too — the town's loop minivans are the WORLD's: the same cars at the same places on two
+    // strangers' screens at the same world time (each still has her own extra drivers), and one stopped by A stops for B
+    await B.game(`ctx.town.load("lakewood")`);
+    if (await B.until(`ctx.town.loaded("lakewood")`, "B: Lakewood loaded", 120000)) {
+      await B.game(`(ctx.town.enter({ town: "lakewood", exitS: ctx.car.s, speed: 0 }), true)`);
+      await B.until(`ctx.town.active && ctx.town.id === "lakewood" && !ctx.town.transitioning`, "B: in Lakewood", 60000);
+      const loopsOn = q => q.until(`ctx.openworld.worldTowns() && ctx.openworld.debug.townLive().length >= 6`, "the world's town loops", 60000);
+      if (await loopsOn(A) && await loopsOn(B)) {
+        const T0 = await g(`Math.round(ctx.worldClock.now() + 2000)`);
+        const la = await g(`JSON.stringify(ctx.openworld.debug.townCarsAt(${T0}).map(c => [c.key, +c.x.toFixed(2), +c.z.toFixed(2)]))`);
+        const lb = await B.game(`JSON.stringify(ctx.openworld.debug.townCarsAt(${T0}).map(c => [c.key, +c.x.toFixed(2), +c.z.toFixed(2)]))`);
+        t.check("world town loops: the same minivans at the same places on two strangers' screens", la === lb && JSON.parse(la).length >= 6, `${JSON.parse(la).length} / ${JSON.parse(lb).length}`);
+        // A claims one (as if she stepped out in front of it): it pulls over on B's screen too (a reliable "tcl" event)
+        const key = await g(`(() => { const c = ctx.traffic.cars.find(c => c.data && c.data.owTown && typeof c.data.party === "string"); return c && ctx.party.claim(c, { how: "step" }) ? c.data.key : null; })()`);
+        t.check("world town loops: A stops one…", !!key, String(key));
+        if (key) t.check("…and it pulls over on B's screen too", await B.until(`ctx.openworld.debug.townClaims.claimed(${JSON.stringify(key)})`, "B: the claim arrives", 30000));
+      } else t.check("world town loops: both screens run the world's loops in Lakewood", false, JSON.stringify(await g(`({ wt: ctx.openworld.worldTowns(), live: ctx.openworld.debug.townLive().length, sky: ctx.mp.worldSky.on() })`)));
+      await B.game(`(ctx.town.leave("reset"), true)`);
+      await B.until(`!ctx.town.active`, "B: back on the highway", 30000);
+      await B.game(HOLD); await B.game(PLACE(425, -1.75));
+    }
     await g(`(ctx.town.leave("reset"), true)`);
     await A.until(`!ctx.town.active`, "A: back on the highway", 30000);
   }
