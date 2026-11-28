@@ -11,6 +11,9 @@ it down the lap, `_KM` / `_FROM` a stretch).
 Not touched (still moving on another branch when this started): `features/fuel` (`ci/fuel`, not landed),
 `features/dealers` (`ci/dealers-ui`, moved minutes before).
 
+**Status: FINISHED 2026-11-28 18:40 UTC** — 32 findings, all landed on main in 9 parts (below); nothing half-done on
+`ci/sweep-road`. What's left is under "Left" and "For other branches".
+
 ## Findings
 
 | # | what the player sees | where | status |
@@ -47,6 +50,8 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 | 28 | The road's 🚑 "Pull aside for the ambulance!" started in the middle of a police chase, a road-rager, a side job (ci/sweep-logic2 flagged it for this sweep). | `roadevents/index.js` scheduler | **fixed** — waits for `ctx.engaged()` to be free, like the drive-thru / the ice-cream van; `sweeproad` › amb |
 | 29 | Down the lap, "somebody else gets pulled over" (law's flavour scene) picked a car BEHIND her on the other carriageway — she never saw it, and the cruiser + the car stayed kept (never recycled) for the rest of the run. | `law/cops.js` startFlavour | **fixed** — a car up ahead of her, her way, pulled to her side's shoulder |
 | 30 | Down the lap, a road-rager / gang car was still sent — spawned "behind" her up the lap (i.e. AHEAD of her) driving up the lap in her carriageway: head-on. Its whole AI is written for the up-the-lap side. | `underworld/index.js` `why` | **fixed (gate)** — no bad-guy car while she's heading down the lap ("downlap"); mirroring their AI left to ci/twoway's owner |
+| 31 | In TOWN, finding #1 again: the town's patrol car driving into her (stopped at a corner, say) → "🚨 YOU HIT THE PATROL CAR!" RAMMING A POLICE CRUISER; a Shomrim car / any town car hitting her → a witness for "RAMMING A SHOMRIM CAR" / "FENDER BENDER (AND DRIVING OFF)". | `town/index.js`, `community/index.js` crash handlers | **fixed** — not when traffic.js says it was their fault; `sweeproad` › bolo |
+| 32 | A walker crossing the road who walked INTO her stopped car was "bonked" — knocked flying into the car — and with a cop in sight that was a "reckless" chase. | `roadevents/passengers.js` collide | **fixed** — below 1.5 m/s they stop and wait beside the car, then walk on; `sweeproad` › amb |
 | 20 | Shmuel's chop shop: "his guy brings Lulu's own car round" after a drop-off — even when her car was IMPOUNDED (a free release). | `streets/chop.js` | **fixed** — no chop-shop call while her own car is impounded (a car parked away is still "brought round": his guy's service) |
 
 - (from ci/sweep-health) `schlepnav` "…still self-driving in town": NOT a game bug — on the fast test clock the harness stops on
@@ -73,6 +78,12 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## For other branches
 
+- **ci/sweep-health**: `community` is red on current main without this sweep's change too (locally, twice: "Hatzalah is
+  there (lights, siren) before she hangs up" times out; once "boxed in again" / "the cops come"; CI 46171804000 also
+  "Chaverim pull up behind her").
+- **ci/twoway's owner**: driving DOWN the lap from near the start of the world, the road ends at s = 0 (the lap is periodic
+  only going up): sweeproad3's down-the-lap drive reached s 0 and left the road there (`d` growing to 48 with `s` stuck at 0).
+
 - **ci/twoway's owner (the town-engine agent)**: going DOWN the lap, roadevents' set pieces (toll, train crossing, school
   bus stop, work zones, the steamroller…) still place themselves up the lap (`roadevents/common.js` `claimSlot`:
   `carS() + 420` / `builtEnd()`), i.e. behind her, where she never meets them; their "keep me" tests (`car.s < s + 250`)
@@ -92,6 +103,10 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 18:35 UTC — part 9 on main: finding 32 (a walker into her stopped car). CI 46174112439 (core, platform,
+  sweeproad, roadevents, atmos, qacar, foot ✓) + local roadevents ✓. Main's Smoke after parts 6–8: 46170811719, 46173986970 ✓.
+- 2026-11-28 18:10 UTC — part 8 on main: finding 31 (town crash fairness). CI 46171804000 (town, midwood, lawstruck, qalaw,
+  core, platform, sweeproad ✓; community ✗ — fails the same way locally with this change taken out, see For other branches).
 - 2026-11-28 17:35 UTC — part 7 on main: a given-up cruiser is let go 170 m on her way (down the lap too); the `amb`
   check no longer races the chase; sweeproad3's driver flips back for Ima's call (the down-the-lap "veers"). CI 46170331613
   (core, platform, sweeproad, law, lawstruck, qalaw ✓).
