@@ -44,6 +44,16 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | partyplus — the claimed minivan pulls over the same way on both screens (guest null) | open (party; `ci/friends` area) |
 | qafriends — guest: hop out moving in town: the car moved 5.8 m in one frame | open (party) |
 
+### The two machines the whole-suite run lost (re-run on this branch: 46096783229, main cd9c4de + test-only changes)
+
+| check | verdict / status |
+|---|---|
+| calm (all four minutes within budget: solo highway 11 / min) | green — the pothole fix holds |
+| adhold, cityhall3, homelife2, life2, onegame, places, qa20, qa9, realestatego, town | green (onegame's "next to Dina" was fixed by `ci/doors`' NEXT_TO rule) |
+| crime, friendsworld, impound, movetouch, partyfoot, qa13, qatouch, shabbos | green |
+| qa27 — 6.8 km court: no jump glitch (the camera 5.8 m in one frame, state playing) | test: between two places the test ends her walk by script (`foot.end("test")` → straight back at the wheel) BEFORE it declared the cut — the chase cam taking over from the foot cam. Declared first now — 0e…(this branch) |
+| perf (main run 46089441840, someone's 3-file dispatch) — the friend's car is in my world | test: checked after a frame count while the friend arrives over the relay on real time; waits for it now |
+
 ## Findings + status
 
 ## Left for other branches
