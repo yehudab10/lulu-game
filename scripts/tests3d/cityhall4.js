@@ -90,7 +90,7 @@ module.exports = {
     t.check(`the ruling strikes it down (${e0})`, await g(`!!${CH}.debug.S.struck[${JSON.stringify(e0)}] && ${M}.today().id !== ${JSON.stringify(e0)}`));
     t.check("…its case is closed", await g(`!ctx.civic.courts.caseById("cityhall:edict:${e0}").available()`));
     t.check("…and the next edict gets its own case", await g(`(${M}.addCase(), !!ctx.civic.courts.caseById("cityhall:edict:" + ${M}.today().id))`));
-    await g(`(() => { const S = ${CH}.debug.S; for (const id of ["grocery","buses","rent","pothole","kugel","avenue","bench","tickets","umbrella","bread"]) S.struck[id] = 1; return true; })()`);
+    await g(`(() => { const S = ${CH}.debug.S; for (const id of ["grocery","buses","rent","pothole","kugel","avenue","bench","tickets","umbrella","bread","shops"]) S.struck[id] = 1; return true; })()`);
     t.check("every edict struck → no edict, the protests go back to the old topics", await g(`${M}.today() === null && !/^edict:/.test(${CH}.protest.topic("midwood").id)`));
     await g(`(${CH}.debug.S.struck = {}, true)`);
 

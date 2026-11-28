@@ -401,8 +401,7 @@ export default defineInterior({
         rt.hot({ id: "passed", spot: "passedTalk", r: 1.0, label: "😴 Poke the snoozing guy", action: async rt => {
             const at = rt.spot("passed");
             await rt.say("Passed-out guy", PASSED(), SNOOZE);
-            if (!rt.used.passed && !rt.disposed) {   // he "offers" his car keys in his sleep. It's a chip clip.
-                rt.used.passed = true;
+            if (!rt.disposed && rt.onceToday("passed")) {   // he "offers" his car keys in his sleep. It's a chip clip.
                 rt.coins(2, "🔑? ...it's a chip clip. +2", new THREE.Vector3(at.x, 1.3, at.z));
                 sfx.womp();
             }
@@ -414,16 +413,14 @@ export default defineInterior({
             rt.burst(new THREE.Vector3(at.x, 2.0, at.z), ["#FFE082"], 10, 1.2, 0.04);
             if (!rt.inHand) rt.luluHold("Seltzer");
             await rt.say("Tipsy regular", CLINK(), Object.assign({ person: rt.byId.drunkB }, TIPSY));
-            if (!rt.used.clink && !rt.disposed) {
-                rt.used.clink = true;
+            if (!rt.disposed && rt.onceToday("clink")) {
                 const n = force.clink || randInt(3, 6);
                 rt.coins(n, `+${n} 🪙 "my round!"`, new THREE.Vector3(at.x, 1.6, at.z));
             }
         } });
         rt.hot({ id: "bartender", spot: "solTalk", who: "bartender", r: 1.15, label: "🍸 Talk to Sol the bartender", action: async rt => {
             await rt.say("Sol", BARTENDER(), Object.assign({ person: rt.byId.bartender }, SOL));
-            if (!rt.used.seltzer && !rt.disposed) {   // free seltzer → a ⭐ AND a couple coins
-                rt.used.seltzer = true;
+            if (!rt.disposed && rt.onceToday("seltzer")) {   // free seltzer → a ⭐ AND a couple coins
                 const at = rt.byId.bartender.p.obj.position;
                 rt.star(1, "🥤 FREE SELTZER ⭐", new THREE.Vector3(at.x, 1.6, at.z + 1));
                 rt.coins(3, "+3 💰", null);
