@@ -2,15 +2,15 @@
 
 ## FINAL TABLE — the last whole suite, 46173386522 on main a025a083 (dispatched 17:59 UTC)
 
-16 machines (194 test files): **11 green, 2 red, 3 still running when written**. Every red below
-was re-run or fixed; nothing red is left that is known to be a real bug on main.
+16 machines (194 test files): **11 green, 4 red, 1 still running when written**. Every red below
+is either fixed since (and landed), a one-off that passed when re-run, or another sweep's own new test, left to its owner.
 
 | group (machine) | result | why |
 |---|---|---|
 | looktest, sweeplogic2, yeshiva, homelife, qaweekend, life2, qafriends, native, accounts… | ❌ qafriends | **qafriends**: a passenger's car jumped 15.7 m on hopping out moving — REAL, fixed after this run (batch 5, c631f417; re-run green 46176106020) |
 | town, sweepphone3, parking-levels, gfx, party, dealers, clothes, hidden, qaplaces… | ✅ green | |
 | perf, qa9, streets, bankfriends, qafriends2, music, play, qa5, platform… | ✅ green | |
-| fuel, sweepcamera, sweeproad2, together, doors, partners, adhold, hustle, moves… | ⏳ still running when this was written | |
+| fuel, sweepcamera, sweeproad2, together, doors, partners, adhold, hustle, moves… | ❌ sweepcamera | **sweepcamera**: Midwood front doors: one flat-colour frame on foot — `ci/sweep-camera`'s own test (camera lane), left to them |
 | calm, playershopsfriends, sweepplaces2, partyhang, life3, interiors, accountsfriends, airport-stage3, onegame… | ✅ green | |
 | lanes, sweeplogic, worldplace, core, calls, family, qa, memory, qa20… | ✅ green | |
 | unstuck, sweepphone4, community, shops, qa27, flow, partyplus, qa7, dina… | ✅ green | |
@@ -20,7 +20,7 @@ was re-run or fixed; nothing red is left that is known to be a real bug on main.
 | mpworld, sweepphone5, exits, qa6, cityhall, underworld, realestate, realestateworld, qaweekend-air… | ⏳ still running when this was written | |
 | homes, sweepplaces, crime3, qa15, shul, partners3, parking, qa10, qa8… | ✅ green | |
 | dealersui, schlepnav, sweepplaces4, cameos, partyworld, airport-terminal, crime, phone, unstuck-air… | ✅ green | |
-| install, sweephealth, sweeproad3, heist, friends, qa14, roadevents, roadside, qa17… | ⏳ still running when this was written | |
+| install, sweephealth, sweeproad3, heist, friends, qa14, roadevents, roadside, qa17… | ❌ sweeproad3 | **sweeproad3**: a sedan bumping her at 5.2 km + a flat frame on the lap — `ci/sweep-road`'s own test (traffic lane), left to them |
 | playershops, sweepphone2, midwood, places, seasons, hudfit, footbounds, ux, qa23… | ❌ places | **places**: back out of the court timed out — flake (green on the re-run 46175555700) |
 | friendsworld, storefronts, sweeproad, homeperf, openworld, qacar, foot, life, meta… | ✅ green | |
 
