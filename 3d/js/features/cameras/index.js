@@ -172,6 +172,9 @@ function noTicket() {
     // riding in a friend's passenger seat: her own car rides along at the friend's speed, but she isn't driving —
     // openworld/ride.js promises "she's never ticketed or chased for the driver's driving" (ci/sweep-logic2)
     if (ctx.openworld && ctx.openworld.riding) return "riding";
+    // an ambulance / a cop car with its siren on (a 🚑 patient against the ER clock): an emergency vehicle — the ticket
+    // came in the mail for rushing a patient past a school (ci/sweep-logic2)
+    if (ctx.rides && ctx.rides.siren) return "siren";
     return "";
 }
 
