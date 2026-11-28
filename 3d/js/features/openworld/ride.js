@@ -51,7 +51,7 @@ export function startRide(uid) {
     const p = ctx.party.peer(uid);
     if (!p || !ctx.party.fresh(p)) return "📶 Can't see them right now";
     if (E.zoneOfPeer(p) !== E.zone()) E.warpToFriend(uid);
-    RIDE.uid = uid; RIDE.t = 0; RIDE.lost = 0; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; RIDE.last = null; RIDE.vx = RIDE.vz = 0;
+    RIDE.uid = uid; RIDE.t = 0; RIDE.lost = 0; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; RIDE.last = null; RIDE.vx = RIDE.vz = 0; RIDE.rcPrev = null;
     E.setRide(uid);
     hideCar(true);
     H.banner(`<b>🚗 Riding with ${E.nameOf(uid)}</b><small>${glyph("interact")} hop out · honk to wave</small>`, 2600, { key: "ow", prio: 2 });
@@ -154,13 +154,21 @@ hook("update", (dt, P) => {
         // (the town on this screen is still building at its interchange: keep rolling with the driver a while longer — a
         //  warp is a visible jump; only a town that isn't there at all warps after 0.8 s)
         const z = E.zoneOfPeer(p), building = !!z && (ctx.town && ctx.town.standing || []).some(b => b.town === z && !b.ready);
-        if (RIDE.lost > (building ? 3 : 0.8)) { rlog("warp", building ? "building" : ""); RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); RIDE.last = null; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; }   // (a warp is a cut: no glide back)
+        if (RIDE.lost > (building ? 3 : 0.8)) { rlog("warp", building ? "building" : ""); RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); RIDE.last = null; RIDE.gap = false; RIDE.ox = RIDE.oz = 0; RIDE.rcPrev = null; }   // (a warp is a cut: no glide back)
         return;
     }
     if (!rc || !rc.shown) { roll(dt); return; }
     RIDE.lost = 0;
     // (back from a gap: her seat glides onto the driver's car — never snaps — like a friend's car does, party/remote.js)
-    if (RIDE.gap) { RIDE.gap = false; RIDE.ox = car.pos.x - rc.x; RIDE.oz = car.pos.z - rc.z; rlog("back", Math.hypot(RIDE.ox, RIDE.oz).toFixed(1)); if (Math.hypot(RIDE.ox, RIDE.oz) > 40) RIDE.ox = RIDE.oz = 0; }
+    if (RIDE.gap) { RIDE.gap = false; RIDE.ox = car.pos.x - rc.x; RIDE.oz = car.pos.z - rc.z; rlog("back", Math.hypot(RIDE.ox, RIDE.oz).toFixed(1)); if (Math.hypot(RIDE.ox, RIDE.oz) > 40) RIDE.ox = RIDE.oz = 0; RIDE.rcPrev = null; }
+    // (the driver's car, as drawn here, can itself hop a few metres when her track changes frames — a town line: her seat
+    //  takes the part of the hop the car couldn't have driven into the glide offset instead of jumping with it — qafriends)
+    const RP = RIDE.rcPrev;
+    if (RP) {
+        const jx = rc.x - RP.x, jz = rc.z - RP.z, jl = Math.hypot(jx, jz), lim = Math.max(1.5, Math.abs(rc.speed || 0) * dt * 2 + 0.6);
+        if (jl > lim && jl < 40) { const k = (jl - lim) / jl; RIDE.ox -= jx * k; RIDE.oz -= jz * k; rlog("hop", jl.toFixed(1)); }
+    }
+    RIDE.rcPrev = { x: rc.x, z: rc.z };
     const om = Math.hypot(RIDE.ox, RIDE.oz);
     if (om > 0.01) { const cut = Math.min(om * (1 - Math.exp(-dt / 0.12)), (8 + 2 * om) * dt), f = (om - cut) / om; RIDE.ox *= f; RIDE.oz *= f; } else RIDE.ox = RIDE.oz = 0;
     car.pos.set(rc.x + RIDE.ox, 0, rc.z + RIDE.oz); car.h = rc.h;
