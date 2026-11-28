@@ -4,7 +4,7 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
-- 2026-11-28 19:30 UTC — ✋ The hand button, at a door or a parked car: when a neighbour happened to walk past right next to
+- 2026-11-28 18:55 UTC — ✋ The hand button, at a door or a parked car: when a neighbour happened to walk past right next to
   Lulu, the ✋ button switched to "💬 SAY HI" to them instead of opening the shop / the hospital / the shul she was standing
   at, or hotwiring the car beside her. A passer-by now only gets the hand when there's nothing of hers in reach (in the
   middle of the street she can still say hi).

@@ -92,7 +92,9 @@ both areas are this sweep's now.
   street read as "one flat colour", 46169174266), `SWEEPCAM_LAND=1` (1280 × 720: every part green locally),
   `SWEEPCAM_SPOT` (a debug picture). CI 46172828152 (sweepcamera, cityhall, foot, qa7: green), 46169174266 (core,
   platform, qa27, qaweekend, unstuck: green); exits green in 46172828152 too. Main's Smoke test green on 04006770.
-- Sweep paused 18:40 UTC (no risky change after 19:00). Everything is on main.
+- batch 3 → main (~18:55 UTC): item 14 (the ✋ passer-by). CI 46177147955 (core, platform, foot, homes, doors, life3,
+  sweepplaces 1–4, sweepcamera: green).
+- Sweep done 18:55 UTC. Everything is on main.
 
 Tests: `scripts/tests3d/sweepcamera.js` (parts: home, trees, doors, rooms, ribbon, doorout, roadside, airport, rest; `SWEEPCAM_PARTS`),
 `scripts/lib/camjunk.js` (the probe: rays from the lens into the real scene — what's within 1.6 m of the lens, what
