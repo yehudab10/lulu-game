@@ -361,7 +361,7 @@ function aimRest(la, out) {
     return ctx.world.highway.point(A.R.s + ua, restLine(ua), out);
 }
 hook("copRoute", (c, unit, ch) => {
-    if (!unit || unit.mode !== "chase" || (ch && ch.searching) || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
+    if (!unit || (unit.mode !== "chase" && unit.mode !== "pull") || (ch && ch.searching) || (ctx.town && ctx.town.active) || !ctx.car || !ctx.world) return null;
     const car = ctx.car;
     if (!(car.d > 6.6)) return null;
     const R = RS.list.find(r => car.s > r.s + LY.TAPER0 && car.s < r.s + LY.ACC1);
@@ -370,8 +370,15 @@ hook("copRoute", (c, unit, ch) => {
     if (!LY.groundAt(uL, car.d)) return null;                    // (not on the rest area's ground: law's own)
     const uC = c.s - R.s;
     if (uC < LY.TAPER0 - 400 || uC > uL + 5) return null;
-    Object.assign(_rc, { R, uC, uL, tx: car.pos.x, tz: car.pos.z });
-    return { gap: Math.max(0, uL - uC), aim: aimRest };
+    const back = unit.mode === "pull" ? 7.2 : 0;           // (a pull-over: it stops 7 m behind her car)
+    Object.assign(_rc, { R, uC, uL: uL - back, tx: car.pos.x - Math.sin(car.h) * back, tz: car.pos.z - Math.cos(car.h) * back });
+    return { gap: Math.max(0, uL - uC - back), aim: aimRest };
+});
+// BUSTED in a rest area (its ramps, the lot): she stops where she is — law's pull-over used to steer her back to the highway
+hook("pullOverSpot", car => {
+    if ((ctx.town && ctx.town.active) || !car || !(car.d > 9.5)) return null;
+    const R = RS.list.find(r => car.s > r.s + LY.TAPER0 && car.s < r.s + LY.ACC1);
+    return R && LY.groundAt(car.s - R.s, car.d) ? { h: car.h } : null;
 });
 
 // ── wiring ───────────────────────────────────────────────────────────────

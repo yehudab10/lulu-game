@@ -237,6 +237,17 @@ async function ramp(t) {
   await g(`(window.__route = null, true)`);
   t.check("ramp: a cruiser chased her down the ramp", seen.some(n => n > 0), seen.join(","));
   t.check("ramp: …on the decel lane / ramp, never across the gore or the grass", off.length === 0, JSON.stringify(off.slice(0, 8)));
+  // BUSTED on the ramp: she stops where she is (law's pull-over used to steer her back across the grass to the highway's
+  // shoulder) and the cruiser pulls up behind her on the ramp
+  await g(`(window.__route = null, ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" ? L3.setState("playing") : 0, true)`);
+  await t.frames(10);
+  // (law's pull-over asks "pullOverSpot": on the ramp → stop right here; on the highway → law's own shoulder)
+  const po = await t.L(`import("./js/features/law/bust.js").then(B => { const C = __lulu3d.ctx, hw = C.world.highway, car = C.car, E = ${E}, keep = { x: car.pos.x, z: car.pos.z, s: car.s, d: car.d, h: car.h };
+    const at = (u, d) => { const p = hw.point(E + u, d, {}); car.place(p.x, p.z, p.h); car.s = E + u; car.d = d; return !!B.pullOverSpot(car); };
+    const ramp = at(70, C.town.debug.rampRoute(E, 0, 70)[0][1]), hwy = at(-400, 5.25);
+    car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return { ramp, hwy }; })`);
+  await W.moved(t);
+  t.check("ramp: busted ON the ramp she stops where she is (law's pull-over used to steer her back across the grass to the shoulder)", po.ramp && !po.hwy, JSON.stringify(po));
   await g(`(ctx.law.standDown("test"), ctx.town.active && ctx.town.leave("reset"), true)`);
   await t.frames(30);
   // ── the same into a REST AREA: down its off-ramp into the drive aisle ──
@@ -262,6 +273,11 @@ async function ramp(t) {
         if (r.st !== "playing" || r.me > 185 || (!r.cops.length && k > 30)) break;
       }
       await g(`(window.__route = null, true)`);
+      const po2 = await t.L(`import("./js/features/law/bust.js").then(B => { const C = __lulu3d.ctx, hw = C.world.highway, car = C.car, keep = { x: car.pos.x, z: car.pos.z, s: car.s, d: car.d, h: car.h };
+        const p = hw.point(${R} + 100, 33, {}); car.place(p.x, p.z, p.h); car.s = ${R} + 100; car.d = 33; const r = !!B.pullOverSpot(car);
+        car.place(keep.x, keep.z, keep.h); car.s = keep.s; car.d = keep.d; return r; })`);
+      await W.moved(t);
+      t.check("ramp: busted in a rest area's lot she stops where she is", po2, String(po2));
       t.check("ramp: into a rest area too, the cruiser keeps to its ramp + aisle (not across the grass)", seen2.some(n => n > 0) && off2.length === 0, JSON.stringify(off2.slice(0, 8)) + " · " + seen2.slice(0, 20).join(","));
       await g(`(ctx.law.standDown("test"), true)`);
     }
