@@ -4,6 +4,19 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 05:30 UTC — 📱 Phones, part 1 (what a player on a phone sees): a brand-new player at the porch gets ONE
+  thing to do — "drag the WALK pad to your car", and the camera now looks at the car (on a phone held upright it was off
+  the edge of the screen), so pushing up walks straight to it; the "tap JUMP" tip and the Day-1 streak card no longer
+  pile on top of Ima at the same moment (the streak shows once she drives), and sitting still in the driveway says
+  "Hold GAS to pull out". The phone's intro banner waits for the first-drive tutorial to finish, and the tutorial's first
+  card no longer talks about "the open road" while she's on her own street. Inside small rooms on a phone, Lulu turns
+  see-through when the camera is right behind her, and the camera looks over her shoulder at the person she walked up
+  to, so her head no longer hides the shopkeeper. Facing someone, the ✋ is for that person, not the bottle on the
+  counter in front of them. ⚙️ Music OFF now stays off after closing the game; a long username no longer pushes the
+  Settings rows off the card; the 📱's Back / Menu buttons are bigger for fingers and the handset fits on iPhones in
+  Safari. Smaller things: speech bubbles stay whole on the screen, the ON FOOT chip lost its meaningless "🏡 100%", the
+  clothes counter says "Chat at the counter" (paying happens after trying on), and four emoji that older iPhones show
+  as empty boxes were swapped.
 - 2026-11-28 04:16 UTC — 🏬 Places, part 3: coming out of a front door (a neighbour's house, Lakewood's shul) the camera
   no longer starts inside the building — the screen used to be one flat colour until she walked away; now you see her
   on the pavement right away.

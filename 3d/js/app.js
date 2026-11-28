@@ -91,6 +91,7 @@ function applySettings() {
     document.documentElement.style.setProperty("--hud-scale", S.hud || 1);
     applyUiSettings();
     A.setMuted(save3d.sound === false);
+    A.setMusicOn(save3d.music !== false);
     resize();
 }
 ctx.applySettings = applySettings;

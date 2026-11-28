@@ -33,6 +33,7 @@ const PIECES = {
   obj: "#objLine > *",      // (ci/hud: the objective line — the top objective + the badges)
   speedo: "#hud .speedo", skip: "#skipBtn", prompt: "#slot-bottom .prompt", padHint: "#padHint",
   stick: "#stickBase", pedals: "#touch .pedals .tbtn", footPad: "#footPad .tbtn", extra: "#touchExtra button",
+  tut: "#metaTutBox > *",   // (ci/sweep-phone: the first-drive tutorial's card + the 🔥 streak card — their own box on touch)
 };
 const measure = t => t.L(`(() => { const P = ${JSON.stringify(PIECES)}, W = innerWidth, H = innerHeight, out = [];
     for (const [g, sel] of Object.entries(P)) for (const e of document.querySelectorAll(sel)) {
