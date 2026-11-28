@@ -305,7 +305,9 @@ ctx.mp.peersIn = N.peersIn;
 const WSKY = { DAY_S: 540, BLOCK: 100, SEED: 0x5EA7 };
 const wh01 = (a, b) => { let h = Math.imul(a ^ 0x2545F491, 0x9E3779B1) ^ Math.imul(b + 0x6C8E9CF5, 0x85EBCA77); h ^= h >>> 15; h = Math.imul(h, 0xC2B2AE3D); h ^= h >>> 13; return (h >>> 0) / 4294967296; };
 ctx.mp.worldSky = {
-    on: () => !!(MP.connected && WC.flag("clock") && ctx.worldClock && ctx.worldClock.synced && onlineOn()),
+    // (MP.want, not "connected this instant": a place-room switch — driving into a town — is a reconnect, and the clock
+    //  stays good through it; the sky / the town's loops must not blink away for that second)
+    on: () => !!((MP.connected || MP.want) && WC.flag("clock") && ctx.worldClock && ctx.worldClock.synced && onlineOn()),
     clock: () => ((0.3 + WC.now() / 1000 / WSKY.DAY_S) % 1 + 1) % 1,
     weather: () => {
         const b = Math.floor(WC.now() / 1000 / WSKY.BLOCK), r = wh01(WSKY.SEED + 7, b), r2 = wh01(WSKY.SEED + 8, b);
