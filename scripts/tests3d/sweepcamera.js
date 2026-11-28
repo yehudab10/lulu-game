@@ -47,6 +47,8 @@ module.exports = {
     const g = t.game;
     const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport,rest").split(",");
     await W.install(t);
+    // (SWEEPCAM_LAND=1: the same walk on a 1280 × 720 screen)
+    if (process.env.SWEEPCAM_LAND) { await t.page.setViewportSize({ width: 1280, height: 720 }); await t.frames(6); }
     // ── 0. ▶ PLAY from the title: the picture glides from the title's street shot to her on her lot — never through the
     //       neighbours' house (qaweekend "home → highway": the camera inside block@128,195 for 8 frames) ──
     if (only.includes("home")) {
