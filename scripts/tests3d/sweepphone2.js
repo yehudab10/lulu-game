@@ -100,7 +100,16 @@ module.exports = {
     // her own house (Ima's) + a one-joke shopfront
     await W.moved(t);
     if (await g(`(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff("luluHome", { id: "luluHome", s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })()`)
-      && await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, "her house is up", 60000)) { await measure("phone-her-house"); await out("phone-her-house"); }
+      && await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, "her house is up", 60000)) {
+      await measure("phone-her-house");
+      // (the test put her in from wherever she stood: out of Ima's front door is a long way from there — not a glitch)
+      await W.pause(t);
+      await g(`(window.__interiors && __interiors.room ? __interiors.room.leave() : 0, true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "her house: back out", 30000);
+      await t.frames(30);
+      await W.pause(t, true); await W.reset(t);
+      await out("phone-her-house");
+    }
     const front = await g(`(() => { const SF = ctx.storefronts; if (!SF) return null; const f = SF.debug.F.list.find(f => f.door && SF.stateOf(f) === "open"); return f ? { name: f.name, at: { x: f.door.x, z: f.door.z, nx: f.nx, nz: f.nz } } : null; })()`);
     if (front) {
       await S.onFoot();
@@ -118,6 +127,6 @@ module.exports = {
       if (d && await S.enter(d, "phone-land-realty") === true) { await measure("phone-land-realty"); await out("phone-land-realty"); }
     }
     await t.page.setViewportSize({ width: 390, height: 844 });
-    t.check("visited the rooms (a stranger's house, her house, the clothes shop, a shopfront)", ["phone-stranger", "phone-her-house", "phone-clothes", "phone-front"].every(w => seen.has(w)), [...seen].join(","));
+    t.check("visited the rooms (her house, the clothes shop, a shopfront; a stranger's when someone's home)", ["phone-her-house", "phone-clothes", "phone-front"].every(w => seen.has(w)), [...seen].join(","));
   },
 };

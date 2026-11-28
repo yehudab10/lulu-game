@@ -13,7 +13,8 @@ const CARD_FIT = `(() => { const c = document.getElementById("screenCard"); if (
     if (q.right > innerWidth + 1 || q.left < -1) bad.push("off the side " + b.textContent.trim().slice(0, 24)); }
   for (const e of c.querySelectorAll("*")) { if (e.children.length || !e.textContent.trim() || e.offsetParent === null) continue; const q = e.getBoundingClientRect();
     const box = e.closest("button") ? e.closest("button").getBoundingClientRect() : r;
-    if (q.width && (q.right > box.right + 1 || q.left < box.left - 1)) bad.push("text past its box: " + e.textContent.trim().slice(0, 30)); }
+    const clipped = [e, e.parentElement].some(x => x && getComputedStyle(x).textOverflow === "ellipsis");      // (cut with "…" on purpose)
+    if (!clipped && q.width && (q.right > box.right + 1 || q.left < box.left - 1)) bad.push("text past its box: " + e.textContent.trim().slice(0, 30)); }
   const sc = [c, ...c.querySelectorAll("*")].find(e => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY));
   const cut = c.scrollHeight > c.clientHeight + 4 && !sc;
   if (cut) bad.push("taller than the screen and doesn't scroll");
