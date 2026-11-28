@@ -45,7 +45,7 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
     const g = t.game;
-    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport,rest").split(",");
+    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside,airport,rest,hand").split(",");
     await W.install(t);
     // (a clear noon, whatever the clock says when it runs: an evening run's night frames are dark on purpose, and the
     //  watchdog's "one flat colour" read a night street as junk — CI 46169174266 at 17:20 UTC)
@@ -362,6 +362,44 @@ module.exports = {
         }
         t.check(`a rest area: the chase cam backed up to its buildings stays out of them (${sol.length} buildings × 3)`, sol.length > 0 && bad.length === 0, JSON.stringify(bad.slice(0, 3)));
       }
+    }
+
+    // ── 9. ✋ at a door / a parked car with a passer-by beside her: the door / HOTWIRE, not the passer-by's 💬 SAY HI
+    //       (life3 "next to a parked car: ✋ HOTWIRE (got SAY HI)", sweepplaces "lakewood-bling: at its door…") ──
+    if (only.includes("hand") && process.env.SWEEPCAM_NOAMB) await t.L(`import("./js/features/homes/crowd.js").then(m => { m.crowdTalkSpot.ambient = false; return true; })`);     // (before the fix)
+    if (only.includes("hand")) for (const town of ["midwood", "lakewood"]) {
+      if (!await inTown(t, town)) continue;
+      if (!await onFoot(t)) continue;
+      // put the nearest crowd walker 0.8 m from her (this frame) and read what the ✋ would do now
+      const withWalker = `(() => { const F = ctx.foot.debug.F, peds = ctx.homes.debug.CR.peds.filter(p => p.kind !== "bike"); if (!peds.length) return "no walker";
+        const w = peds[0], keep = { x: w.x, z: w.z, d: w.dist }; w.x = F.pos.x + 0.8; w.z = F.pos.z; w.dist = 0;
+        const pr = ctx.foot.debug.interactables(); w.x = keep.x; w.z = keep.z; w.dist = keep.d; return pr ? pr.label : "nothing"; })()`;
+      const res = [];
+      for (const d of (await findDoors()).slice(0, 5)) {
+        await W.moved(t);
+        await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(d.at)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.2, 0.05, a.z + a.nz * 1.2); F.vel.set(0, 0, 0); return true; })()`);
+        await t.frames(3);
+        const alone = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr ? pr.label : "nothing"; })()`);
+        const lbl = await g(withWalker);
+        res.push({ door: d.name, alone, lbl });
+      }
+      const badDoors = res.filter(r => r.lbl !== r.alone || /SAY HI/.test(r.lbl));
+      t.check(`${town}: at ${res.length} doors a passer-by beside her doesn't take the ✋ (the door's stays)`, res.length >= 3 && !badDoors.length, JSON.stringify(badDoors.length ? badDoors : res).slice(0, 400));
+      // a parked car: beside its door, as life3 stands her
+      const ok = await g(`(() => { const T = ctx.town.debug.S.T, O = ctx.town.debug.PL.ORIGIN, F = ctx.foot.debug.F; let best = null, bd = 1e9;
+          for (const p of T.pcars) { if (p.gone || p.live) continue; const d = Math.hypot(O.x + p.x - F.pos.x, O.z + p.z - F.pos.z); if (d < bd) { bd = d; best = p; } }
+          if (!best) return false; F.pos.set(O.x + best.x + Math.cos(best.rot) * 1.7, 0, O.z + best.z - Math.sin(best.rot) * 1.7); ctx.foot.obj.position.copy(F.pos); if (window.__qa) { window.__qa.cutF = ctx.frames + 3; window.__qa.last = null; } return true; })()`);
+      if (ok) {
+        await t.frames(12);
+        const lbl = await g(withWalker);
+        t.check(`${town}: beside a parked car with a passer-by there, the ✋ is still the car's (${lbl})`, /HOTWIRE|BORROW|GET IN|DRIVE/i.test(lbl) && !/SAY HI/.test(lbl), lbl);
+      }
+      // …and with nothing else in reach a passer-by is still someone to say hi to
+      await W.moved(t);
+      await g(`(() => { const F = ctx.foot.debug.F, s = ctx.town.spot("cityhall") || ctx.town.spot("hall"); const n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); const p = ctx.world.road.point(n.s + 40, 0, {}); F.pos.set(p.x, 0.05, p.z); F.parked.length = 0; F.peds.length = 0; return true; })()`);
+      await t.frames(3);
+      const free = await g(withWalker);
+      t.check(`${town}: in the middle of the street a passer-by beside her still gets 💬 SAY HI (${free})`, /SAY HI|LEMONADE/.test(free) || free === "no walker", free);
     }
 
     // ── (debug) SWEEPCAM_SPOT=town,x,z,yaw: stand there, a probe + a picture ──

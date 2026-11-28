@@ -1600,7 +1600,7 @@ const spotList = [];
  * `at` slid toward her inside that strip (then the spot's own r is measured from it, as before). Without axes → `at`.
  *   o = { w: half-width along u, inn: metres toward the door, out: metres toward the kerb }
  */
-const DOOR = { w: 1.6, inn: 1.6, out: 1.0 }, DOOR_FLOOR = 0.5, NEXT_TO = 1.2;      // (floor: someone within half their reach — the inspector at her door, a chat — still wins)
+const DOOR = { w: 1.6, inn: 1.6, out: 1.0 }, DOOR_FLOOR = 0.5, NEXT_TO = 1.2, AMBIENT = 2;      // (floor: someone within half their reach — the inspector at her door, a chat — still wins)
 /**
  * 🚶‍♀️ NO CUT (ci/doors stage 2): a PUBLIC door (a spot with `walkIn: { id, n? }` — id = its interior) is entered by
  * walking into the doorway: within ±WALKIN.w of the door's middle, past n (metres from the spot toward the door —
@@ -1705,11 +1705,12 @@ function interactables() {
         consider("spot", sp, lbl, at.x, at.z, sp.r || 2.0);
         if (sp.door && out.length > n0) { out[n0].score = Math.max(out[n0].score, DOOR_FLOOR); out[n0].door = true; }   // (a chat right beside her still wins)
         if (sp.first && out.length > n0) out[n0].score *= 0.2;      // (urgent: wins over a door / a car / a chat in reach)
+        if (sp.ambient && out.length > n0) { out[n0].score += AMBIENT; out[n0].ambient = true; }     // (a passer-by: after anything of hers in reach)
     }
     // THE RULE (ci/doors): someone / something she's standing right next to (≤ NEXT_TO m — Dina on the porch, a shopkeeper
     // in a doorway, the inspector at her door, a mailbox) always outranks a door's wide zone; the door's ✋ is there again a
     // step away from them. (A door's own zone made Ima's porch say GO INSIDE beside Dina.)
-    if (out.some(o => !o.door && o.kind !== "enter" && o.kind !== "hail" && o.d != null && o.d <= NEXT_TO)) for (const o of out) if (o.door || o.kind === "enter") o.score += 1;
+    if (out.some(o => !o.door && !o.ambient && o.kind !== "enter" && o.kind !== "hail" && o.d != null && o.d <= NEXT_TO)) for (const o of out) if (o.door || o.kind === "enter") o.score += 1;
     out.sort((a, b) => a.score - b.score);
     return out[0] || null;
 }

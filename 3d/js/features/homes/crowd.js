@@ -561,7 +561,9 @@ function tickAnchors(dt) {
 // ── on foot: talk to anyone (a lemonade stand takes tzedakah) ──────────
 let nearPed = null;
 export const crowdTalkSpot = {
-    r: 2.2, short: "TALK",
+    // (ambient: a passer-by — the ✋ is theirs only when no door / car / spot of her own is in reach: one walking past her
+    //  at a door said 💬 SAY HI instead of the door / HOTWIRE; foot's interactables — ci/sweep-camera)
+    r: 2.2, short: "TALK", ambient: true,
     pos() {
         nearPed = null;
         if (!C.on || !onFoot()) return null;
