@@ -139,7 +139,7 @@ export function bindTouch() {
     let stickId = null, cx = 0;
     zone.addEventListener("pointerdown", e => {
         stickId = e.pointerId;
-        zone.setPointerCapture(e.pointerId);
+        try { zone.setPointerCapture(e.pointerId); } catch (er) { /* (a pointer the browser already let go of: steer anyway) */ }
         const r = base.getBoundingClientRect();
         cx = r.left + r.width / 2;
         cy = r.top + r.height / 2;
