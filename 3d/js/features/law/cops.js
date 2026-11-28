@@ -367,6 +367,7 @@ function steerUnit(dt, c, u) {
     c.s = tmpN.s; c.d = tmpN.d;
     let lv = Math.max(0, car.vF), ls = car.s, ld = car.d;
     let tD = c.d, vT = 0;
+    const D = travelDir();        // (+1 up the lap; −1 she's driving down it: "behind her" is +s)
     const ch = L.chase, heat = ch ? ch.heat : 1;
     // in a town the chase goes round corners: its street graph gives the route and the real gap — and once they've
     // lost her, the route goes where they THINK she is (on to where she was heading, then crossing to crossing)
@@ -382,7 +383,7 @@ function steerUnit(dt, c, u) {
     // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
     // (pull off and stop out of sight, and they fly right past)
     if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
-        lv = ch.last.v; ls = ch.last.s + ch.last.v * Math.min(ctx.time - ch.last.t, 20); ld = clamp(ch.last.d, -5.25, 5.25);
+        lv = ch.last.v; ls = ch.last.s + D * ch.last.v * Math.min(ctx.time - ch.last.t, 20); ld = clamp(ch.last.d, -5.25, 5.25);
     }
     if (u.bolo) {                               // a call-in: one unlit cruiser prowls up the road looking for her car
         tD = c.d > 3.5 ? 5.25 : 1.75; vT = TUNE.boloSpeed; u.vmax = route ? 14 : TUNE.boloSpeed;
@@ -395,9 +396,9 @@ function steerUnit(dt, c, u) {
         else if (u.slot === "front") want = 11;
         else if (u.slot === "side") { want = -0.5; side = ld > 3.5 ? -3.3 : 3.3; }
         if (u.slot === "rear" && heat >= TUNE.pitFrom && u.pitT < 0) { want = -2.4; if (u.pitT < -1.6) u.pitT = rand(6, 9) - heat * 0.4; }
-        const err = route ? route.gap + want : ls + want - c.s;
+        const err = route ? route.gap + want : (ls + D * want - c.s) * D;
         vT = lv + clamp(err * 0.9, -12, 18);
-        const behind = c.s < ls - 2;
+        const behind = (c.s - ls) * D < -2;
         if (u.slot === "front" && behind) tD = ld + (ld > 3.5 ? -3.5 : 3.5);   // overtake in the other lane…
         else if (u.slot === "front") { tD = ld; vT = Math.min(vT, lv - 2.5); } // …then merge in front and brake-check
         else tD = ld + side;
@@ -407,16 +408,16 @@ function steerUnit(dt, c, u) {
         u.vmax = Math.max(22, luluTop() * TUNE.copSpeed[clamp(Math.round(heat), 1, 5)]);   // never faster than her, no catch-up bonus
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
         tD = Number.isFinite(u.pullD) ? u.pullD : pullDAt(c.s);
-        const err = route ? route.gap : (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
+        const err = route ? route.gap : ((Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s) * D;
         vT = clamp(err * 1.1, 0, 22);
         if (err < 0.4) vT = 0;
         u.vmax = 30;
     } else if (u.mode === "haul") {             // drive Lulu downtown
-        tD = 1.75; vT = 30; u.vmax = 32;
+        tD = D * 1.75; vT = 30; u.vmax = 32;
     } else if (u.mode === "giveup") {
         // (off the highway's asphalt — a ramp, a cross road, JFK's roads — it stops where it is: it used to cut back across
         //  the grass to the highway's shoulder)
-        tD = (ctx.town && ctx.town.active) || Math.abs(c.d) > 9.5 ? c.d : clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
+        tD = (ctx.town && ctx.town.active) || Math.abs(c.d) > 9.5 ? c.d : D > 0 ? clamp(c.d, 7.6, 7.9) : clamp(c.d, -7.9, -7.6); vT = 0; u.vmax = 20;
     } else if (u.mode === "park") { vT = 0; u.vmax = 0; }
 
     // traffic in the way: pass (cops will use any lane) or slow down; bang into it if we can't
@@ -432,7 +433,7 @@ function steerUnit(dt, c, u) {
 
                 const alt = [o.d - 3.5, o.d + 3.5].filter(x => Math.abs(x) <= 5.4).sort((a, b) => Math.abs(a - tD) - Math.abs(b - tD));
                 if (alt.length) tD = alt[0];
-                if (lon < 9 && o.dir > 0) vT = Math.min(vT, o.speed + 1);
+                if (lon < 9 && o.dir * D > 0) vT = Math.min(vT, o.speed + 1);
             }
             if (Math.hypot(dx, dz) < 2.1 && o.immune) {      // a 🎉 party's shared car never spins on one screen only: the cruiser bounces off it
                 c.hit = true; c.hitT = 0; c.vx = -fx * c.speed * 0.25; c.vz = -fz * c.speed * 0.25; c.spinV = (Math.random() < 0.5 ? -1 : 1) * 3;
@@ -450,7 +451,7 @@ function steerUnit(dt, c, u) {
     // steer: pure pursuit toward a look-ahead point in the target lane
     const la = Math.max(7, c.speed * 0.55);
     if (route) route.aim(la, tmpP);
-    else road.point(c.s + la, tD, tmpP);
+    else road.point(c.s + D * la, tD, tmpP);
     const want = Math.atan2(tmpP.x - c.x, tmpP.z - c.z);
     const dh = wrapAngle(want - c.h);
     if (Math.abs(dh) > 0.7) vT = Math.min(vT, 9);
@@ -604,6 +605,8 @@ function reckless() { return !!(ctx.G && ctx.G.boosting) || ctx.car.speed * MPH 
 
 /** Is she heading down the lap on the open highway (the far carriageway — ci/twoway)? */
 const downLap = () => !!(ctx.world && ctx.world.dir === -1 && !ctx.world.district);
+/** +1 up the lap, −1 down it: which way "ahead of her" runs along the road (the chase + the pull-over mirror with it). */
+export const travelDir = () => (downLap() ? -1 : 1);
 // ── patrols ──────────────────────────────────────────────────────────────
 export function spawnPatrol(opts = {}) {
     const car = ctx.car;
@@ -697,14 +700,16 @@ function spawnChaser(slot, how = "seen") {
     const car = ctx.car;
     const fromAhead = slot === "front" && Math.random() < 0.5;
     const back = how === "first" ? rand(45, 60) : how === "search" ? rand(170, 230) : rand(85, 115);
-    const s = fromAhead ? car.s + rand(160, 220) : car.s - back;
-    const d = fromAhead ? pick([-1.75, -5.25]) : pick(LANES_OURS);
+    // (heading DOWN the lap — ci/twoway's far carriageway: "behind her" is up the lap, her lanes are the far side's)
+    const D = travelDir();
+    const s = fromAhead ? car.s + D * rand(160, 220) : car.s - D * back;
+    const d = (fromAhead ? -D : D) * pick(LANES_OURS);
     // (never faster than she can go: the first one only just closes in so it shows in the mirror)
     const v = how === "search" ? car.speed * 0.85 : Math.min(luluTop(), Math.max(18, car.speed + (how === "first" ? 1.5 : 0)));
     // in a town: join on its street grid (out of sight, or right where its patrol car saw her)
     const tp = ctx.town && ctx.town.active && ctx.town.copSpawn ? ctx.town.copSpawn(how, fromAhead) : null;
     if (tp) return addUnit(tp.s, tp.d, tp.dir, Math.min(v, 14), { mode: "chase", slot, k9: false });
-    const u = addUnit(s, d, fromAhead ? -1 : 1, fromAhead ? 20 : v, { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
+    const u = addUnit(s, d, fromAhead ? -D : D, fromAhead ? 20 : v, { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
     return u;
 }
 /** The cop who saw something at (x, z) — a patrol / a parked cruiser pulls out, a hidden trap leaves its bush. */
@@ -1490,13 +1495,14 @@ export function ensureCopModels() {
 /** Where a pull-over stops (d): the highway's shoulder (7.9) — in a TOWN the right lane's outer edge, beside the parked
  *  row (the town's 7.9 is the sidewalk, through the parked cars): "double-parked with the lights on", Lakewood-style. */
 export function pullDAt(s = ctx.car.s) {
-    if (!(ctx.town && ctx.town.active)) return 7.9;
+    if (!(ctx.town && ctx.town.active)) return travelDir() * 7.9;     // (her side's shoulder — the far one going down the lap)
     const rd = ctx.world.road, p = rd.point(s, 0, {}), n = rd.nearest(p.x, p.z, s, {}), st = n && n.street;
     return st && st.lanes ? Math.max(1.75, st.lanes * 3.5 - 0.9) : 2.6;
 }
 export function scriptedCruiser(sBehind = 26, d = null, s0 = null) {
     const car = ctx.car;
-    const u = addUnit((s0 != null ? s0 : car.s) - sBehind, d == null ? car.d : d, 1, Math.max(8, car.speed + 6), { mode: "chase" });
+    const D = travelDir();
+    const u = addUnit((s0 != null ? s0 : car.s) - D * sBehind, d == null ? car.d : d, D, Math.max(8, car.speed + 6), { mode: "chase" });
     u.siren = true;
     return u;
 }

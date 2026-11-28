@@ -7,6 +7,8 @@
 //           pass through: the hit circles were always her own 4.6 m car's)
 //   ramp    a chase down Lakewood's off-ramp: the cruiser on her tail drives the ramp (decel lane → ramp → its branch),
 //           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
+//   downlap a chase while she drives DOWN the lap (ci/twoway's far carriageway): the cruisers come from behind HER (up the
+//           lap) and chase her her way; busted, she stops on her own side (it steered her across both carriageways)
 //   bolo    someone CALLS IN her car in town: the cruiser that comes looking prowls round where the call came from — it
 //           used to drive the street grid straight to her car, wherever she'd gone
 //   yard    a car impounded at a ROADSIDE yard (Trooper Post 7): its gate takes the fee and gives it back (it was keyed
@@ -17,7 +19,7 @@ const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "body", "ramp", "bolo", "yard", "lot"],
+  parts: ["crash", "body", "ramp", "downlap", "bolo", "yard", "lot"],
   query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits,fuel",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
@@ -29,6 +31,7 @@ module.exports = {
       if (PART.includes("crash")) await step("crash", () => crash(t));
       if (PART.includes("body")) await step("body", () => body(t));
       if (PART.includes("ramp")) await step("ramp", () => ramp(t));
+      if (PART.includes("downlap")) await step("downlap", () => downLap(t));
       if (PART.includes("bolo")) await step("bolo", () => bolo(t));
       if (PART.includes("yard")) await step("yard", () => yard(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
@@ -402,6 +405,52 @@ async function bolo(t) {
     return { prowl: !!u.prowl, to: u.prowl ? Math.round(Math.hypot(u.prowl.to.x - car.x, u.prowl.to.z - car.z)) : -1, cop: Math.round(Math.hypot(u.car.x - car.x, u.car.z - car.z)), chase: !!L.chase }; })()`);
   t.check("bolo: the call-in's cruiser prowls (not routed straight to her car)", r.chase || (r.prowl && r.to > 25), JSON.stringify(r));
   await g(`(ctx.law.standDown("test"), ctx.law._dbg.L.bolo && (ctx.law._dbg.L.bolo = null), ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await t.frames(6);
+  await W.pause(t, true);
+}
+
+/** A chase on the far carriageway, driving down the lap. */
+async function downLap(t) {
+  const g = t.game;
+  await W.pause(t, false);
+  if (await g(`ctx.foot && ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  if (await g(`ctx.town && ctx.town.active`)) await g(`(ctx.town.leave("reset"), true)`);
+  if (await g(`L3.state !== "playing"`)) {
+    await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "downlap: a cruise starts", 120000);
+  }
+  await t.L(`import("./js/core/ctx.js").then(m => { if (window.__rdrv) return; window.__rdrv = true; m.hook("controls", (ctl, dt) => { const W = window.__route; if (!W || !W.pts.length) return; const car = m.ctx.car;
+      const p = W.pts[0]; if (Math.hypot(p.x - car.pos.x, p.z - car.pos.z) < (W.r || 4)) { W.pts.shift(); if (!W.pts.length) return; }
+      const q = W.pts[0], want = Math.atan2(q.x - car.pos.x, q.z - car.pos.z); let d = want - car.h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      ctl.steer = Math.max(-1, Math.min(1, -d * 2.6)); ctl.throttle = car.speed < (W.v || 9) ? 0.7 : 0; ctl.brake = car.speed > (W.v || 9) + 3 ? 0.4 : 0; ctl.handbrake = false; ctl.analog = true; }, 1000); })`);
+  // on the far carriageway, facing DOWN the lap, rolling
+  const s0 = await g(`(() => { ctx.traffic.config.enabled = false; ctx.traffic.clear(); const hw = ctx.world.highway, s = Math.floor(ctx.car.s) + 3000, p = hw.point(s, -1.75, {});
+    ctx.car.place(p.x, p.z, p.h + Math.PI); ctx.car.s = s; ctx.car.d = -1.75; ctx.car.vx = -Math.sin(p.h) * 16; ctx.car.vz = -Math.cos(p.h) * 16; ctx.car.vF = 16;
+    ctx.world.dir = -1; ctx.world.prebuild(s); ctx.cam.snap(); const P = []; for (let k = 1; k < 40; k++) { const q = hw.point(s - k * 20, -1.75, {}); P.push({ x: q.x, z: q.z }); }
+    window.__route = { pts: P, v: 16, r: 6 }; return s; })()`);
+  await W.moved(t);
+  await t.frames(40);
+  await g(`(ctx.law._dbg.L.units.length = 0, ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
+  // (every second for 8 s: the cruiser behind her, on her side, FACING her way — down the lap)
+  const samples = [];
+  for (let k = 0; k < 8; k++) {
+    await t.frames(30);
+    samples.push(await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.mode === "chase" && u.car); if (!u) return null; const hw = ctx.world.highway, rh = hw.at(u.car.s).h;
+      return { behind: Math.round(u.car.s - ctx.car.s), d: +u.car.d.toFixed(1), down: Math.cos(u.car.h - rh) < 0 }; })()`));
+  }
+  const good = samples.filter(x => x && x.behind > 0 && x.behind < 80 && x.d < 0 && x.down).length;
+  t.check("downlap: the cruiser chases her from behind HER (up the lap), on her side, driving her way", good >= 5, JSON.stringify(samples));
+  // busted while still rolling slowly: the pull-over keeps her on her own side
+  await g(`(window.__route.v = 4, true)`);
+  if (await t.until(`/^law/.test(__lulu3d.state)`, "downlap: crawling with a cruiser behind → busted", 60000)) {
+    const at = [];
+    await g(`(window.__route = null, true)`);
+    for (let k = 0; k < 10; k++) { at.push(await g(`L3.state + "/" + ctx.car.d.toFixed(1)`)); await t.frames(5); }
+    const ds = at.filter(x => /^lawBust/.test(x)).map(x => +x.split("/")[1]);
+    t.check("downlap: busted going down the lap she pulls over on HER side (not steered across both carriageways)", ds.length > 0 && Math.max(...ds) < 0, at.join(" "));
+  }
+  await g(`(window.__route = null, ctx.law.standDown("test"), ctx.world.dir = 1, L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
 }
