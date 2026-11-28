@@ -54,6 +54,20 @@ and `ci/fasttests-slow` 46049897488 (18:29Z).
 | qa27 — 6.8 km court: no jump glitch (the camera 5.8 m in one frame, state playing) | test: between two places the test ends her walk by script (`foot.end("test")` → straight back at the wheel) BEFORE it declared the cut — the chase cam taking over from the foot cam. Declared first now; green on CI 46097614177 |
 | perf (main run 46089441840, someone's 3-file dispatch) — the friend's car is in my world | test: checked after a frame count while the friend arrives over the relay on real time; waits for it now — green on CI 46098629151 (qafriends green there too: a flake) |
 
+## Whole suite #2 — 46100408619 on ci/sweep-health (= main d5e43d8 + nothing), 2026-11-28 02:55Z
+
+(Run on this branch, not main: a dispatch on main cancels a running one.)
+
+| check | verdict / status |
+|---|---|
+| feel — rain on foot: open-air hiss, no drum (drum 0.047) | test: the mix fades on the AUDIO clock (real time, 0.3 s); 30 fast-clock frames can be less. Polls now |
+| storefronts — lakewood: the town's signs stay sharp (atlas scale 0.578 < 0.58) | more signs went up on 11-28 (the yeshiva campus, the fronts' fixes); 2 % smaller texels, nothing visible. Floor 0.57 (a guard against a big drop, not a budget) |
+| life3 — a hotwire: no inwall + no inside glitch (Lulu AND the camera inside block@38,38 at [-125.4, -3186.1], ×215 / ×258) | Lakewood's block 2,3 area (Minivan Way) — the same block@38,38 as qaweekend's camera. `ci/yeshiva`'s campus (its car park) stands in block 2,3's south face since today: a parked car in it → she's put inside the block's occluder rect. **Left for `ci/yeshiva` / `ci/doors`** (both moved < 2 h) |
+| sweeplogic — no page errors (`[cameos] model load TypeError: Failed to fetch`) | `ci/sweep-logic`'s own test: it navigates while a lazy model download is in flight (the pattern `ci/fasttests` fixed in 06647cf: let the downloads finish first) — theirs |
+| sweepplaces3 — THE ONE SOCK LAUNDROMAT: at its door the ✋ is the door (got 💬 SAY HI) | `ci/sweep-places`' own test — theirs |
+| partyworld — community: the same roadside scenes on both screens | party (2 pages): re-run once |
+| qa4, qa26, qa27, exits, calm, qol, qaweekend's HUD, perf | green |
+
 ## Findings + status
 
 ## Left for other branches
