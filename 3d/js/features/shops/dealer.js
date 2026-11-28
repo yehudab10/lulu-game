@@ -275,6 +275,9 @@ function driveOff(k, why) {
 
 // ── the test drive ───────────────────────────────────────────────────────
 const TD = { on: false, k: null, orig: null, t: 0, chip: null, gone: null, ending: false };
+// (one activity at a time — ci/sweep-logic2: a robbery to foil / a cameo / a job's offer started mid test drive, in a car
+//  that goes back to the lot in a minute)
+ctx.addActivity("testdrive", () => TD.on);
 export function startTest(k) {
     if (!canTestFrom() || !spot("lot_" + k)) return false;
     Object.assign(TD, { on: true, k, orig: ctx.car.skinKey, t: 0, ending: false, town: ctx.town.id });

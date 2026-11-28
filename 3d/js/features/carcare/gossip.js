@@ -8,7 +8,8 @@ import { GOSSIP } from "./data.js";
 import { PROTEST_HOURS } from "../cityhall/data.js";
 import { SCHOOL } from "../cameras/data.js";
 import { SHOPS as STORE } from "../storefronts/data.js";
-import { parse, clock, holyNow } from "../storefronts/hours.js";
+import { parse, holyNow } from "../storefronts/hours.js";
+import { now as clock } from "../seasons/calendar.js";      // (the REAL hour: the gossip is today's schedule — the protests' hours, a new tip each real hour — not the sky's ~9-minute day that shop doors follow)
 
 const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
 const ap = h => { h = ((h % 24) + 24) % 24; const hh = Math.floor(h), mm = Math.round((h - hh) * 60), a = hh < 12 ? "am" : "pm"; return `${hh % 12 || 12}${mm ? ":" + String(mm).padStart(2, "0") : ""} ${a}`; };

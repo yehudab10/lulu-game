@@ -125,6 +125,13 @@ hook("update", (dt, P, controlsOn) => {
     }
 });
 on("foot:start", () => { for (const r of seat.riders.slice()) if (!r.keep) dropRider(r, false); });
+// arrested / taken to the ER: the hitchhiker (a parade marcher, Dina…) doesn't wait in the car through the booking, the
+// cell and court — she drove out of jail with them still in the seat and the 2× still to come (ci/sweep-logic2)
+on("state", ({ to }) => {
+    if (!/^(lawArrest|lawJail|cameosAmbulance|cameosER)$/.test(to) || !seat.riders.length) return;
+    for (const r of seat.riders.slice()) if (!r.keep) dropRider(r, true);
+    if (!seat.riders.some(r => r.bonus)) seat.t = 0;
+});
 
 // ── flying into the car (the bonk) ─────────────────────────────────────────
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();

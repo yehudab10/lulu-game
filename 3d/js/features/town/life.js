@@ -372,7 +372,8 @@ function tickJam(dt, lp, foot) {
     a.position.set(j.x, 2.1, j.z);
     a.updateMatrixWorld(true);
     SFX.minivanHorn(Math.max(0.2, 1 - Math.hypot(j.x - _l.x, j.z - _l.z) / 60));
-    if (Math.random() < 0.6) bubble(a, pick(LIFE.def.lines.JAM_YELLS), 2.2);
+    // (never the same yell twice running — "THERE'S NO LIGHT, WHY ARE WE STOPPED?!" came back 5 s later)
+    if (Math.random() < 0.6) { const Y = LIFE.def.lines.JAM_YELLS, y = pick(Y.length > 1 ? Y.filter(x => x !== LIFE.lastYell) : Y); LIFE.lastYell = y; bubble(a, y, 2.2); }
 }
 
 // ── speed bumps ──────────────────────────────────────────────────────────

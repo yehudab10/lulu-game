@@ -115,6 +115,7 @@ async function body(t, guests) {
       t.check("riding across the line: no frozen picture (her car never stands still > 1 s while the driver drives on)", sr.maxStill <= 30, JSON.stringify(sr));
       t.check("…and no soft cut / dissolve at the line (the town is attached: it's one road)", sr.cut === 0, JSON.stringify(sr));
       await A.page.screenshot({ path: require("path").join(__dirname, "..", "..", "smoke-shots", "3d-qafriends-ride-in.png") }).catch(() => { });
+      if (cut) console.log("   RIDELOG", JSON.stringify(await A.game(`ctx.openworld.debug.rideLog()`)));
       await seg("riding across the town line", A, ["nan", "overlay", "flat", "underground", "stuck", "hidden", "jump"]);
       await seg("driving across the town line with a passenger", Hp, ["nan", "overlay", "flat", "underground", "jump", "hidden"]);
 
