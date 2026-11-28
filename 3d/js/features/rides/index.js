@@ -180,8 +180,9 @@ hook("update", (dt, P, controlsOn) => {
 }, -2);
 on("state", ({ to }) => { if (to === "title" || to === "gameover" || to === "footRun") poll(); if (R && to !== "playing") R.horn.down = false; });
 on("foot:start", () => poll());
-on("title", () => { if (R) exitRide("title"); curObj = null; });
-hook("runStart", () => { if (R) exitRide("run"); curObj = null; R_stats.yielded = 0; }, 50);
+const ownBody = () => { if (ctx.car) { ctx.car.circles = null; ctx.car.radius = null; } };      // (her own car's hit circles)
+on("title", () => { if (R) exitRide("title"); curObj = null; ownBody(); });
+hook("runStart", () => { if (R) exitRide("run"); curObj = null; ownBody(); R_stats.yielded = 0; }, 50);
 
 // heavy rides: a light bump with a lighter car costs no heart (they bounce off)
 hook("damage", info => {
