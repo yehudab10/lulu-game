@@ -60,11 +60,14 @@ function comboOf(a, b) {
 const ME = { i: -1, t: 0, dur: 0, seq: 0, at: -1e9, local: false, bubble: null, combos: new Map(), greet: new Map(), greetT: 0, waveT: 0 };
 const party = () => !!N.want;
 const onFootNow = () => ctx.state === "footRun" && !!ctx.foot && ctx.foot.active && ctx.foot.phase === "walk" && !!ctx.foot.person;
-const carNow = () => party() && ctx.state === "playing" && !!ctx.G && (ctx.G.mode === "party" || !!(ctx.party && ctx.party.ownRun));
+/** Online in the world (EVERYONE) with other players around, no party: strangers see her gestures too (one emote system). */
+const online = () => !party() && !!(ctx.mp && ctx.mp.connected && ctx.mp.social);
+const carNow = () => ctx.state === "playing" && !!ctx.G && (party() ? ctx.G.mode === "party" || !!(ctx.party && ctx.party.ownRun) : online());
 /** Inside a room shared with friends (features/together: friends there see her gesture). */
 const roomNow = () => party() && ctx.state === "interior" && !!(ctx.together && ctx.together.inRoom && ctx.together.inRoom());
 /** Can I emote right now? (on foot — solo or a party — or in the car with friends) */
 function allowed() {
+    if (!ctx.enabled("party")) return false;        // (this module can load with the feature off: then multiplayer keeps its wheel)
     if (ctx.paused || ctx.dialogOpen || H.screenOpen()) return false;
     if (ctx.phone && ctx.phone.isOpen) return false;
     if (roomNow()) return true;                     // (a room is drawn as its own view — that's fine)
@@ -90,6 +93,8 @@ export function play(i, opts = {}) {
         tone(660, 0.07, "triangle", 0.12, 900);
         emit("stat", { id: "partyEmotes", n: 1 });
         emit("party:emote", { uid: N.uid || "me", i, id: E.id, me: true });
+        // everyone around (not friends): the same gesture through the world's emote event — no extra message
+        if (online() && ctx.mp.gesture) { try { ctx.mp.gesture(i); } catch (e) { /* offline */ } }
         // a friend emoted at me a moment ago? → a combo
         for (const rc of R.cars.values()) if (rc.shown && rc.emote && !rc.emote.local && rc.emote.t < 3) tryCombo(rc, rc.emote.i, i);
     }
@@ -172,7 +177,7 @@ function greetings(dt) {
 // ── per frame (after the state's update: we pose her on top of what foot drew) ──
 hook("hud", dt => {
     const ok = allowed();
-    U.wheelTick(dt, ok, onFootNow());
+    U.wheelTick(dt, ok, onFootNow(), !party() && !onFootNow() && !roomNow());
     U.setChatKeys(ok);
     // the 😀 touch button (and, on a touch screen, the EMOTE edge): a tap opens / closes the wheel
     const tap = input.pressed.partyChat || (input.pressed.emote && input.device === "touch");
@@ -222,6 +227,8 @@ ctx.emotes = {
     play: k => play(typeof k === "string" ? IDX[k] : k),
     get active() { return ME.i >= 0 ? { id: EMOTES[ME.i].id, t: ME.t, local: ME.local } : null; },
     get allowed() { return allowed(); },
+    /** The gestures as data (strangers' ghosts play them: multiplayer/ghosts.js). */
+    EMOTES,
     /** What this screen shows friend uid doing: { id, t } | null. */
     friend(uid) { const rc = R.cars.get(uid); return rc && rc.emote ? { id: EMOTES[rc.emote.i].id, t: rc.emote.t, local: !!rc.emote.local } : null; },
     get lastCombo() { return ME.lastCombo || null; },

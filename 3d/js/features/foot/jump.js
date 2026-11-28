@@ -142,7 +142,7 @@ export { carBox, pushC };
  * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
  * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
  */
-const CAM_PAD = 0.25, CAM_FRONT = 2.4, CAM_MIN = 0.05, _cl = {}, _cl2 = {};
+const CAM_PAD = 0.25, CAM_PAD_BIG = 0.95, CAM_FRONT = 2.4, CAM_MIN = 0.05, _cl = {}, _cl2 = {};
 /** An open lot inside a town block (features/shops' car lot): walkable, the camera may stand over it. */
 const openLot = (x, z) => !!(ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z))
     || !!(ctx.home && ctx.home.isFamily && ctx.home.isFamily(x, z))
@@ -184,7 +184,10 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             const ox = tgt.x - c.x, oz = tgt.z - c.z;
             // (the traffic circle's island is a 6 m lawn — only its statue in the middle stands tall)
             const cr = c.kind === "island" ? Math.min(c.r, 2.8) : c.r;
-            let R = cr + CAM_PAD, cc = ox * ox + oz * oz - R * R;
+            // (a big circle is one of a row standing in for a BOX — a rest area's 40 × 12 m building is two rows of r 3.4: its
+            //  corners + the wall between two circles stand up to ~0.6 m outside them; backed up to it the chase cam sat
+            //  inside the wall, one dark flat screen — so the lens keeps a wider berth of those; ci/sweep-camera)
+            let R = cr + (cr >= 3 ? CAM_PAD_BIG : CAM_PAD), cc = ox * ox + oz * oz - R * R;
             // (she's right up against it — the pivot is inside its pad: the wall itself still counts)
             if (cc <= 0) { R = cr + 0.05; cc = ox * ox + oz * oz - R * R; if (cc <= 0) continue; }
             const b = ox * dx + oz * dz;

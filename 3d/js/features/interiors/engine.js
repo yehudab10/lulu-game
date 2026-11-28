@@ -211,7 +211,20 @@ const ORBIT = { dist: 4.6, look: 1.25, fov: 60, wall: 0.45, ceil: 3.0, fadeR: 2.
 const SELF_FADE = { portrait: [3.0, 1.9], land: [1.6, 1.0], to: 0.12 };
 // …and in a chat / at someone's ✋ the camera sits this far (rad) off straight-behind, so she doesn't hide them
 const SHOULDER = 0.45;
-const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RS = new THREE.Sphere();
+// the heights over her feet (m) the fading looks from toward the lens: her chest, her head
+const FADE_AT = [0.95, 1.5];
+const RAY = new THREE.Raycaster(), RV = new THREE.Vector3(), RD = new THREE.Vector3(), RD2 = new THREE.Vector3(), RS = new THREE.Sphere();
+/** Her see-through (fadeSelf): a depth-only copy of each faded part, and taking one apart. */
+const DEPTH_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false });
+function dropFade(m, f) {
+    for (const c of f.ms) c.dispose();
+    if (f.tw) { m.remove(f.tw); f.tw = null; }
+    m.userData.selfFade = null;
+}
+/** A node's true heading (rad, about +y) from its quaternion — rotation.y alone reads 180° as 0 (see build). */
+const yawOf = o => { const q = o.quaternion; return Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x)); };
+// the camera clip also looks from her chest (this far under the rig's pivot) to the lens
+const CHEST_DROP = 0.4, CHEST_NEAR = 1.0;     // (…and pulls in only for an edge this close to the lens)
 
 export class Room {
     constructor(def, opts) {
@@ -305,7 +318,11 @@ export class Room {
             o.getWorldPosition(V);
             // (sets built in one Blender session get ".001"-style duplicate suffixes → "Spot_door001")
             const key = n.slice(n.indexOf("_") + 1).replace(/\.?\d{3}$/, "");
-            if (n.startsWith("Spot_")) this.spots[key] = { x: V.x, y: V.y, z: V.z, ry: o.rotation.y };
+            // (her own spots read their TRUE heading: a clone copies the quaternion and the Euler read back from it only spans
+            //  ±90° — a spot turned 180° came back as 0, so in the pizza shop, the clothes shop and the roadside rooms she
+            //  walked in facing the door, the camera inside looking out at the street, and "up" walked her straight back out;
+            //  ci/sweep-camera. Other spots keep their old reading: the sets' people were placed against it.)
+            if (n.startsWith("Spot_")) this.spots[key] = { x: V.x, y: V.y, z: V.z, ry: key === "lulu" || key === "door" ? yawOf(o) : o.rotation.y };
             else if (n.startsWith("Fx_")) this.fxs[key] = { x: V.x, y: V.y, z: V.z, ry: o.rotation.y, node: o };
             else if (n.startsWith("Light_")) this.lightSpots[key] = V.clone();
             else this.cols.push({ id: key, x0: V.x - o.scale.x, x1: V.x + o.scale.x, z0: V.z - o.scale.z, z1: V.z + o.scale.z, on: true });
@@ -756,6 +773,21 @@ export class Room {
                 t = Math.min(t, h.distance - 0.3);
                 break;
             }
+            // (…and from her CHEST to that spot: a big piece that can't fade — the shul's merged tables + benches — under the
+            //  line from her shoulders still stood between the lens and her body, its edge 0.2 m from the lens; ci/sweep-camera)
+            if (t > 0.6) {
+                const cx = tgt.x + RD.x * t, cy = tgt.y + RD.y * t, cz = tgt.z + RD.z * t;
+                RV.set(tgt.x, tgt.y - CHEST_DROP, tgt.z); RD2.set(cx - RV.x, cy - RV.y, cz - RV.z);
+                const L = RD2.length();
+                RAY.set(RV, RD2.normalize()); RAY.near = 0.2; RAY.far = L + 0.3;
+                for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
+                    if (!h.object.isMesh || (this.fadeable(h.object) && !this.wallLike(h.object))) continue;
+                    // (only an edge right at the lens — the junk; something further off is part of the picture, and pulling the
+                    //  lens in for it squeezed a stranger's kitchen: a mom's speech bubble came out wider than the phone)
+                    if (L - h.distance < CHEST_NEAR) t = Math.min(t, t * Math.max(0, h.distance - 0.3) / L);
+                    break;
+                }
+            }
         }
         // (tight: the rig may rise over her head — still under the ceiling, ORBIT.ceil leaves it the room)
         return { d: Math.max(0.6, t), noLift: false };
@@ -784,11 +816,15 @@ export class Room {
         if (!this.root || (this.fadeTick = (this.fadeTick || 0) + 1) % 2) return;
         const cam = this.set.camera, L = this.lulu.obj.position;
         const faded = this.faded || (this.faded = new Map()), hit = new Set();
-        RV.set(L.x, L.y + 1.1, L.z);
-        RD.copy(cam.position).sub(RV);
-        const far = RD.length() - 0.05;
-        if (far > 0.2) {
-            RAY.set(RV, RD.normalize()); RAY.near = 0.35; RAY.far = far;
+        // (two lines: her chest AND her head — one line at chest height slipped just under a thin clothes rail 1.2 m from
+        //  the lens in JFK's Maison de Gelt, left solid across her face; and FROM the lens — what the player sees is what
+        //  faces the camera: from her side, a pizza oven she stood 0.27 m from started inside the ray's first 0.35 m and was
+        //  never faded, its top filling a phone; ci/sweep-camera)
+        for (const hy of FADE_AT) {
+            RD.set(L.x, L.y + hy, L.z).sub(cam.position);
+            const far = RD.length() - 0.3;
+            if (far <= 0.2) continue;
+            RAY.set(RV.copy(cam.position), RD.normalize()); RAY.near = 0.02; RAY.far = far;
             for (const h of RAY.intersectObjects(this.rayRoots(), true)) {
                 const o = h.object;
                 if (!o.isMesh || hit.has(o)) continue;
@@ -868,19 +904,27 @@ export class Room {
         const solid = drop || a > 0.985;
         if (solid && !this.selfFaded) return;
         this.selfFaded = !solid;
-        o.traverse(m => {
-            if (!m.isMesh) return;
+        const meshes = [];
+        o.traverse(m => { if (m.isMesh && !m.userData.depthTwin) meshes.push(m); });
+        for (const m of meshes) {
             let f = m.userData.selfFade;
             // (her clothes changed under it — the fitting room re-dresses her: start again from what she wears now)
-            if (f && m.material !== f.mat) { for (const c of f.ms) c.dispose(); f = m.userData.selfFade = null; }
-            if (solid) { if (f) { m.material = f.m0; for (const c of f.ms) c.dispose(); m.userData.selfFade = null; } return; }
+            if (f && m.material !== f.mat) { dropFade(m, f); f = null; }
+            if (solid) { if (f) { m.material = f.m0; dropFade(m, f); } continue; }
             if (!f) {
                 const m0 = m.material, ms = (Array.isArray(m0) ? m0 : [m0]).map(x => { const c = x.clone(); c.transparent = true; c.depthWrite = false; return c; });
-                f = m.userData.selfFade = { m0, ms, mat: Array.isArray(m0) ? ms : ms[0] };
+                f = m.userData.selfFade = { m0, ms, mat: Array.isArray(m0) ? ms : ms[0], tw: null };
                 m.material = f.mat;
+                // (a depth-only twin drawn after the room's solids: only her NEAREST surface shows through — without it the
+                //  see-through head showed her face from behind, a ghost staring back at the camera; ci/sweep-camera)
+                if (!m.isSkinnedMesh) {
+                    const tw = f.tw = new THREE.Mesh(m.geometry, DEPTH_ONLY);
+                    tw.userData.depthTwin = true; tw.renderOrder = 999; tw.castShadow = tw.receiveShadow = false; tw.name = "selfFadeDepth";
+                    m.add(tw);
+                }
             }
             for (const c of f.ms) c.opacity = a;
-        });
+        }
     }
 
     /** Which over-the-shoulder offset (rad) has room for the camera behind her, looking along `to` (re-checked every

@@ -242,7 +242,9 @@ function profileCache() {
     c.at = performance.now();
     c.name = NET.NAMES.includes(s.mpName) ? s.mpName : "";
     c.horn = s.horn || "beep";
+    c.decor = typeof s.decor === "string" && s.decor !== "none" && /^[a-z0-9_]{1,16}$/.test(s.decor) ? s.decor : "";
     c.hair = s.luluHair || "";
+    c.style = typeof s.luluHairStyle === "string" && s.luluHairStyle !== "sheitel" && /^[a-z]{1,12}$/.test(s.luluHairStyle) ? s.luluHairStyle : "";
     c.skins = (Array.isArray(s.ownedSkins) && s.ownedSkins.length ? s.ownedSkins : ["pink"]).filter(k => SKINS[k]);
     if (!c.skins.includes("pink")) c.skins.unshift("pink");
     c.horns = Array.isArray(s.ownedHorns) && s.ownedHorns.length ? s.ownedHorns.slice() : ["beep"];
@@ -1355,7 +1357,7 @@ function refreshLobbyBits() {
         ? (guests.length ? `${ready} of ${guests.length} friend${guests.length === 1 ? "" : "s"} ready · start whenever you like` : `Share the code — friends can join any time`)
         : `👑 ${U.esc(displayName(N.host))} is hosting · ${info.length}/${NET.MAX_PLAYERS} here`);
     // the 3D lineup
-    STG.layout(info.map(p => ({ uid: p.uid, sk: p.sk, hc: p.me ? profileCache().hair : (N.players.get(p.uid) || {}).hc, name: p.name, host: p.host, ready: p.ready && !p.host, status: p.status, me: p.me })));
+    STG.layout(info.map(p => ({ uid: p.uid, sk: p.sk, hc: p.me ? profileCache().hair : (N.players.get(p.uid) || {}).hc, hs: p.me ? profileCache().style : (N.players.get(p.uid) || {}).hs, name: p.name, host: p.host, ready: p.ready && !p.host, status: p.status, me: p.me })));
 }
 
 // ── results ──────────────────────────────────────────────────────────────
@@ -1433,7 +1435,7 @@ function renderResults(force) {
     }
     btns.push({ id: "pt_leave2", cls: "alt", label: "🚪 Leave party", action: () => leave() });
     H.showScreen(html, btns, { onBack: () => { }, focus: btns[0].id, cls: "pt-card pt-lobby" });
-    if (STG.shown()) STG.layout(rows.map(r => ({ uid: r.uid, sk: r.sk, hc: r.me ? profileCache().hair : (N.players.get(r.uid) || {}).hc, name: r.name, host: r.uid === N.host, rank: r.t != null ? r.place : 9, me: r.me, status: "" })));
+    if (STG.shown()) STG.layout(rows.map(r => ({ uid: r.uid, sk: r.sk, hc: r.me ? profileCache().hair : (N.players.get(r.uid) || {}).hc, hs: r.me ? profileCache().style : (N.players.get(r.uid) || {}).hs, name: r.name, host: r.uid === N.host, rank: r.t != null ? r.place : 9, me: r.me, status: "" })));
 }
 
 // a small caption over the screen (spectating)
@@ -1455,7 +1457,7 @@ function updateRate() {
 function publish() {
     const st = ctx.state, car = ctx.car, c = profileCache();
     const pr = N.profile;
-    pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.rd = P.ready ? 1 : 0;
+    pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.hs = c.style; pr.dc = c.decor; pr.rd = P.ready ? 1 : 0;
     let m = N.mode;
     const run = (ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby") || lightRoam();
     const foot = st === "footRun" && run && ctx.foot && ctx.foot.active && !!ctx.foot.pos;

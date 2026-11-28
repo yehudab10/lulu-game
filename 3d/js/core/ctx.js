@@ -61,7 +61,10 @@ ctx.enabled = id => !ctx.TEST || ENABLED.has(id) || ENABLED.has("all");
 const ACTIVITIES = [
     ["chase", () => !!(ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || !!(ctx.foot && ctx.foot.chasing)],
     ["job", () => !!(ctx.hustle && ctx.hustle.job)],
-    ["heist", () => !!(ctx.heist && ctx.heist.busy && ctx.heist.busy())],
+    // (a heist only PLANNED — "pull up out front of the bank" — isn't an activity yet: it has no clock and no way to call
+    //  it off but a new run, and the whole world went quiet until she did it — ci/sweep-logic2. Heist's own schedulers
+    //  still wait for it: heist.busy())
+    ["heist", () => !!(ctx.heist && ctx.heist.busy && ctx.heist.busy("plan"))],
     ["parking", () => !!(ctx.parking && ctx.parking.active)],
     ["shabbos", () => !!(ctx.shabbos && ctx.shabbos.active && ctx.shabbos.phase === "drive")],
     ["underworld", () => !!(ctx.underworld && ctx.underworld.enc)],      // (a road-rager, a gang car, a pickpocket; the Fixer's jobs are side jobs)

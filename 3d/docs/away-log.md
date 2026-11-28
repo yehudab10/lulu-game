@@ -4,7 +4,20 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
-- 2026-11-28 14:10 UTC — 🔍 Game logic, part 2b: paused in the middle of a question and then ⌂ Title / ↺ Restart, the
+- 2026-11-28 14:35 UTC — 🔍 Game logic, part 2c: casing the bank for a heist no longer makes the rest of the world go
+  quiet until she robs it (no robberies to foil, cameos, job offers or street scenes used to start while the plan waited);
+  and paying off speed-camera tickets at the precinct's fines window closes the tickets too (they stayed owed).
+- 2026-11-28 14:10 UTC — 🎥 The camera, part 1: a tree no longer fills the phone with leaves. When a tree, a tree trunk or a
+  lamp post stands between the camera and Lulu (or her car), it now thins out in a soft see-through patch so you always see
+  her — before, walking along a street with a tree behind her could turn the whole screen olive green. Walking into the
+  pizza shop, the bakery, the clothes shop and the little roadside buildings on the highway (the trooper post, the traffic
+  court, Hatzalah), Lulu now faces INTO the room (she used to walk in facing the door, so pushing forward walked her right
+  back out). When the camera is very close to her in a small room she turns see-through as before, but now cleanly (her face
+  no longer showed through the back of her head). Smaller fixes: the camera no longer slides through the neighbours' house
+  when PLAY starts the day, scene shots (arrests, crashes…) stay out of the houses, the driving camera keeps out of the rest
+  areas' buildings and the on-foot camera out of the airport terminal, and the room camera no longer sits behind a big table
+  or a pizza oven.
+- 2026-11-28 13:45 UTC — 🔍 Game logic, part 2b: paused in the middle of a question and then ⌂ Title / ↺ Restart, the
   question no longer follows her onto the title screen (it swallowed every button press there). Turning herself in by
   📞 phone in a town — or being held by the Shomrim until the police come — now ends in that town's own precinct, not
   on the highway out of nowhere; and riding in a friend's passenger seat, the Shomrim don't chase her for the friend's
