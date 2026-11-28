@@ -16,12 +16,13 @@ const W = require("../lib/qawatch.js");
 module.exports = {
   name: "sweeproad",
   parts: ["crash", "body", "ramp", "yard", "lot"],
-  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits",
+  query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits,fuel",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
     const PART = process.env.SWEEPROAD_PART ? process.env.SWEEPROAD_PART.split(",") : this.parts;
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 400)); } };
+    await W.install(t);
     try {
       if (PART.includes("crash")) await step("crash", () => crash(t));
       if (PART.includes("body")) await step("body", () => body(t));
@@ -317,6 +318,14 @@ async function body(t) {
   const c = await g(`({ circles: ctx.car.circles, r: ctx.car.radius })`);
   t.check("body: in the box truck her hit circles are the truck's (3 along 7.5 m)", !!c.circles && c.circles.length === 3, JSON.stringify(c));
   t.check("body: …so a car at the truck's back end is a crash (it used to pass through)", await probe());
+  // ⛽ the truck has its own tank: driving it doesn't drain HER car's (it used to — only a carjacked ride had its own)
+  if (await g(`!!ctx.fuel`)) {
+    const f0 = await g(`({ key: ctx.fuel.key(), own: ctx.fuel.level(ctx.car.skinKey) })`);
+    await g(`(() => { const p = ctx.world.road.point(ctx.car.s, ctx.car.d, {}); ctx.car.vx = Math.sin(p.h) * 25; ctx.car.vz = Math.cos(p.h) * 25; return true; })()`);
+    await t.hold(7, 1); await t.frames(60); await t.hold(7, 0);
+    const f1 = await g(`({ key: ctx.fuel.key(), own: ctx.fuel.level(ctx.car.skinKey) })`);
+    t.check("fuel: in the truck the gauge is the TRUCK's tank, and her own car's stays as it was", /^ride:/.test(f0.key) && f1.own === f0.own, JSON.stringify({ f0, f1 }));
+  }
   await g(`(ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   t.check("body: back in her own car (a new run): her own body again", !(await g(`ctx.car.circles`)));
