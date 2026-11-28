@@ -117,7 +117,11 @@ module.exports = {
       })`);
       // riding in a friend's passenger seat: her car rides along at the friend's speed — no speed-camera ticket for it
       const cam = await t.L(`import("./js/features/openworld/ride.js").then(m => { const C = __lulu3d.ctx, D = C.cameras.debug; if (C.state !== "playing") return { skip: C.state };
-        const own = D.noTicket(); m.RIDE.uid = "friend-test"; const ride = D.noTicket(); m.RIDE.uid = null; return { own, ride }; })`);
+        const own = D.noTicket(); m.RIDE.uid = "friend-test"; const ride = D.noTicket(); m.RIDE.uid = null;
+        const sd = Object.getOwnPropertyDescriptor(C.rides, "siren"); Object.defineProperty(C.rides, "siren", { get: () => true, configurable: true });
+        const siren = D.noTicket(); Object.defineProperty(C.rides, "siren", sd);
+        return { own, ride, siren }; })`);
+      t.check("ends: an ambulance / cop car with its siren on isn't flashed (an emergency vehicle)", cam.siren === "siren", JSON.stringify(cam));
       // the precinct's fines window settles "UNPAID SPEED CAMERA TICKETS" → the tickets are closed too (they stayed owed)
       const fw = await t.L(`import("./js/core/ctx.js").then(m => { const D = __lulu3d.ctx.cameras.debug, S = D.S, w0 = S.warrant, n0 = S.tickets.length;
         S.warrant = true; S.tickets.push({ id: "t-test", stage: "summons", refs: [], unread: true });
