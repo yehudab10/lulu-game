@@ -31,7 +31,8 @@ async function drive(t) {
     m.on("crash", e => { D.crashT = C.frames; if (D.on) { const k = e.kind || (e.collider && e.collider.kind) || (e.actor && e.actor.kind) || "?";
       if (D.crashes.length && D.crashes[D.crashes.length - 1].kind === k && C.frames - D.lastCrashF < 20) { D.lastCrashF = C.frames; D.crashes[D.crashes.length - 1].n++; return; }
       D.lastCrashF = C.frames;
-      D.crashes.push({ s: Math.round(C.car.s), d: +C.car.d.toFixed(1), kind: k, fault: e.fault || null, imp: +(e.impact || 0).toFixed(1), n: 1, trail: D.trail ? D.trail.slice(-6) : null }); } });
+      const o = e.car; D.crashes.push({ s: Math.round(C.car.s), d: +C.car.d.toFixed(1), kind: k, fault: e.fault || null, imp: +(e.impact || 0).toFixed(1), n: 1, trail: D.trail ? D.trail.slice(-6) : null,
+        them: o ? { dir: o.dir, v: +(o.speed || 0).toFixed(1), d: +(o.d || 0).toFixed(1), rel: Math.round(o.s - C.car.s), beh: (o.data && o.data.beh) || "", ai: !!o.ai, h: +(Math.cos(o.h - C.car.h)).toFixed(2) } : null }); } });
     m.hook("controls", (ctl, dt) => {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) return;
       const car = C.car, hw = C.world.highway, n = hw.nearest(car.pos.x, car.pos.z, car.s, {});
@@ -44,14 +45,16 @@ async function drive(t) {
       }
       D.laneT -= dt;
       const tgt = hw.point(n.s + DIR * 22, D.lane, {});
+      D.dbg = { ns: Math.round(n.s), nd: +n.d.toFixed(1), cs: Math.round(car.s), tg: Math.round(Math.hypot(tgt.x - car.pos.x, tgt.z - car.pos.z)) };
       const want = Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z); let a = want - car.h; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
       const v = block && Math.abs(n.d - D.lane) < 1.5 ? Math.min(D.v, block.v + Math.max(0, block.gap - 12) * 0.7) : D.v;      // (eases down to its speed, 12 m behind)
-      ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)); ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 1.5 ? Math.min(1, (car.speed - v) / 6) : 0; ctl.handbrake = false; ctl.analog = true;
+      ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)); D.st = ctl.steer; ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 1.5 ? Math.min(1, (car.speed - v) / 6) : 0; ctl.handbrake = false; ctl.analog = true;
     }, 1000);
+    m.hook("controls", ctl => { D.fin = ctl.steer; }, -100000);
     m.hook("hud", () => {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) { D.lastV = null; return; }
       const car = C.car, v = car.speed;
-      if (C.frames % 10 === 0) { (D.trail = D.trail || []).push(Math.round(car.s) + "/" + car.d.toFixed(1) + "/" + v.toFixed(0)); if (D.trail.length > 12) D.trail.shift(); }
+      if (C.frames % 10 === 0) { (D.trail = D.trail || []).push(Math.round(car.s) + "/" + car.d.toFixed(1) + "/" + v.toFixed(0) + (D.dbg ? " " + JSON.stringify(D.dbg) + " st" + (D.st || 0).toFixed(2) + "/" + (D.fin || 0).toFixed(2) : "")); if (D.trail.length > 12) D.trail.shift(); }
       // (the way the world thinks she's going: it should stay hers for the whole drive)
       if (D.wdir != null && C.world.dir !== D.wdir) (D.flips = D.flips || []).push({ s: Math.round(car.s), d: +car.d.toFixed(1), to: C.world.dir, h: +car.h.toFixed(2), trail: (D.trail || []).slice(-6) });
       D.wdir = C.world.dir;
@@ -92,9 +95,11 @@ async function drive(t) {
   const along = s => (s - s0) * DIR;
   const waits = [];
   const trips = new Set();
+  let uwFree = 0, uwCar = 0;
   for (let k = 0; k < 4000; k++) {
     await t.frames(30);
-    const st = await g(`({ s: Math.round(ctx.car.s), state: L3.state, town: !!(ctx.town && ctx.town.active), trip: (document.querySelector("#tripLabel") || {}).textContent || "", hearts: ctx.G.hearts, chase: !!(ctx.law && ctx.law.chasing) })`);
+    const st = await g(`({ s: Math.round(ctx.car.s), state: L3.state, town: !!(ctx.town && ctx.town.active), trip: (document.querySelector("#tripLabel") || {}).textContent || "", hearts: ctx.G.hearts, chase: !!(ctx.law && ctx.law.chasing), uw: ctx.underworld && ctx.underworld.why ? ctx.underworld.why() : "-", enc: ctx.underworld && ctx.underworld.enc ? ctx.underworld.enc.kind : "" })`);
+    if (DOWN && !st.town && st.state === "playing") { if (st.uw === "") uwFree++; if (/^(rager|gang)$/.test(st.enc)) uwCar++; }
     if (st.trip) trips.add(st.trip.replace(/[\d.]+ mi/, "#"));
     // keep her driving: a wreck / an arrest / a scene → back on the road where she was (this part is about the road itself)
     if (st.state !== "playing" || st.town) {
@@ -132,6 +137,7 @@ async function drive(t) {
   // (a heart-costing hit only: road-ragers ram her on purpose; a siren ambulance nudges her to pull over)
   const rear = D.crashes.filter(c => c.fault === "them" && c.imp > 6.5 && c.kind !== "cop" && !/^underworld_/.test(c.kind));
   t.check("drive: traffic never drives into her hard enough to cost a heart (their fault) on an ordinary lap", rear.length === 0, JSON.stringify(rear.slice(0, 6)));
+  if (DOWN) t.check("drive: down the lap no road-rager / gang car is sent (they're driven for the other carriageway)", uwFree === 0 && uwCar === 0, `eligible ${uwFree}×, cars ${uwCar}`);
   t.check("drive: the trip bar always names where she's heading", trips.size > 2 && ![...trips].some(x => !x.trim()), [...trips].join(" | ").slice(0, 400));
   W.check(t, "drive: the lap", await W.report(t));
 }

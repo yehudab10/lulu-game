@@ -1414,23 +1414,25 @@ const YELP = { kind: "sirenYelp" }, WAIL = { kind: "siren" };
 // ── flavour: somebody else gets pulled over (2D COP_PULLOVER bickering) ──
 export function startFlavour() {
     const car = ctx.car;
-    const victim = ctx.traffic.cars.find(c => !c.hit && !c.ai && c.dir > 0 && c.s > car.s + 110 && c.s < car.s + 280 && !(c.data && c.data.law));
+    // (her way: down the lap — the far carriageway — the car ahead of her is a far-side one at lower s, pulled to that shoulder)
+    const D = travelDir(), sh = D * 7.9;
+    const victim = ctx.traffic.cars.find(c => !c.hit && !c.ai && c.dir === D && (c.s - car.s) * D > 110 && (c.s - car.s) * D < 280 && !(c.data && c.data.law));
     if (!victim) return null;
-    const u = addUnit(victim.s - 16, victim.d, 1, victim.speed + 4, { mode: "chase" });
-    u.mode = "pull"; u.pullD = 7.9; u.stopS = victim.s - 7.5; u.siren = true; u.flavour = victim; u.talkT = 0;
+    const u = addUnit(victim.s - D * 16, victim.d, D, victim.speed + 4, { mode: "chase" });
+    u.mode = "pull"; u.pullD = sh; u.stopS = victim.s - D * 7.5; u.siren = true; u.flavour = victim; u.flavourDir = D; u.talkT = 0;
     victim.keep = true;
     victim.ai = (dt, c) => {
-        c.dTarget = 7.9;
-        c.d += Math.sign(7.9 - c.d) * Math.min(Math.abs(7.9 - c.d), 2 * dt);
+        c.dTarget = sh;
+        c.d += Math.sign(sh - c.d) * Math.min(Math.abs(sh - c.d), 2 * dt);
         c.speed = Math.max(0, c.speed - 6 * dt);
-        c.s += c.speed * dt;
+        c.s += c.speed * D * dt;
     };
     return u;
 }
 function updateFlavourUnit(dt, u) {
-    const v = u.flavour, car = ctx.car;
-    u.stopS = v.s - 7.5;
-    const rel = car.s - v.s;
+    const v = u.flavour, car = ctx.car, D = u.flavourDir || 1;
+    u.stopS = v.s - D * 7.5;
+    const rel = (car.s - v.s) * D;
     u.talkT -= dt;
     if (Math.abs(rel) < 60 && u.talkT <= 0 && v.obj) {
         u.talkT = 2.6;

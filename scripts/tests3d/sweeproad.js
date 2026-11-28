@@ -443,6 +443,13 @@ async function downLap(t) {
   t.check("downlap: a car behind her, going her way, doesn't flash + honk at her", !tf.aHonked && tf.aFlash === 0, JSON.stringify(tf));
   t.check("downlap: a honk moves the slow car ahead of her (her way) into the other lane", tf.bLane === -5.25, JSON.stringify(tf));
   await g(`(ctx.traffic.clear(), true)`);
+  // somebody else getting pulled over (the flavour scene) happens up ahead of HER, on her side's shoulder
+  await g(`(window.__tV = ctx.traffic.add("sedan", ctx.car.s - 170, -1.75, -1, 14), true)`);
+  const fl = await t.L(`import("./js/features/law/cops.js").then(m => !!m.startFlavour())`);
+  await t.frames(120);
+  const fv = await g(`(() => { const v = window.__tV, u = ctx.law._dbg.L.units.find(u => u.flavour === v); return { started: !!u, ahead: Math.round(ctx.car.s - v.s), vd: +v.d.toFixed(1), cop: u && u.car ? Math.round(u.car.s - v.s) : null }; })()`);
+  t.check("downlap: the pull-over she drives past is up ahead of her, on her side's shoulder", fl && fv.started && fv.ahead > 0 && fv.vd < -5 && fv.cop > 0, JSON.stringify(fv));
+  await g(`(ctx.traffic.clear(), ctx.law._dbg.L.units.length = 0, true)`);
   // a speed trap + a wanted poster up ahead of her (down the lap): they stay until she's passed them (both were dropped the frame they spawned)
   await g(`(ctx.law._dbg.spawnTrap(600), true)`);
   await t.frames(15);
