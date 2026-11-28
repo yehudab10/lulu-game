@@ -7,6 +7,7 @@
 import { ctx, hook, on } from "../../core/ctx.js";
 import { lapWorld, lapAt } from "../../world.js";
 import { lapPlaces, ahead } from "./lapmap.js";
+import { uturnMetres } from "./uturn.js";
 
 const DONE = new Set();
 let tick = 0;
@@ -65,6 +66,15 @@ hook("update", dt => {
         if (s - at < 600 || s - at > 4200 || at < 0 || DONE.has("x" + Math.round(at))) continue;
         DONE.add("x" + Math.round(at));
         w.addSign({ s: at, d: -10.6, back: true, bg: "#1f7a46", w: 4.6, h: 2.6, tw: 512, th: 300,
-            lines: [label(p), "EXIT ON THE OTHER SIDE", "turn around to get off"] });
+            lines: [label(p), "EXIT ON THE OTHER SIDE", "↺ U-turn just past it"] });
+    }
+    // …and the crossover's own board, 300 m before it her way: "↺ U-TURN 300 m · then the exit" (world/uturn.js)
+    for (const u of uturnMetres()) {
+        let at = lapAt(s, u.m + 300);
+        if (at > s) at -= 16000;
+        if (s - at < 300 || s - at > 4200 || at < 0 || DONE.has("u" + Math.round(at))) continue;
+        DONE.add("u" + Math.round(at));
+        w.addSign({ s: at, d: -10.6, back: true, bg: "#0d47a1", w: 4.6, h: 2.6, tw: 512, th: 300,
+            lines: ["↺ U-TURN  300 m", `for ${label(u.place)}`, "then the exit on the right"] });
     }
 });
