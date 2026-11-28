@@ -402,6 +402,7 @@ const DELAY = 150;
 function trackAt(W, T) {
     const B = W.buf;
     if (!B || B.length < 2 || T - B[B.length - 1].t > 1500) return false;
+    W.T = T;                                          // (the world-clock moment she's drawn at — tests judge the glide by it)
     let i = B.length - 1;
     while (i > 0 && B[i].t > T) i--;
     const s0 = B[i], s1 = B[Math.min(B.length - 1, i + 1)];

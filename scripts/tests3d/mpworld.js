@@ -220,8 +220,9 @@ async function body(t, pages, riders) {
     mv.keep(() => { const s = s0 + 12 * (Date.now() - t0) / 1000; return { di: Math.round(s * 56000 / 4800), x: 240, sp: Math.round(12 * 56000 / 4800), w: ["", Math.round(s * 10) / 10, -1.75, 0] }; }, 200);
     await A.until(`Object.values(${S}.peers).some(p => p.raw === "Kugel Kid" && p.w && p.w.buf && p.w.buf.length >= 3)`, "A: the mover's timestamped updates", 30000);
     const xs = [], ts = [];
-    for (let i = 0; i < 24; i++) { xs.push(await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? +p.w.ca.toFixed(2) : null; })()`)); ts.push(Date.now()); await A.frames(3); }
-    // (the samples are seconds apart on a slow page: judge each step against the real time between them — 12 m/s ± a little)
+    for (let i = 0; i < 24; i++) { const r = await g(`(() => { const p = Object.values(${S}.peers).find(p => p.raw === "Kugel Kid"); return p && p.w ? [+p.w.ca.toFixed(2), p.w.T || 0] : null; })()`); xs.push(r && r[0]); ts.push(r && r[1]); await A.frames(3); }
+    // (judge each step against the world-clock time of the FRAME that drew it — W.T — not when the test read it: a slow page
+    //  can sit a second or more between frames, and the value only moves when a frame runs; 12 m/s ± a little)
     const bad = xs.slice(1).map((x, i) => ({ d: x - xs[i], want: 12 * (ts[i + 1] - ts[i]) / 1000 })).filter(o => o.d < -0.05 || Math.abs(o.d - o.want) > 6 + o.want * 0.25);
     t.check("drawn between real updates: the mover glides forward at her real speed (never back, no jumps)", xs.every(x => x != null) && !bad.length, JSON.stringify({ xs, bad: bad.slice(0, 4) }));
     mv.close(); riders.splice(riders.indexOf(mv), 1);
