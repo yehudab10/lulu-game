@@ -83,6 +83,9 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
+- 2026-11-28 17:30 UTC — part 6 on main: findings 28–30 (the ambulance waits for an activity to end; down the lap the
+  flavour pull-over ahead of her; no bad-guy cars down the lap). CI 46169171987 (core, platform, sweeproad, law, oneact,
+  underworld, roadevents, lawstruck, qacar ✓). Main's Smoke after part 5: 46151341698 ✓.
 - 2026-11-28 13:50 UTC — part 5 on main: findings 25–27 (down the lap: chases, the pull-over, traps, posters, K9 / missiles,
   the call-in cruiser, traffic flashing + the honk) + sweeproad3's down-the-lap drive. CI 46149112139 (core, platform, sweeproad,
   law, qalaw, lawstruck, town, qacar, heist, crime ✓), 46150503359 (core, platform, sweeproad, qacar, atmos, moves, pinroute,
