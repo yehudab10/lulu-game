@@ -127,5 +127,21 @@ module.exports = {
     if (xs) { await g(`(() => { const c = ctx.car, s = ${xs.s + 150}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; c.vx = -Math.sin(p.h) * 12; c.vz = -Math.cos(p.h) * 12; c.vF = 12; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`); await t.frames(40); await cam(xs.s + 60, -6, xs.s); await t.frames(4); await t.shot("sign-exit-other-side"); }
     if (ds) { await g(`(() => { const c = ctx.car, s = ${ds.s + 150}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; c.vx = -Math.sin(p.h) * 12; c.vz = -Math.cos(p.h) * 12; c.vF = 12; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`); await t.frames(40); await cam(ds.s + 60, -6, ds.s); await t.frames(4); await t.shot("sign-distance-other-way"); }
     await t.L(`window.__camAt = null`);
+
+    // ── 6. a U-turn crossover past each exit, for drivers coming down the lap (ci/twoway round 4) ──
+    const cross = await t.L(`import("./js/features/world/uturn.js").then(m => m.uturnMetres().map(u => ({ m: Math.round(u.m), name: u.place.name, kind: u.place.kind })))`);
+    console.log("   UTURNS", JSON.stringify(cross));
+    const mw = cross.find(u => /midwood/i.test(u.name));
+    t.check(`a crossover 400 m past each town / JFK / rest-area exit (coming down the lap) — ${cross.length}`, cross.length >= 3 && !!mw, JSON.stringify(cross));
+    if (mw) {
+      await g(`(() => { const c = ctx.car, s = ${mw.m + 900}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; c.vx = -Math.sin(p.h) * 12; c.vz = -Math.cos(p.h) * 12; c.vF = 12; ctx.world.dir = -1; ctx.cam.snap(); return true; })()`);
+      await t.frames(150);
+      const sp = await g(`ctx.places.spots().filter(x => x.id === "uturn").map(x => Math.round(x.s) + (x.built ? "+" : "-"))`);
+      t.check(`Midwood's crossover is on the road where she turns (${sp.join(",")})`, sp.some(x => Math.abs(parseInt(x) - mw.m) < 2 && /\+$/.test(x)), JSON.stringify(sp));
+      const ub = await g(`ctx.world.signs.filter(x => x.back && /U-TURN/.test(x.lines.join(" "))).map(x => Math.round(x.s) + ": " + x.lines.join(" / "))`);
+      t.check(`its board, 300 m before it her way: "↺ U-TURN 300 m · for MIDWOOD" (${ub[0] || ""})`, ub.some(x => /MIDWOOD/.test(x)), JSON.stringify(ub));
+      await g(`(() => { const c = ctx.car, s = ${mw.m + 60}, p = ctx.world.road.point(s, -5.25, {}); c.place(p.x, p.z, p.h + Math.PI); c.s = s; c.d = -5.25; ctx.cam.snap(); return true; })()`); await t.frames(30);
+      await cam(mw.m + 45, -4, mw.m - 5); await t.frames(4); await t.shot("uturn-crossover"); await t.L(`window.__camAt = null`);
+    }
   },
 };
