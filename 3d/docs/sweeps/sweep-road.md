@@ -44,9 +44,9 @@ Not touched (still moving on another branch when this started): `features/fuel` 
 
 ## Landed
 
-- 2026-11-28 ~05:35 UTC — part 1 on main: findings 1–18. CI 3D full suite run 46110858388 on the branch (core, platform,
+- 2026-11-28 07:25 UTC — part 1 on main (e7241646, fast-forward): findings 1–18. CI 3D full suite run 46110858388 on the branch (core, platform,
   sweeproad, sweeproad2, law, town, impound, cars2, cars, rides, roadside, qalaw, dealers, dealersui, shops, cameras, qacar,
-  lawstruck, cameos ✓; exits / fuel / carcare: see below) + the wide run 46096797384 earlier. Reds judged not ours: `partyworld`
+  lawstruck, cameos, exits, fuel, carcare ✓; partyworld ✗ — see below) + the wide run 46096797384 earlier. Reds judged not ours: `partyworld`
   "paused in a party … never rolls backwards" (a shared car rams her stopped car — fails on plain main too, 1 in 2 locally) and
   its "community: the same roadside scenes" (once); `feel` "rain on foot: no drum" (passes 2/2 locally on the branch — a
   real-time audio fade on the fast clock); `exits` "interchange triangles" (red on main); `partners2`, `together`, `partyplus`,
