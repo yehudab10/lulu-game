@@ -22,6 +22,14 @@ party* / qafriends / openworld relay → `ci/oneserver-place` / `ci/friends` whi
 | partyworld — paused in a party: never rolls backwards (min vF -16) | party → `ci/friends` (moving) |
 | movement — a coach line names the jump the first walks (empty) | stale test: since `ci/sweep-phone` 55881dd9 (one hint at a time) the moves coach waits while the 6 s "you're on foot" hint is up. The test waits for it now |
 
+## After whole suite #1
+
+| check | verdict / status |
+|---|---|
+| sweepphone2 — phone-stranger: the room's speech bubbles are whole on screen ("Hand me the wrench…" −1.04..0.76; "Who put a SPOON down here?" −0.67..1.13) | REAL, red on main since logic2's one-clock change put a different household scene in the test's house: a room bubble's width cap used the straight-line distance, so off to a side it came out wider than the screen and the slide-in couldn't fit it. Sized by depth now + its ends re-checked after the resize (`interiors/fx.js`) — green 46148202879, landed 13:45 |
+| sweepphone — first drive: no text off the sides (a pedestrian's "Shalom!" 379..448 on a 390 px phone) | REAL (intermittent, green on a re-run 46149453258): outdoor NPC bubbles had no side clamp. They slide in now (`banter/bubbles.js` placeNpc) — green 46150264657, landed 13:45 |
+| sweeproad3 — no invisible bumps (s 1687) | `ci/sweep-road`'s own test, red on their run 46143702743 too — theirs |
+
 ## Findings + status
 
 ## Left for other branches

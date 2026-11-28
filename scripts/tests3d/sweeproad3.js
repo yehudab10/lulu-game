@@ -5,6 +5,9 @@
 // invisible bump (a sudden loss of speed with nothing hit), the car on the road (not sunk / floating), traffic never
 // drives into her from behind, the trip bar always says something. A picture every ~1.5 km (--shots).
 const W = require("../lib/qawatch.js");
+// SWEEPROAD3_DOWN=1: the same drive DOWN the lap, on the far carriageway (ci/twoway); SWEEPROAD3_KM: how far (default a lap)
+const DOWN = process.env.SWEEPROAD3_DOWN === "1", KM = +process.env.SWEEPROAD3_KM || 0, FROM = +process.env.SWEEPROAD3_FROM || 0;
+const DIR = DOWN ? -1 : 1;
 
 module.exports = {
   name: "sweeproad3",
@@ -22,22 +25,25 @@ async function drive(t) {
   await W.install(t);
   // the test driver + a per-frame log of what a player would feel
   await t.L(`import("./js/core/ctx.js").then(m => {
-    const C = m.ctx, D = window.__drv = { on: false, v: 31, lane: 5.25, bumps: [], sunk: [], rear: 0, crashes: [], f: 0, lastV: null, maxY: 0, minY: 0, laneT: 0, hold: 0 };
+    const C = m.ctx, DIR = ${DIR}, D = window.__drv = { on: false, v: 31, lane: DIR * 5.25, bumps: [], sunk: [], rear: 0, crashes: [], f: 0, lastV: null, maxY: 0, minY: 0, laneT: 0, hold: 0 };
     // (a pothole, a cone, a puddle: visible bumps that slow her on purpose — not "invisible")
     m.on("stat", e => { if (e && /pothole|cone|puddle|splash/i.test(e.id || "")) D.crashT = C.frames; });
-    m.on("crash", e => { D.crashT = C.frames; if (D.on) D.crashes.push({ s: Math.round(C.car.s), kind: e.kind || (e.collider && e.collider.kind) || (e.actor && e.actor.kind) || "?", fault: e.fault || null, imp: +(e.impact || 0).toFixed(1) }); });
+    m.on("crash", e => { D.crashT = C.frames; if (D.on) { const k = e.kind || (e.collider && e.collider.kind) || (e.actor && e.actor.kind) || "?";
+      if (D.crashes.length && D.crashes[D.crashes.length - 1].kind === k && C.frames - D.lastCrashF < 20) { D.lastCrashF = C.frames; D.crashes[D.crashes.length - 1].n++; return; }
+      D.lastCrashF = C.frames;
+      D.crashes.push({ s: Math.round(C.car.s), d: +C.car.d.toFixed(1), kind: k, fault: e.fault || null, imp: +(e.impact || 0).toFixed(1), n: 1, trail: D.trail ? D.trail.slice(-6) : null }); } });
     m.hook("controls", (ctl, dt) => {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) return;
       const car = C.car, hw = C.world.highway, n = hw.nearest(car.pos.x, car.pos.z, car.s, {});
       // a slower car ahead in her lane → the other right lane if it's clear, else ease off
       let block = null;
-      for (const c of C.traffic.cars) { if (c.dir < 0 && !c.hit) continue; const gap = c.s - n.s; if (gap > 0 && gap < 55 && Math.abs(c.d - D.lane) < 2.4) { const v = c.hit || c.dir < 0 ? 0 : c.speed; if (!block || gap < block.gap) block = { gap, v }; } }      // (a wreck in her lane is in the way too)
+      for (const c of C.traffic.cars) { if (c.dir * DIR < 0 && !c.hit) continue; const gap = (c.s - n.s) * DIR; if (gap > 0 && gap < 55 && Math.abs(c.d - D.lane) < 2.4) { const v = c.hit || c.dir * DIR < 0 ? 0 : c.speed; if (!block || gap < block.gap) block = { gap, v }; } }      // (a wreck in her lane is in the way too)
       if (block && D.laneT <= 0) {
-        const other = D.lane > 3 ? 1.75 : 5.25;
-        if (!C.traffic.cars.some(c => (c.dir > 0 || c.hit) && Math.abs(c.d - other) < 2.4 && Math.abs(c.s - n.s) < 30)) { D.lane = other; D.laneT = 3; }
+        const other = DIR * (D.lane * DIR > 3 ? 1.75 : 5.25);
+        if (!C.traffic.cars.some(c => (c.dir * DIR > 0 || c.hit) && Math.abs(c.d - other) < 2.4 && Math.abs(c.s - n.s) < 30)) { D.lane = other; D.laneT = 3; }
       }
       D.laneT -= dt;
-      const tgt = hw.point(n.s + 22, D.lane, {});
+      const tgt = hw.point(n.s + DIR * 22, D.lane, {});
       const want = Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z); let a = want - car.h; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
       const v = block && Math.abs(n.d - D.lane) < 1.5 ? Math.min(D.v, block.v + Math.max(0, block.gap - 12) * 0.7) : D.v;      // (eases down to its speed, 12 m behind)
       ctl.steer = Math.max(-1, Math.min(1, -a * 2.4)); ctl.throttle = car.speed < v ? 0.85 : 0; ctl.brake = car.speed > v + 1.5 ? Math.min(1, (car.speed - v) / 6) : 0; ctl.handbrake = false; ctl.analog = true;
@@ -45,6 +51,10 @@ async function drive(t) {
     m.hook("hud", () => {
       if (!D.on || C.state !== "playing" || (C.town && C.town.active)) { D.lastV = null; return; }
       const car = C.car, v = car.speed;
+      if (C.frames % 10 === 0) { (D.trail = D.trail || []).push(Math.round(car.s) + "/" + car.d.toFixed(1) + "/" + v.toFixed(0)); if (D.trail.length > 12) D.trail.shift(); }
+      // (the way the world thinks she's going: it should stay hers for the whole drive)
+      if (D.wdir != null && C.world.dir !== D.wdir) (D.flips = D.flips || []).push({ s: Math.round(car.s), d: +car.d.toFixed(1), to: C.world.dir, h: +car.h.toFixed(2), trail: (D.trail || []).slice(-6) });
+      D.wdir = C.world.dir;
       // an invisible bump: ≥ 6 m/s lost in one frame (1/30 s = 180 m/s²) with no crash event this frame or the last
       if (D.lastV != null && D.lastV - v > 6 && !(D.crashT >= C.frames - 2)) D.bumps.push({ s: Math.round(car.s), d: +car.d.toFixed(1), from: +D.lastV.toFixed(1), to: +v.toFixed(1) });
       D.lastV = v;
@@ -68,9 +78,18 @@ async function drive(t) {
     await t.until(`__lulu3d.state === "playing"`, "a cruise starts again", 120000);
     await W.reset(t);
   }
-  const s0 = await g(`Math.round(ctx.car.s)`), goal = s0 + 16000 + 400;
+  if (DOWN) {
+    await W.pause(t, false);
+    await g(`(() => { const hw = ctx.world.highway, s = ${FROM} ? ${FROM} + 16000 * Math.ceil(ctx.car.s / 16000) : Math.floor(ctx.car.s) + 16000, p = hw.point(s, -5.25, {});
+      ctx.car.place(p.x, p.z, p.h + Math.PI); ctx.car.s = s; ctx.car.d = -5.25; ctx.car.vx = -Math.sin(p.h) * 20; ctx.car.vz = -Math.cos(p.h) * 20; ctx.car.vF = 20;
+      ctx.traffic.clear(); ctx.world.dir = -1; ctx.world.prebuild(s); ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+    await t.frames(3); await W.pause(t, true); await W.moved(t);
+  }
+  const LEN = KM ? KM * 1000 : 16000 + 400;
+  const s0 = await g(`Math.round(ctx.car.s)`), goal = s0 + DIR * LEN;
   await g(`(window.__drv.on = true, ctx.G.invT = 0, true)`);
-  let nextShot = s0 + 300, lastS = s0, stall = 0, arrested = 0;
+  let nextShot = 300, lastS = s0, stall = 0, arrested = 0;
+  const along = s => (s - s0) * DIR;
   const waits = [];
   const trips = new Set();
   for (let k = 0; k < 4000; k++) {
@@ -82,32 +101,33 @@ async function drive(t) {
       if (/^law/.test(st.state)) arrested++;
       await W.pause(t, false);
       await g(`(() => { if (ctx.foot && ctx.foot.active) ctx.foot.end("test"); if (ctx.town && ctx.town.active) ctx.town.leave("reset"); if (L3.state !== "playing") L3.setState("playing");
-        const hw = ctx.world.highway, s = Math.max(ctx.car.s, ${lastS}), p = hw.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.car.vx = Math.sin(p.h) * 25; ctx.car.vz = Math.cos(p.h) * 25; ctx.G.hearts = ctx.G.maxHearts; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+        const hw = ctx.world.highway, s = ${DIR} > 0 ? Math.max(ctx.car.s, ${lastS}) : Math.min(ctx.car.s, ${lastS}), p = hw.point(s, ${DIR} * 5.25, {}), h = p.h + (${DIR} > 0 ? 0 : Math.PI); ctx.car.place(p.x, p.z, h); ctx.car.s = s; ctx.car.d = ${DIR} * 5.25; ctx.car.vx = Math.sin(h) * 25; ctx.car.vz = Math.cos(h) * 25; ctx.G.hearts = ctx.G.maxHearts; ctx.world.dir = ${DIR}; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
       await t.frames(3); await W.pause(t, true); await W.moved(t);
       continue;
     }
     if (st.hearts <= 1) await g(`(ctx.G.hearts = ctx.G.maxHearts, true)`);
     if (st.chase) await g(`(ctx.law.standDown("test"), true)`);
-    if (st.s >= nextShot) { await t.shot(`lap-${Math.round((st.s - s0) / 100) / 10}km`); nextShot += 1500; }
+    if (along(st.s) >= nextShot) { await t.shot(`lap${DOWN ? "down" : ""}-${Math.round(along(st.s) / 100) / 10}km`); nextShot += 1500; }
     // (a stopped school bus, a toll, a train: the road's own reasons to wait — the test driver only follows its lane, so after
     //  ~25 s it's carried 80 m on, noted; a real stuck car would show up as the same spot again and again)
-    if (st.s - lastS < 20) {
+    if (along(st.s) - along(lastS) < 20) {
       if (++stall > 25) {
         waits.push(st.s); stall = 0;
         if (waits.filter(x => Math.abs(x - st.s) < 30).length > 2) { t.check("drive: she keeps moving up the highway", false, `stuck at s ${st.s}`); break; }
         await W.pause(t, false);
-        await g(`(() => { ctx.traffic.clear(); const hw = ctx.world.highway, s = ctx.car.s + 80, p = hw.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+        await g(`(() => { ctx.traffic.clear(); const hw = ctx.world.highway, s = ctx.car.s + ${DIR} * 80, p = hw.point(s, ${DIR} * 5.25, {}), h = p.h + (${DIR} > 0 ? 0 : Math.PI); ctx.car.place(p.x, p.z, h); ctx.car.s = s; ctx.car.d = ${DIR} * 5.25; ctx.car.vx = Math.sin(h) * 20; ctx.car.vz = Math.cos(h) * 20; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
         await t.frames(3); await W.pause(t, true); await W.moved(t);
       }
     } else stall = 0;
-    lastS = Math.max(lastS, st.s);
-    if (st.s >= goal) break;
+    lastS = DIR > 0 ? Math.max(lastS, st.s) : Math.min(lastS, st.s);
+    if (along(st.s) >= LEN) break;
   }
-  const D = await g(`(() => { const D = window.__drv; D.on = false; return { bumps: D.bumps, sunk: D.sunk, crashes: D.crashes, f: D.f, maxY: +D.maxY.toFixed(2), minY: +D.minY.toFixed(2) }; })()`);
+  const D = await g(`(() => { const D = window.__drv; D.on = false; return { flips: D.flips || [], bumps: D.bumps, sunk: D.sunk, crashes: D.crashes, f: D.f, maxY: +D.maxY.toFixed(2), minY: +D.minY.toFixed(2) }; })()`);
   if (waits.length) console.log(`    · waited (carried on) at s ${waits.join(", ")}`);
   console.log(`    · ${D.f} frames driven, ${D.crashes.length} crashes, y ${D.minY}…${D.maxY}, trips: ${[...trips].slice(0, 12).join(" | ")}`);
+  if (D.flips.length) console.log(`    · the world's direction flipped: ${JSON.stringify(D.flips.slice(0, 6))}`);
   if (D.crashes.length) console.log(`    · crashes: ${JSON.stringify(D.crashes.slice(0, 12))}`);
-  t.check("drive: she drove the whole lap", lastS >= goal - 50, `${lastS - s0} m of ${goal - s0}`);
+  t.check(`drive: she drove the whole ${KM ? KM + " km" : "lap"}${DOWN ? " down the lap" : ""}`, along(lastS) >= LEN - 50, `${along(lastS)} m of ${LEN}`);
   t.check("drive: no invisible bumps (≥ 6 m/s lost in a frame with nothing hit)", D.bumps.length === 0, JSON.stringify(D.bumps.slice(0, 8)));
   // (a heart-costing hit only: road-ragers ram her on purpose; a siren ambulance nudges her to pull over)
   const rear = D.crashes.filter(c => c.fault === "them" && c.imp > 6.5 && c.kind !== "cop" && !/^underworld_/.test(c.kind));

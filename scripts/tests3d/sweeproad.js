@@ -7,6 +7,8 @@
 //           pass through: the hit circles were always her own 4.6 m car's)
 //   ramp    a chase down Lakewood's off-ramp: the cruiser on her tail drives the ramp (decel lane → ramp → its branch),
 //           never across the painted gore / the grass / the guardrails (law's steering aimed at her offset off the highway)
+//   downlap a chase while she drives DOWN the lap (ci/twoway's far carriageway): the cruisers come from behind HER (up the
+//           lap) and chase her her way; busted, she stops on her own side (it steered her across both carriageways)
 //   bolo    someone CALLS IN her car in town: the cruiser that comes looking prowls round where the call came from — it
 //           used to drive the street grid straight to her car, wherever she'd gone
 //   yard    a car impounded at a ROADSIDE yard (Trooper Post 7): its gate takes the fee and gives it back (it was keyed
@@ -17,7 +19,7 @@ const W = require("../lib/qawatch.js");
 
 module.exports = {
   name: "sweeproad",
-  parts: ["crash", "body", "ramp", "bolo", "yard", "lot"],
+  parts: ["crash", "body", "ramp", "downlap", "bolo", "yard", "lot"],
   query: "&enable=law,cameos,foot,cars,town,world,shops,garage,impound,places,day,phone,rides,streets,exits,fuel",
   save2d: { totalCoins: 2000, cruiseUnlocked: true, ownedSkins: ["pink", "purple"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
@@ -29,6 +31,7 @@ module.exports = {
       if (PART.includes("crash")) await step("crash", () => crash(t));
       if (PART.includes("body")) await step("body", () => body(t));
       if (PART.includes("ramp")) await step("ramp", () => ramp(t));
+      if (PART.includes("downlap")) await step("downlap", () => downLap(t));
       if (PART.includes("bolo")) await step("bolo", () => bolo(t));
       if (PART.includes("yard")) await step("yard", () => yard(t));
       if (PART.includes("lot")) await step("lot", () => lot(t));
@@ -402,6 +405,89 @@ async function bolo(t) {
     return { prowl: !!u.prowl, to: u.prowl ? Math.round(Math.hypot(u.prowl.to.x - car.x, u.prowl.to.z - car.z)) : -1, cop: Math.round(Math.hypot(u.car.x - car.x, u.car.z - car.z)), chase: !!L.chase }; })()`);
   t.check("bolo: the call-in's cruiser prowls (not routed straight to her car)", r.chase || (r.prowl && r.to > 25), JSON.stringify(r));
   await g(`(ctx.law.standDown("test"), ctx.law._dbg.L.bolo && (ctx.law._dbg.L.bolo = null), ctx.town.leave("reset"), L3.setState("title"), true)`);
+  await t.frames(6);
+  await W.pause(t, true);
+}
+
+/** A chase on the far carriageway, driving down the lap. */
+async function downLap(t) {
+  const g = t.game;
+  await W.pause(t, false);
+  if (await g(`ctx.foot && ctx.foot.active`)) await g(`(ctx.foot.end("test"), true)`);
+  if (await g(`ctx.town && ctx.town.active`)) await g(`(ctx.town.leave("reset"), true)`);
+  if (await g(`L3.state !== "playing"`)) {
+    await g(`(L3.state !== "title" ? L3.setState("title") : 0, true)`); await t.frames(4);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "downlap: a cruise starts", 120000);
+  }
+  await t.L(`import("./js/core/ctx.js").then(m => { if (window.__rdrv) return; window.__rdrv = true; m.hook("controls", (ctl, dt) => { const W = window.__route; if (!W || !W.pts.length) return; const car = m.ctx.car;
+      const p = W.pts[0]; if (Math.hypot(p.x - car.pos.x, p.z - car.pos.z) < (W.r || 4)) { W.pts.shift(); if (!W.pts.length) return; }
+      const q = W.pts[0], want = Math.atan2(q.x - car.pos.x, q.z - car.pos.z); let d = want - car.h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      ctl.steer = Math.max(-1, Math.min(1, -d * 2.6)); ctl.throttle = car.speed < (W.v || 9) ? 0.7 : 0; ctl.brake = car.speed > (W.v || 9) + 3 ? 0.4 : 0; ctl.handbrake = false; ctl.analog = true; }, 1000); })`);
+  // on the far carriageway, facing DOWN the lap, rolling
+  const s0 = await g(`(() => { ctx.traffic.config.enabled = false; ctx.traffic.clear(); const hw = ctx.world.highway, s = Math.floor(ctx.car.s) + 3000, p = hw.point(s, -1.75, {});
+    ctx.car.place(p.x, p.z, p.h + Math.PI); ctx.car.s = s; ctx.car.d = -1.75; ctx.car.vx = -Math.sin(p.h) * 16; ctx.car.vz = -Math.cos(p.h) * 16; ctx.car.vF = 16;
+    ctx.world.dir = -1; ctx.world.prebuild(s); ctx.cam.snap(); const P = []; for (let k = 1; k < 40; k++) { const q = hw.point(s - k * 20, -1.75, {}); P.push({ x: q.x, z: q.z }); }
+    window.__route = { pts: P, v: 16, r: 6 }; return s; })()`);
+  await W.moved(t);
+  await t.frames(40);
+  // traffic going her way: a car catching up behind her in her lane doesn't flash its brights + honk at her (it took her
+  // for an oncoming car); a HONK moves the slow car ahead of her out of her lane (it only looked up the lap)
+  await g(`(() => { const T = ctx.traffic; T.clear(); window.__tA = T.add("sedan", ctx.car.s + 40, -1.75, -1, 19); window.__tB = T.add("sedan", ctx.car.s - 48, -1.75, -1, 9); return true; })()`);
+  await t.frames(30);
+  await t.tap(4);
+  await t.frames(30);
+  const tf = await g(`(() => { const A = window.__tA, B = window.__tB; return { aFlash: +A.flash.toFixed(2), aHonked: !!A.honked, aBehind: Math.round(A.s - ctx.car.s), bLane: B.dTarget, bAhead: Math.round(ctx.car.s - B.s) }; })()`);
+  t.check("downlap: a car behind her, going her way, doesn't flash + honk at her", !tf.aHonked && tf.aFlash === 0, JSON.stringify(tf));
+  t.check("downlap: a honk moves the slow car ahead of her (her way) into the other lane", tf.bLane === -5.25, JSON.stringify(tf));
+  await g(`(ctx.traffic.clear(), true)`);
+  // a speed trap + a wanted poster up ahead of her (down the lap): they stay until she's passed them (both were dropped the frame they spawned)
+  await g(`(ctx.law._dbg.spawnTrap(600), true)`);
+  await t.frames(15);
+  const tr = await g(`(() => { const T = ctx.law._dbg.L.traps.filter(x => !x.gone); return T.map(x => Math.round(ctx.car.s - x.s)); })()`);
+  t.check("downlap: a speed trap up ahead of her stays there (not gone the frame it spawned)", tr.length > 0 && tr.every(x => x > 400), JSON.stringify(tr));
+  // a call-in: the unlit cruiser comes from behind her, in HER lanes, her way (it crossed to the other carriageway, against the traffic)
+  await g(`(ctx.law.callIn("RECKLESS DRIVING", { delay: 0.2 }), true)`);
+  if (await t.until(`__lulu3d.ctx.law._dbg.L.units.some(u => u.bolo && u.car)`, "downlap: the call-in's cruiser comes out", 20000)) {
+    const bs = [];
+    for (let k = 0; k < 4; k++) {
+      await t.frames(20);
+      bs.push(await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.bolo && u.car); if (!u) return null; const rh = ctx.world.highway.at(u.car.s).h;
+        return { behind: Math.round(u.car.s - ctx.car.s), d: +u.car.d.toFixed(1), down: Math.cos(u.car.h - rh) < 0 }; })()`));
+    }
+    const ok = bs.filter(x => x && x.behind > 0 && x.d < -0.5 && x.down).length;
+    t.check("downlap: the call-in's cruiser comes from behind her, on her side, her way", ok >= 3, JSON.stringify(bs));
+  }
+  await g(`(ctx.law.standDown("test"), ctx.law._dbg.L.bolo = null, true)`);
+  await t.frames(2);
+  await g(`(ctx.law._dbg.L.units.length = 0, ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" }), true)`);
+  // (every second for 8 s: the cruiser behind her, on her side, FACING her way — down the lap)
+  const samples = [];
+  for (let k = 0; k < 8; k++) {
+    await t.frames(30);
+    samples.push(await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.mode === "chase" && u.car); if (!u) return null; const hw = ctx.world.highway, rh = hw.at(u.car.s).h;
+      return { behind: Math.round(u.car.s - ctx.car.s), d: +u.car.d.toFixed(1), down: Math.cos(u.car.h - rh) < 0 }; })()`));
+  }
+  const good = samples.filter(x => x && x.behind > 0 && x.behind < 80 && x.d < 0 && x.down).length;
+  t.check("downlap: the cruiser chases her from behind HER (up the lap), on her side, driving her way", good >= 5, JSON.stringify(samples));
+  // a K9 loosed up ahead runs back at HER (it was loosed behind her, running away)
+  let k9 = null;
+  for (let k = 0; k < 3 && !k9; k++) { await g(`(ctx.law._dbg.spawnK9(), true)`); await t.frames(10); k9 = await g(`(() => { const q = [...ctx.law._dbg.L.threats].find(x => x.kind === "k9"); return q ? Math.round(ctx.car.s - q.s) : null; })()`); }
+  if (k9 != null) {
+    await t.frames(20);
+    const k9b = await g(`(() => { const q = [...ctx.law._dbg.L.threats].find(x => x.kind === "k9"); return q ? Math.round(ctx.car.s - q.s) : null; })()`);
+    t.check("downlap: a K9 loosed up ahead of her comes at her", k9 > 20 && (k9b == null || k9b < k9), `${k9} → ${k9b}`);
+  } else t.check("downlap: a K9 can be loosed", false);
+  // busted while still rolling slowly: the pull-over keeps her on her own side
+  await g(`(window.__route.v = 4, true)`);
+  if (await t.until(`/^law/.test(__lulu3d.state)`, "downlap: crawling with a cruiser behind → busted", 60000)) {
+    const at = [];
+    await g(`(window.__route = null, true)`);
+    for (let k = 0; k < 10; k++) { at.push(await g(`L3.state + "/" + ctx.car.d.toFixed(1)`)); await t.frames(5); }
+    const ds = at.filter(x => /^lawBust/.test(x)).map(x => +x.split("/")[1]);
+    t.check("downlap: busted going down the lap she pulls over on HER side (not steered across both carriageways)", ds.length > 0 && Math.max(...ds) < 0, at.join(" "));
+  }
+  await g(`(window.__route = null, ctx.law.standDown("test"), ctx.world.dir = 1, L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
 }

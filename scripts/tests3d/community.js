@@ -289,7 +289,9 @@ module.exports = {
       await t.click(/FLIP PHONE/);
       for (let i = 0; i < 8 && await g(`ctx.dialogOpen`); i++) { await t.tap(0); await t.frames(8); }
       await t.until(`__lulu3d.state === "lawArrest"`, "the cops come: law's arrest flow takes her", 20000);
-      t.check("…on the highway (the town hands her over)", await g(`!ctx.town.active`));
+      // (since features/places the town has its own precinct: law's arrest plays HERE and leaves the town only when it can't
+      //  host it — the Shomrim no longer drop the town first, which cuffed her on the highway out of nowhere: ci/sweep-logic2)
+      t.check("…in town: law takes her to the town's own precinct (the town stays)", await g(`ctx.town.active || !(ctx.civic && ctx.civic.claim)`));
       await g(`(${C}.debug.force.hold = null, true)`);
     });
 

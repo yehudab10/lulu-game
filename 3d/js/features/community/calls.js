@@ -18,6 +18,8 @@ import { ORGS, SCENES, LULU_CALL, SHOMRIM, POLICE, NOTHING, NOTHING_BY, DISPATCH
 
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const inCar = () => ctx.state === "playing" && !onFoot();
+/** law.arrest's on-foot opts (where she stands) — or {} in the car. */
+const footAt = () => { const f = ctx.foot; return f && f.active && f.pos ? { onFoot: true, x: f.pos.x, z: f.pos.z, h: ctx.car ? ctx.car.h : 0 } : {}; };
 const wanted = () => !!(ctx.law && (ctx.law.wanted > 0 || ctx.law.chasing || ctx.law.fugitive));
 const G = () => ctx.G;
 const damaged = () => (G().hearts || 0) < (G().maxHearts || 3) || !!(ctx.feel && ctx.feel.damage && ctx.feel.damage.stage > 0) || !!(ctx.streets && ctx.streets.flat);
@@ -143,7 +145,11 @@ function police(kind) {
         return callOut("police", POLICE.surrender, () => {
             const ch = (law && law.warrants && law.warrants.length ? law.warrants : ["TURNING HERSELF IN"]).slice(0, 3);
             stat("communitySurrenders", 1);
-            later(0.4, () => { try { if (ctx.foot && ctx.foot.active && ctx.foot.end) ctx.foot.end("arrest"); if (ctx.town && ctx.town.active) ctx.town.leave("quiet"); if (law && law.arrest) law.arrest(ch, {}); } catch (e) { console.error(e); } });
+            // (on foot: law's own on-foot arrest — the cop walks up to her — not foot.end() from a timer in the middle of
+            //  foot's frame, which nulled foot's state under it: "reading 'car'"; and)
+            // (no town.leave first: law's arrest plays in a town that has a precinct — features/places — and leaves the
+            //  town itself when it can't host it. Leaving here cuffed her on the highway out of nowhere — ci/sweep-logic2)
+            later(0.4, () => setTimeout(() => { try { if (law && law.arrest) law.arrest(ch, footAt()); } catch (e) { console.error(e); } }, 0));      // (after the frame: community's timers tick inside foot's actor update, and an arrest there pulled foot's state out from under the rest of its frame)
         });
     }
     // reporting HERSELF: the trace comes back to the pink convertible
