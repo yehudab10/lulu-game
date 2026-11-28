@@ -110,6 +110,14 @@ module.exports = {
       const i = await g(`(() => { const pr = ctx.foot.debug.interactables(); return pr && pr.ent ? ctx.foot.spots().indexOf(pr.ent) : -1; })()`);
       if (await S.enter({ name: front.name, i, at: front.at }, "phone-front") === true) { await measure("phone-front"); await out("phone-front"); }
     }
+    // on its side (844 × 390): the realtor's small office — the camera has more room sideways; she's solid unless it's close
+    await t.page.setViewportSize({ width: 844, height: 390 });
+    await t.frames(6);
+    {
+      const d = doors.find(d => d.name === "realty");
+      if (d && await S.enter(d, "phone-land-realty") === true) { await measure("phone-land-realty"); await out("phone-land-realty"); }
+    }
+    await t.page.setViewportSize({ width: 390, height: 844 });
     t.check("visited the rooms (a stranger's house, her house, the clothes shop, a shopfront)", ["phone-stranger", "phone-her-house", "phone-clothes", "phone-front"].every(w => seen.has(w)), [...seen].join(","));
   },
 };

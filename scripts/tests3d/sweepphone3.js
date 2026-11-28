@@ -90,6 +90,16 @@ module.exports = {
     // (back to the usual screen for the rest: TV mode off, the HUD at 100 %, FULL)
     await t.L(`import("./js/core/save.js").then(m => { Object.assign(m.save3d.settings, { tv: "auto", hud: 1, hudMode: "full" }); return true; })`);
     await g(`(ctx.applySettings(), true)`);
+    // the title's 🚗 Garage + 📒 Scrapbook (its 💾 save code) on a small phone
+    for (const [re, tag] of [[/Garage/, "16-garage"], [/Scrapbook/, "17-scrapbook"]]) {
+      await t.click(re); await t.frames(10);
+      await S.shot(tag);
+      const f = await t.L(CARD_FIT);
+      S.log(`${tag}: ${JSON.stringify(f)}`);
+      t.check(`${tag}: fits a small phone (or scrolls), buttons ≥ 40 px`, !f || !f.bad.length, JSON.stringify(f));
+      await S.badText(tag, { touch: true, w: 375 });
+      for (let k = 0; k < 5 && !await t.L(`!!document.querySelector("#screenCard #play")`); k++) { await t.tap(1); await t.frames(6); }
+    }
     // the 📱 on a small phone, then turned on its side while it's open
     await t.click(/PLAY/);
     if (!await t.until(`__lulu3d.state === "footRun"`, "PLAY again", 30000)) return;
@@ -106,6 +116,14 @@ module.exports = {
     await S.badText("👯 Friends with a 16-letter name", { touch: true, w: 375 });
     const fr = await t.L(`(() => { const c = document.querySelector("#screenCard.lphone .lp-scr"); if (!c) return "no phone"; const r = c.getBoundingClientRect(); const out = [...c.querySelectorAll("*")].filter(e => !e.children.length && e.textContent.trim() && e.offsetParent !== null).filter(e => { const q = e.getBoundingClientRect(); return q.width && q.right > r.right + 1; }).map(e => e.textContent.trim().slice(0, 30)); return out.join(" | "); })()`);
     t.check("👯 Friends: a 16-letter name stays inside the handset", !fr, fr);
+    // every app on the home screen, upright on a small phone: a screenshot each, nothing broken on screen
+    for (const a of await g(`ctx.phone.apps()`)) {
+      if (a === "camera") continue;      // (a hand-off: photo mode)
+      await g(`(ctx.phone._dbg.openApp(${JSON.stringify(a)}), true)`); await t.frames(8);
+      await S.shot(`13c-app-${a}`);
+      await S.badText(`📱 ${a}`, { touch: true, w: 375 });
+      S.log(`app ${a}: ` + (await S.texts()).filter(x => /lp|screenCard/.test(x.id + x.cls)).map(x => x.tx).join(" | ").slice(0, 500));
+    }
     await g(`(ctx.phone.closePhone(), true)`); await t.frames(4);
     await g(`ctx.phone.openPhone()`); await t.frames(8);
     const hs = () => t.L(`(() => { const c = document.querySelector("#screenCard.lphone"); if (!c) return null; const r = c.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), W: innerWidth, H: innerHeight }; })()`);
