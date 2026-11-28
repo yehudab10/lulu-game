@@ -39,7 +39,8 @@ ctx.mp = {
     emote: idx => N.sendEmote(idx),
     get connected() { return MP.connected; },
     get riders() { return N.riderCount(); },
-    get room() { return MP.room; },
+    get room() { return MP.roomKind === "place" ? "lobby" : MP.room; },   // (🌍 a place room is "the everyone world" to the rest of the game)
+    get placeRoom() { return MP.roomKind === "place" ? MP.room : null; },
     parkingRng: N.parkingRng,
     parkingSpotIndex: N.parkingSpotIndex,
     parkingGhosts: N.parkingGhosts,
@@ -250,10 +251,10 @@ ctx.mp.relabel = N.relabel;             // (features/friends: a friend recognise
 // Tap a NAME over a car (a ghost in EVERYONE) → 📍 Nearby's page for that driver (➕ ask to be friends — features/friends).
 // A tap = short + still, not on a button / the phone; nothing for a hold (touch steering) or a drag.
 ctx.mp.ghostAt = ghostAt;
-ctx.mp.tagOnScreen = tagOnScreen;
+ctx.mp.tagOnScreen = id => { const p = MP.peers[id] ? null : ctx.mp.peerById && ctx.mp.peerById(id); return tagOnScreen(p && p.key ? p.key : id); };   // (a relay id or a key)
 const TAP = { x: 0, y: 0, t: 0, id: -1 };
 function tapOk(e) {
-    if (!MP.connected || MP.room !== "lobby" || !ctx.friends || !ctx.friends.ui) return false;
+    if (!MP.connected || !(MP.room === "lobby" || MP.roomKind === "place") || !ctx.friends || !ctx.friends.ui) return false;
     if (!(ctx.state === "playing" || ctx.state === "footRun") || ctx.dialogOpen || (ctx.phone && ctx.phone.isOpen)) return false;
     const t = e.target;
     return !(t && t.closest && t.closest("button, a, input, select, .btn, #lpPhone, .lp-phone, .toast, #banner"));
@@ -263,7 +264,7 @@ window.addEventListener("pointerup", e => {
     if (e.pointerId !== TAP.id || performance.now() - TAP.t > 350 || Math.hypot(e.clientX - TAP.x, e.clientY - TAP.y) > 12 || !tapOk(e)) return;
     const id = ghostAt(e.clientX, e.clientY), p = id && MP.peers[id];
     if (!p || !ctx.phone || !ctx.phone.openPhone) return;
-    ctx.phone.openPhone("nearby", { driver: id, name: p.name });
+    ctx.phone.openPhone("nearby", { driver: p.id || id, name: p.name });   // (the relay id — in place mode the key is "S:…")
 }, true);
 Object.defineProperty(ctx.mp, "myId", { get: () => (MP.connected ? MP.myId : null) });
 Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
@@ -290,7 +291,10 @@ on("world:resting", e => {
     const t = e.until ? new Date(e.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "midnight";
     H.toast(`🌙 Online play is resting until ${t}. You can keep playing.`, "", { prio: 1, key: "worldResting" });
 });
-ctx.mp.event = (k, d) => N.sendRel(k, d);          // 🌍 step 2: a reliable one-time event to the room (→ mp:event on the others)
+ctx.mp.event = (k, d) => N.sendRel(k, d);
+// 🌍 step 3: a player by her relay id (Nearby / a tap pass that; in place mode MP.peers is keyed by room / session tag) —
+// the one in my own room first
+ctx.mp.peerById = id => { if (MP.peers[id]) return MP.peers[id]; let best = null; for (const k in MP.peers) { const p = MP.peers[k]; if (p.id === id) { if (!p.room || p.room === N.roomPath()) return p; best = best || p; } } return best; };          // 🌍 step 2: a reliable one-time event to the room (→ mp:event on the others)
 on("accounts:names", () => { N.relabel(); U.uiDirty(); });          // (features/accounts: a name came back from the server / ⚙️ names on-off)
 on("mp:riders", () => U.uiDirty());
 
