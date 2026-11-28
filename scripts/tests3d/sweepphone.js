@@ -75,6 +75,11 @@ module.exports = {
       await t.frames(90); await S.shot(tag + `06-tut-${i}`);
       const all = await S.dump(`tutorial ${i}`);
       if (all.some(x => /metaTutBox/.test(x.id)) && all.some(x => /Lulu's phone/.test(x.tx))) both++;
+      // the tutorial's card clear of the touch buttons (it points at them)
+      const hit = await t.L(`(() => { const c = document.querySelector("#metaTutBox .meta-tut"); if (!c) return ""; const a = c.getBoundingClientRect();
+        return [...document.querySelectorAll("#touch .tbtn, #touchExtra button, #stickBase")].filter(e => { for (let n = e; n && n !== document.body; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === "none" || cs.visibility === "hidden") return false; } const b = e.getBoundingClientRect();
+          return b.width && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2; }).map(e => e.id || e.textContent.trim()).join(", "); })()`);
+      t.check(`the first drive (${i}): the tutorial's card is clear of the touch buttons`, !hit, hit);
     }
     await t.L(`(() => { const e = document.getElementById("tGas"); e.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "touch", pointerId: 11 })); return 0; })()`);
     t.check("the first drive: the tutorial's card and the 📱 phone's intro banner never on screen together", both === 0, `${both} of 4 looks`);
