@@ -387,6 +387,7 @@ function towTick(dt) {
         if (r.kind !== "left") continue;
         if (daysSince(r.day) >= TUNE.days && !byOwnedHome(r)) { tow(k, "days"); continue; }
         if (r.legal !== false) continue;
+        if (ctx.fuel && ctx.fuel.dryGrace && ctx.fuel.dryGrace(k)) { S.away[k] = 0; continue; }   // (features/fuel: an empty car on the shoulder isn't towed for a while)
         const here = r.hw ? !plan() : !!(plan() && ctx.town.id === r.town);
         if (!here) { tow(k, "away"); continue; }                   // she left the highway / the town
         const w = worldOf(r), near = r.hw ? TUNE.hwNear : TUNE.zoneNear, wait = r.hw ? TUNE.hwAway : TUNE.zoneAway;

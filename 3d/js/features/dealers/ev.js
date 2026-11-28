@@ -144,6 +144,15 @@ export function openTabletCard(focus) {
         desc: () => "",
         act: () => subHere(),
     });
+    // 🏠 the home charger (features/fuel: installed at a home she OWNS; a Tushla parked there is full next time)
+    const FU = ctx.fuel;
+    if (FU && FU.buyHome && FU.HOME) tiles.push({
+        id: "homecharger", name: "🏠 Home charger", dot: "#29B6F6",
+        state: () => (FU.home ? "owned" : "look"),
+        tag: () => (E.armed === "homecharger" ? "Tap again" : FU.home ? `At ${FU.home.address} · move ${fmt(FU.HOME.move)} 💰` : `${fmt(FU.HOME.price)} 💰`),
+        desc: () => "",
+        act: () => chargerHere(),
+    });
     openCard({ title: "⚡ Tushla Motors", head: id => headHtml(id), tiles, focus: focus || EV_IDS.find(k => !owns("car", k)) || "schlep" });
     return ctx.foot.script({ update(dt, P) { return cardTick(P); } });
 }
@@ -158,6 +167,18 @@ function buyHere(k) {
     ctx.foot.repaintCar && ctx.foot.repaintCar();
     cardSay(`✓ The ${c.name} is yours — it's out front. ${schlep.active() ? "Full Schlep Driving is on your account." : "Add ⚡ Full Schlep Driving any time."}`);
     emit("dealers:ev", { id: k, price: r.price });
+    repaint();
+}
+function chargerHere() {
+    const FU = ctx.fuel, H0 = FU.HOME, homes = (() => { try { return ctx.realestate ? ctx.realestate.owned().filter(h => !h.lost) : []; } catch (e) { return []; } })();
+    if (!homes.length) { cardSay(`Tushla installs it at a home you OWN. Ima: <i>"You're NOT drilling into MY wall."</i> (Her outlet does a trickle overnight. An extension cord is involved.)`); return; }
+    if (FU.home && homes.length < 2) { cardSay(`It's installed at ${FU.home.address}. Park a Tushla there and it's full next time you take it.`); return; }
+    const price = FU.home ? H0.move : H0.price;
+    if (wallet.coins < price) { cardSay(`${fmt(price)} 💰 — come back with the coins. The charger will wait. It's very patient. It's a charger.`); return; }
+    if (E.armed !== "homecharger") { E.armed = "homecharger"; cardSay(FU.home ? `Tap again to move it to your next home for ${fmt(price)} 💰.` : `Tap again: a Tushla wall box at ${homes[0].address || "your home"} for ${fmt(price)} 💰, installed. (Reb Zev Volt will post about it.)`); repaint(); return; }
+    E.armed = null;
+    const r = FU.buyHome();
+    cardSay(r.ok ? `🏠🔋 Installed at ${r.home.address}! Park a Tushla there — it's full the next time you take it.` : "The tablet says no. Calmly.");
     repaint();
 }
 function subHere() {
@@ -183,4 +204,4 @@ hook("hud", () => {
     try { ctx.pins.add({ id: EV.addr, name: EV.full, icon: EV.emoji, cat: "shops", lap: LAP_M, sub: "electric cars · Full Schlep Driving" }); } catch (e) { /* the registry's rules */ }
 });
 
-export const evDebug = { E, EV_AT, nearSpot, padWorld, openTablet, buyHere, subHere, config: configDebug };
+export const evDebug = { E, EV_AT, nearSpot, padWorld, openTablet, buyHere, subHere, chargerHere, config: configDebug };

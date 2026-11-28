@@ -2006,6 +2006,38 @@ driving: everything earns as usual); brake, a hard swerve, a chase, a crash or g
 active(), daysLeft(), engage(), handBack(why), setMode(m), on, mode }; events `dealers:sub` / `dealers:selfdrive` /
 `dealers:ev`. Tests move the clock with `ctx.schlepNow`.
 
+**⛽ Fuel + 🔋 charging** (`features/fuel`, ci/fuel; the owner approved the plan 2026-11-27: "a real necessary thing but
+doesn't become a huge burden"). EVERY number is in `fuel/data.js`. Step 1 (landed): every car she owns has a tank in the
+3D save (`fuel.cars[skinKey]`, 0..1; a car never seen = FULL — old saves and a new car from any dealer start full); a
+borrowed / hotwired ride (`ctx.streets.ride`) gets a random `BORROWED` level for that ride; Dina's mode, the minigames,
+Ima's minivan (`NO_GAUGE`): no gauge. It drains with DISTANCE only (`RANGE` km a tank: Refael's 64, a Mazelati 48, the
+Machatunim 44, Tushlas 60–80; nitro ×`NITRO_BURN`); parked / idling / walking cost nothing. The gauge is a thin bar under
+the speedo (⛽ / 🔋), amber below `LOW` + one quiet objective-line chip. FILLING: the existing drive-up bays fill her up
+through their visit (`world:visit` ids in `PUMPS.bays`: Yanky's Gas 'n' Go, the rest areas' pumps), and each town
+interchange's gas station has a pad on the paved cross road alongside it (`PUMPS.towns`) — stop there; full in
+`TIME.fill` s, paid pro rata (`PRICE`, via `garage/buy.js` › `buyExtra`); short of coins → what she can pay for; 0 coins
+→ a quarter tank on account (`IOU`, one at a time, paid off at the next paid fill) — never below 0. The pumps are ⛽
+"help" pins on the 📱 Map. Step 2 (`charge.js`): a Tushla at a gas pump gets Yanky's joke, no fill; stopped at a
+CHARGER it charges (`CHARGE`: 10 → 80 % in 20 s, 80 → 100 % in 15 s) while it stands there — with her in it or out
+(a running session holds `CHARGE.hold` m further: getting out parks the car a step off) — paying a coin as each coin's
+worth goes in (`PRICE.charge` a full charge), the same one IOU at 0 coins, a chime when full. Chargers: Tushla's
+forecourt, the rest areas' pump bays, each town interchange's pad, and a kerbside post outside each town's city hall
+(drawn on `town:enter`). THE HOME CHARGER (`HOME`): Tushla's tablet sells it (two taps) for a home she OWNS
+(`ctx.realestate`) — a wall box by the door; a Tushla parked there (`ctx.cars.where(k)`: left at that house, or her
+parked car by it) is set full; moving it to another of her homes costs `HOME.move`; a home she no longer owns → it
+comes back in a box (`fuel.boxed`). Ima's house: no charger; the extension cord trickles a Tushla there (`ctx.cars`
+kind "home") up to `HOME.cord` once a real day. Step 3 (`dry.js`, `DRY` + `RESCUE`): past E a hidden reserve of
+`DRY.reserveKm` ("fumes": the chip says so — longer than any gap between two pumps); in a chase the burn stops with
+`chaseKeepKm` left; truly dry → `ctx.G.fuelDry`: no throttle (a `controls` hook at −100), no nitro (core/driving.js) —
+she coasts + steers; a self-driving Tushla hands back ("dry"). Getting going: 📞 Chaverim (`ctx.community.addReason`:
+"I'm out of gas (for real)") — a splash `RESCUE.chaverim.splash` after `wait` s, free once a real day then `fee` (on
+account when broke), an EV gets a portable battery; or on foot ✋ 🛢️ a can at any pump (`RESCUE.can`), walk it back, ✋
+pour it in. An empty car on the shoulder isn't towed for `DRY.graceMin` real minutes (features/cars' tow tick asks
+`ctx.fuel.dryGrace(k)`). A 💼 job starting under `DRY.warnJob` pings the nearest pump (one line; she can go anyway); a
+self-driving Tushla under 15 % with no ping pings the nearest charger once and drives there (`ctx.fuel.nearestPump`).
+(Chaverim's splash is a timer + a line for now — no truck drives up yet.) `ctx.fuel` = { level(key?), set, range(key?), key(), fill };
+event `fuel:fill`.
+
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at
 Courtroom 2B "⚖️ Sit in on the hearing" → state **`placesHearing`** (⏭ skippable, a soft cut both ways): a spectator scene
