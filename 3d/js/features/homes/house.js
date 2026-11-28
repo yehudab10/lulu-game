@@ -35,6 +35,13 @@ const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a
 
 /** Per-run loot memory (couch coins / souvenir / cholent: once per house per run) — index.js resets it at run:start. */
 export const RUN = { couch: new Set(), souvenir: new Set(), cholent: new Set(), coins: 0, hearts: 0 };
+/** Couch coins found today (device-local date), saved — COUCH.dayCap across every house and every run. */
+const HS = store("homes", {});
+export function couchDay() {
+    const d = new Date(), k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (!HS.couchDay || HS.couchDay.d !== k || !(HS.couchDay.coins >= 0)) HS.couchDay = { d: k, coins: 0 };
+    return HS.couchDay;
+}
 /** What happened on this visit (index.js reads it when she's back outside). */
 export const VISIT = { cur: null };
 let HM = null;            // the house being entered (index.js sets it: { home, fam, mode, via, recognized })
@@ -580,10 +587,13 @@ function couch(rt) {
     rt.luluPose = { sit: false, cheer: false };
     if (RUN.couch.has(key)) { rt.bubble(pick(COUCH_EMPTY), rt.lulu.obj, 2.6); return; }
     RUN.couch.add(key);
-    const left = COUCH.runCap - RUN.coins;
+    // (the run cap AND a real-day cap, saved: "…closed for today" — ↺ Restart / a reload used to refill all 30)
+    const day = couchDay();
+    const left = Math.min(COUCH.runCap - RUN.coins, COUCH.dayCap - day.coins);
     if (left <= 0) { rt.bubble(pick(COUCH_CAPPED), rt.lulu.obj, 2.8); emit("homes:couch", { coins: 0, capped: true }); return; }
     const n = Math.min(left, COUCH.min + Math.floor(Math.random() * (COUCH.max - COUCH.min + 1)));
     RUN.coins += n;
+    day.coins += n; saveSoon();
     rt.coins(n, `🛋️ +${n} 💰 couch coins`, { x: V.surf.couch.x, y: 0.8, z: V.surf.couch.z });
     rt.bubble(pick(COUCH_LINES), rt.lulu.obj, 2.6);
     V.looted.push("coins");

@@ -50,6 +50,13 @@ module.exports = {
     await btn("/Light:/"); await t.frames(3);     // → New
     await t.until(`/fps/.test(document.querySelector("#lookPanel .fps").textContent) && !/…/.test(document.querySelector("#lookPanel .fps").textContent)`, "the fps readout fills in", 20000);
     t.check("the fps readout shows a number", /\d+ fps/.test(await t.L(`document.querySelector("#lookPanel .fps").textContent`)));
+    const saved0 = await t.L(`(JSON.parse(localStorage.getItem("lulu3dSave") || "{}").settings || {}).quality || ""`);
+    await btn("/Level:/"); await t.frames(3);
+    t.check("🖥️ Level → Low: the game runs at LOW (no shadow map)", await g(`L3.gfx.tier === "low" && !L3.renderer.shadowMap.enabled`));
+    await btn("/Level:/"); await btn("/Level:/"); await t.frames(3);
+    t.check("🖥️ Level → High", await g(`L3.gfx.tier === "high"`));
+    await btn("/Level:/"); await t.frames(30);
+    t.check("…back to Auto, and the forced level was never saved", (await t.L(`(JSON.parse(localStorage.getItem("lulu3dSave") || "{}").settings || {}).quality || ""`)) === saved0);
 
     // ── Lulu on foot ──
     await g(`ctx.foot.start("droveOff")`);

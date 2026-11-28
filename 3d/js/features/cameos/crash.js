@@ -19,7 +19,7 @@
 // right round the wreck is cleared (not the whole road), and nothing ends in a game-over card.
 import { ctx, on, hook, emit, registerState, setState, pick, rand, wrapAngle, MPH } from "../../core/ctx.js";
 import { registerModels, ensureModels } from "../../models.js";
-import { save3d } from "../../core/save.js";
+import { save3d, store, saveSoon } from "../../core/save.js";
 import { spawnPerson } from "../../core/people.js";
 import { addCoins, knockout } from "../../core/driving.js";
 import { say, closeDialog } from "../../core/dialog.js";
@@ -28,6 +28,10 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { THREE, models, cloneWithColors, findNodes, bubble, loadModels, clamp, ease, wait, stat, charge, caption, clearCaptions, sfx, prop, inHand, roadPoint } from "./common.js";
 import { resumeDriving } from "./resume.js";
+
+/** Hillel's insurance payout: the real day (device-local date) it was last paid — "one a day". */
+const INS = store("cameosInsurance", { day: "" });
+const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 
 registerModels({
     cameos_grandpa: "cameos_grandpa", cameos_business: "cameos_business", cameos_teen: "cameos_teen", cameos_tourist: "cameos_tourist",
@@ -449,8 +453,9 @@ async function reprieveScene(s, kind) {
         f = clamp(f, 0.12, 0.9);
         const atFault = s.force.fault !== undefined ? !!s.force.fault : Math.random() < f;
         let line, report, amount;
-        // (one payout a run: knock-outs are cheap now, so a lucky claim mustn't become a way to farm coins)
-        const already = !!ctx.G.insurancePaid;
+        // (one payout a REAL day, saved — what Hillel says: knock-outs are cheap, so a lucky claim mustn't become a way to farm
+        //  coins; it was once a RUN, and ↺ Restart starts a new run)
+        const already = !!ctx.G.insurancePaid || INS.day === dayKey();
         if (atFault) {
             amount = 40 + Math.floor(Math.random() * 71);
             report = `You: ${c.luluSpeed}mph · Them: ${c.otherSpeed}mph · ${c.otherAhead ? "you hit the car in FRONT" : "you swerved into them"}`;
@@ -471,7 +476,7 @@ async function reprieveScene(s, kind) {
         caption(atFault ? `⚖️ AT FAULT — 💰${amount} deductible` : amount ? `✅ NOT YOUR FAULT — 💰${amount} payout` : "✅ NOT YOUR FAULT — 📋 claim denied (one a day)", atFault ? "" : "gold");
         // settle up the moment the verdict is read
         if (atFault) { const paid = charge(amount); H.toast(`📋 −${paid} deductible`, "red"); }
-        else if (amount) { ctx.G.insurancePaid = true; addCoins(amount, "insurance"); A.sfxCoin(4); H.toast(`📋 +${amount} payout!`, "gold"); }
+        else if (amount) { ctx.G.insurancePaid = true; INS.day = dayKey(); saveSoon(); addCoins(amount, "insurance"); A.sfxCoin(4); H.toast(`📋 +${amount} payout!`, "gold"); }
         s.hillel = { atFault, amount };
         man.say(atFault ? "HA! Told you!" : "...fine. FINE.", { bg: "#ECEFF1" });
         await say("Hillel", line, Object.assign({ auto: 2.6 }, HILLEL));

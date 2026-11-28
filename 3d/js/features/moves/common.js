@@ -78,7 +78,7 @@ export const MOVES = [
       how: { pad: "on foot: {jump} (hold = higher)", key: "on foot: Space (hold = higher)", touch: "on foot: JUMP" },
       stars: [S => [(S.n.hop || 0) + (S.n.perch || 0), 1, "hop over or onto something"], S => [S.n.longjump || 0, 1, "a LONG JUMP out of a slide"], S => [S.q.roofs || 0, 3, "3 car roofs"]] },
     { id: "combo", icon: "🔗", name: "Style combo", where: "any", meta: true,
-      blurb: "Every move inside a few seconds of the last one builds the combo — different moves raise the multiplier faster than repeats. Drifting, drafting and the wrong lane keep it alive. When it ends cleanly it banks: score × multiplier, nitro, and coins from ×3 up. A crash loses it.",
+      blurb: "Every move inside a few seconds of the last one builds the combo — different moves raise the multiplier faster than repeats. Drifting, drafting and the wrong lane keep it alive. When it ends cleanly it banks: score × multiplier, nitro, and coins from ×3 up (mix your moves — the same one over and over stops paying). A crash loses it.",
       how: { pad: "chain moves", key: "chain moves", touch: "chain moves" },
       stars: [S => [S.best.comboMult || 0, 3, "a ×3 combo"], S => [S.best.comboMult || 0, 6, "a ×6 combo"], S => [S.best.comboMult || 0, 10, "a ×10 combo"]] },
 ];
@@ -141,6 +141,22 @@ export function keepAlive(sec = 0.9) { if (C.n > 0) C.t = Math.max(C.t, sec); }
 export function bestOf(key, v) { if (v > (S.best[key] || 0)) { S.best[key] = Math.round(v * 100) / 100; saveSoon(); return true; } return false; }
 export function quality(key, n = 1) { S.q[key] = (S.q[key] || 0) + n; saveSoon(); }
 
+/** COMBO COINS (tune here). The score keeps the full multiplier; the COINS count each kind of move at most
+ *  `perKind` times (mashing one button — 20 dodge rolls in a row, or tapping the road on a phone — used to reach ×11 and
+ *  pay ~27 coins every 13 s), and stop at `dayCap` a real day (device-local date, saved). */
+export const COMBO_COINS = { perKind: 3, max: 40, dayCap: 200 };
+function comboCoins() {
+    let n = 0;
+    for (const k of Object.keys(C.kinds)) n += Math.min(COMBO_COINS.perKind, C.kinds[k]);
+    const m = Math.min(12, 1 + 0.5 * (n - 1) + 0.5 * (C.distinct - 1));
+    if (m < 3) return 0;
+    const d = new Date(), day = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (!S.coinDay || S.coinDay.d !== day || !(S.coinDay.n >= 0)) S.coinDay = { d: day, n: 0 };
+    const k = Math.max(0, Math.min(COMBO_COINS.max, Math.round((m - 2) * 3), COMBO_COINS.dayCap - S.coinDay.n));
+    S.coinDay.n += k;
+    saveSoon();
+    return k;
+}
 /** The combo ran out cleanly: score × multiplier, a nitro top-up, coins from ×3. */
 export function bank(why = "time") {
     if (C.n <= 0) return null;
@@ -150,7 +166,7 @@ export function bank(why = "time") {
     if (C.n >= 2) {
         addScore(total - C.pts, "combo");          // the moves' own points are already in (each move scored as it landed)
         if (!C.foot && G.boost != null) G.boost = Math.min(1, G.boost + Math.min(0.5, 0.035 * C.n));
-        if (C.mult >= 3) { res.coins = Math.min(40, Math.round((C.mult - 2) * 3)); addCoins(res.coins, "combo"); }
+        if (C.mult >= 3) { res.coins = comboCoins(); if (res.coins > 0) addCoins(res.coins, "combo"); }
         H.toast(`🔗 COMBO ×${fmtMult(C.mult)} · +${total.toLocaleString()}${res.coins ? ` · +${res.coins} 💰` : ""}`, C.mult >= 3 ? "gold" : "", { merge: false });
         callout(`COMBO ×${fmtMult(C.mult)}`, `+${total.toLocaleString()}${res.coins ? ` · +${res.coins} 💰` : ""}`, "gold", 1.8);
         if (!ctx.skipping) A.sfxCoin(Math.min(12, C.n));

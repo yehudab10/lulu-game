@@ -40,6 +40,7 @@ export function enterShop(f, mode, friend = null) {
     const n = ctx.world.road.nearest(f.ap.x, f.ap.z, ctx.car.s, {});
     const door = { id: "playershop", s: n.s, d: n.d, side: Math.sign(n.d) || 1 };
     const exit = () => {
+        if (ROOM.cur && ROOM.cur.mode === "owner" && API && API.SVR && API.SVR.SV.on) API.SVR.counter(ROOM.cur.id, true);
         ROOM.cur = null;
         if (ctx.foot && ctx.foot.active !== undefined) setState("footRun", { resume: "interior", door });
         backOut(f);
@@ -172,7 +173,16 @@ function refreshStock(rt, force = false) {
         o.rotation.y = (k % 4) * 0.12; V.stockObjs.push(o);
     }
 }
-function tick(rt) { refreshShelves(rt); refreshStock(rt); }
+function tick(rt, dt) {
+    refreshShelves(rt); refreshStock(rt);
+    // (she's in her own shop: she's at the counter — a visitor can tip her; the relay's mark lasts 90 s, pinged every 60)
+    const c = ROOM.cur;
+    if (c && c.mode === "owner" && API && API.SVR && API.SVR.SV.on) {
+        const V = rt.data.V;
+        V.ping = (V.ping == null ? 60 : V.ping) + (dt || 0);         // (the first tick pings at once; then once a minute — NOT `|| 60`: 0 is a real value)
+        if (V.ping >= 60) { V.ping = 0; V.pings = (V.pings || 0) + 1; API.SVR.counter(c.id); }
+    }
+}
 
 // ── owner: shelving by hand ──────────────────────────────────────────────────────────────────────────────────────
 const say = (rt, t) => rt.say("Lulu", t, { emoji: "💁‍♀️" });
@@ -227,7 +237,16 @@ async function keysMenu(rt) {
     const line = lease ? `Leased from Mr. Gelbfish. ${LEASE.perDay} a day you play.${sh.due ? " Today's is due." : ""} The permit: ${API.permitted(c.id) ? "stamped ✅" : "not yet — City Hall's Permits window"}.`
         : `Yours. The whole building. The permit: ${API.permitted(c.id) ? "stamped ✅" : "not yet — City Hall's Permits window"}.`;
     const back = lease ? sh.deposit || 0 : Math.round((sh.price || 0) * (1 - SELL_FEE));
-    const i = await rt.choose("🔑 The keys", line, [lease ? `🔑 Hand the keys back — ${fmt(back)} deposit back` : `💰 Sell the building — about ${fmt(back)} back`, "‹ Keep it"]);
+    const live = !!(API.SVR && API.SVR.SV.on);
+    const clerkRow = live ? (sh.clerk ? "🧑‍💼 Let Mrs. Zissel go (the shop closes when you're away)" : "🧑‍💼 Hire Mrs. Zissel, the clerk (10 % of what she sells)") : null;
+    const opts = [lease ? `🔑 Hand the keys back — ${fmt(back)} deposit back` : `💰 Sell the building — about ${fmt(back)} back`].concat(clerkRow ? [clerkRow] : [], ["‹ Keep it"]);
+    const i = await rt.choose("🔑 The keys", line + (live ? (sh.clerk ? " Mrs. Zissel minds the shop while you're out." : " Nobody minds the shop while you're out — it's closed then.") : ""), opts);
+    if (clerkRow && i === 1) {
+        const r = await API.SVR.clerk(c.id, !sh.clerk);
+        if (r && r.ok) { sh.clerk = !!r.c; saveSoon(); await rt.say("Mrs. Zissel", sh.clerk ? "I'll mind it. I take ten percent. I don't do discounts. I don't do 'just looking'. I do RECEIPTS." : "Fine. FINE. Call me when you need me. You'll need me.", { emoji: "🧑‍💼" }); }
+        else await say(rt, "The town's computer is thinking. Try again in a moment.");
+        return;
+    }
     if (i !== 0) return;
     const j = await rt.choose("🔑 The keys", lease ? "Close the shop? What's in it goes home in boxes." : "Sell it? What the bank's still owed comes off. What's in it goes home in boxes.", ["✅ Yes, close it", "✖ No"]);
     if (j !== 0) return;
@@ -250,7 +269,13 @@ async function buyMenu(rt, k) {
     if (wallet.coins < x.price) { await say(rt, `It's ${fmt(x.price)}. I have ${fmt(wallet.coins)}. Next time.`); return; }
     const j = await rt.choose("The shelf", `${GOODS[x.g].emoji} ${GOODS[x.g].name} for ${fmt(x.price)} coins?`, [`✅ Buy it — ${fmt(x.price)} 💰`, "‹ Not now"]);
     if (j !== 0) return;
-    const r = await API.SVR.buy(c.id, slot, x.price);
+    let tip = 0;
+    if (c.friend.at) {     // (the owner's at her counter: a tip goes straight to her — from HER coins, inside the day's caps)
+        const opts = [0, 5, 10].filter(n => wallet.coins >= x.price + n);
+        const k = await rt.choose(`🛎️ ${c.friend.name}`, `${c.friend.name} wraps it herself. A tip?`, opts.map(n => (n ? `💝 Tip ${n} 💰` : "No tip, thanks")));
+        tip = k > 0 ? opts[k] : 0;
+    }
+    const r = await API.SVR.buy(c.id, slot, x.price, tip);
     if (!r || !r.ok) {
         const why = r && r.why;
         if (why === "price" && r.p) { x.price = r.p; await say(rt, `The price changed to ${fmt(r.p)}. Shops!`); return; }
@@ -259,6 +284,7 @@ async function buyMenu(rt, k) {
             : why === "buys" ? "Three from one shop a day. That's the town's rule. (Fairness. Apparently.)"
             : why === "soldout" ? "Sold out for today!"
             : why === "gone" ? "Somebody just bought the last one. Shopping is a contact sport."
+            : why === "unminded" ? "Nobody's minding the shop right now. Come back when she's around."
             : "The till's stuck. Try again in a moment.");
         if (why === "soldout") x.so = true;
         if (why === "gone") { x.n = 0; shelf[slot] = null; }
@@ -277,7 +303,8 @@ async function buyMenu(rt, k) {
 async function counterMenu(rt) {
     const c = ROOM.cur;
     const opts = [ROOM.bought ? "👍 Leave a thumbs up" : "👍 (buy something first)", "🚩 Report this shop's name", "‹ Never mind"];
-    const i = await rt.choose("🛎️ The counter", `${c.friend.name}'s shop. ${c.friend.thumbs || 0} 👍 so far. Nobody's at the counter — a bell, a note: "ring for service (I'm out)".`, opts);
+    const who = c.friend.at ? `${c.friend.name} is at the counter herself!` : c.friend.clerk ? "Mrs. Zissel, the clerk, minds the counter. She does not smile. It's not personal." : `A bell, a note: "ring for service (I'm out)".`;
+    const i = await rt.choose("🛎️ The counter", `${c.friend.name}'s shop. ${c.friend.thumbs || 0} 👍 so far. ${who}`, opts);
     if (i === 0 && ROOM.bought) { const ok = await API.SVR.thumb(c.id); await say(rt, ok ? "👍 Done. She'll see it." : "Already did that today."); }
     else if (i === 1) { await API.SVR.report(c.id); await say(rt, "Reported. If enough people agree, the name goes back to plain."); }
 }

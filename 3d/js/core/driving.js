@@ -97,6 +97,7 @@ export function endRun(reason = "end") {
 // ── scoring / pickups ─────────────────────────────────────────────────────
 /** Run coins: counted on the HUD AND added to the shared wallet right away (like the 2D game). */
 export function addCoins(n, why) {
+    if (!Number.isFinite(n)) return;           // (a bad sum must not turn the HUD's coins into NaN for the rest of the run)
     const G = ctx.G;
     G.coins += n;
     wallet.add(n);
@@ -288,7 +289,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     if (controlsOn) { runHooks("controls", ctl, dt); setBrakePedal(car.vF); }
 
     // nitro
-    const wantBoost = controlsOn && input.boost && !G.noBoost && !G.evCar;          // (no nitro in an electric car — features/dealers)
+    const wantBoost = controlsOn && input.boost && !G.noBoost && !G.evCar && !G.fuelDry;   // (no nitro in an electric car — features/dealers — or an empty tank — features/fuel)
     if (wantBoost && G.boost > 0.01 && (G.boosting || G.boost > 0.12)) {
         if (!G.boosting) { A.sfxBoost(); H.toast("🔥 NITRO!", "gold"); rumble(0.5, 0.6, 250, true); emit("boost", {}); }
         G.boosting = true;

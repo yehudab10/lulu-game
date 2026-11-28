@@ -157,9 +157,28 @@ try {
     check("…a 3rd account reports → the name is reset", r.j.reset === true && (await get(`/shops/view?id=${S1}`)).j.shop.n === "", JSON.stringify(r.j));
     // a new day: the caps start again
     await post("/shops/_clock", { offset: 86400000 });
-    await post("/shops/stock", { ...A, id: S1, shelf: [{ s: 0, g: "kugel", n: 4, p: 15 }] });
+    await post("/shops/stock", { ...A, id: S1, shelf: [{ s: 0, g: "kugel", n: 4, p: 15 }, { s: 1, g: "kugel", n: 4, p: 15 }] });
     r = await post("/shops/buy", { ...B, id: S1, slot: 0, p: 15 });
     check("the next day (restocked) B may buy again", r.j.ok === true, JSON.stringify(r.j));
+    // stage 3: who minds the shop — 20 minutes later with no word from A and no clerk: closed
+    await post("/shops/_clock", { offset: 86400000 + 20 * 60000 });
+    r = await post("/shops/buy", { ...B, id: S1, slot: 0, p: 15 });
+    check("nobody minding (A away 20 min, no clerk): no sale", r.j.ok === false && r.j.why === "unminded", JSON.stringify(r.j));
+    check("…the list + view say so (op: 0)", (await get(`/shops/view?id=${S1}`)).j.shop.op === 0);
+    r = await post("/shops/clerk", { ...A, id: S1, on: true });
+    const till0 = (await post("/shops/hello", A)).j.till;
+    await post("/shops/_clock", { offset: 86400000 + 40 * 60000 });
+    r = await post("/shops/buy", { ...B, id: S1, slot: 0, p: 15 });
+    check("A hires a clerk: the shop sells while she's away", r.j.ok === true && r.j.clerk === 1, JSON.stringify(r.j));
+    check("…the clerk's 10 % comes out of A's share (12 − 1 = 11)", (await post("/shops/hello", A)).j.till === till0 + 11);
+    r = await post("/shops/counter", { ...A, id: S1 });
+    check("A at the counter (view: at)", r.j.ok && (await get(`/shops/view?id=${S1}`)).j.shop.at === 1, JSON.stringify(r.j));
+    const tillAt = (await post("/shops/hello", A)).j.till;
+    r = await post("/shops/buy", { ...B, id: S1, slot: 0, p: 15, tip: 5 });
+    check("B buys with a 5 tip (she's at the counter): 20 paid, no clerk cut", r.j.ok === true && r.j.p === 20 && r.j.tip === 5 && r.j.clerk === 0, JSON.stringify(r.j));
+    check("…A's till: 12 + 5", (await post("/shops/hello", A)).j.till === tillAt + 17);
+    r = await post("/shops/buy", { ...C, id: S1, slot: 0, p: 15, tip: 7 });
+    check("a tip that isn't 5 or 10 is ignored", r.j.ok === true && r.j.tip === 0 && r.j.p === 15, JSON.stringify(r.j));
     // ghost shops: B's not seen for 14 days → under renovation; 7 more → gone (a lot FOR LEASE again)
     await post("/shops/_clock", { offset: 16 * 86400000 });
     await post("/shops/hello", A);           // (any call runs the sweep; A is seen)

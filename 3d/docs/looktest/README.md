@@ -36,11 +36,13 @@ run to run.
 | `lulu.boats/3d/?look=2&light=lite` | the cheaper middle light: the sky lights **cars and people only**, plus the glow and the truer colours (on phones too) |
 | `lulu.boats/3d/?look=2&light=full` | the expensive light: the sky lights **everything**, plus the glow (on phones too) |
 | `&time=dusk` (or `noon`, `golden`, `night`) | pins the time of day while she drives |
+| `&tier=low` · `&tier=medium` · `&tier=high` | forces the graphics level for this visit only (never saved): see the weak-phone, phone and laptop versions on any device |
 | `&car=kenney` · `&car=lite` · `&car=0` · `&lulu=0` · `&light=0` · `&soft=0` | Kenney's car · the lite car everywhere · start with today's car / Lulu / light / shadow edges |
 
 **The 🎨 panel** (only with `?look=2`):
 - flips each piece between TODAY and NEW on the spot: 🚗 Car, 🚶‍♀️ Lulu (on foot), 💡 Light (Today → New → Lite sky → Full sky) and ✨ All;
 - cycles the 🕐 Time: Live → Noon → Dusk → Night (set it while driving);
+- cycles the 🖥️ Level: Auto → Low (weak phones) → Medium (phones) → High (laptops), for this visit only;
 - shows the **frames per second**, averaged over 2 seconds, with the graphics level the device runs at;
 - folds away when you tap 🎨.
 

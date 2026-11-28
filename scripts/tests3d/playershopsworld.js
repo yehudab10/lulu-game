@@ -95,4 +95,23 @@ async function body(t, guests) {
   const hr = await A.L(`__lulu3d.ctx.playershops.debug.helloNow()`);
   t.check("A's hello: the till (12) comes to her phone", (await A.game(`L3.wallet.coins`)) >= cA + 12, `${cA} → ${await A.game(`L3.wallet.coins`)} ${JSON.stringify(hr)}`);
   t.check("…and the one that sold is off her shelf (3 left)", (await A.game(`ctx.playershops.debug.S.shops[${FJ}].shelf[0].n`)) === 3);
+  // stage 3: A in her own shop = at the counter → B can tip her (from B's coins, inside the caps)
+  await A.game(`(ctx.playershops.debug.enterShop(ctx.playershops.debug.frontById(${FJ}), "owner"), true)`);
+  await A.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "A inside her shop", 30000);
+  let atCounter = false;
+  for (let k = 0; k < 30 && !atCounter; k++) { atCounter = await A.L(`fetch(${JSON.stringify(RELAY)} + "/shops/view?id=" + ${JSON.stringify(F.id.replace(/^shop:/, ""))}, { cache: "no-store" }).then(r => r.json()).then(j => j.shop.at === 1)`); if (!atCounter) await sleep(1000); }
+  t.check("A inside her shop: the relay says she's at the counter", atCounter);
+  t.check("…pinged once, not every frame", (await A.game(`window.__interiors.room.data.V.pings`)) <= 2, String(await A.game(`window.__interiors.room.data.V.pings`)));
+  await B.game(`(window.__interiors.room && window.__interiors.room.leave(), true)`);
+  await B.until(`ctx.state === "footRun"`, "B out", 15000);
+  const cB2 = await B.game(`L3.wallet.coins`);
+  await B.L(`__lulu3d.ctx.playershops.debug.visitShop(__lulu3d.ctx.playershops.debug.frontById(${FJ}), __lulu3d.ctx.playershops.others().find(x => x.id === ${FJ}))`);
+  if (await B.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "B back inside", 30000)) {
+    await B.game(`(r => { r.hots.find(h => h.id === "shelf:0").action(r); return true; })(window.__interiors.room)`);
+    t.check("B: another kugel → ✅ Buy it → 💝 Tip 5", await pickOpt(/potato kugel/) && await pickOpt(/Buy it/) && await pickOpt(/Tip 5/));
+    t.check("…20 of her coins (15 + the tip)", await B.until(`L3.wallet.coins === ${cB2} - 20`, "B paid with the tip", 20000), String(await B.game(`L3.wallet.coins`)) + " " + JSON.stringify(await B.game(`ctx.playershops.debug.SVR.SV.lastBuy`)));
+    const cA2 = await A.game(`L3.wallet.coins`);
+    const hr2 = await A.L(`__lulu3d.ctx.playershops.debug.helloNow()`);
+    t.check("…A's till: 12 + the 5 tip", (await A.game(`L3.wallet.coins`)) === cA2 + 17, `${cA2} → ${await A.game(`L3.wallet.coins`)} hello: ${JSON.stringify(hr2)} log: ${JSON.stringify(await A.game(`ctx.playershops.debug.SVR.SV.log.slice(-5)`))} buy: ${JSON.stringify(await B.game(`ctx.playershops.debug.SVR.SV.lastBuy`))}`);
+  }
 }

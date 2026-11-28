@@ -8,6 +8,8 @@
 //   &light=0 | lite | full      today's light · LITE SKY (the sky lights cars + people only, + the glow on MEDIUM) ·
 //                               FULL SKY (the sky lights everything, + the glow, on MEDIUM too). Default: NEW (by tier, below)
 //   &time=noon | golden | dusk | night   pin the time of day (applies while she drives; atmos' clock)
+//   &tier=low | medium | high   force the graphics level for this page only (never saved) — the phone / laptop versions
+//                               on whatever device; the panel's 🖥️ Level button cycles it live
 // With the flag a small 🎨 panel (panel.js) flips each piece live (TODAY ↔ NEW), cycles the light and the time, and
 // shows the frames per second (averaged over 2 s) — for the owner to compare on a real phone.
 //
@@ -21,7 +23,7 @@
 import * as THREE from "three";
 import { ctx, on, hook } from "../../core/ctx.js";
 import { models, registerModels, modelClips } from "../../models.js";
-import { TIERS } from "../../core/quality.js";
+import { TIERS, forceTier } from "../../core/quality.js";
 import { skyEnvTexture } from "../../core/gfx.js";
 import { setPersonFactory, spawnPerson } from "../../core/people.js";
 import { shared } from "../../core/save.js";
@@ -39,11 +41,13 @@ export const LOOK = { on: ON, car: ON ? (Q.get("car") || "good") : "0", lulu: ON
     lightMode: !ON ? "off" : q0 === "0" ? "off" : q0 === "lite" || q0 === "full" ? q0 : "new" };
 Object.defineProperty(LOOK, "light", { get: () => LOOK.lightMode !== "off" });
 /** What's on right now (the panel flips these live). */
-export const LIVE = { car: LOOK.car !== "0", lulu: LOOK.lulu, light: LOOK.lightMode, time: ON ? (Q.get("time") || "") : "" };
+export const LIVE = { car: LOOK.car !== "0", lulu: LOOK.lulu, light: LOOK.lightMode, time: ON ? (Q.get("time") || "") : "",
+    tier: ON && TIERS[Q.get("tier")] ? Q.get("tier") : "" };
 LOOK.live = LIVE;
 ctx.look = LOOK;
 
 if (ON) {
+    if (LIVE.tier) forceTier(LIVE.tier);      // (before boot's first applySettings)
     // ── 1. the car: models.lulu hands out the chosen model (the real one stays underneath) ──
     //    By tier: the car she DRIVES is the full model on MEDIUM / HIGH; every other copy of it (her parked cars,
     //    friends' cars, the dealer lots, the crowd test's 12) is the LITE one on LOW / MEDIUM — 14.6k triangles
@@ -83,7 +87,7 @@ if (ON) {
         });
     }
     // ── 3. the light ──
-    on("boot", () => { applyLight(); makePanel(LOOK, LIVE, { car: flipCar, lulu: flipLulu, light: applyLight, time: pinTime }); });
+    on("boot", () => { applyLight(); makePanel(LOOK, LIVE, { car: flipCar, lulu: flipLulu, light: applyLight, time: pinTime, tier: setTier }); });
 }
 
 // ── live flips (the panel) ─────────────────────────────────────────────────────────────────────────────────────
@@ -106,6 +110,13 @@ function flipLulu() {
     old.obj.parent.add(p.obj);
     old.obj.parent.remove(old.obj);
     F.lulu = p;
+}
+/** The graphics level for this page ("" = the player's own setting): the renderer, shadows, draw distance, bloom follow;
+ *  her car is rebuilt so the full / lite choice follows too. */
+function setTier() {
+    forceTier(LIVE.tier || null);
+    if (ctx.applySettings) ctx.applySettings();
+    flipCar();
 }
 const TIMES = { noon: "noon", golden: "golden", dusk: "dusk", night: "night" };
 function pinTime() {
