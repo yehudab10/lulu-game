@@ -299,6 +299,9 @@ async function yard(t) {
   t.check("yard: …and the gate gives the car back (it's with her)", (await g(`ctx.cars.where("purple").kind`)) === "with" && !(await g(`ctx.impound.held`)));
   const cd = await g(`+ctx.world.highway.nearest(ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, {}).d.toFixed(1)`);
   t.check("yard: …out in the yard's stalls, not in a highway lane", Math.abs(cd) > 9, String(cd));
+  // 📸 a Lakewood speed-camera ticket is mailed by Lakewood (it said "the Borough of Midwood" for every ticket)
+  const mail = await t.L(`import("./js/features/cameras/data.js").then(m => [m.L.mailFrom("lakewood"), m.L.mailFrom("midwood"), m.L.court.title({ town: "lakewood", where: "the cheder" })])`);
+  t.check("cameras: a Lakewood ticket comes from the City of Lakewood (its court case too)", /Lakewood/.test(mail[0]) && /Midwood/.test(mail[1]) && /^THE CITY/.test(mail[2]), JSON.stringify(mail));
   await g(`(ctx.foot && ctx.foot.active && ctx.foot.end("test"), L3.setState("title"), true)`);
   await t.frames(6);
   await W.pause(t, true);
