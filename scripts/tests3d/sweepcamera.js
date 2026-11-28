@@ -24,6 +24,11 @@ async function onFoot(t) {
   await t.frames(6);
   return ok;
 }
+/** Wait for a condition without failing the file (a door that didn't open is the doors test's business, not this one's). */
+async function soft(t, code, frames = 600) {
+  for (let k = 0; k < frames; k += 10) { if (await t.game(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`)) return true; await t.frames(10); }
+  return false;
+}
 /** Put her at (x, z) with the free camera looking along yaw (the camera sits behind her: opposite the yaw). */
 async function standAt(t, x, z, yaw, pitch = null) {
   await t.game(`(() => { const f = ctx.foot.pos; f.set(${x}, 0.05, ${z}); ctx.foot.vel.set(0, 0, 0); ctx.foot.obj.position.copy(f);
@@ -40,13 +45,28 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
     const g = t.game;
-    await g(`L3.startRun({ mode: "cruise", quick: true })`);
-    if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts", 120000)) return;
-    await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    const only = (process.env.SWEEPCAM_PARTS || "home,trees,doors,rooms,ribbon,doorout,roadside").split(",");
     await W.install(t);
+    // ── 0. ▶ PLAY from the title: the picture glides from the title's street shot to her on her lot — never through the
+    //       neighbours' house (qaweekend "home → highway": the camera inside block@128,195 for 8 frames) ──
+    if (only.includes("home")) {
+      await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
+      await t.click(/PLAY/);
+      if (await t.until(`__lulu3d.state === "footRun"`, "PLAY: starts on foot at home", 20000)) {
+        await t.frames(75);
+        await t.shot("home-start");
+        W.check(t, "PLAY → at home on foot (the first 2.5 s)", await W.report(t), ["jump", "nan", "flat", "underground", "inwall"]);
+      }
+      await g(`(ctx.foot.active && ctx.foot.end("test"), true)`);
+      await t.frames(3);
+    } else {
+      await g(`L3.startRun({ mode: "cruise", quick: true })`);
+      if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts", 120000)) return;
+    }
+    await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    await W.reset(t);
     await CJ.install(t);
     if (process.env.SWEEPCAM_NOSEE) await t.L(`import("./js/core/seethrough.js").then(m => { m.SEE.set = () => m.SEE.off(); return true; })`);     // (before / after pictures)
-    const only = (process.env.SWEEPCAM_PARTS || "trees,doors,rooms,ribbon").split(",");
 
     // ── 1. street trees: walk past every street tree with the tree behind her (the camera's side) ──
     if (only.includes("trees")) for (const town of ["lakewood", "midwood"]) {
@@ -121,7 +141,8 @@ module.exports = {
     const camIn = () => room(`(() => { const cam = r.set.camera, B = r.bounds, Lp = r.lulu.obj.position, v = Lp.clone().setY(1).project(cam);
         return { in: cam.position.x > B.x0 - 0.7 && cam.position.x < B.x1 + 0.7 && cam.position.z > B.z0 - 0.7 && cam.position.z < B.z1 + 0.7,
           seen: Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95 && v.z < 1, wall: r.debugBlocked ? r.debugBlocked() : "",
-          behind: (() => { const f = { x: Math.sin(r.lulu.obj.rotation.y), z: Math.cos(r.lulu.obj.rotation.y) }, dx = Lp.x - cam.position.x, dz = Lp.z - cam.position.z, L = Math.hypot(dx, dz) || 1; return +((dx * f.x + dz * f.z) / L).toFixed(2); })() }; })()`);
+          behind: (() => { const f = { x: Math.sin(r.lulu.obj.rotation.y), z: Math.cos(r.lulu.obj.rotation.y) }, dx = Lp.x - cam.position.x, dz = Lp.z - cam.position.z, L = Math.hypot(dx, dz) || 1; return +((dx * f.x + dz * f.z) / L).toFixed(2); })(),
+          into: (() => { const f = { x: Math.sin(r.lulu.obj.rotation.y), z: Math.cos(r.lulu.obj.rotation.y) }, dx = (B.x0 + B.x1) / 2 - Lp.x, dz = (B.z0 + B.z1) / 2 - Lp.z, L = Math.hypot(dx, dz) || 1; return +((dx * f.x + dz * f.z) / L).toFixed(2); })() }; })()`);
     const ROOMS = new Set(["precinct", "court", "hospital", "shul", "cityhall", "bank", "pizza", "bakery", "clothes", "realty", "yeshiva", "lanes", "carsvc"]);
     if (only.includes("rooms")) for (const town of ["midwood", "lakewood"]) {
       if (!await inTown(t, town)) continue;
@@ -140,12 +161,14 @@ module.exports = {
           await g(`Promise.resolve(window.__hm.prepare(${JSON.stringify({ home: d.house, mode: "guest", via: "door", cast: d.house.cast, noCatch: true })})).then(() => { const F = ctx.foot.debug.F, n = ctx.world.road.nearest(F.pos.x, F.pos.z, F.s, {}); return ctx.foot.handoff("home", { id: "home", s: n.s, d: n.d, side: Math.sign(n.d) || 1 }); })`);
         } else {
           const a = d.at;
+          await W.moved(t);
           await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(a)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0);
             F.lulu.obj.rotation.y = Math.atan2(-a.nx, -a.nz); ctx.cam.free.yaw = Math.atan2(-a.nx, -a.nz); ctx.cam.snap(); return true; })()`);
           await t.frames(6);
           lbl = await g(`(() => { const pr = ctx.foot.debug.interactables(); if (!pr || pr.kind !== "spot") return "nothing"; pr.ent.act(); return pr.label; })()`);
         }
-        if (!await t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready`, `${town} ${d.name}: in (${lbl})`, 60000)) {
+        if (!await soft(t, `L3.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready`)) {
+          console.log(`   (${town} ${d.name}: didn't go in — ${lbl})`);
           if (await g(`ctx.dialogOpen`)) await t.L(`(() => { const b = [...document.querySelectorAll("#dialog button")].pop(); if (b) b.click(); return true; })()`);
           continue;
         }
@@ -159,7 +182,7 @@ module.exports = {
           return c;
         };
         const c0 = await look("as she comes in", "in");
-        if (c0 && c0.behind < 0.3) bad.push({ where, lab: "the camera isn't behind her as she comes in", c: c0 });
+        if (c0 && (c0.behind < 0.3 || c0.into < 0)) bad.push({ where, lab: "she comes in facing into the room, the camera behind her", c: c0 });
         await t.shot(`room-${id}-in`);
         const spots = await room(`(() => { const B = r.bounds, out = [];
           for (const [x, z] of [[B.x0 + 0.7, B.z0 + 0.7], [B.x1 - 0.7, B.z0 + 0.7], [B.x0 + 0.7, B.z1 - 0.7], [B.x1 - 0.7, B.z1 - 0.7]]) out.push({ lab: "corner", x, z, ry: Math.atan2((B.x0 + B.x1) / 2 - x, (B.z0 + B.z1) / 2 - z) });
@@ -201,6 +224,64 @@ module.exports = {
       }
       await g(`(ctx.cityhall.debug.endRibbon("test"), true)`);
       t.check(`${town}: ${n} ribbon cuttings start on open pavement (never inside a block)`, n >= 5 && bad.length === 0, JSON.stringify(bad.slice(0, 4)));
+    }
+
+    // ── 5. out of a building's door: she comes out AT that door, and nothing moves her (or the camera) a long way a moment
+    //       later (Lakewood City Hall: "Lulu moved 62 m in one frame" just after walking out) ──
+    if (only.includes("doorout")) for (const town of ["lakewood", "midwood"]) {
+      if (!await inTown(t, town)) continue;
+      if (!await onFoot(t)) continue;
+      for (const d of (await findDoors()).filter(d => ROOMS.has(d.name))) {
+        await onFoot(t);
+        const a = d.at;
+        await W.moved(t);
+        await g(`(() => { const F = ctx.foot.debug.F, a = ${JSON.stringify(a)}; F.peds.length = 0; F.pos.set(a.x + a.nx * 1.4, 0.05, a.z + a.nz * 1.4); F.vel.set(0, 0, 0); ctx.cam.snap(); return true; })()`);
+        await t.frames(6);
+        await g(`(() => { const pr = ctx.foot.debug.interactables(); if (pr && pr.kind === "spot") pr.ent.act(); return true; })()`);
+        if (!await soft(t, `L3.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready`)) { console.log(`   (${town} ${d.name}: didn't go in)`); continue; }
+        await t.frames(10);
+        await t.L(`(() => { window.__trk = []; const C = __lulu3d.ctx; const tk = () => { if (window.__trk.length > 400) return; requestAnimationFrame(tk); const F = C.foot.debug.F; if (C.state === "footRun" && F) window.__trk.push([C.frames, +F.pos.x.toFixed(1), +F.pos.z.toFixed(1)]); }; tk(); return true; })()`);
+        await g(`(__interiors.room.leave(), true)`);
+        await t.until(`__lulu3d.state === "footRun"`, `${town} ${d.name}: out`, 30000);
+        await t.frames(30);
+        const trk = await t.L(`window.__trk.splice(0)`);
+        const first = trk[0], far = trk.reduce((m, p) => Math.max(m, Math.hypot(p[1] - a.x, p[2] - a.z)), 0);
+        let jump = 0; for (let i = 1; i < trk.length; i++) jump = Math.max(jump, Math.hypot(trk[i][1] - trk[i - 1][1], trk[i][2] - trk[i - 1][2]));
+        t.check(`${town} ${d.name}: out of the door she stands at it (≤ 6 m) and isn't moved after (${far.toFixed(1)} m, step ${jump.toFixed(1)} m)`, far <= 6 && jump < 3, JSON.stringify({ door: a, first, last: trk[trk.length - 1], n: trk.length }));
+      }
+    }
+
+    // ── 6. the roadside places' rooms (Trooper Post 7, the Hatzalah station, the traffic court, the weigh station): walked
+    //       into from the highway, the camera starts BEHIND her as she faces into the room (qa27's Hatzalah shot had her
+    //       facing the door, the camera inside looking out at the street) ──
+    if (only.includes("roadside")) {
+      await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" && L3.setState("playing"), true)`);
+      await t.frames(6);
+      for (const P of [{ m: 6800, doors: ["precinct", "court", "hospital"] }, { m: 10700, doors: ["hospital"] }]) for (const door of P.doors) {
+        await g(`(ctx.foot.active && ctx.foot.end("test"), L3.state !== "playing" && L3.setState("playing"), true)`);
+        await W.moved(t);
+        await g(`(() => { const s = ${P.m - 40}, c = ctx.car, p = ctx.world.highway.point(s, 5.25, {}); c.place(p.x, p.z, p.h); c.s = s; c.d = 5.25; c.vx = c.vz = c.vF = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+        await t.frames(20);
+        await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+        if (!await t.until(`__lulu3d.state === "footRun"`, `${P.m} ${door}: on foot`, 8000)) continue;
+        const at = await g(`(() => { const sp = ctx.civic.spot(${JSON.stringify(door)}); if (!sp) return null; const F = ctx.foot.debug.F; F.phase = "walk"; F.peds.length = 0;
+          F.pos.set(sp.x + sp.nx * 2.2, 0.05, sp.z + sp.nz * 2.2); F.vel.set(0, 0, 0); F.lulu.obj.rotation.y = Math.atan2(-sp.nx, -sp.nz); F.camFree = true; ctx.cam.free.yaw = Math.atan2(-sp.nx, -sp.nz); ctx.cam.snap(); return true; })()`);
+        if (!at) continue;
+        await t.frames(40);
+        await t.stick(0, -1);
+        let went = false;
+        for (let k = 0; k < 120 && !went; k++) { await t.frames(2); went = await g(`L3.state`) === "interior"; }
+        await t.stick(0, 0);
+        if (!went || !await t.until(`window.__interiors && __interiors.room && __interiors.room.ready`, `${P.m} ${door}: the room`, 30000)) { t.check(`${P.m} ${door}: walked in`, false); continue; }
+        const c0 = await camIn();
+        await t.frames(30);
+        const c1 = await camIn();
+        const id = await room(`r.def.id`);
+        await t.shot(`roadside-${P.m}-${door}`);
+        t.check(`${P.m} km ${door} (${id}): walked in facing into the room, the camera behind her (${c0 && c0.behind} / ${c0 && c0.into})`, !!c0 && c0.behind > 0.3 && c0.into > 0 && !!c1 && c1.in && c1.seen && !c1.wall, JSON.stringify({ c0, c1 }));
+        await g(`(window.__interiors && __interiors.room ? __interiors.room.leave() : 0, true)`);
+        await t.until(`__lulu3d.state === "footRun"`, `${P.m} ${door}: out`, 30000);
+      }
     }
   },
 };
