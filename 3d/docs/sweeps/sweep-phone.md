@@ -85,6 +85,9 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 25. **"📜 WEEKLY QUESTS UNLOCKED! Check the title menu."** — they're under 📒 Scrapbook on the title / 📜 Quests in the
    pause menu: "Find 📜 Quests in the pause menu." Distracted Mode's "also on the title menu" → "in the title's 🚗
    Garage". — batch 3
+26. **A phone on its side: the first-drive tutorial's card sat over the NITRO button it was pointing at** (667 × 375) —
+   narrower between the stick and the right-hand buttons (`meta/tutorial.js`); `sweepphone5` plays the first five
+   minutes on a small phone on its side. — batch 4
 
 ## Landed
 - batch 1 → main (items 1–19). CI on the branch: 46111254614 (sweepplaces 1–4, interiors, clothes, sweepphone2, homes,
@@ -97,6 +100,7 @@ on a touch screen, text off the sides). Screenshots: `SWEEP_SHOTS=1` → `smoke-
 - batch 3 → main (items 21–25). CI: 46123381505 (sweepphone2, sweepplaces 1–4, interiors, clothes, realestate, homes,
   houseitems, doors, qa28, storefronts, lanes, family: green) + 46122900830 (sweepphone, movetouch, qatouch, core,
   platform, meta, garage, shops: green).
+- batch 4 → main (item 26 + `sweepphone5`). CI: the run after 46123381505 (sweepphone, sweepphone5, meta, hudfit: green).
 
 ## For other sweeps
 - for `ci/sweep-health`: on main a5c02a2a (run 46112384329 on a copy of main): `cityhall` › "the ribbon cutting: no jump

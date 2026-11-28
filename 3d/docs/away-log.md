@@ -4,6 +4,8 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 08:15 UTC — 📱 Phones, part 4: on a small phone held sideways, the first-drive lesson's card no longer
+  covers the NITRO button it's telling you to press.
 - 2026-11-28 08:10 UTC — 📱 Phones, part 3: the on-screen stick no longer creeps Lulu (or the car) along when a thumb
   just rests on it. Inside rooms a speech bubble at the edge of an upright phone slides in so its first words aren't cut
   off, the over-the-shoulder camera picks the side of her with room (in a small kitchen it got squeezed up over her
