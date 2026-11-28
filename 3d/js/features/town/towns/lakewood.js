@@ -10,6 +10,7 @@ import * as L from "./lakewood-lines.js";
 import { dealerUse } from "../../shops/lot.js";
 import { clothesUse } from "../../clothes/data.js";
 import { cityhallUse } from "../../cityhall/place.js";
+import "../../yeshiva/models.js";       // (the campus's code-built pieces register into models[] before the town builds)
 
 const P = 76, SPAN = 304;
 const ns = (name, i, a0 = -14, a1 = SPAN + 14) => ({ name, axis: "ns", c: i * P, a0, a1 });
@@ -36,7 +37,7 @@ export default {
         "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "makolet" } }, "3,2": { faces: { s: "bank", n: "cityhall" } },     // (features/shops: Zissy's makolet on Main St, block 1,2; features/cityhall: City Hall on Minivan Way, block 3,2 n — next door to the precinct + court)
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
-        "2,3": { all: "townhouses" },
+        "2,3": { faces: { s: "campus", n: "townhouses", w: "townhouses", e: "townhouses" } },    // (features/yeshiva: the big yeshiva on Minivan Way, across from the precinct)
         "3,0": { faces: { n: "baisyaakov" } },
         "2,2": { faces: { s: "hall", n: "civic" } },          // (features/places: the precinct, the court + the impound lot on Minivan Way)
         "0,1": { faces: { n: "shops", w: "hospital" } },      // (features/places: St. Shloimy's on Route 9, the first big thing in town)
@@ -67,6 +68,13 @@ export default {
             tints: { Walls: "#F3E6C4", Awning: "#2E7D32" }, signSize: [10.0, 0.98, 64], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
             with: [{ key: "town_shop", u: -13 }, { key: "town_shop", u: 13 }] },
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#F3EFE6", Trim: "#C62828", Roof: "#5B5F66" } }),
+        // features/yeshiva (roadmap 45): Beis Medrash Gadol HaMinivan — a parody campus (hall + dorm wing + the car park), code-built pieces
+        campus: { key: "yeshiva_hall", fallback: "town_yeshiva", dims: { w: 28, d: 18, prot: 1.2 }, u: -2, sign: L.SIGNS.campus, spot: "campus", walls: [28, 18],
+            signSize: [9.8, 0.8, 52], signW: 1024, signBg: "#F3E9D2", signFg: ["#7B1E1E", "#4E342E"],
+            with: [
+                { key: "yeshiva_wing", dims: { w: 12, d: 14, prot: 1.5 }, u: 21, sign: L.SIGNS.campusDorm, spot: "campusDorm", signSize: [3.6, 0.7, 52], signW: 256, signBg: "#FFFDE7", signFg: ["#37474F", "#7B1E1E"] },
+                { key: "yeshiva_lot", dims: { w: 12, d: 34, prot: 0.4 }, u: -21, sign: L.SIGNS.campusLot, spot: "campusLot", signSize: [2.3, 0.7, 56], signW: 192, signBg: "#1B5E20", signFg: ["#FFFFFF", "#FFEB3B"] },
+            ] },
         // features/clothes (roadmap 24): Simcha's Classic Clothing on Main St, between Pizza Shmizza and the realtor
         clothes: clothesUse("lakewood"),
         // features/realestate (roadmap 16): the realtor's shopfront between two ordinary shops (a shop row stays a shop row)
