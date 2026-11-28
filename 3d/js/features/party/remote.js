@@ -560,8 +560,9 @@ function step(rc, p, dt, road, cam) {
 // d.x.f = [anim, look]: anim 0 walk/run · 1 roll · 2 slide · 3 vault · 4 knocked flat · 5 dance (busk)
 // · 6 wave · 7 busy (hotwire / interact) · 8 sit (sliding into a car) · 9 talk · 10 in the air (a jump); look 0 · 1 jumpsuit
 // · 2 old lady · 3 old man; f[2] (optional) = her feet's height in decimetres (a jump, standing on a bench / a car roof)
-const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
-const look0 = f => (f[1] | 0) === 0;      // (her own clothes show only out of a disguise / the jumpsuit)
+export const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
+const look0 = f => (f[1] | 0) === 0;
+      // (her own clothes show only out of a disguise / the jumpsuit)
 function setForm(rc, p) {
     const f = p.x && Array.isArray(p.x.f) ? p.x.f : null;
     const foot = !!f && !!models.luluPerson;
@@ -595,10 +596,12 @@ function setForm(rc, p) {
         rc.v.setRide(v ? v[0] : null, v && typeof v[1] === "string" ? v[1].slice(0, 9) : null);
     }
 }
-function animateWalker(rc, dt, sp, o, honk) {
-    const w = rc.walker;
-    if (!w) return;
-    const ob = w.obj, a = rc.anim;
+function animateWalker(rc, dt, sp, o, honk) { if (rc.walker) poseWalker(rc, rc.walker, dt, sp, rc.anim, rc.footY, honk); }
+/** Play a walking Lulu's foot code: st keeps the move's state (rollA, jy, emote); a = anim, footY = her feet's height (m).
+ *  Shared by friends' walkers and everyone's (multiplayer/ghosts.js) — one look for the same move. */
+export function poseWalker(st, w, dt, sp, a, footY, honk) {
+    const rc = st, ob = w.obj;
+    rc.footY = footY;
     const ease = k => Math.min(1, dt * k);
     let rx = 0;
     if (a === 1) { rc.rollA = (rc.rollA || 0) + dt * 12.5; rx = rc.rollA; }

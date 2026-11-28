@@ -129,6 +129,10 @@ function myPose() {
     // what's in her hand / on her head on foot (features/houseitems) — everyone sees the same props she does
     const HI = foot && ctx.houseitems ? ctx.houseitems : null;
     me.hi = HI ? HI.shown : null; me.hw = HI ? HI.worn : null;
+    // her foot code — the same one friends get (d.x.f): a roll / slide / vault / dance…, the jumpsuit or a disguise, a jump's
+    // height; all zero (a plain walk in her own clothes) isn't sent
+    { const F = foot ? ctx.foot : null, f = F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null;
+      me.f = f && (f[0] || f[1] || f[2]) ? f : null; }
     // her car as she sees it: the skin she's in NOW (the hello only has the one she joined with), a Tushla's configuration,
     // its condition (car care: dirt, dents) — read with the look, every couple of seconds
     if (!me.carAt || performance.now() - me.carAt > 2000) {

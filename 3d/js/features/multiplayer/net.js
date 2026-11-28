@@ -294,6 +294,8 @@ function applyState(id, d, snap, src = LEGACY) {
     applyWorld(p, d.w, MP.inSt);
     p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
     p.hc = typeof d.hc === "string" && CO_RE.test(d.hc) ? d.hc : null;                       // (her hair colour)
+    p.f = Array.isArray(d.f) && d.f.length === 3 && d.f.every(Number.isFinite)                      // (her foot move / look / height)
+        ? [Math.max(0, Math.min(10, d.f[0] | 0)), Math.max(0, Math.min(3, d.f[1] | 0)), Math.max(0, Math.min(40, d.f[2] | 0))] : null;
     p.hs = typeof d.hs === "string" && /^[a-z]{1,12}$/.test(d.hs) ? d.hs : null;              // (her salon hairdo)
     p.ot = typeof d.ot === "string" && d.ot.length <= 160 && /^[a-z0-9_,-]*$/i.test(d.ot) ? d.ot : null;   // (her outfit: ids only)
     p.in = validIn(d.in);                                                                            // (inside a public room)
@@ -461,7 +463,8 @@ function sendState() {
     if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     if (me.hc) d.hc = me.hc;                          // (stage 3: her hair colour + outfit — everyone sees her look; old clients ignore it)
     if (me.ot) d.ot = me.ot;
-    if (me.hs) d.hs = me.hs;                          // (her salon hairdo — the default sheitel is never sent)
+    if (me.hs) d.hs = me.hs;
+    if (me.f) d.f = me.f;                             // (on foot: her move / look / height — the friends' foot code, party/remote.js)                          // (her salon hairdo — the default sheitel is never sent)
     if (me.in) d.in = me.in;
     if (me.hi) d.hi = me.hi;                          // (what's in her hand on foot / worn on her head — houseitems ids)
     if (me.hw) d.hw = me.hw;

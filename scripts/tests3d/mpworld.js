@@ -134,6 +134,11 @@ async function body(t, pages, riders) {
     await B.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "B walks", 60000);
     const held = await A.until(`ctx.mp.ghostStats().hands >= 1`, "A sees B holding something", 30000);
     t.check("B's hand item shows on A's screen (the rolling pin in her hand)", held, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), B: await B.game(`({ shown: ctx.houseitems.shown, hi: ctx.mp._debug.me.hi })`) }));
+    // …and her foot code (d.f, the friends' one): B in the old-lady disguise, busking → A's B dances in the disguise
+    await B.game(`(() => { const F = ctx.foot.debug.F; F.disguise = "oldLady"; F.buskT = 60; return true; })()`);
+    const moved = await A.until(`ctx.mp.ghostStats().feet.some(f => f[0] === 5 && f[1] === 2)`, "A sees B dancing in a disguise", 30000);
+    t.check("B's foot move + disguise show on A's screen (dancing, as the old lady)", moved, JSON.stringify({ A: await g(`ctx.mp.ghostStats()`), B: await B.game(`ctx.mp._debug.me.f`) }));
+    await B.game(`(() => { const F = ctx.foot.debug.F; F.disguise = null; F.buskT = 0; return true; })()`);
     await B.game(`(() => { if (ctx.foot.active) { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); } return true; })()`);
     await B.until(`ctx.state === "playing"`, "B back in her car", 30000);
     await B.game(HOLD); await B.game(PLACE(425, -1.75));
