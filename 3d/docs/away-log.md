@@ -4,6 +4,11 @@ A fix sweep, not new features: bugs, logic flaws, inconsistencies and rough edge
 the code, fixed and tested. Newest first. Work is checked hourly and restarted automatically if a usage limit or a
 machine restart stops it. The detailed notes per sweep are in `3d/docs/sweeps/`.
 
+- 2026-11-28 14:10 UTC — 🔍 Game logic, part 2b: paused in the middle of a question and then ⌂ Title / ↺ Restart, the
+  question no longer follows her onto the title screen (it swallowed every button press there). Turning herself in by
+  📞 phone in a town — or being held by the Shomrim until the police come — now ends in that town's own precinct, not
+  on the highway out of nowhere; and riding in a friend's passenger seat, the Shomrim don't chase her for the friend's
+  speeding.
 - 2026-11-28 13:45 UTC — 🩺 Tests + small fixes, part 3. On a phone held upright, speech bubbles no longer run off
   the side of the screen: inside a house (someone standing off to the side, a long line like "Who put a SPOON down
   here?") and out on the street (a passer-by's "Shalom!" at the edge) — they slide in so every word shows.

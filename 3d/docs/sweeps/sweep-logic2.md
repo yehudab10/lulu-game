@@ -81,6 +81,10 @@ the playershops till. Test: `scripts/tests3d/sweeplogic2.js`.
 
 ## Landed
 
+- batch 2 → main (2026-11-28 14:10 UTC): findings 11–13. CI 46146651901 (core, platform, skip, ux, sweeplogic2, oneact, law,
+  qalaw, courts, partners, interiors, qa28, onegame, home, shabbos, journey, cameos, dina ✓) + 46149488863 (community,
+  sweeplogic2, core, platform — green on the re-run; places, qalaw, partners3, underworld ✓); community locally ✓ ×2.
+
 - batch 1 → main 9266f5a8 (2026-11-28 12:45 UTC): findings 1–10. CI: 46127664691 (the whole affected suite on the batch-1
   head) + 46143946043 (the later fixes: core, platform, skip, ux, sweeplogic2, oneact, day, qa18, rides, roadevents, cameras,
   gadgets, schlepnav, dealers, dealersui, shops, community, streets, shul, yeshiva, yeshiva2, storefronts, carcare,
